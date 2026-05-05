@@ -10608,6 +10608,42 @@ async function driveSaveFullSync(silent){
   if(DRIVE_STATE.syncing) throw new Error('Sync già in corso');
   if(DATA.length === 0) throw new Error('Nessun dato da salvare');
 
+  // V2.2.43 SAFETY NET: prima di sovrascrivere il file remoto, controlla che
+  // il database locale non sia "molto più piccolo" di quello su Drive — sintomo
+  // di un possibile errore (es. utente ha aperto l'app su nuova origin con DATA
+  // vuoto/parziale e ha attivato Auto sync). Se il rischio è reale, in modalità
+  // SILENT (sync automatico) blocca; in modalità non-silent l'utente ha già
+  // confermato dal dialog quindi procedi.
+  if(silent && !DRIVE_STATE.initialized){
+    try {
+      const stats = await driveQuickStats();
+      if(stats && stats.exists && stats.size > 1024 * 100){  // >100 KB su Drive
+        // Confronto: se locale è molto più piccolo di Drive, blocca
+        const estLocalKB = JSON.stringify(_driveBuildFullPayload()).length / 1024;
+        const estRemoteKB = stats.size / 1024;
+        // Soglia: locale meno del 30% del remoto = sospetto
+        if(estLocalKB < estRemoteKB * 0.3){
+          DRIVE_STATE.syncing = false;
+          const msg = 'Sync silenzioso bloccato: locale ~' + Math.round(estLocalKB) + ' KB vs Drive ~' + Math.round(estRemoteKB) + ' KB. Probabile sovrascrittura accidentale.';
+          console.warn('[drive] ' + msg);
+          if(typeof toast === 'function'){
+            toast({
+              type: 'warn',
+              title: 'Sincronizzazione bloccata per sicurezza',
+              message: 'Il database locale (' + Math.round(estLocalKB) + ' KB) è molto più piccolo di quello su Drive (' + Math.round(estRemoteKB) + ' KB). Per evitare di perdere dati, scarica prima da Drive.',
+              duration: 10000
+            });
+          }
+          throw new Error('Sync bloccato per sicurezza (anti-overwrite)');
+        }
+      }
+    } catch(e){
+      if(e.message && e.message.indexOf('anti-overwrite') >= 0) throw e;
+      // Altri errori (rete, ecc.): non bloccare
+      console.info('[drive] safety check skipped:', e.message);
+    }
+  }
+
   // Misura il payload PRIMA di inviare. Se è grande, usa upload chunked.
   const payload = _driveBuildFullPayload();
   const json = JSON.stringify(payload);
@@ -10789,6 +10825,36 @@ function _driveScheduleSave(){
   // Senza questo fix le modifiche restano nel buffer in attesa eterna
   // perché _driveSendDelta scartava silenziosamente quando initialized=false.
   if(!DRIVE_STATE.initialized){
+    // V2.2.43 SAFETY: se l'utente ha appena attivato "Automatica" su un'origin nuova
+    // (DATA praticamente vuoto) e Drive ha già contenuti, NON sincronizzare:
+    // sovrascriverebbe il file remoto con il database locale vuoto.
+    // Verifica asincrona: se Drive ha più di 1 KB di contenuti, blocca l'auto-sync
+    // e segnala all'utente che deve prima fare "Scarica da Drive".
+    if(DATA.length < 10){  // soglia di sicurezza: locale "praticamente vuoto"
+      // Faccio il check Drive in modo asincrono e blocco la programmazione
+      // del full sync se rileva contenuti remoti.
+      if(typeof driveQuickStats === 'function'){
+        driveQuickStats().then(stats => {
+          if(stats && stats.exists && stats.size > 1024){
+            console.warn('[drive] auto-sync bloccato: locale vuoto ma Drive ha ' + Math.round(stats.size/1024) + ' KB. L\'utente deve fare "Scarica da Drive" prima.');
+            // Avviso esplicito — toast persistente che richiede azione utente
+            if(typeof toast === 'function'){
+              toast({
+                type: 'warn',
+                title: 'Sincronizzazione bloccata',
+                message: 'Drive contiene ' + (stats.size/(1024*1024)).toFixed(1) + ' MB di dati. Per evitare la perdita, scarica prima da Drive (menu ⚙️ → Backup).',
+                duration: 8000
+              });
+            }
+            _driveUpdateBadge();
+          }
+        }).catch(_ => { /* in caso di errore di rete, non blocchiamo */ });
+      }
+      // NON schedulo niente: aspetto che l'utente faccia "Scarica da Drive" o azione esplicita
+      return;
+    }
+
+    // Caso ok: locale ha dati significativi, posso schedulare full sync
     if(DRIVE_STATE.scheduledTimer){ clearTimeout(DRIVE_STATE.scheduledTimer); }
     DRIVE_STATE.scheduledTimer = setTimeout(() => {
       DRIVE_STATE.scheduledTimer = null;
@@ -10961,41 +11027,91 @@ function _driveUpdateBadge(forceColor, forceLabel){
 
 // ─── Dialog di onboarding: prima volta che si carica su Drive ───
 function driveShowFirstUploadDialog(){
-  return new Promise(resolve => {
+  return new Promise(async resolve => {
+    // V2.2.43: prima di mostrare il dialog, verifico se Drive ha già contenuto.
+    // Se sì, l'utente sta per SOVRASCRIVERE — il dialog deve essere di tipo "danger"
+    // e suggerire di scaricare prima.
+    let remoteHasContent = false;
+    let remoteSize = 0;
+    try {
+      const stats = await driveQuickStats();
+      if(stats && stats.exists && stats.size > 1024){  // >1KB = non è un placeholder vuoto
+        remoteHasContent = true;
+        remoteSize = stats.size;
+      }
+    } catch(_){ /* non bloccante */ }
+
+    const localCount = DATA.length;
+    const localEdits = Object.keys(EDITS).length;
+    const isLocalEmpty = localCount === 0;
+
     const bg = document.createElement('div');
     bg.className = 'modal-bg';
     bg.style.zIndex = '320';
     bg.onclick = e => { if(e.target===bg){ bg.remove(); resolve(false); } };
-    bg.innerHTML = `
-      <div class="modal" style="max-width:500px">
-        <div class="modal-head" style="background:rgba(34,197,94,0.10);border-bottom:1px solid rgba(34,197,94,0.3)">
-          <h3 style="color:#22c55e">☁️ Primo caricamento su Google Drive</h3>
-        </div>
-        <div class="modal-body" style="display:block">
-          <div style="font-size:13px;line-height:1.7;color:var(--fg);margin-bottom:14px">
-            Stai per caricare per la prima volta i tuoi dati su Google Drive:
-            <ul style="margin:8px 0 0 18px;padding:0;line-height:1.7">
-              <li><b>${DATA.length.toLocaleString('it-IT')}</b> prodotti</li>
-              <li><b>${Object.keys(EDITS).length.toLocaleString('it-IT')}</b> modifiche personali</li>
-              <li>Impostazioni dell'app (preset, dizionario, testi)</li>
-            </ul>
-          </div>
-          <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);padding:10px 12px;border-radius:6px;font-size:12px;color:var(--fg2);margin-bottom:14px">
-            <b>Cosa succede:</b><br>
-            Apps Script creerà la cartella <code>Gestione Prodotti</code> nel tuo Google Drive
-            e salverà il file <code>gestione-prodotti-db.json</code>. Il backup locale resta inalterato.
-          </div>
-          <div style="background:rgba(255,193,7,0.06);border:1px solid rgba(255,193,7,0.25);padding:10px 12px;border-radius:6px;font-size:12px;color:var(--fg2)">
-            ⚠️ Una volta caricato, l'app potrà sincronizzare automaticamente le modifiche su Drive
-            (se attivi la modalità automatica). Ogni sovrascrittura mantiene le ultime <b>5 versioni</b>
-            come backup di sicurezza.
-          </div>
-        </div>
-        <div class="modal-foot">
-          <button type="button" class="btn-pill subtle" id="dr1Cancel">Annulla</button>
-          <button type="button" class="btn-pill primary" id="dr1Confirm">📤 Carica su Drive</button>
-        </div>
-      </div>`;
+
+    // Tema header in base al rischio
+    const isDangerous = remoteHasContent;
+    const headerColor = isDangerous ? '#ef4444' : '#22c55e';
+    const headerBg = isDangerous ? 'rgba(239,68,68,0.10)' : 'rgba(34,197,94,0.10)';
+    const headerBorder = isDangerous ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)';
+    const headerIcon = isDangerous ? '⚠️' : '☁️';
+    const headerTitle = isDangerous ? 'Attenzione: dati su Drive' : 'Primo caricamento su Google Drive';
+
+    let warningSection = '';
+    if(isDangerous){
+      const sizeMB = (remoteSize / (1024*1024)).toFixed(2);
+      warningSection =
+        '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.35);padding:12px 14px;border-radius:7px;font-size:12.5px;color:var(--fg);margin-bottom:14px;line-height:1.6">' +
+          '<b style="color:#ef4444">🛑 Rischio sovrascrittura</b><br>' +
+          'Su Google Drive esiste già un file di <b>' + sizeMB + ' MB</b>. Continuando, verrà <b>sovrascritto</b> con i dati locali correnti' +
+          (isLocalEmpty
+            ? ' <b>(che sono vuoti!)</b>. Tutti i prodotti già su Drive andranno persi.'
+            : ' (' + localCount.toLocaleString('it-IT') + ' prodotti).') +
+          '<br><br>' +
+          '<b>Cosa fare:</b> chiudi questa finestra e clicca <b>📥 Scarica da Drive</b> per recuperare i dati esistenti, ' +
+          'poi potrai sincronizzare normalmente.' +
+        '</div>';
+    } else {
+      warningSection =
+        '<div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);padding:10px 12px;border-radius:6px;font-size:12px;color:var(--fg2);margin-bottom:14px">' +
+          '<b>Cosa succede:</b><br>' +
+          'Apps Script creerà la cartella <code>Gestione Prodotti</code> nel tuo Google Drive ' +
+          'e salverà il file <code>gestione-prodotti-db.json.lz</code>. Il backup locale resta inalterato.' +
+        '</div>' +
+        '<div style="background:rgba(255,193,7,0.06);border:1px solid rgba(255,193,7,0.25);padding:10px 12px;border-radius:6px;font-size:12px;color:var(--fg2)">' +
+          'ℹ️ Una volta caricato, l\'app potrà sincronizzare automaticamente le modifiche su Drive ' +
+          '(se attivi la modalità automatica). Ogni sovrascrittura mantiene le ultime <b>5 versioni</b> ' +
+          'come backup di sicurezza.' +
+        '</div>';
+    }
+
+    const confirmBtnClass = isDangerous ? 'danger' : 'primary';
+    const confirmBtnLabel = isDangerous ? '⚠️ Sovrascrivi comunque' : '📤 Carica su Drive';
+
+    bg.innerHTML =
+      '<div class="modal" style="max-width:520px">' +
+        '<div class="modal-head" style="background:' + headerBg + ';border-bottom:1px solid ' + headerBorder + '">' +
+          '<h3 style="color:' + headerColor + '">' + headerIcon + ' ' + headerTitle + '</h3>' +
+        '</div>' +
+        '<div class="modal-body" style="display:block">' +
+          '<div style="font-size:13px;line-height:1.7;color:var(--fg);margin-bottom:14px">' +
+            (isDangerous
+              ? 'Stai per inviare a Google Drive i tuoi dati locali, ma su Drive c\'è già un file con contenuto.<br><br>I tuoi dati locali correnti:'
+              : 'Stai per caricare per la prima volta i tuoi dati su Google Drive:') +
+            '<ul style="margin:8px 0 0 18px;padding:0;line-height:1.7">' +
+              '<li><b>' + localCount.toLocaleString('it-IT') + '</b> prodotti</li>' +
+              '<li><b>' + localEdits.toLocaleString('it-IT') + '</b> modifiche personali</li>' +
+              '<li>Impostazioni dell\'app (preset, dizionario, testi)</li>' +
+            '</ul>' +
+          '</div>' +
+          warningSection +
+        '</div>' +
+        '<div class="modal-foot">' +
+          '<button type="button" class="btn-pill subtle" id="dr1Cancel">Annulla</button>' +
+          '<button type="button" class="btn-pill ' + confirmBtnClass + '" id="dr1Confirm">' + confirmBtnLabel + '</button>' +
+        '</div>' +
+      '</div>';
     document.body.appendChild(bg);
 
     document.getElementById('dr1Cancel').onclick = () => { bg.remove(); resolve(false); };
@@ -11010,7 +11126,7 @@ function driveShowFirstUploadDialog(){
         resolve(true);
       } catch(e){
         btn.disabled = false;
-        btn.textContent = '📤 Carica su Drive';
+        btn.textContent = confirmBtnLabel;
         if(typeof toast === 'function') toast('Errore: ' + e.message, 'err', 5000);
         resolve(false);
       }
@@ -13684,12 +13800,30 @@ async function driveRenderSettingsPanel(){
           '<div id="drive-stats-content" style="font-size:12px;color:var(--fg2)">' + statsContent + '</div>' +
         '</div>' +
         '<div class="bks-actions" style="margin-top:14px">' +
+          // V2.2.43: callout informativo quando l'app non è stata mai sincronizzata
+          // su questa origin. Spiega all'utente perché "Sincronizza ora" è bloccato
+          // e cosa fare prima.
+          (!initialized && url && enabled ? (
+            '<div class="bks-callout warn" style="margin-bottom:12px">' +
+              '<div class="bks-callout-icon">⚠️</div>' +
+              '<div class="bks-callout-text">' +
+                '<b>Primo avvio in questo browser/origin.</b><br>' +
+                '"Sincronizza ora" è bloccato per evitare di sovrascrivere i dati su Drive con un database locale vuoto. ' +
+                'Se hai già dati su Drive, clicca <b>📥 Scarica da Drive</b> per recuperarli; dopo il download la sincronizzazione si sblocca automaticamente.' +
+              '</div>' +
+            '</div>'
+          ) : '') +
           '<div class="bks-actions-label">Azioni</div>' +
           '<div class="bks-btn-row">' +
             '<button type="button" class="btn-pill primary" ' +
               'onclick="driveSyncNow().then(()=>driveRenderSettingsPanel())" ' +
-              (!url || !enabled ? 'disabled' : '') + ' ' +
-              (!enabled ? 'title="Sincronizzazione disattivata — riattivala dal toggle in B1"' : '') + '>' +
+              // V2.2.43 FIX: se NON inizializzato, blocco "Sincronizza ora" per evitare
+              // di sovrascrivere il file Drive con un database locale vuoto/parziale.
+              // L'utente deve prima fare "Scarica da Drive" per allinearsi al cloud.
+              (!url || !enabled || !initialized ? 'disabled' : '') + ' ' +
+              (!enabled ? 'title="Sincronizzazione disattivata — riattivala dal toggle in B1"'
+                : !initialized ? 'title="Prima allinea i dati locali con Drive usando ↓ Scarica da Drive, poi potrai sincronizzare"'
+                : 'title="Invia le modifiche locali su Drive"') + '>' +
               '↻ Sincronizza ora' +
             '</button>' +
             '<button type="button" class="btn-pill" ' +
