@@ -5210,6 +5210,35 @@ body.theme-light .loader-card{
 .discount-tbl td{padding:5px 10px;border-bottom:1px solid var(--border)}
 .discount-tbl tbody tr:hover{background:var(--bg4);cursor:default}
 
+/* V2.2.43: tabella confronto scontistiche — stessi pattern visivi della .discount-tbl
+   Font: tutti in sans-serif (inherit dal body, Barlow/system) — niente monospace,
+   per allinearsi visivamente alla tabella albero gerarchico (.discount-tbl).
+   Solo `tabular-nums` per allineare le colonne numeriche, ma stessa famiglia sans-serif. */
+.disc-cmp-tbl{width:100%;border-collapse:collapse;font-size:11px;font-family:inherit}
+.disc-cmp-tbl thead th{
+  padding:8px 10px;background:var(--bg4);color:var(--fg2);
+  font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;
+  position:sticky;top:0;border-bottom:1px solid var(--border);
+  text-align:left;z-index:1;font-family:inherit;
+}
+.disc-cmp-tbl thead th.num{text-align:right}
+.disc-cmp-tbl tbody td{
+  padding:5px 10px;border-bottom:1px solid var(--border);
+  font-size:11px;color:var(--fg2);vertical-align:middle;font-family:inherit;
+}
+.disc-cmp-tbl tbody td.code{
+  /* Stesso pattern dei codici nella tabella albero: uppercase, font sans-serif normale,
+     più chiaro come marca/categoria nei nodi della tabella albero (foto 1). */
+  color:var(--fg);font-weight:600;text-transform:uppercase;letter-spacing:0.3px;
+}
+.disc-cmp-tbl tbody td.num{
+  /* Numeri allineati a destra con tabular-nums per colonne uniformi.
+     Font sans-serif (inherit), NON monospace, per coerenza visiva con .discount-tbl. */
+  font-variant-numeric:tabular-nums;text-align:right;color:var(--fg);font-weight:600;
+}
+.disc-cmp-tbl tbody tr:hover{background:var(--bg4);cursor:default}
+.disc-cmp-tbl tbody tr:nth-child(even):not(:hover){background:rgba(127,127,127,0.025)}
+
 /* V2.2.42: icona "?" helper sull'header colonne sconti — apre il dialog
    esplicativo che descrive cosa significano Min/Media/Max/Pesato. */
 .discount-tbl th .stats-help-ico{
@@ -5391,16 +5420,11 @@ body.theme-light .discount-tree-row[data-path]:hover{
 .modal.modal-tree-fullscreen .modal-body{
   max-height: calc(95vh - 120px);
 }
-/* Nasconde tutto il resto della modale tranne la sezione analisi scontistiche */
-.modal.modal-tree-fullscreen .settings-section:not(#settings-discount-analysis){
-  display:none !important;
-}
-/* Nasconde header e pulsanti non essenziali della sezione analisi,
-   lasciando solo la tabella e i suoi controlli (espandi/comprimi/riduci) */
-.modal.modal-tree-fullscreen #settings-discount-analysis > h4,
-.modal.modal-tree-fullscreen #settings-discount-analysis > p.settings-hint,
-.modal.modal-tree-fullscreen #settings-discount-analysis > div:first-of-type{
-  display:none !important;
+/* V2.2.43: la sezione "Analisi scontistiche" è stata estratta da Personalizza
+   in una modal dedicata (#discountAnalysisModal). Le regole sotto valgono ancora
+   se in futuro qualcuno applica modal-tree-fullscreen alla nuova modal. */
+.modal.modal-tree-fullscreen #discountAnalysisBox{
+  display:block !important;
 }
 /* Ingrandisce i font della tabella in modalità fullscreen */
 .modal.modal-tree-fullscreen .discount-tbl{
@@ -6756,6 +6780,10 @@ body.theme-light .dlg-input{background:var(--bg3)}
           <button class="tb-dropdown-item" onclick="openStatsDashboard(); closeAllTopbarDropdowns()" role="menuitem" title="Dashboard statistiche e analisi del catalogo">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
             Statistiche
+          </button>
+          <button class="tb-dropdown-item" onclick="openDiscountAnalysis(); closeAllTopbarDropdowns()" role="menuitem" title="Analisi sconti per Marca, Macrocategoria e Categoria">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+            Scontistiche
           </button>
           <button class="tb-dropdown-item" onclick="openSettings(); closeAllTopbarDropdowns()" role="menuitem" title="Configura impostazioni dell'app">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
@@ -19578,6 +19606,9 @@ function buildColumnCatalog(){
   cols.push({id:'v:extra_count', label:'N° immagini extra', src:'virtual', field:'extra_count'});
   cols.push({id:'v:extra_full_urls', label:'Immagini extra (URL full, separate da |)', src:'virtual', field:'extra_full_urls'});
   cols.push({id:'v:extra_thumb_urls', label:'Immagini extra (URL thumb, separate da |)', src:'virtual', field:'extra_thumb_urls'});
+  // V2.2.43: colonna virtuale "Sconto %" calcolata da PVP e prezzo netto.
+  // Vuota se PVP o netto non sono validi (>0 e netto <= PVP).
+  cols.push({id:'v:discount_pct', label:'Sconto % (calcolato)', src:'virtual', field:'discount_pct'});
   // Chiavi params presenti nei dati
   const paramKeys = new Set();
   DATA.forEach(p=>Object.keys(p.params).forEach(k=>paramKeys.add(k)));
@@ -20253,11 +20284,22 @@ async function doExport(){
           if(c.src==='field'){
             v = getField(p, c.field);
           } else if(c.src==='virtual'){
-            const extras = p.extra_images || parseExtraImages(p.extra_images_paths);
-            if(c.field==='extra_count') v = extras.full.length;
-            else if(c.field==='extra_full_urls') v = extras.full.join(' | ');
-            else if(c.field==='extra_thumb_urls') v = extras.thumbs.join(' | ');
-            else v = '';
+            // V2.2.43: nuova colonna virtuale "discount_pct" (Sconto %)
+            if(c.field==='discount_pct'){
+              const listino = priceNum(getField(p,'PVP') || getField(p,'precio_venta_cliente_final'));
+              const netto = priceNum(getField(p,'precio_neto_compra'));
+              if(listino !== null && netto !== null && listino > 0 && netto > 0 && netto <= listino){
+                v = ((1 - netto/listino) * 100).toFixed(1);
+              } else {
+                v = '';  // PVP o netto non validi → cella vuota
+              }
+            } else {
+              const extras = p.extra_images || parseExtraImages(p.extra_images_paths);
+              if(c.field==='extra_count') v = extras.full.length;
+              else if(c.field==='extra_full_urls') v = extras.full.join(' | ');
+              else if(c.field==='extra_thumb_urls') v = extras.thumbs.join(' | ');
+              else v = '';
+            }
           } else {
             const pms = getParams(p);
             v = pms[c.field] || '';
@@ -20452,11 +20494,22 @@ function openExportPreview(){
       if(c.src==='field'){
         v = getField(p, c.field);
       } else if(c.src==='virtual'){
-        const extras = p.extra_images || parseExtraImages(p.extra_images_paths);
-        if(c.field==='extra_count') v = extras.full.length;
-        else if(c.field==='extra_full_urls') v = extras.full.join(' | ');
-        else if(c.field==='extra_thumb_urls') v = extras.thumbs.join(' | ');
-        else v = '';
+        // V2.2.43: gestione colonna virtuale "discount_pct" (Sconto %)
+        if(c.field==='discount_pct'){
+          const listino = priceNum(getField(p,'PVP') || getField(p,'precio_venta_cliente_final'));
+          const netto = priceNum(getField(p,'precio_neto_compra'));
+          if(listino !== null && netto !== null && listino > 0 && netto > 0 && netto <= listino){
+            v = ((1 - netto/listino) * 100).toFixed(1);
+          } else {
+            v = '';
+          }
+        } else {
+          const extras = p.extra_images || parseExtraImages(p.extra_images_paths);
+          if(c.field==='extra_count') v = extras.full.length;
+          else if(c.field==='extra_full_urls') v = extras.full.join(' | ');
+          else if(c.field==='extra_thumb_urls') v = extras.thumbs.join(' | ');
+          else v = '';
+        }
       } else {
         const pms = getParams(p);
         v = pms[c.field] || '';
@@ -22501,22 +22554,6 @@ function openSettings(){
           </p>
         </div>
 
-        <div class="settings-section" id="settings-discount-analysis">
-          <h4 class="settings-h">Analisi scontistiche</h4>
-          <p class="settings-hint">
-            Distribuzione degli sconti applicati dal fornitore, aggregata per Marca, Macrocategoria e Categoria.
-            Lo sconto è calcolato come differenza tra prezzo di listino (PVP) e prezzo netto di acquisto.
-          </p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="btn small" onclick="showDiscountAnalysis('brand')">📊 Per Marca</button>
-            <button class="btn small" onclick="showDiscountAnalysis('category_parent')">📊 Per Macrocategoria</button>
-            <button class="btn small" onclick="showDiscountAnalysis('category')">📊 Per Categoria</button>
-            <button class="btn small primary" onclick="showDiscountTree()">🌳 Albero gerarchico</button>
-            <button class="btn small success" onclick="exportDiscountAnalysis()">📥 Esporta Excel completo</button>
-          </div>
-          <div id="discountAnalysisBox" style="margin-top:12px;display:none"></div>
-        </div>
-
         <div class="settings-section">
           <h4 class="settings-h">Importazione file</h4>
           <p class="settings-hint">L'app accetta due formati. I dati vengono processati allo stesso modo (encoding fix, traduzione ES→IT, normalizzazione stock).</p>
@@ -23013,6 +23050,159 @@ function computeDiscountAggregation(groupField){
     rows.sort((a,b)=> b.count - a.count);
   }
   return { rows, totalValid, totalProducts: DATA.length };
+}
+
+// V2.2.43: nuova modal dedicata "Scontistiche" — apribile dal menu ⚙️ → Scontistiche.
+// Contiene gli stessi 5 bottoni che prima erano nella sezione "Analisi scontistiche"
+// dentro Personalizza. Il box dei risultati mantiene lo stesso ID (discountAnalysisBox)
+// così le funzioni showDiscountAnalysis/showDiscountTree/exportDiscountAnalysis
+// continuano a funzionare senza modifiche.
+function openDiscountAnalysis(){
+  // Rimuovi eventuale modal precedente
+  const ex = document.getElementById('discountAnalysisModal');
+  if(ex) ex.remove();
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'discountAnalysisModal';
+  bg.style.zIndex = '320';
+  bg.addEventListener('click', e => {
+    if(e.target !== bg) return;
+    // V2.2.43: click-fuori chiude direttamente la modal (no più two-step).
+    bg.remove();
+  });
+
+  const escHandler = (e) => {
+    if(e.key === 'Escape'){
+      e.stopPropagation();
+      // V2.2.43: ESC chiude direttamente la modal (no più two-step).
+      bg.remove();
+      document.removeEventListener('keydown', escHandler, true);
+    }
+  };
+  document.addEventListener('keydown', escHandler, true);
+
+  // V2.2.43: la modal Scontistiche si apre direttamente in modalità fullscreen
+  // (95vw × 95vh) così l'utente non deve cliccare "Espandi finestra" ogni volta.
+  // La classe .modal-tree-fullscreen forza queste dimensioni via CSS.
+  // Coerentemente, _DISCOUNT_TREE_FULLSCREEN viene settato a true così il pulsante
+  // "Espandi/Riduci finestra" parte già nello stato giusto ("Riduci finestra").
+  window._DISCOUNT_TREE_FULLSCREEN = true;
+
+  bg.innerHTML =
+    '<div class="modal modal-tree-fullscreen" style="display:flex;flex-direction:column">' +
+      '<div class="modal-head">' +
+        '<h3>📊 Analisi scontistiche</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:14px 24px 22px 24px;overflow:auto">' +
+        // V2.2.43: toolbar compatta in cima — bottoni sempre disponibili, niente schermata intermedia
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--border)">' +
+          '<button class="btn small primary" onclick="showDiscountTree()" title="Vista ad albero gerarchico Marca → Macrocategoria → Categoria">🌳 Albero gerarchico</button>' +
+          '<button class="btn small" onclick="showDiscountAnalysis(\'brand\')" title="Aggregato per Marca">📊 Per Marca</button>' +
+          '<button class="btn small" onclick="showDiscountAnalysis(\'category_parent\')" title="Aggregato per Macrocategoria">📊 Per Macrocategoria</button>' +
+          '<button class="btn small" onclick="showDiscountAnalysis(\'category\')" title="Aggregato per Categoria">📊 Per Categoria</button>' +
+          '<span style="flex:1"></span>' +  // spaziatore
+          '<button class="btn small success" onclick="exportDiscountAnalysis()" title="Esporta tutti i dati in Excel">📥 Esporta Excel</button>' +
+          '<button class="btn small" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600" onclick="openDiscountCompareDialog()" title="Carica un nuovo file fornitore e confronta i prezzi">📂 Confronta con CSV/Excel</button>' +
+        '</div>' +
+        // V2.2.43: banner cache confronto (popolato dinamicamente se c'è una cache valida)
+        '<div id="discCmpCacheBanner"></div>' +
+        '<div id="discountAnalysisBox"></div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="discAnalysisCloseBtn">Chiudi</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+
+  document.getElementById('discAnalysisCloseBtn').addEventListener('click', () => {
+    // V2.2.43: il bottone Chiudi ora chiude SEMPRE la modal direttamente.
+    bg.remove();
+    document.removeEventListener('keydown', escHandler, true);
+  });
+
+  // V2.2.43: apre direttamente l'albero gerarchico — niente schermata intermedia.
+  // L'utente arriva subito al contenuto utile. I bottoni nella toolbar sopra
+  // permettono di passare alle altre viste se necessario.
+  showDiscountTree();
+
+  // V2.2.43: in parallelo, controlla se c'è una cache di confronto e mostra il banner
+  renderDiscountCompareCacheBanner();
+}
+
+/* ─── Banner cache confronto ─── */
+/* V2.2.43: se l'utente ha eseguito un confronto in passato (anche in sessione precedente),
+   mostra un banner informativo nella modal Scontistiche con la possibilità di rivisualizzare
+   il confronto cached oppure cancellarlo. La cache è salvata in IndexedDB store 'meta'. */
+async function renderDiscountCompareCacheBanner(){
+  const container = document.getElementById('discCmpCacheBanner');
+  if(!container) return;
+
+  const payload = await loadDiscountCompareCache();
+  if(!payload){
+    container.innerHTML = '';
+    return;
+  }
+
+  // Formatta la data di salvataggio in modo umano (ieri / oggi / giorni fa)
+  const savedAt = new Date(payload.savedAt);
+  const now = Date.now();
+  const ageMs = now - payload.savedAt;
+  const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+  const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
+  let ageLabel;
+  if(ageHours < 1) ageLabel = 'pochi minuti fa';
+  else if(ageHours < 24) ageLabel = ageHours + (ageHours === 1 ? ' ora fa' : ' ore fa');
+  else if(ageDays === 1) ageLabel = 'ieri';
+  else if(ageDays < 7) ageLabel = ageDays + ' giorni fa';
+  else ageLabel = 'il ' + savedAt.toLocaleDateString('it-IT', { day:'2-digit', month:'short', year:'numeric' });
+
+  // Avviso se DB significativamente cambiato dall'ultimo confronto
+  const dbDiff = Math.abs((payload.dbSize || 0) - (Array.isArray(DATA) ? DATA.length : 0));
+  const dbChangedWarning = dbDiff > 50
+    ? '<div style="margin-top:8px;padding:6px 10px;background:rgba(245,158,11,0.10);border-left:3px solid #f59e0b;border-radius:4px;font-size:11px;color:var(--fg2)">' +
+      '⚠️ Il database è cambiato (' + payload.dbSize + ' → ' + DATA.length + ' prodotti). Il confronto potrebbe non essere più rappresentativo.' +
+      '</div>'
+    : '';
+
+  // Conta quanti prodotti totali sono stati abbinati
+  const r = payload.results;
+  const totalChanges = (r.improved?.length || 0) + (r.worsened?.length || 0) + (r.priceOnly?.length || 0);
+
+  container.innerHTML =
+    '<div style="background:var(--bg3);border:1px solid var(--border);border-left:3px solid #3b82f6;border-radius:8px;padding:11px 14px;margin-bottom:14px">' +
+      '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+        '<div style="font-size:18px;flex-shrink:0">📋</div>' +
+        '<div style="flex:1;min-width:200px">' +
+          '<div style="font-size:12.5px;font-weight:700;color:var(--fg);line-height:1.4">' +
+            'Confronto disponibile in cache' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--fg2);line-height:1.5;margin-top:2px">' +
+            'File: <b>' + escapeHtml(payload.fileName || '?') + '</b> · ' +
+            'Caricato ' + ageLabel + ' · ' +
+            '<b>' + totalChanges.toLocaleString('it-IT') + '</b> prodotti con variazioni' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-shrink:0">' +
+          '<button class="btn small primary" id="discCmpCacheView" title="Riapri il confronto salvato senza ricaricare il file">👁️ Visualizza</button>' +
+          '<button class="btn small ghost" id="discCmpCacheClear" title="Rimuovi il confronto dalla cache" style="color:var(--fg3)">🗑️</button>' +
+        '</div>' +
+      '</div>' +
+      dbChangedWarning +
+    '</div>';
+
+  // Listener bottoni
+  document.getElementById('discCmpCacheView').addEventListener('click', async () => {
+    await restoreDiscountCompareCache();
+    showDiscountCompareResults();
+  });
+  document.getElementById('discCmpCacheClear').addEventListener('click', async () => {
+    if(!confirm('Cancellare il confronto dalla cache? Questa operazione non può essere annullata.')) return;
+    await clearDiscountCompareCache();
+    container.innerHTML = '';
+    toast({ type:'ok', title:'Cache cancellata', message:'Il confronto è stato rimosso dalla memoria.', duration:3000 });
+  });
 }
 
 // Mostra in modale un'analisi aggregata per un campo specifico
@@ -23970,6 +24160,1139 @@ async function exportDiscountAnalysis(){
   toast(`Esportate ${totalRows.toLocaleString('it-IT')} righe su 4 fogli con styling professionale`, 'ok', 3500);
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   V2.2.43 — CONFRONTO SCONTISTICHE CON CSV/EXCEL ESTERNO
+   Permette all'utente di caricare un nuovo file (CSV o Excel del fornitore)
+   e confrontarlo con il database corrente per individuare:
+   • Variazioni di sconto (migliorate / peggiorate)
+   • Variazioni di prezzo (con o senza variazione sconto)
+   • Prodotti nuovi (presenti solo nel CSV)
+   • Prodotti rimossi (presenti solo nel DB)
+   Tutto in memoria, nessuna modifica al DB salvo conferma esplicita finale.
+   ════════════════════════════════════════════════════════════════════════ */
+
+// Stato globale del modulo (riutilizzato tra dialog)
+window._DISCOUNT_COMPARE_STATE = {
+  results: null,    // risultato del confronto
+  fileName: null,   // nome del file caricato
+  fileDate: null,   // data caricamento
+  activeTab: 'improved',
+};
+
+/* ─── Cache persistente IndexedDB ───
+   Persiste l'ultimo confronto eseguito tra sessioni. Quando l'utente apre la
+   modal Scontistiche e c'è una cache valida, viene mostrato un banner
+   informativo con la possibilità di rivisualizzare il confronto senza
+   ricaricare il file.
+   Storage: store 'meta' (esistente nello schema IDB), key 'discount_compare_cache'.
+   Il payload include un timestamp e il numero di prodotti del DB al momento del
+   confronto, così la cache viene invalidata se il DB è cambiato significativamente. */
+const DISC_CMP_CACHE_KEY = 'discount_compare_cache';
+
+async function saveDiscountCompareCache(){
+  try {
+    const state = window._DISCOUNT_COMPARE_STATE;
+    if(!state || !state.results) return;
+    if(typeof db === 'undefined' || !db) return;  // IDB non pronto
+    const payload = {
+      version: 1,
+      savedAt: Date.now(),
+      fileName: state.fileName,
+      fileDate: state.fileDate ? state.fileDate.getTime() : null,
+      dbSize: Array.isArray(DATA) ? DATA.length : 0,
+      results: state.results,
+    };
+    await idbSet('meta', DISC_CMP_CACHE_KEY, payload);
+    console.log('[discount-compare] cache salvata:', state.fileName);
+  } catch(err){
+    console.warn('[discount-compare] saveCache error:', err);
+  }
+}
+
+async function loadDiscountCompareCache(){
+  try {
+    if(typeof db === 'undefined' || !db) return null;
+    const payload = await idbGet('meta', DISC_CMP_CACHE_KEY);
+    if(!payload || payload.version !== 1) return null;
+    return payload;
+  } catch(err){
+    console.warn('[discount-compare] loadCache error:', err);
+    return null;
+  }
+}
+
+async function clearDiscountCompareCache(){
+  try {
+    if(typeof db === 'undefined' || !db) return;
+    // Uso idbSet con valore null per "cancellare" semanticamente.
+    // Più affidabile di idbClear (che cancella TUTTO lo store 'meta').
+    const tx = db.transaction('meta', 'readwrite');
+    tx.objectStore('meta').delete(DISC_CMP_CACHE_KEY);
+    await new Promise((res, rej) => {
+      tx.oncomplete = () => res();
+      tx.onerror = e => rej(e);
+    });
+  } catch(err){
+    console.warn('[discount-compare] clearCache error:', err);
+  }
+}
+
+/* Ripristina la cache nello state globale (chiamato all'apertura modal Scontistiche).
+   Ritorna il payload se trovato e valido, null altrimenti. */
+async function restoreDiscountCompareCache(){
+  const payload = await loadDiscountCompareCache();
+  if(!payload) return null;
+  // Ripristino nello state per uso immediato
+  window._DISCOUNT_COMPARE_STATE.results = payload.results;
+  window._DISCOUNT_COMPARE_STATE.fileName = payload.fileName;
+  window._DISCOUNT_COMPARE_STATE.fileDate = payload.fileDate ? new Date(payload.fileDate) : null;
+  window._DISCOUNT_COMPARE_STATE.activeTab = 'improved';
+  return payload;
+}
+
+/* ─── Entry point: bottone "Confronta con CSV" nella modal Scontistiche ─── */
+function openDiscountCompareDialog(){
+  if(!Array.isArray(DATA) || DATA.length === 0){
+    toast('Carica prima un database di prodotti', 'warn', 4000);
+    return;
+  }
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'discCompareDialog';
+  bg.style.zIndex = '340';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:560px;width:calc(100% - 32px)">' +
+      '<div class="modal-head">' +
+        '<h3>📂 Confronta con CSV/Excel</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:22px 24px">' +
+        '<p style="font-size:13px;line-height:1.65;color:var(--fg);margin:0 0 16px 0">' +
+          'Carica un nuovo file CSV o Excel del fornitore (formato standard Visiotech a 25 colonne) per <b>confrontare le scontistiche</b> con il database attualmente caricato.' +
+        '</p>' +
+        '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:12px 14px;font-size:12px;color:var(--fg2);margin-bottom:14px;line-height:1.6">' +
+          '<b style="color:var(--fg)">Cosa farà l\'app:</b><br>' +
+          '• Abbinerà i prodotti tramite <b>codice prodotto</b> (campo "name")<br>' +
+          '• Calcolerà lo sconto attuale e quello del nuovo file<br>' +
+          '• Identificherà variazioni di sconto, prezzo, e prodotti nuovi/rimossi<br>' +
+          '• <b>Non modificherà il database</b> finché non confermerai esplicitamente alla fine' +
+        '</div>' +
+        '<div style="background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.3);border-radius:7px;padding:10px 12px;font-size:11.5px;color:var(--fg2);margin-bottom:18px">' +
+          '⚠️ <b>Database attuale:</b> ' + DATA.length.toLocaleString('it-IT') + ' prodotti. L\'operazione di confronto è veloce (qualche secondo) e tutta in memoria.' +
+        '</div>' +
+        '<div id="discCmpFileZone" style="border:2px dashed var(--border2);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s">' +
+          '<div style="font-size:36px;margin-bottom:8px;opacity:.6">📥</div>' +
+          '<div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:4px">Trascina qui il file</div>' +
+          '<div style="font-size:11.5px;color:var(--fg3)">oppure clicca per selezionarlo (.csv, .xlsx, .xls)</div>' +
+          '<input type="file" id="discCmpFileInput" accept=".csv,.xlsx,.xls,.tsv" style="display:none">' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="discCmpCancelBtn">Annulla</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+
+  const fileInput = document.getElementById('discCmpFileInput');
+  const fileZone = document.getElementById('discCmpFileZone');
+  const cancelBtn = document.getElementById('discCmpCancelBtn');
+
+  cancelBtn.addEventListener('click', () => bg.remove());
+
+  fileZone.addEventListener('click', () => fileInput.click());
+
+  // Drag & drop visual feedback
+  fileZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    fileZone.style.borderColor = 'var(--accent)';
+    fileZone.style.background = 'rgba(255,107,53,0.05)';
+  });
+  fileZone.addEventListener('dragleave', () => {
+    fileZone.style.borderColor = '';
+    fileZone.style.background = '';
+  });
+  fileZone.addEventListener('drop', e => {
+    e.preventDefault();
+    fileZone.style.borderColor = '';
+    fileZone.style.background = '';
+    if(e.dataTransfer.files.length){
+      handleDiscountCompareFile(e.dataTransfer.files[0], bg);
+    }
+  });
+
+  fileInput.addEventListener('change', e => {
+    if(e.target.files.length){
+      handleDiscountCompareFile(e.target.files[0], bg);
+    }
+  });
+
+  // ESC chiude il dialog
+  const esc = (e) => { if(e.key === 'Escape'){ bg.remove(); document.removeEventListener('keydown', esc); } };
+  document.addEventListener('keydown', esc);
+}
+
+/* ─── Gestione file caricato dall'utente ─── */
+async function handleDiscountCompareFile(file, parentDialog){
+  const name = file.name || 'file';
+  const isCsv = /\.(csv|tsv|txt)$/i.test(name);
+  const isExcel = /\.(xlsx|xls|xlsm)$/i.test(name);
+
+  if(!isCsv && !isExcel){
+    toast('Formato non supportato. Usa .csv o .xlsx', 'err', 4000);
+    return;
+  }
+
+  // Chiudi dialog di selezione, mostra loader
+  parentDialog.remove();
+
+  showLoaderAdvanced('Lettura del file di confronto', name, 'classic');
+  updateLoaderAdvanced(-1, 0, 'Parsing in corso…', '🔍');
+  await new Promise(r => setTimeout(r, 30));
+
+  try {
+    let rows = [];
+    if(isCsv){
+      rows = await parseCsvForCompare(file);
+    } else {
+      rows = await parseExcelForCompare(file);
+    }
+
+    if(!rows || rows.length === 0){
+      hideLoaderAdvanced();
+      toast('Il file è vuoto o non contiene righe valide', 'err', 5000);
+      return;
+    }
+
+    // Validazione: deve avere almeno 'name' e prezzi
+    const headers = Object.keys(rows[0] || {});
+    const hasName = headers.includes('name');
+    const hasPVP = headers.includes('PVP') || headers.includes('precio_venta_cliente_final');
+    const hasNetto = headers.includes('precio_neto_compra');
+
+    if(!hasName){
+      hideLoaderAdvanced();
+      showCompareErrorDialog('Il file non contiene la colonna "name" (codice prodotto). Verifica che sia un export Visiotech valido.');
+      return;
+    }
+    if(!hasPVP || !hasNetto){
+      hideLoaderAdvanced();
+      showCompareErrorDialog('Il file non contiene le colonne dei prezzi necessarie ("PVP" e "precio_neto_compra"). Verifica il formato.');
+      return;
+    }
+
+    updateLoaderAdvanced(-1, 0, 'Confronto con database corrente…', '⚖️');
+    await new Promise(r => setTimeout(r, 30));
+
+    // Esegui il confronto
+    const results = computeDiscountDiff(rows);
+    window._DISCOUNT_COMPARE_STATE.results = results;
+    window._DISCOUNT_COMPARE_STATE.fileName = name;
+    window._DISCOUNT_COMPARE_STATE.fileDate = new Date();
+    window._DISCOUNT_COMPARE_STATE.activeTab = 'improved';
+
+    // V2.2.43: salva la cache persistente per riapertura veloce in sessioni future
+    saveDiscountCompareCache().catch(e => console.warn('[discount-compare] cache save fail:', e));
+
+    hideLoaderAdvanced();
+    showDiscountCompareResults();
+
+  } catch(err){
+    hideLoaderAdvanced();
+    console.error('[discount-compare] errore:', err);
+    showCompareErrorDialog('Errore durante la lettura del file: ' + (err.message || err));
+  }
+}
+
+/* ─── Parsing CSV usando PapaParse ─── */
+function parseCsvForCompare(file){
+  return new Promise((resolve, reject) => {
+    if(typeof Papa === 'undefined'){
+      reject(new Error('Libreria PapaParse non disponibile'));
+      return;
+    }
+    // Provo prima Latin-1 (encoding standard Visiotech). Se fallisce o ha caratteri strani, retry UTF-8
+    const tryParse = (encoding) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        delimiter: ';',
+        encoding: encoding,
+        complete: (res) => {
+          if(res.data && res.data.length){
+            resolve(res.data);
+          } else {
+            reject(new Error('Nessuna riga valida nel CSV'));
+          }
+        },
+        error: (err) => reject(err),
+      });
+    };
+    tryParse('ISO-8859-1');  // Latin-1 come Visiotech
+  });
+}
+
+/* ─── Parsing Excel usando XLSX (SheetJS) ─── */
+async function parseExcelForCompare(file){
+  if(typeof XLSX === 'undefined') throw new Error('Libreria XLSX non disponibile');
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  if(!wb.SheetNames.length) throw new Error('Excel vuoto');
+  // Cerca il primo sheet con dati significativi
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+  return rows;
+}
+
+/* ─── Cuore del modulo: confronta i due dataset ─── */
+function computeDiscountDiff(newRows){
+  // Indicizzazione DB attuale per codice prodotto (campo 'name')
+  const currentByCode = new Map();
+  for(let i = 0; i < DATA.length; i++){
+    const p = DATA[i];
+    const code = String(getField(p, 'name') || '').trim().toUpperCase();
+    if(code) currentByCode.set(code, p);
+  }
+
+  // Indicizzazione nuovo CSV per codice
+  const newByCode = new Map();
+  for(let i = 0; i < newRows.length; i++){
+    const r = newRows[i];
+    const code = String(r.name || '').trim().toUpperCase();
+    if(code && !newByCode.has(code)) newByCode.set(code, r);
+  }
+
+  // Prepara i quattro bucket di risultati
+  const improved = [];   // sconto aumentato (più conveniente per l'utente)
+  const worsened = [];   // sconto diminuito (peggio per l'utente)
+  const priceOnly = [];  // prezzi cambiati ma sconto invariato (entro 0.5%)
+  const added = [];      // nuovi nel CSV (non presenti nel DB)
+  const removed = [];    // presenti nel DB ma non nel nuovo CSV
+  const unchanged = [];  // nessuna variazione
+
+  // 1. Iterazione DB attuale → cerca match nel CSV
+  for(const [code, p] of currentByCode){
+    const newRow = newByCode.get(code);
+    if(!newRow){
+      // Prodotto non presente nel nuovo CSV → "rimosso"
+      const oldPVP = priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
+      const oldNetto = priceNum(getField(p, 'precio_neto_compra'));
+      const oldDisc = computeDiscount(oldPVP, oldNetto);
+      removed.push({
+        code,
+        name: code,
+        brand: String(getField(p, 'brand') || ''),
+        category: String(getField(p, 'category') || ''),
+        oldPVP, oldNetto, oldDisc,
+      });
+      continue;
+    }
+
+    // Confronto i prezzi
+    const oldPVP = priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
+    const oldNetto = priceNum(getField(p, 'precio_neto_compra'));
+    const newPVP = priceNum(newRow.PVP || newRow.precio_venta_cliente_final);
+    const newNetto = priceNum(newRow.precio_neto_compra);
+    const oldDisc = computeDiscount(oldPVP, oldNetto);
+    const newDisc = computeDiscount(newPVP, newNetto);
+
+    const item = {
+      code,
+      name: code,
+      brand: String(getField(p, 'brand') || newRow.brand || ''),
+      category: String(getField(p, 'category') || newRow.category || ''),
+      oldPVP, oldNetto, oldDisc,
+      newPVP, newNetto, newDisc,
+      pvpDelta: (oldPVP !== null && newPVP !== null) ? (newPVP - oldPVP) : null,
+      nettoDelta: (oldNetto !== null && newNetto !== null) ? (newNetto - oldNetto) : null,
+      discDelta: (oldDisc !== null && newDisc !== null) ? (newDisc - oldDisc) : null,
+      _idx: p._idx,  // serve per applicare le modifiche
+    };
+
+    if(oldDisc === null && newDisc === null){
+      // Entrambi senza sconto valido (es. PVP=0). Verifico se ci sono comunque variazioni di prezzo
+      const pvpChanged = (oldPVP !== newPVP) && (oldPVP !== null || newPVP !== null);
+      const nettoChanged = (oldNetto !== newNetto) && (oldNetto !== null || newNetto !== null);
+      if(pvpChanged || nettoChanged){
+        priceOnly.push(item);
+      } else {
+        unchanged.push(item);
+      }
+      continue;
+    }
+    if(oldDisc === null || newDisc === null){
+      // Solo uno dei due ha sconto valido → variazione "anomala"
+      priceOnly.push(item);
+      continue;
+    }
+
+    const delta = newDisc - oldDisc;
+    if(Math.abs(delta) < 0.5){
+      // Sconto invariato (entro tolleranza 0.5%)
+      const pvpChanged = (oldPVP !== newPVP);
+      const nettoChanged = (oldNetto !== newNetto);
+      if(pvpChanged || nettoChanged){
+        priceOnly.push(item);
+      } else {
+        unchanged.push(item);
+      }
+    } else if(delta > 0){
+      improved.push(item);
+    } else {
+      worsened.push(item);
+    }
+  }
+
+  // 2. Prodotti nuovi (presenti nel CSV ma non nel DB)
+  for(const [code, r] of newByCode){
+    if(!currentByCode.has(code)){
+      const newPVP = priceNum(r.PVP || r.precio_venta_cliente_final);
+      const newNetto = priceNum(r.precio_neto_compra);
+      const newDisc = computeDiscount(newPVP, newNetto);
+      added.push({
+        code,
+        name: code,
+        brand: String(r.brand || ''),
+        category: String(r.category || ''),
+        newPVP, newNetto, newDisc,
+      });
+    }
+  }
+
+  // Ordino per delta sconto (impatto maggiore in cima)
+  improved.sort((a,b) => Math.abs(b.discDelta) - Math.abs(a.discDelta));
+  worsened.sort((a,b) => Math.abs(b.discDelta) - Math.abs(a.discDelta));
+  // Prezzi: ordino per delta % netto
+  priceOnly.sort((a,b) => {
+    const da = a.nettoDelta && a.oldNetto ? Math.abs(a.nettoDelta / a.oldNetto) : 0;
+    const db = b.nettoDelta && b.oldNetto ? Math.abs(b.nettoDelta / b.oldNetto) : 0;
+    return db - da;
+  });
+
+  return {
+    improved, worsened, priceOnly, added, removed, unchanged,
+    totals: {
+      currentDB: DATA.length,
+      newCSV: newByCode.size,
+      matched: improved.length + worsened.length + priceOnly.length + unchanged.length,
+    },
+  };
+}
+
+/* ─── Mostra modal con risultati del confronto ─── */
+function showDiscountCompareResults(){
+  const state = window._DISCOUNT_COMPARE_STATE;
+  if(!state.results){
+    toast('Nessun confronto disponibile', 'warn');
+    return;
+  }
+  const r = state.results;
+
+  // Rimuovi modal precedente se aperta
+  const ex = document.getElementById('discCompareResults');
+  if(ex) ex.remove();
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'discCompareResults';
+  bg.style.zIndex = '340';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  // Card riassuntive
+  const summaryCard = (label, value, color, sub) => {
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid ' + color + ';border-radius:8px;padding:12px 14px;flex:1;min-width:130px">' +
+      '<div style="font-size:10px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">' + label + '</div>' +
+      '<div style="font-size:22px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums">' + value + '</div>' +
+      (sub ? '<div style="font-size:11px;color:var(--fg3);margin-top:3px">' + sub + '</div>' : '') +
+    '</div>';
+  };
+
+  const summary =
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">' +
+      summaryCard('✅ Sconto migliorato', r.improved.length.toLocaleString('it-IT'), '#22c55e', 'più conveniente') +
+      summaryCard('⚠️ Sconto peggiorato', r.worsened.length.toLocaleString('it-IT'), '#ef4444', 'meno conveniente') +
+      summaryCard('💱 Solo prezzi', r.priceOnly.length.toLocaleString('it-IT'), '#3b82f6', 'sconto invariato') +
+      summaryCard('✨ Nuovi prodotti', r.added.length.toLocaleString('it-IT'), '#06b6d4', 'solo nel CSV') +
+      summaryCard('🗑️ Rimossi', r.removed.length.toLocaleString('it-IT'), '#a855f7', 'solo nel DB') +
+    '</div>';
+
+  // Tab navigation
+  const tab = (id, label, count, color) => {
+    const isActive = state.activeTab === id;
+    return '<button class="discCmpTab" data-tab="' + id + '" style="' +
+      'padding:11px 16px;font-size:12px;font-weight:600;background:transparent;border:0;' +
+      'border-bottom:2px solid ' + (isActive ? color : 'transparent') + ';' +
+      'color:' + (isActive ? color : 'var(--fg3)') + ';' +
+      'cursor:pointer;font-family:inherit;letter-spacing:.02em;' +
+      'display:flex;align-items:center;gap:6px;white-space:nowrap;transition:color .15s,border-color .15s">' +
+      label +
+      '<span style="background:' + (isActive ? color + '22' : 'var(--bg3)') + ';' +
+      'color:' + (isActive ? color : 'var(--fg3)') + ';' +
+      'font-size:10px;font-weight:700;padding:1px 6px;border-radius:9px">' + count + '</span>' +
+    '</button>';
+  };
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:95vw;width:95vw;max-height:95vh;display:flex;flex-direction:column">' +
+      '<div class="modal-head">' +
+        '<h3>📊 Risultati confronto scontistiche</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:0;overflow:hidden;flex:1;min-height:0">' +
+        '<div style="padding:16px 24px 0">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px">' +
+            '<div style="font-size:12px;color:var(--fg2);line-height:1.55;flex:1">' +
+              'File caricato: <b style="color:var(--fg)">' + escapeHtml(state.fileName) + '</b> · ' +
+              r.totals.newCSV.toLocaleString('it-IT') + ' prodotti<br>' +
+              'Database attuale: <b style="color:var(--fg)">' + r.totals.currentDB.toLocaleString('it-IT') + ' prodotti</b> · ' +
+              'Abbinati: <b>' + r.totals.matched.toLocaleString('it-IT') + '</b>' +
+            '</div>' +
+            // V2.2.43: bottone Legenda compatto — apre popover dedicato anziché occupare spazio fisso
+            '<button id="discCmpLegendBtn" type="button" ' +
+              'style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;font-size:11px;font-weight:600;' +
+              'background:var(--bg3);border:1px solid var(--border);color:var(--fg2);border-radius:6px;' +
+              'cursor:pointer;flex-shrink:0;font-family:inherit;letter-spacing:.02em;transition:all .15s" ' +
+              'onmouseover="this.style.background=\'var(--bg4)\';this.style.color=\'var(--fg)\'" ' +
+              'onmouseout="this.style.background=\'var(--bg3)\';this.style.color=\'var(--fg2)\'" ' +
+              'title="Apri legenda con spiegazione delle sigle M, R, S">' +
+              '<span style="font-size:13px">📖</span>' +
+              'Legenda M · R · S' +
+            '</button>' +
+          '</div>' +
+          summary +
+        '</div>' +
+        '<div id="discCmpTabs" style="display:flex;border-bottom:1px solid var(--border);background:var(--bg2);padding:0 24px;overflow-x:auto">' +
+          tab('improved', '✅ Migliorato', r.improved.length, '#22c55e') +
+          tab('worsened', '⚠️ Peggiorato', r.worsened.length, '#ef4444') +
+          tab('priceOnly', '💱 Solo prezzi', r.priceOnly.length, '#3b82f6') +
+          tab('added', '✨ Nuovi', r.added.length, '#06b6d4') +
+          tab('removed', '🗑️ Rimossi', r.removed.length, '#a855f7') +
+        '</div>' +
+        '<div id="discCmpTableContainer" style="overflow:auto;max-height:calc(95vh - 380px);min-height:200px">' +
+          renderDiscCmpTable(state.activeTab, r) +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="discCmpCloseBtn">Chiudi</button>' +
+        '<button class="btn small" id="discCmpExportBtn">📥 Esporta confronto in Excel</button>' +
+        '<button class="btn small primary" id="discCmpApplyBtn">✓ Applica nuovi prezzi al DB</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+
+  // Tab switching
+  bg.querySelectorAll('.discCmpTab').forEach(t => {
+    t.addEventListener('click', () => {
+      state.activeTab = t.dataset.tab;
+      // Re-render dei tabs (per l'underline) e della tabella
+      const tabsContainer = document.getElementById('discCmpTabs');
+      const tableContainer = document.getElementById('discCmpTableContainer');
+      // Aggiorno solo gli stili dei tab senza re-render completo per fluidità
+      bg.querySelectorAll('.discCmpTab').forEach(tt => {
+        const isAct = tt.dataset.tab === state.activeTab;
+        const colors = { improved:'#22c55e', worsened:'#ef4444', priceOnly:'#3b82f6', added:'#06b6d4', removed:'#a855f7' };
+        const c = colors[tt.dataset.tab] || 'var(--accent3)';
+        tt.style.borderBottomColor = isAct ? c : 'transparent';
+        tt.style.color = isAct ? c : 'var(--fg3)';
+        const badge = tt.querySelector('span');
+        if(badge){
+          badge.style.background = isAct ? (c + '22') : 'var(--bg3)';
+          badge.style.color = isAct ? c : 'var(--fg3)';
+        }
+      });
+      tableContainer.innerHTML = renderDiscCmpTable(state.activeTab, r);
+    });
+  });
+
+  // Close
+  document.getElementById('discCmpCloseBtn').addEventListener('click', () => {
+    bg.remove();
+    // V2.2.43: refresh del banner cache nella modal Scontistiche (se ancora aperta in background)
+    if(typeof renderDiscountCompareCacheBanner === 'function'){
+      renderDiscountCompareCacheBanner().catch(() => {});
+    }
+  });
+
+  // Export
+  document.getElementById('discCmpExportBtn').addEventListener('click', () => exportDiscountCompare());
+
+  // Apply
+  document.getElementById('discCmpApplyBtn').addEventListener('click', () => confirmApplyNewPrices());
+
+  // V2.2.43: Legenda M·R·S — apre popover dedicato per non occupare spazio fisso
+  document.getElementById('discCmpLegendBtn').addEventListener('click', () => showDiscountCompareLegend());
+
+  // ESC
+  const esc = (e) => { if(e.key === 'Escape'){ bg.remove(); document.removeEventListener('keydown', esc); } };
+  document.addEventListener('keydown', esc);
+}
+
+/* ─── Render della tabella per il tab attivo ─── */
+function renderDiscCmpTable(tab, r){
+  const items = r[tab] || [];
+  if(items.length === 0){
+    return '<div style="padding:40px 20px;text-align:center;color:var(--fg3);font-size:13px">' +
+      '<div style="font-size:36px;margin-bottom:10px;opacity:.5">📭</div>' +
+      'Nessun prodotto in questa categoria' +
+    '</div>';
+  }
+
+  const fmtP = (v) => v == null ? '—' : (Number(v).toFixed(2) + ' €');
+  const fmtD = (v) => v == null ? '—' : (Number(v).toFixed(1) + '%');
+  // V2.2.43: la variazione di prezzo viene mostrata come PERCENTUALE relativa
+  // al valore vecchio, non come delta in euro. Esempio: 86,70 → 130,05 = +50,0%
+  // Formula: (nuovo - vecchio) / vecchio × 100. Stessa convenzione della variazione sconto.
+  // Se delta è 0 (nessuna variazione) non mostro nulla per non sporcare la tabella.
+  const fmtDeltaP = (delta, oldVal) => {
+    if(delta == null || oldVal == null || oldVal === 0) return '';
+    if(delta === 0) return '';  // nessuna variazione → cella pulita
+    const pct = (delta / oldVal) * 100;
+    if(Math.abs(pct) < 0.05) return '';  // variazioni trascurabili (< 0.05%) ignorate
+    const sign = pct > 0 ? '+' : '';
+    const color = pct > 0 ? '#ef4444' : '#22c55e';
+    return '<span style="color:' + color + ';font-size:10.5px;margin-left:4px;font-weight:700" ' +
+      'title="Variazione percentuale rispetto al valore vecchio">' +
+      '(' + sign + pct.toFixed(1) + '%)</span>';
+  };
+
+  // V2.2.43: visualizza Margine e Ricarico/Sconto del fornitore.
+  // Convenzione finale (semantica chiara per analisi commerciale):
+  //
+  //   M (Margine) — mantiene segno +/− per indicare l'impatto sulla TUA redditività:
+  //     + verde = il margine ti migliora (netto cala)
+  //     − rosso = il margine ti peggiora (netto sale)
+  //
+  //   R / S (Ricarico/Sconto del fornitore) — etichetta semantica + valore assoluto:
+  //     R = il fornitore ha applicato un RICARICO (netto sale, peggio per te) → rosso
+  //     S = il fornitore ha applicato uno SCONTO (netto cala, meglio per te) → verde
+  //     Numero sempre positivo (valore assoluto della variazione), perché R e S
+  //     sono già concetti polarizzati nel loro nome.
+  //
+  // Esempi:
+  //   86,70 → 130,05  →  M −33,3% (rosso) · R 50,0% (rosso) — ricarico del fornitore
+  //   2,13  →  1,91   →  M +11,5% (verde) · S 10,3% (verde) — sconto del fornitore
+  const fmtMarginRicarico = (oldNetto, newNetto) => {
+    if(oldNetto == null || newNetto == null || oldNetto <= 0 || newNetto <= 0) return '';
+    if(oldNetto === newNetto) return '';
+    const rawDelta = newNetto - oldNetto;
+    if(Math.abs(rawDelta) < 0.005) return '';
+    // impactDelta: positivo = vantaggio (sconto fornitore), negativo = svantaggio (ricarico)
+    const impactDelta = oldNetto - newNetto;
+    const isAdvantage = impactDelta > 0;  // true = sconto fornitore, false = ricarico
+    // M: segno +/− che riflette l'impatto sulla redditività
+    const margine = (impactDelta / newNetto) * 100;
+    const mSign = isAdvantage ? '+' : '−';
+    const mAbs = Math.abs(margine).toFixed(1).replace('.',',');
+    // R/S: lettera dipende dalla direzione, numero sempre positivo (valore assoluto)
+    // R = (newNetto - oldNetto) / oldNetto se ricarico, S = (oldNetto - newNetto) / oldNetto se sconto
+    // In entrambi i casi è |delta|/oldNetto perché il riferimento è sempre il vecchio
+    const rsValue = (Math.abs(rawDelta) / oldNetto) * 100;
+    const rsLabel = isAdvantage ? 'S' : 'R';
+    const rsAbs = rsValue.toFixed(1).replace('.',',');
+    // Colore unificato: tutto verde se vantaggio, tutto rosso se svantaggio
+    const trendColor = isAdvantage ? '#22c55e' : '#ef4444';
+    const tooltip = isAdvantage
+      ? 'Sconto del fornitore: il netto è calato del ' + rsAbs + '%, il tuo margine commerciale è migliorato di +' + mAbs + ' punti.'
+      : 'Ricarico del fornitore: il netto è aumentato del ' + rsAbs + '%, il tuo margine commerciale è peggiorato di −' + mAbs + ' punti.';
+    return '<div style="font-size:9.5px;margin-top:1px;line-height:1.3;font-weight:600;letter-spacing:.2px" ' +
+      'title="' + tooltip + '">' +
+      '<span style="color:#f59e0b">M:</span> <span style="color:' + trendColor + '">' + mSign + mAbs + '%</span>' +
+      ' <span style="color:var(--border2);margin:0 2px">·</span> ' +
+      '<span style="color:' + trendColor + '">' + rsLabel + ':</span> <span style="color:' + trendColor + '">' + rsAbs + '%</span>' +
+    '</div>';
+  };
+
+  // V2.2.43: la variazione tra due percentuali si esprime in modo duplice:
+  //   - PUNTI PERCENTUALI (p.p.): differenza assoluta tra le due percentuali
+  //     (50% → 55% = +5 p.p.) — semantica "di quanti punti è cambiato lo sconto"
+  //   - VARIAZIONE RELATIVA (%): rapporto rispetto al valore vecchio
+  //     (50% → 55% = +10%, perché 55/50 = 1,10) — semantica "di quanto è cresciuto in proporzione"
+  // Posizionamento corretto:
+  //   - p.p. accanto allo SCONTO NUOVO (è il "salto" che porta dal vecchio al nuovo)
+  //   - % accanto allo SCONTO VECCHIO (è la variazione "rispetto a" quel valore di partenza)
+  // Convenzione finanza/statistica.
+
+  // Mostra (+5,2 p.p.) accanto al valore NUOVO
+  const fmtDeltaDpp = (delta) => {
+    if(delta == null) return '';
+    const sign = delta > 0 ? '+' : '';
+    const color = delta > 0 ? '#22c55e' : (delta < 0 ? '#ef4444' : 'var(--fg3)');
+    return '<span style="color:' + color + ';font-weight:700;font-size:11px;margin-left:4px" ' +
+      'title="Punti percentuali — differenza assoluta tra sconto nuovo e vecchio">' +
+      '(' + sign + delta.toFixed(1) + ' p.p.)</span>';
+  };
+
+  // Mostra (+10,4%) accanto al valore VECCHIO — variazione relativa
+  const fmtDeltaDpct = (it) => {
+    if(!it || it.oldDisc == null || it.oldDisc <= 0 || it.newDisc == null) return '';
+    const rel = ((it.newDisc - it.oldDisc) / it.oldDisc) * 100;
+    if(Math.abs(rel) < 0.05) return '';  // variazioni trascurabili ignorate
+    const sign = rel > 0 ? '+' : '';
+    const color = rel > 0 ? '#22c55e' : (rel < 0 ? '#ef4444' : 'var(--fg3)');
+    return '<span style="color:' + color + ';font-weight:700;font-size:11px;margin-left:4px" ' +
+      'title="Variazione relativa rispetto allo sconto vecchio">' +
+      '(' + sign + rel.toFixed(1) + '%)</span>';
+  };
+
+  // V2.2.43: stili definiti tutti nella classe .disc-cmp-tbl (vedi blocco <style>)
+  // Per allineare i numeri uso class="num", per il codice prodotto class="code".
+  let header, body;
+
+  if(tab === 'improved' || tab === 'worsened' || tab === 'priceOnly'){
+    header =
+      '<tr>' +
+        '<th>Codice</th>' +
+        '<th>Marca</th>' +
+        '<th>Categoria</th>' +
+        '<th class="num">PVP vecchio</th>' +
+        '<th class="num">PVP nuovo</th>' +
+        '<th class="num">Netto vecchio</th>' +
+        '<th class="num">Netto nuovo</th>' +
+        '<th class="num">Sconto vecchio</th>' +
+        '<th class="num">Sconto nuovo</th>' +
+      '</tr>';
+    body = items.map(it => {
+      return '<tr>' +
+        '<td class="code">' + escapeHtml(it.code) + '</td>' +
+        '<td>' + escapeHtml(it.brand) + '</td>' +
+        '<td>' + escapeHtml(it.category) + '</td>' +
+        '<td class="num">' + fmtP(it.oldPVP) + '</td>' +
+        '<td class="num">' + fmtP(it.newPVP) + fmtDeltaP(it.pvpDelta, it.oldPVP) + '</td>' +
+        '<td class="num">' + fmtP(it.oldNetto) + '</td>' +
+        '<td class="num">' + fmtP(it.newNetto) + fmtMarginRicarico(it.oldNetto, it.newNetto) + '</td>' +
+        '<td class="num">' + fmtD(it.oldDisc) + fmtDeltaDpct(it) + '</td>' +
+        '<td class="num">' + fmtD(it.newDisc) + fmtDeltaDpp(it.discDelta) + '</td>' +
+      '</tr>';
+    }).join('');
+  } else if(tab === 'added'){
+    header =
+      '<tr>' +
+        '<th>Codice</th>' +
+        '<th>Marca</th>' +
+        '<th>Categoria</th>' +
+        '<th class="num">PVP</th>' +
+        '<th class="num">Netto</th>' +
+        '<th class="num">Sconto</th>' +
+      '</tr>';
+    body = items.map(it => {
+      return '<tr>' +
+        '<td class="code">' + escapeHtml(it.code) + '</td>' +
+        '<td>' + escapeHtml(it.brand) + '</td>' +
+        '<td>' + escapeHtml(it.category) + '</td>' +
+        '<td class="num">' + fmtP(it.newPVP) + '</td>' +
+        '<td class="num">' + fmtP(it.newNetto) + '</td>' +
+        '<td class="num">' + fmtD(it.newDisc) + '</td>' +
+      '</tr>';
+    }).join('');
+  } else {
+    // removed
+    header =
+      '<tr>' +
+        '<th>Codice</th>' +
+        '<th>Marca</th>' +
+        '<th>Categoria</th>' +
+        '<th class="num">PVP</th>' +
+        '<th class="num">Netto</th>' +
+        '<th class="num">Sconto</th>' +
+      '</tr>';
+    body = items.map(it => {
+      return '<tr>' +
+        '<td class="code">' + escapeHtml(it.code) + '</td>' +
+        '<td>' + escapeHtml(it.brand) + '</td>' +
+        '<td>' + escapeHtml(it.category) + '</td>' +
+        '<td class="num">' + fmtP(it.oldPVP) + '</td>' +
+        '<td class="num">' + fmtP(it.oldNetto) + '</td>' +
+        '<td class="num">' + fmtD(it.oldDisc) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  return '<table class="disc-cmp-tbl">' +
+    '<thead>' + header + '</thead>' +
+    '<tbody>' + body + '</tbody>' +
+  '</table>';
+}
+
+/* ─── Popover modale con la legenda esplicativa di M, R, S ─── */
+/* V2.2.43: la legenda non è più sempre visibile (occupava troppo spazio verticale)
+   ma si apre on-demand cliccando il bottone "📖 Legenda M · R · S" in cima alla
+   modal Confronto. Pattern usato in tool BI e dashboard finanziarie professionali:
+   le info esplicative sono accessibili ma non rubano spazio al contenuto principale. */
+function showDiscountCompareLegend(){
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.style.zIndex = '360';  // sopra la modal Confronto (z-index 340)
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  const esc = (e) => {
+    if(e.key === 'Escape'){
+      e.stopPropagation();
+      bg.remove();
+      document.removeEventListener('keydown', esc, true);
+    }
+  };
+  document.addEventListener('keydown', esc, true);
+
+  // Helper: card per una sigla con etichetta colorata, titolo, descrizione
+  const sigCard = (letter, color, title, desc) => {
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-left:4px solid ' + color + ';' +
+      'border-radius:8px;padding:14px 16px;flex:1;min-width:200px">' +
+      '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">' +
+        '<span style="color:' + color + ';font-weight:800;font-size:22px;line-height:1">' + letter + '</span>' +
+        '<span style="color:var(--fg);font-weight:700;font-size:14px">' + title + '</span>' +
+      '</div>' +
+      '<div style="color:var(--fg2);font-size:12px;line-height:1.55">' + desc + '</div>' +
+    '</div>';
+  };
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:760px;width:calc(100% - 32px)">' +
+      '<div class="modal-head">' +
+        '<h3>📖 Legenda — Margine, Ricarico, Sconto</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:22px 24px">' +
+        '<p style="font-size:13px;color:var(--fg2);line-height:1.65;margin:0 0 16px 0">' +
+          'Le sigle <b>M:</b>, <b>R:</b> e <b>S:</b> mostrate nella colonna <b>Netto Nuovo</b> rappresentano l\'impatto della variazione del prezzo netto del fornitore sulla tua redditività commerciale.' +
+        '</p>' +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">' +
+          sigCard('M:', '#f59e0b', 'Margine sul ricavo',
+            'Variazione percentuale del margine commerciale, calcolata sul nuovo prezzo netto. ' +
+            'Il <b>segno</b> indica la direzione: <span style="color:#22c55e;font-weight:700">+</span> se la tua redditività migliora, <span style="color:#ef4444;font-weight:700">−</span> se peggiora.') +
+          sigCard('R:', '#ef4444', 'Ricarico del fornitore',
+            'Il fornitore ha <b>aumentato</b> il prezzo netto. Il valore indica di quanto, in percentuale rispetto al netto vecchio. ' +
+            'Sempre rosso: <b>svantaggio</b> commerciale per te.') +
+          sigCard('S:', '#22c55e', 'Sconto del fornitore',
+            'Il fornitore ha <b>ridotto</b> il prezzo netto. Il valore indica di quanto, in percentuale rispetto al netto vecchio. ' +
+            'Sempre verde: <b>vantaggio</b> commerciale per te.') +
+        '</div>' +
+        // Sezione esempi pratici
+        '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px">' +
+          '<div style="font-size:10px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Esempi pratici</div>' +
+          // Esempio 1: sconto fornitore
+          '<div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px dashed var(--border)">' +
+            '<div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--fg);min-width:180px">' +
+              '<span style="color:var(--fg3)">Netto:</span> 2,13 € → <b>1,91 €</b>' +
+            '</div>' +
+            '<div style="font-size:12px;flex:1">' +
+              '<span style="font-weight:700"><span style="color:#f59e0b">M:</span> <span style="color:#22c55e">+11,5%</span> · <span style="color:#22c55e">S: 10,3%</span></span><br>' +
+              '<span style="color:var(--fg3);font-size:11.5px">Il fornitore ti ha scontato il 10,3%; il tuo margine è cresciuto di 11,5 punti.</span>' +
+            '</div>' +
+          '</div>' +
+          // Esempio 2: ricarico fornitore
+          '<div style="display:flex;align-items:center;gap:14px;padding:8px 0">' +
+            '<div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--fg);min-width:180px">' +
+              '<span style="color:var(--fg3)">Netto:</span> 86,70 € → <b>130,05 €</b>' +
+            '</div>' +
+            '<div style="font-size:12px;flex:1">' +
+              '<span style="font-weight:700"><span style="color:#f59e0b">M:</span> <span style="color:#ef4444">−33,3%</span> · <span style="color:#ef4444">R: 50,0%</span></span><br>' +
+              '<span style="color:var(--fg3);font-size:11.5px">Il fornitore ha ricaricato il 50%; il tuo margine è calato di 33,3 punti.</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        // Note tecniche
+        '<div style="margin-top:14px;font-size:10.5px;color:var(--fg3);line-height:1.6">' +
+          '<b>Formule:</b> ' +
+          'M = (vecchio − nuovo) / nuovo × 100 (con segno) · ' +
+          'R = (nuovo − vecchio) / vecchio × 100 (sempre se ricarico) · ' +
+          'S = (vecchio − nuovo) / vecchio × 100 (sempre se sconto)' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn primary" id="discCmpLegClose">Ho capito</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+  document.getElementById('discCmpLegClose').addEventListener('click', () => {
+    bg.remove();
+    document.removeEventListener('keydown', esc, true);
+  });
+  // Focus iniziale sul bottone OK per accessibilità
+  setTimeout(() => { document.getElementById('discCmpLegClose')?.focus(); }, 50);
+}
+
+/* ─── Conferma e applicazione dei nuovi prezzi al DB tramite EDITS ─── */
+function confirmApplyNewPrices(){
+  const state = window._DISCOUNT_COMPARE_STATE;
+  if(!state.results){ toast('Nessun confronto disponibile', 'warn'); return; }
+  const r = state.results;
+
+  const totalChanges = r.improved.length + r.worsened.length + r.priceOnly.length;
+  if(totalChanges === 0){
+    toast('Nessun prezzo da applicare', 'info', 4000);
+    return;
+  }
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.style.zIndex = '350';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:560px">' +
+      '<div class="modal-head" style="background:rgba(255,193,7,0.10);border-bottom:1px solid rgba(255,193,7,0.3)">' +
+        '<h3 style="color:#f59e0b">⚠️ Conferma applicazione nuovi prezzi</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:22px 24px">' +
+        '<p style="font-size:13px;line-height:1.7;color:var(--fg);margin-bottom:14px">' +
+          'Stai per <b>applicare i nuovi prezzi</b> dal file <b>' + escapeHtml(state.fileName) + '</b> al database corrente:' +
+        '</p>' +
+        '<ul style="margin:8px 0 14px 18px;padding:0;line-height:1.8;font-size:12.5px;color:var(--fg)">' +
+          '<li><b>' + r.improved.length.toLocaleString('it-IT') + '</b> prodotti con sconto migliorato</li>' +
+          '<li><b>' + r.worsened.length.toLocaleString('it-IT') + '</b> prodotti con sconto peggiorato</li>' +
+          '<li><b>' + r.priceOnly.length.toLocaleString('it-IT') + '</b> prodotti con variazione di solo prezzo</li>' +
+          '<li>Totale: <b style="color:var(--accent)">' + totalChanges.toLocaleString('it-IT') + ' prodotti</b> verranno aggiornati</li>' +
+        '</ul>' +
+        '<div style="background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.3);border-radius:7px;padding:12px 14px;font-size:12px;color:var(--fg2);line-height:1.6;margin-bottom:14px">' +
+          '<b style="color:#f59e0b">Cosa succederà:</b><br>' +
+          '• I nuovi PVP e prezzi netti verranno salvati come <b>modifiche locali</b> (EDITS)<br>' +
+          '• I prezzi originali del fornitore restano nel database<br>' +
+          '• Le modifiche saranno sincronizzate su Drive (se attivo)<br>' +
+          '• Puoi sempre annullare le singole modifiche dall\'editor del prodotto' +
+        '</div>' +
+        '<div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.3);border-radius:7px;padding:10px 12px;font-size:11.5px;color:var(--fg2)">' +
+          '⚠️ I prodotti <b>non presenti nel nuovo CSV</b> (' + r.removed.length + ' rimossi) e i <b>nuovi prodotti</b> (' + r.added.length + ' aggiunti) <b>NON</b> verranno applicati. Per importarli usa la funzione di import classica.' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="appCancelBtn">Annulla</button>' +
+        '<button class="btn primary" id="appConfirmBtn">✓ Applica ' + totalChanges + ' modifiche</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+
+  document.getElementById('appCancelBtn').addEventListener('click', () => bg.remove());
+  document.getElementById('appConfirmBtn').addEventListener('click', async () => {
+    bg.remove();
+    await applyNewPricesToDB();
+  });
+}
+
+/* ─── Applica concretamente i nuovi prezzi tramite EDITS ─── */
+async function applyNewPricesToDB(){
+  const state = window._DISCOUNT_COMPARE_STATE;
+  if(!state.results) return;
+  const r = state.results;
+  const allChanges = [...r.improved, ...r.worsened, ...r.priceOnly];
+
+  showLoaderAdvanced('Applicazione nuovi prezzi', allChanges.length + ' prodotti da aggiornare', 'classic');
+  updateLoaderAdvanced(0, allChanges.length, 'Aggiornamento EDITS…', '✏️');
+  await new Promise(rr => setTimeout(rr, 30));
+
+  let applied = 0;
+  let skipped = 0;
+  const CHUNK = 200;
+
+  for(let i = 0; i < allChanges.length; i += CHUNK){
+    const end = Math.min(i + CHUNK, allChanges.length);
+    for(let j = i; j < end; j++){
+      const it = allChanges[j];
+      if(it._idx == null){ skipped++; continue; }
+
+      // Preparo il record EDITS con i nuovi prezzi
+      const edit = EDITS[it._idx] || {};
+      let changed = false;
+      if(it.newPVP !== null && it.oldPVP !== it.newPVP){
+        edit.PVP = it.newPVP;
+        changed = true;
+      }
+      if(it.newNetto !== null && it.oldNetto !== it.newNetto){
+        edit.precio_neto_compra = it.newNetto;
+        changed = true;
+      }
+
+      if(changed){
+        EDITS[it._idx] = edit;
+        applied++;
+        // Notifico Drive Sync se attivo
+        if(typeof driveNotifyChange === 'function'){
+          try { driveNotifyChange('edits', it._idx, edit); } catch(_){}
+        }
+      } else {
+        skipped++;
+      }
+    }
+    updateLoaderAdvanced(end, allChanges.length, 'Aggiornamento EDITS…', '✏️');
+    await new Promise(rr => setTimeout(rr, 0));
+  }
+
+  // Persisto le modifiche
+  updateLoaderAdvanced(-1, 0, 'Salvataggio in IndexedDB…', '💾');
+  await new Promise(rr => setTimeout(rr, 30));
+  if(typeof saveEditsToIDB === 'function'){
+    try { await saveEditsToIDB(); } catch(e){ console.warn('[discount-compare] saveEditsToIDB error:', e); }
+  } else if(typeof idbSet === 'function'){
+    try { await idbSet('edits', EDITS); } catch(e){ console.warn('[discount-compare] idbSet edits error:', e); }
+  }
+
+  // Aggiorno la vista
+  if(typeof render === 'function') render();
+
+  hideLoaderAdvanced();
+
+  // Toast riepilogo
+  toast({
+    type: 'ok',
+    title: 'Prezzi applicati',
+    message: applied + ' prodotti aggiornati' + (skipped > 0 ? ' · ' + skipped + ' invariati' : ''),
+    duration: 5000,
+  });
+
+  // Chiudi modal risultati
+  const resultsModal = document.getElementById('discCompareResults');
+  if(resultsModal) resultsModal.remove();
+}
+
+/* ─── Esporta il confronto in Excel ─── */
+async function exportDiscountCompare(){
+  const state = window._DISCOUNT_COMPARE_STATE;
+  if(!state.results){ toast('Nessun confronto da esportare', 'warn'); return; }
+  if(typeof XLSX === 'undefined'){ toast('Libreria Excel non disponibile', 'err'); return; }
+  const r = state.results;
+
+  showLoaderAdvanced('Esportazione confronto Excel', '', 'export');
+  updateLoaderAdvanced(-1, 0, 'Costruzione fogli…', '📗');
+  await new Promise(rr => setTimeout(rr, 30));
+
+  try {
+    const wb = XLSX.utils.book_new();
+
+    const buildSheet = (items, type) => {
+      let header, rows;
+      if(type === 'compare'){
+        // V2.2.43: per ogni differenza (prezzi e sconti) esportiamo:
+        //   - delta assoluto (€ o p.p.) per chi vuole il valore esatto
+        //   - variazione relativa (%) per chi guarda l'impatto in proporzione
+        //   - Margine e Ricarico calcolati sulla variazione tra i due netti
+        //     (Margine = (nuovo-vecchio)/nuovo, Ricarico = (nuovo-vecchio)/vecchio)
+        //   - Tipo variazione netto: "Ricarico" (fornitore aumenta) o "Sconto" (fornitore riduce)
+        //   - Margine: con segno +/− (impatto sulla redditività)
+        //   - Ricarico/Sconto fornitore: valore assoluto (la lettera del Tipo lo polarizza)
+        header = ['Codice','Marca','Categoria','PVP vecchio','PVP nuovo','Δ PVP (€)','Variazione PVP (%)','Netto vecchio','Netto nuovo','Δ Netto (€)','Tipo variazione netto','Margine variazione netto (%)','Ricarico/Sconto fornitore (%)','Sconto vecchio %','Sconto nuovo %','Δ Sconto (p.p.)','Variazione Sconto (%)'];
+        rows = items.map(it => {
+          // Variazione relativa PVP: (new - old) / old × 100
+          let pvpVar = '';
+          if(it.oldPVP != null && it.oldPVP > 0 && it.newPVP != null){
+            pvpVar = Number((((it.newPVP - it.oldPVP) / it.oldPVP) * 100).toFixed(2));
+          }
+          // Variazione relativa Sconto
+          let discVar = '';
+          if(it.oldDisc != null && it.oldDisc > 0 && it.newDisc != null){
+            discVar = Number((((it.newDisc - it.oldDisc) / it.oldDisc) * 100).toFixed(2));
+          }
+          // V2.2.43: classificazione e calcolo coerente con la vista a schermo:
+          //   - Margine: segno +/− (impatto sulla redditività cliente)
+          //   - Tipo: "Ricarico" se netto sale, "Sconto" se netto cala
+          //   - Ricarico/Sconto %: valore assoluto della variazione
+          let nettoMarg = '', nettoRsAbs = '', nettoTipo = '';
+          if(it.oldNetto != null && it.newNetto != null && it.oldNetto > 0 && it.newNetto > 0 && it.oldNetto !== it.newNetto){
+            const impactDelta = it.oldNetto - it.newNetto;  // + se costo cala (sconto), − se sale (ricarico)
+            const isAdvantage = impactDelta > 0;
+            nettoTipo = isAdvantage ? 'Sconto' : 'Ricarico';
+            nettoMarg = Number(((impactDelta / it.newNetto) * 100).toFixed(2));  // mantiene segno
+            nettoRsAbs = Number(((Math.abs(it.newNetto - it.oldNetto) / it.oldNetto) * 100).toFixed(2));  // valore assoluto
+          }
+          return [
+            it.code, it.brand, it.category,
+            it.oldPVP, it.newPVP, it.pvpDelta, pvpVar,
+            it.oldNetto, it.newNetto, it.nettoDelta, nettoTipo, nettoMarg, nettoRsAbs,
+            it.oldDisc != null ? Number(it.oldDisc.toFixed(2)) : '',
+            it.newDisc != null ? Number(it.newDisc.toFixed(2)) : '',
+            it.discDelta != null ? Number(it.discDelta.toFixed(2)) : '',
+            discVar,
+          ];
+        });
+      } else if(type === 'added'){
+        header = ['Codice','Marca','Categoria','PVP','Netto','Sconto %'];
+        rows = items.map(it => [
+          it.code, it.brand, it.category,
+          it.newPVP, it.newNetto,
+          it.newDisc != null ? Number(it.newDisc.toFixed(2)) : '',
+        ]);
+      } else {
+        // removed
+        header = ['Codice','Marca','Categoria','PVP','Netto','Sconto %'];
+        rows = items.map(it => [
+          it.code, it.brand, it.category,
+          it.oldPVP, it.oldNetto,
+          it.oldDisc != null ? Number(it.oldDisc.toFixed(2)) : '',
+        ]);
+      }
+      const aoa = [header, ...rows];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      // Larghezze ragionevoli
+      ws['!cols'] = header.map(h => ({ wch: h.length > 16 ? 18 : 14 }));
+      return ws;
+    };
+
+    if(r.improved.length) XLSX.utils.book_append_sheet(wb, buildSheet(r.improved, 'compare'), 'Sconto migliorato');
+    if(r.worsened.length) XLSX.utils.book_append_sheet(wb, buildSheet(r.worsened, 'compare'), 'Sconto peggiorato');
+    if(r.priceOnly.length) XLSX.utils.book_append_sheet(wb, buildSheet(r.priceOnly, 'compare'), 'Solo prezzi');
+    if(r.added.length) XLSX.utils.book_append_sheet(wb, buildSheet(r.added, 'added'), 'Nuovi prodotti');
+    if(r.removed.length) XLSX.utils.book_append_sheet(wb, buildSheet(r.removed, 'removed'), 'Rimossi');
+
+    // Sheet riassunto
+    const summary = [
+      ['Riepilogo confronto scontistiche'],
+      [],
+      ['File caricato', state.fileName || ''],
+      ['Data confronto', state.fileDate ? state.fileDate.toLocaleString('it-IT') : ''],
+      ['Database attuale', r.totals.currentDB],
+      ['Prodotti CSV nuovo', r.totals.newCSV],
+      ['Prodotti abbinati', r.totals.matched],
+      [],
+      ['Sconto migliorato', r.improved.length],
+      ['Sconto peggiorato', r.worsened.length],
+      ['Solo variazione prezzi', r.priceOnly.length],
+      ['Nuovi prodotti', r.added.length],
+      ['Prodotti rimossi', r.removed.length],
+    ];
+    const wsSum = XLSX.utils.aoa_to_sheet(summary);
+    wsSum['!cols'] = [{wch:25},{wch:30}];
+    XLSX.utils.book_append_sheet(wb, wsSum, 'Riepilogo');
+
+    updateLoaderAdvanced(-1, 0, 'Scrittura file XLSX…', '💾');
+    await new Promise(rr => setTimeout(rr, 30));
+
+    const ts = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const fname = 'confronto_scontistiche_' + ts + '.xlsx';
+    XLSX.writeFile(wb, fname);
+
+    hideLoaderAdvanced();
+    toast({ type:'ok', title:'Confronto esportato', message: fname, duration: 4500 });
+
+  } catch(err){
+    hideLoaderAdvanced();
+    console.error('[discount-compare] export error:', err);
+    toast('Errore export: ' + (err.message || err), 'err', 5000);
+  }
+}
+
+/* ─── Dialog di errore generico ─── */
+function showCompareErrorDialog(message){
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.style.zIndex = '350';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+  bg.innerHTML =
+    '<div class="modal" style="max-width:480px">' +
+      '<div class="modal-head" style="background:rgba(239,68,68,0.10);border-bottom:1px solid rgba(239,68,68,0.3)">' +
+        '<h3 style="color:#ef4444">❌ Errore</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:22px 24px">' +
+        '<p style="font-size:13px;line-height:1.65;color:var(--fg);margin:0">' + escapeHtml(message) + '</p>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" onclick="this.closest(\'.modal-bg\').remove()">Chiudi</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(bg);
+}
+
+
 /* ========== RESET DB ========== */
 
 /* ==========
@@ -24388,7 +25711,7 @@ async function openSourceExport(){
     ? `Il file conterrà ${nEdits.toLocaleString('it-IT')} prodott${nEdits === 1 ? 'o' : 'i'} con modifiche locali integrate.`
     : 'Nessuna modifica locale presente: il file esportato sarà una copia del sorgente caricato (con le eventuali normalizzazioni applicate all\'import).';
 
-  // Dialog custom con scelta formato: aggiungo una variante di showConfirmDialog
+  // Dialog custom con scelta formato + V2.2.43: checkbox opzionale "Includi Sconto %"
   const choice = await showFormatChoiceDialog({
     title: 'Salva sorgente con modifiche',
     icon: '💾',
@@ -24403,14 +25726,28 @@ async function openSourceExport(){
       { value: 'xlsx', label: '📊 Excel (.xlsx)', hint: 'Raccomandato — formato nativo Excel, caratteri speciali preservati' },
       { value: 'csv',  label: '📄 CSV (.csv)',    hint: 'Come il file del fornitore — UTF-8, separatore ";"' },
     ],
+    extraOptions: [
+      {
+        id: 'srcExpDiscount',
+        label: 'Includi colonna Sconto % (calcolata)',
+        hint: 'Aggiunge una 26ª colonna "discount_pct" calcolata da PVP e prezzo netto. Vuota se PVP o netto non sono validi. ⚠️ Il file non sarà più conforme al formato standard Visiotech: una ri-importazione potrebbe ignorare la colonna extra.',
+        default: false,
+      },
+    ],
   });
 
   if(!choice) return;  // annullato
-  await doSourceExport(choice);
+
+  // V2.2.43: il dialog ora ritorna un oggetto {value, extras} se ci sono extraOptions
+  const format = (typeof choice === 'object') ? choice.value : choice;
+  const extras = (typeof choice === 'object') ? (choice.extras || {}) : {};
+  await doSourceExport(format, extras);
 }
 
-// Esegue l'export vero e proprio nel formato scelto
-async function doSourceExport(format){
+// V2.2.43: aggiunto parametro extras per opzioni personalizzazione (es. includi sconto)
+async function doSourceExport(format, extras){
+  extras = extras || {};
+  const includeDiscount = !!extras.srcExpDiscount;
   const fmtLabel = format === 'xlsx' ? 'Excel (.xlsx)' : 'CSV (.csv)';
   showLoaderAdvanced(
     `Esportazione sorgente ${fmtLabel}`,
@@ -24442,17 +25779,38 @@ async function doSourceExport(format){
     const ts = new Date().toISOString().slice(0,10).replace(/-/g,'');
     const fname = `gestione-prodotti_sorgente_${ts}.${format}`;
 
+    // V2.2.43: headers usati per export. Se l'utente ha attivato la checkbox sconto,
+    // aggiungo la 26ª colonna 'discount_pct' in fondo a VISIOTECH_HEADERS (mantenendo
+    // intatto l'array originale per non inquinare altre funzioni).
+    const headers = includeDiscount
+      ? [...VISIOTECH_HEADERS, 'discount_pct']
+      : VISIOTECH_HEADERS;
+
+    // V2.2.43: helper per calcolare lo sconto da una riga (rows[i] è già il merge p+edits).
+    // Ritorna stringa con 1 decimale o stringa vuota se non valido.
+    const computeDiscountForRow = (r) => {
+      if(!r) return '';
+      const listino = priceNum(r.PVP || r.precio_venta_cliente_final);
+      const netto = priceNum(r.precio_neto_compra);
+      if(listino !== null && netto !== null && listino > 0 && netto > 0 && netto <= listino){
+        return ((1 - netto/listino) * 100).toFixed(1);
+      }
+      return '';
+    };
+
     if(format === 'xlsx'){
       // FASE 2a (XLSX): costruzione struttura AoA
       updateLoaderAdvanced(0, rows.length, 'Costruzione struttura AoA…', '📗');
       await new Promise(r=>setTimeout(r,30));
 
-      const aoa = [VISIOTECH_HEADERS];
+      const aoa = [headers];
       for(let i = 0; i < rows.length; i += CHUNK){
         const end = Math.min(i + CHUNK, rows.length);
         for(let j = i; j < end; j++){
           const r = rows[j];
-          aoa.push(VISIOTECH_HEADERS.map(h=>{
+          aoa.push(headers.map(h=>{
+            // V2.2.43: gestione speciale colonna sconto
+            if(h === 'discount_pct') return computeDiscountForRow(r);
             const v = r[h];
             return v == null ? '' : String(v);
           }));
@@ -24467,7 +25825,7 @@ async function doSourceExport(format){
 
       const ws = XLSX.utils.aoa_to_sheet(aoa);
       // Forza la colonna EAN (indice 15) e altre identificative come testo
-      const eanCol = VISIOTECH_HEADERS.indexOf('ean');
+      const eanCol = headers.indexOf('ean');
       if(eanCol >= 0){
         for(let i = 2; i <= rows.length + 1; i++){
           const cellRef = XLSX.utils.encode_cell({ r: i-1, c: eanCol });
@@ -24475,8 +25833,8 @@ async function doSourceExport(format){
         }
       }
       // Larghezze colonna ragionevoli
-      ws['!cols'] = VISIOTECH_HEADERS.map(h=>{
-        const widthMap = { name:35, image_path:50, description:60, specifications:50, content:40, ean:18, created:20, modified:20, params:60 };
+      ws['!cols'] = headers.map(h=>{
+        const widthMap = { name:35, image_path:50, description:60, specifications:50, content:40, ean:18, created:20, modified:20, params:60, discount_pct:14 };
         return { wch: widthMap[h] || 16 };
       });
       const wb = XLSX.utils.book_new();
@@ -24500,11 +25858,15 @@ async function doSourceExport(format){
         }
         return s;
       };
-      const lines = [ VISIOTECH_HEADERS.join(';') ];
+      const lines = [ headers.join(';') ];
       for(let i = 0; i < rows.length; i += CHUNK){
         const end = Math.min(i + CHUNK, rows.length);
         for(let j = i; j < end; j++){
-          lines.push(VISIOTECH_HEADERS.map(h=> esc(rows[j][h])).join(';'));
+          lines.push(headers.map(h=>{
+            // V2.2.43: gestione speciale colonna sconto
+            if(h === 'discount_pct') return esc(computeDiscountForRow(rows[j]));
+            return esc(rows[j][h]);
+          }).join(';'));
         }
         updateLoaderAdvanced(end, rows.length, 'Scrittura righe CSV (escape, encoding UTF-8)…', '📄');
         await new Promise(r=>setTimeout(r, 0));
@@ -24601,6 +25963,7 @@ function showFormatChoiceDialog(opts){
     message = '',
     details = [],
     options = [],
+    extraOptions = [],  // V2.2.43: array di checkbox extra: [{id, label, hint, default}]
   } = opts;
 
   return new Promise((resolve)=>{
@@ -24618,6 +25981,22 @@ function showFormatChoiceDialog(opts){
       </button>
     `).join('');
 
+    // V2.2.43: blocco checkbox extra (opzioni aggiuntive che vengono lette al click sulla scelta formato)
+    const extraHtml = extraOptions.length > 0 ? `
+      <div class="format-extras" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px">Opzioni aggiuntive</div>
+        ${extraOptions.map(e => `
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--fg);cursor:pointer;padding:6px 8px;border-radius:6px;transition:background .12s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'">
+            <input type="checkbox" id="${escapeAttr(e.id)}" ${e.default ? 'checked' : ''} style="margin-top:2px;flex-shrink:0">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:500">${escapeHtml(e.label)}</div>
+              ${e.hint ? `<div style="font-size:11px;color:var(--fg3);margin-top:2px;line-height:1.45">${escapeHtml(e.hint)}</div>` : ''}
+            </div>
+          </label>
+        `).join('')}
+      </div>
+    ` : '';
+
     bg.innerHTML = `
       <div class="modal confirm-modal">
         <div class="modal-head">
@@ -24627,12 +26006,23 @@ function showFormatChoiceDialog(opts){
           <p class="confirm-message">${escapeHtml(message)}</p>
           ${detailsHtml}
           <div class="format-options-grid">${optionsHtml}</div>
+          ${extraHtml}
         </div>
         <div class="modal-foot">
           <button class="btn ghost" data-act="cancel">Annulla</button>
         </div>
       </div>
     `;
+
+    // V2.2.43: helper per leggere lo stato delle checkbox extra al momento della scelta
+    const readExtras = () => {
+      const extras = {};
+      extraOptions.forEach(e => {
+        const el = bg.querySelector('#' + e.id);
+        extras[e.id] = el ? !!el.checked : !!e.default;
+      });
+      return extras;
+    };
 
     const close = (val) => {
       bg.remove();
@@ -24643,9 +26033,19 @@ function showFormatChoiceDialog(opts){
       if(e.key === 'Escape') close(null);
     };
     bg.addEventListener('click', (e)=>{
+      // Click sulle checkbox/label deve passare attraverso senza chiudere il dialog
+      if(e.target.closest('.format-extras')) return;
       if(e.target === bg) close(null);
       const opt = e.target.closest('.format-option');
-      if(opt){ close(opt.dataset.value); return; }
+      if(opt){
+        // V2.2.43: se ci sono extraOptions, ritorno un oggetto con value + extras
+        if(extraOptions.length > 0){
+          close({ value: opt.dataset.value, extras: readExtras() });
+        } else {
+          close(opt.dataset.value);
+        }
+        return;
+      }
       const act = e.target.closest('button[data-act]')?.dataset?.act;
       if(act === 'cancel') close(null);
     });
