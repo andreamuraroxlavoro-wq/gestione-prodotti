@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.2.43</title>
+<title>Gestione Prodotti V2.7.9</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
@@ -2010,6 +2010,52 @@ select.filled:focus{
 body.theme-light .card-prices .card-discount{
   color:#b45309;
   background:rgba(245,158,11,0.12);
+}
+
+/* V2.5.5: pillola sconto in VIOLA quando l'articolo ha sconti aggiuntivi a cascata.
+   La differenziazione cromatica è il segnale primario: l'utente capisce a colpo
+   d'occhio (anche senza leggere la stella) che quel prezzo include sconti speciali
+   oltre quello di listino. Il viola (#7c3aed) è coerente con la palette "speciale"
+   dell'app (modalità Analisi nei preventivi). */
+.card-prices .card-discount.card-discount-cascade{
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.15);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+body.theme-light .card-prices .card-discount.card-discount-cascade{
+  color: #6d28d9;
+  background: rgba(124, 58, 237, 0.12);
+  border-color: rgba(124, 58, 237, 0.35);
+}
+/* Stesso schema anche nella vista lista (font 11px override) */
+.card-discount.card-discount-cascade{
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.15);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+body.theme-light .card-discount.card-discount-cascade{
+  color: #6d28d9;
+  background: rgba(124, 58, 237, 0.12);
+}
+
+/* V2.5.4: badge stella accanto allo sconto quando ci sono sconti aggiuntivi a cascata */
+.card-cascade-badge{
+  display: inline-block;
+  margin-left: 4px;
+  /* V2.5.5: stella in viola coerente con la pillola sconto-cascade */
+  color: #7c3aed;
+  font-size: 11px;
+  font-weight: 900;
+  text-shadow: 0 0 1px rgba(124, 58, 237, 0.4);
+  cursor: help;
+  vertical-align: baseline;
+}
+.card-prices.has-cascade-adj{
+  position: relative;
+  /* V2.5.5: bordo sinistro viola tenue per coerenza con la pillola */
+  border-left: 2px solid #7c3aed;
+  padding-left: 6px;
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.04), transparent 30%);
 }
 
 /* ==========================================================================
@@ -5239,6 +5285,285 @@ body.theme-light .loader-card{
 .disc-cmp-tbl tbody tr:hover{background:var(--bg4);cursor:default}
 .disc-cmp-tbl tbody tr:nth-child(even):not(:hover){background:rgba(127,127,127,0.025)}
 
+/* ════════════════════════════════════════════════════════════════════════
+   V2.2.43 — MODALITÀ PREVENTIVO
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Bottone "P" sulle card prodotto: visibile solo quando body.quote-mode è attivo */
+.card-img .quote-trigger{
+  position:absolute;
+  top:46px;       /* sotto al fumetto (.eye-trigger) che è a top:8px con altezza ~30px */
+  right:8px;
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:rgba(255,107,53,0.92);
+  border:1px solid rgba(255,255,255,0.4);
+  box-shadow:0 2px 6px rgba(0,0,0,0.25);
+  display:none;  /* nascosto di default, visibile solo in quote-mode */
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  z-index:5;
+  transition:transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  font-family:inherit;
+  color:#fff;
+  font-weight:800;
+  font-size:13px;
+  letter-spacing:0.5px;
+  padding:0;
+  user-select:none;
+}
+body.quote-mode .card-img .quote-trigger{display:flex}
+.card-img .quote-trigger:hover{
+  transform:scale(1.12);
+  background:rgba(234,88,12,1);
+  box-shadow:0 4px 10px rgba(0,0,0,0.35);
+}
+.card-img .quote-trigger:active{transform:scale(0.95)}
+/* Quando l'articolo è già nel carrello, evidenzia */
+.card-img .quote-trigger.in-cart{
+  background:rgba(34,197,94,0.92);
+  border-color:rgba(255,255,255,0.5);
+}
+.card-img .quote-trigger.in-cart:hover{background:rgba(22,163,74,1)}
+
+/* Pulsante fluttuante carrello — bottom-right, sempre visibile in quote-mode */
+#quote-float-btn{
+  position:fixed;
+  bottom:24px;
+  right:24px;
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  background:linear-gradient(135deg, #ff6b35 0%, #ea580c 100%);
+  border:0;
+  color:#fff;
+  cursor:pointer;
+  box-shadow:0 6px 18px rgba(234,88,12,0.4), 0 2px 4px rgba(0,0,0,0.1);
+  z-index:300;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:transform 0.18s ease, box-shadow 0.18s ease;
+  font-family:inherit;
+}
+#quote-float-btn:hover{
+  transform:scale(1.08) translateY(-2px);
+  box-shadow:0 10px 24px rgba(234,88,12,0.5), 0 3px 6px rgba(0,0,0,0.15);
+}
+#quote-float-btn:active{transform:scale(0.96)}
+#quote-float-btn .quote-float-badge{
+  position:absolute;
+  top:-4px;
+  right:-4px;
+  min-width:22px;
+  height:22px;
+  padding:0 6px;
+  border-radius:11px;
+  background:#1f2937;
+  color:#fff;
+  font-size:11px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 2px 4px rgba(0,0,0,0.3);
+  border:2px solid #fff;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:0;
+}
+@keyframes quote-bump-anim{
+  0%{transform:scale(1)}
+  35%{transform:scale(1.25)}
+  60%{transform:scale(0.92)}
+  100%{transform:scale(1)}
+}
+#quote-float-btn.quote-bump{animation:quote-bump-anim 0.45s ease}
+
+/* Tabella carrello — V2.3.6: font +25%, bottoni qty centrati */
+.quote-cart-tbl{width:100%;border-collapse:collapse;font-size:14px;font-family:inherit}
+.quote-cart-tbl thead th{
+  padding:12px 12px;background:var(--bg4);color:var(--fg2);
+  font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:12.5px;
+  position:sticky;top:0;border-bottom:1px solid var(--border);
+  text-align:left;z-index:1;
+}
+.quote-cart-tbl thead th.num{text-align:right}
+.quote-cart-tbl tbody td{
+  padding:11px 12px;border-bottom:1px solid var(--border);
+  font-size:14px;color:var(--fg2);vertical-align:middle;
+}
+.quote-cart-tbl tbody td.code{
+  color:var(--fg);letter-spacing:0.3px;font-size:14px;
+}
+.quote-cart-tbl tbody td.num{
+  font-variant-numeric:tabular-nums;text-align:right;color:var(--fg);
+}
+.quote-cart-tbl tbody tr:hover{background:var(--bg4)}
+.quote-cart-tbl tbody tr:nth-child(even):not(:hover){background:rgba(127,127,127,0.025)}
+
+/* Bottoni quantità (- e +) — perfetto centramento del simbolo nel riquadro */
+.qcart-qty-btn{
+  width:32px;height:32px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:700;line-height:1;
+  border-radius:6px;flex-shrink:0;
+}
+.qcart-qty-input-css{
+  width:64px;text-align:center;padding:5px 6px;
+  border:1px solid var(--border);border-radius:5px;
+  background:var(--bg);color:var(--fg);
+  font-weight:700;font-family:inherit;font-size:14px;
+  font-variant-numeric:tabular-nums;
+  /* V2.7.6: nascondo gli spinner nativi del browser, sono ridondanti
+     con i pulsanti dedicati − / + ai lati. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+/* V2.7.6: rimuovo i pulsantini spinner su Chrome/Safari/Edge (WebKit) */
+.qcart-qty-input-css::-webkit-outer-spin-button,
+.qcart-qty-input-css::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+/* Pulsante rimuovi articolo */
+.qcart-remove-btn{
+  width:32px;height:32px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:#ef4444;font-size:14px;font-weight:700;line-height:1;
+  border-radius:6px;
+}
+
+/* V2.5.6: Switch a 2 segmenti per la modalità preventivo (Analisi/Cliente)
+   posizionato nell'header del modal carrello. Sostituisce il vecchio badge
+   testuale e permette di cambiare modalità con un singolo click.
+   Pattern visivo: pill container con segmento attivo evidenziato.
+   I colori sono coerenti con quelli usati altrove nell'app:
+     - Analisi → viola (#a855f7)
+     - Cliente → blu (#2563eb) */
+.qcart-mode-switch{
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  user-select: none;
+}
+.qcart-mode-seg{
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--fg3);
+  padding: 4px 12px;
+  border-radius: 4px;
+  transition: background 0.12s ease, color 0.12s ease;
+  line-height: 1.4;
+}
+.qcart-mode-seg:hover:not(.qcart-mode-active){
+  color: var(--fg);
+  background: rgba(255,255,255,0.04);
+}
+body.theme-light .qcart-mode-seg:hover:not(.qcart-mode-active){
+  background: rgba(0,0,0,0.04);
+}
+.qcart-mode-seg.qcart-mode-active{
+  /* Lo sfondo e il colore vengono assegnati dalle classi qcart-mode-analysis
+     o qcart-mode-client (vedi sotto). */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+.qcart-mode-seg.qcart-mode-active.qcart-mode-analysis{
+  color: #a855f7;
+  background: rgba(168,85,247,0.18);
+}
+body.theme-light .qcart-mode-seg.qcart-mode-active.qcart-mode-analysis{
+  color: #7e22ce;
+  background: rgba(168,85,247,0.14);
+}
+.qcart-mode-seg.qcart-mode-active.qcart-mode-client{
+  color: #2563eb;
+  background: rgba(59,130,246,0.18);
+}
+body.theme-light .qcart-mode-seg.qcart-mode-active.qcart-mode-client{
+  color: #1d4ed8;
+  background: rgba(59,130,246,0.14);
+}
+.qcart-mode-seg:focus-visible{
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* V2.3.7: Input sconto % per riga (Modalità Cliente) */
+.qcart-discount-css{
+  width:64px;text-align:right;padding:5px 8px;
+  border:1px solid var(--border);border-radius:5px;
+  background:var(--bg);color:var(--fg);
+  font-weight:700;font-family:inherit;font-size:14px;
+  font-variant-numeric:tabular-nums;
+}
+.qcart-discount-css:focus{
+  border-color:#ef4444;outline:0;
+  box-shadow:0 0 0 2px rgba(239,68,68,0.15);
+}
+.qcart-discount-css:disabled{
+  opacity:.4;cursor:not-allowed;
+}
+
+/* Switch toggle nel menu Modalità Preventivo */
+.tb-dropdown-item.quote-mode-item{
+  position:relative;
+  padding-right:60px;  /* spazio per lo switch */
+}
+.quote-mode-switch-wrap{
+  position:absolute;
+  right:14px;
+  top:50%;
+  transform:translateY(-50%);
+  display:inline-flex;
+  align-items:center;
+}
+.quote-mode-switch-wrap input[type="checkbox"]{
+  appearance:none;
+  -webkit-appearance:none;
+  width:36px;
+  height:20px;
+  background:var(--border2);
+  border-radius:11px;
+  position:relative;
+  cursor:pointer;
+  transition:background 0.2s ease;
+  margin:0;
+}
+.quote-mode-switch-wrap input[type="checkbox"]::after{
+  content:'';
+  position:absolute;
+  top:2px;
+  left:2px;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,0.3);
+  transition:left 0.2s ease;
+}
+.quote-mode-switch-wrap input[type="checkbox"]:checked{
+  background:var(--accent);
+}
+.quote-mode-switch-wrap input[type="checkbox"]:checked::after{
+  left:18px;
+}
+
+
 /* V2.2.42: icona "?" helper sull'header colonne sconti — apre il dialog
    esplicativo che descrive cosa significano Min/Media/Max/Pesato. */
 .discount-tbl th .stats-help-ico{
@@ -5318,6 +5643,130 @@ body.theme-light .discount-tree-row[data-path]:hover{
   color: var(--fg2);
   font-weight: 400;
   font-size: 11px;
+}
+
+/* ─── V2.5.3: Sconti aggiuntivi a cascata ─── */
+
+/* Header colonne extra in edit mode */
+.discount-tbl th.tree-adj-th{
+  background: rgba(245,158,11,0.10);
+  color: #d97706;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  padding: 5px 8px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.discount-tbl th.tree-adj-th-sub{
+  background: rgba(245,158,11,0.05);
+  padding: 3px 4px !important;
+}
+body.theme-light .discount-tbl th.tree-adj-th{
+  background: rgba(245,158,11,0.12);
+}
+body.theme-light .discount-tbl th.tree-adj-th-sub{
+  background: rgba(245,158,11,0.06);
+}
+
+/* Celle delle 6 caselle: bordo sinistro chiaro per separarle visivamente */
+.discount-tree-row .tree-adj-cell{
+  text-align: center;
+  padding: 3px 4px !important;
+  vertical-align: middle;
+  border-left: 1px dashed var(--border);
+}
+.discount-tree-row .tree-adj-cell:first-of-type{
+  border-left: 1px solid var(--border);
+}
+
+/* Input numerico per inserire % sconto */
+.tree-adj-input{
+  width: 52px;
+  text-align: right;
+  padding: 3px 5px;
+  font-size: 10.5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;  /* nasconde le frecce su Firefox */
+}
+.tree-adj-input::-webkit-outer-spin-button,
+.tree-adj-input::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+.tree-adj-input:focus{
+  outline: none;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.2);
+  background: rgba(245,158,11,0.06);
+}
+.tree-adj-input:hover:not(:focus){
+  border-color: rgba(245,158,11,0.5);
+}
+
+/* Cella non applicabile (livello articolo in edit mode) */
+.tree-adj-na{
+  background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.02) 4px, rgba(0,0,0,0.02) 8px);
+}
+
+/* Evidenziazione righe con sconti aggiuntivi applicati */
+.discount-tree-row.tree-has-adj{
+  background: rgba(245,158,11,0.06) !important;
+  position: relative;
+}
+.discount-tree-row.tree-has-adj > td:first-child{
+  border-left: 3px solid #f59e0b;
+  padding-left: 7px !important;  /* compenso il bordo per non spostare il testo */
+}
+body.theme-light .discount-tree-row.tree-has-adj{
+  background: rgba(245,158,11,0.07) !important;
+}
+.discount-tree-row.tree-has-adj:hover{
+  background: rgba(245,158,11,0.12) !important;
+}
+
+/* Badge "+N" accanto al nome del nodo, indica quanti sconti aggiuntivi sono attivi */
+.tree-adj-badge{
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 9px;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+/* Stile dei valori statistici quando c'è uno sconto attivo:
+   - originali in piccolo, sbiaditi, barrati
+   - effettivi in verde, più grandi e bold */
+.discount-tree-row .tree-sc-original{
+  font-variant-numeric: tabular-nums;
+}
+.discount-tree-row .tree-sc-original.tree-sc-faded{
+  color: var(--fg3);
+  font-size: 10px;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--fg3);
+}
+.discount-tree-row .tree-sc-effective{
+  font-variant-numeric: tabular-nums;
+  min-height: 1px;  /* mantiene altezza coerente anche quando vuoto */
+}
+
+/* Aggiusto layout per quando ci sono due valori (originale + effettivo): media verticale */
+.discount-tree-row.tree-has-adj .tree-sc{
+  line-height: 1.25;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 /* Livello 3 — ARTICOLO (foglia finale, più profonda) */
@@ -6519,7 +6968,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.2.43</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.7.9</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -6781,6 +7230,11 @@ body.theme-light .dlg-input{background:var(--bg3)}
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
             Statistiche
           </button>
+          <button class="tb-dropdown-item quote-mode-item" id="quoteModeMenuBtn" role="menuitem" title="Attiva la modalità per creare preventivi: aggiungi prodotti al carrello dalla card e genera il preventivo finale">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            Modalità Preventivo
+            <span class="quote-mode-switch-wrap"><input type="checkbox" id="quote-mode-switch" tabindex="-1" aria-label="Attiva/disattiva modalità preventivo"></span>
+          </button>
           <button class="tb-dropdown-item" onclick="openDiscountAnalysis(); closeAllTopbarDropdowns()" role="menuitem" title="Analisi sconti per Marca, Macrocategoria e Categoria">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
             Scontistiche
@@ -6920,7 +7374,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.2.43');
+console.info('[bootstrap] script avvio — V2.7.9');
 
 window.openStatsDashboard = function(){
   try {
@@ -8350,7 +8804,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.2.43';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.7.9';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 let DICT = {};           // dizionario corrente (LocalStorage)
@@ -17646,7 +18100,12 @@ function renderGallery(main, list){
     const brand = getField(p,'brand');
     const listino = getField(p,'PVP') || getField(p,'precio_venta_cliente_final');
     const netto = getField(p,'precio_neto_compra');
-    const discountPct = computeDiscount(listino, netto);
+    // V2.5.4: applico gli sconti aggiuntivi a cascata se ci sono per questo articolo.
+    // getEffectiveProductPrices ritorna i prezzi effettivi (uguali agli originali se non ci sono sconti).
+    const _eff = getEffectiveProductPrices(p);
+    const effNetto = _eff && _eff.hasAdj ? _eff.nettoEff : priceNum(netto);
+    const effDisc  = _eff && _eff.hasAdj ? _eff.scEff : computeDiscount(listino, netto);
+    const discountPct = computeDiscount(listino, netto);  // mantengo originale per visualizzazione
     const itLvl = stockIT(p);
     const esLvl = stockES(p);
     const img = imgUrl(getField(p,'image_path'));
@@ -17676,20 +18135,29 @@ function renderGallery(main, list){
     // Blocco prezzi:
     // - Modalità OFF (showDiscount=false): mostra SOLO il listino (PVP)
     // - Modalità ON (showDiscount=true):   mostra listino, "Sc. X%", netto (senza barrature)
+    // V2.5.4: se l'articolo eredita sconti aggiuntivi (a cascata), mostra il netto/sconto
+    // EFFETTIVI (ricalcolati). Listino resta sempre l'originale. Un piccolo badge "★"
+    // affianca lo sconto per indicare la presenza degli sconti aggiuntivi.
     const showDisc = SETTINGS.showDiscount;
     const hasPrice = priceNum(netto) !== null || priceNum(listino) !== null;
+    const _showEff = _eff && _eff.hasAdj;
     let priceBlock = '';
     if(hasPrice){
       if(showDisc){
-        // V2.1.21: Tre righe (Netto → Sconto → Listino), stessa struttura.
-        // Netto e Listino usano entrambi .card-price + .card-price-label per
-        // avere font 14px bold 700 identico. Classi extra per i colori:
-        //   .card-netto-green   → valore verde (prezzo interessante per chi rivende)
-        //   .card-listino-neutral → valore neutro (solo riferimento listino)
+        const _displayNetto = _showEff ? effNetto : priceNum(netto);
+        const _displayDisc = _showEff ? effDisc : discountPct;
+        // Tooltip ricco se ci sono sconti aggiuntivi: mostra dettaglio cascata
+        let _adjTip = '';
+        if(_showEff){
+          const slots = _eff.adjArr.filter(x => x > 0).map(x => fmtDiscount(x)).join(' · ');
+          _adjTip = 'Sconti aggiuntivi (' + _eff.adjPath + '): ' + slots +
+                    '\nSc. originale: ' + fmtDiscount(_eff.scOrig) +
+                    '\nSc. effettivo: ' + fmtDiscount(_eff.scEff);
+        }
         priceBlock = `
-          <div class="card-prices">
-            ${priceNum(netto) ? `<span class="card-price card-netto-green"><span class="card-price-label">Netto</span> € ${fmtPrice(netto)}</span>` : ''}
-            ${discountPct !== null ? `<span class="card-discount">Sc. ${fmtDiscount(discountPct)}</span>` : ''}
+          <div class="card-prices${_showEff ? ' has-cascade-adj' : ''}"${_adjTip ? ` title="${escapeAttr(_adjTip)}"` : ''}>
+            ${priceNum(_displayNetto) ? `<span class="card-price card-netto-green"><span class="card-price-label">Netto</span> € ${fmtPrice(_displayNetto)}</span>` : ''}
+            ${_displayDisc !== null ? `<span class="card-discount${_showEff ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_displayDisc)}${_showEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span>' : ''}</span>` : ''}
             ${priceNum(listino) ? `<span class="card-price card-listino-neutral"><span class="card-price-label">Listino</span> € ${fmtPrice(listino)}</span>` : ''}
           </div>`;
       } else {
@@ -17722,6 +18190,7 @@ function renderGallery(main, list){
         <span class="eye-trigger" role="button" tabindex="-1" aria-label="Mostra dettagli prodotto" title="Mostra dettagli prodotto">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </span>
+        <button class="quote-trigger" type="button" data-product-idx="${p._idx}" aria-label="Aggiungi al preventivo" title="Aggiungi al preventivo">P</button>
         ${nExtras>0?`<span class="extra-count">📷 ${nExtras}</span>`:''}
         ${nRelated>0?`<span class="related-count">🔗 ${nRelated}</span>`:''}
       </div>
@@ -17778,6 +18247,26 @@ function renderGallery(main, list){
         showHoverPreview(eyeTriggerEl, p._idx, e.clientX, e.clientY);
       });
     }
+    // V2.2.43: bottone "P" per aggiungere al preventivo (visibile solo in quote-mode via CSS)
+    const quoteTriggerEl = card.querySelector('.quote-trigger');
+    if(quoteTriggerEl){
+      // Marca come "in-cart" se il prodotto è già nel carrello (defensive contro state non inizializzato)
+      try {
+        const code = String(getField(p, 'name') || '').trim();
+        if(code && window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)){
+          if(window._QUOTE_STATE.items.some(it => it.code === code)){
+            quoteTriggerEl.classList.add('in-cart');
+          }
+        }
+      } catch(_){}
+      quoteTriggerEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if(typeof openQuoteAddDialog === 'function'){
+          openQuoteAddDialog(p._idx);
+        }
+      });
+    }
     grid.appendChild(card);
   });
   main.appendChild(grid);
@@ -17816,6 +18305,11 @@ function renderTable(main, list){
     const listino = getField(p,'PVP') || getField(p,'precio_venta_cliente_final');
     const netto = getField(p,'precio_neto_compra');
     const discountPct = computeDiscount(listino, netto);
+    // V2.5.4: prezzi effettivi se ci sono sconti aggiuntivi a cascata
+    const _eff = getEffectiveProductPrices(p);
+    const _showEff = _eff && _eff.hasAdj;
+    const _displayNetto = _showEff ? _eff.nettoEff : priceNum(netto);
+    const _displayDisc = _showEff ? _eff.scEff : discountPct;
 
     // V2.2.36: badge inline accanto al nome del prodotto
     let inlineBadge = '';
@@ -17826,15 +18320,22 @@ function renderTable(main, list){
     let priceCells;
     if(showDisc){
       const listinoTxt = priceNum(listino) ? `€ ${fmtPrice(listino)}` : '—';
-      const nettoTxt = priceNum(netto) ? `€ ${fmtPrice(netto)}` : '—';
-      const scontoTxt = discountPct !== null
-        ? `<span class="card-discount" style="font-size:11px">Sc. ${fmtDiscount(discountPct)}</span>`
+      // V2.5.4: netto e sconto sono quelli effettivi (con ★ se ci sono sconti aggiuntivi)
+      const nettoTxt = priceNum(_displayNetto) ? `€ ${fmtPrice(_displayNetto)}` : '—';
+      const scontoTxt = _displayDisc !== null
+        ? `<span class="card-discount${_showEff ? ' card-discount-cascade' : ''}" style="font-size:11px">Sc. ${fmtDiscount(_displayDisc)}${_showEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span>' : ''}</span>`
         : '—';
+      // Tooltip ricco di dettaglio cascata (solo se applicato)
+      let adjTip = '';
+      if(_showEff){
+        const slots = _eff.adjArr.filter(x => x > 0).map(x => fmtDiscount(x)).join(' · ');
+        adjTip = ` title="Sconti aggiuntivi (${escapeAttr(_eff.adjPath)}): ${escapeAttr(slots)} | Sc. orig: ${fmtDiscount(_eff.scOrig)} → effettivo: ${fmtDiscount(_eff.scEff)}"`;
+      }
       // Ordine: Listino | Sconto | Netto (Sconto al centro)
       priceCells = `
         <td style="color:var(--fg2);font-size:12px">${listinoTxt}</td>
-        <td>${scontoTxt}</td>
-        <td style="color:var(--accent3);font-weight:700">${nettoTxt}</td>`;
+        <td${adjTip}>${scontoTxt}</td>
+        <td style="color:var(--accent3);font-weight:700"${adjTip}>${nettoTxt}</td>`;
     } else {
       // OFF: mostra solo il listino
       const listinoTxt = priceNum(listino) ? `€ ${fmtPrice(listino)}` : '—';
@@ -22886,6 +23387,284 @@ function setViewedTimer(seconds, mode){
    Uno sconto è valido solo se: listino > 0 && netto > 0 && netto <= listino.
    ========== */
 
+/* ─── V2.5.3: Sconti aggiuntivi a cascata sull'albero scontistiche ───
+   Permette di applicare fino a 6 sconti aggiuntivi in cascata ai livelli
+   gerarchici (Marca / Macrocategoria / Categoria). Gli sconti sono
+   INDIPENDENTI per livello: lo sconto su una Categoria non eredita
+   quello della Marca padre, ma agisce direttamente sulla riga corrente.
+
+   Persistenza in localStorage con chiave 'discountTreeAdjustments_v1',
+   struttura:
+     {
+       "brand|AJAX": [10, 5, 0, 0, 0, 0],
+       "category_parent|AJAX/Centrale": [3, 0, 0, 0, 0, 0],
+       "category|AJAX/Centrale/Pannelli": [2, 0, 0, 0, 0, 0]
+     }
+   La chiave incorpora il path completo dalla radice per evitare collisioni
+   tra categorie omonime appartenenti a marche diverse.
+
+   Stato runtime:
+   - window._DISCOUNT_TREE_EDIT_MODE: true mostra le 6 caselle editabili
+   - window._DISCOUNT_TREE_ADJ_CACHE: cache in memoria degli sconti caricati
+*/
+const DTA_STORAGE_KEY = 'discountTreeAdjustments_v1';
+window._DISCOUNT_TREE_EDIT_MODE = false;
+window._DISCOUNT_TREE_ADJ_CACHE = null;
+
+// Carica gli aggiustamenti da localStorage (lazy, cached in memoria)
+function loadDiscountAdjustments(){
+  if(window._DISCOUNT_TREE_ADJ_CACHE !== null) return window._DISCOUNT_TREE_ADJ_CACHE;
+  try {
+    const raw = localStorage.getItem(DTA_STORAGE_KEY);
+    window._DISCOUNT_TREE_ADJ_CACHE = raw ? JSON.parse(raw) : {};
+  } catch(e){
+    console.warn('[disc-adj] errore lettura localStorage:', e);
+    window._DISCOUNT_TREE_ADJ_CACHE = {};
+  }
+  return window._DISCOUNT_TREE_ADJ_CACHE;
+}
+
+// Salva gli aggiustamenti in localStorage (write-through, idempotente)
+function saveDiscountAdjustments(){
+  try {
+    localStorage.setItem(DTA_STORAGE_KEY, JSON.stringify(window._DISCOUNT_TREE_ADJ_CACHE || {}));
+  } catch(e){
+    console.error('[disc-adj] errore salvataggio localStorage:', e);
+    if(typeof toast === 'function') toast('Errore salvataggio sconti: ' + (e.message || e), 'err', 5000);
+  }
+}
+
+// Recupera i 6 sconti per un nodo (sempre array di 6 numeri, 0..100)
+function getAdjForNode(level, pathKey){
+  const key = (level === 0 ? 'brand|' : level === 1 ? 'category_parent|' : 'category|') + pathKey;
+  const adj = loadDiscountAdjustments();
+  const arr = adj[key];
+  // Sanitizzo: garantisco sempre 6 numeri validi
+  const out = [0,0,0,0,0,0];
+  if(Array.isArray(arr)){
+    for(let i = 0; i < 6; i++){
+      const v = parseFloat(arr[i]);
+      if(!isNaN(v) && v >= 0 && v < 100) out[i] = v;
+    }
+  }
+  return out;
+}
+
+// Imposta uno sconto specifico (slotIdx 0..5) per un nodo. Salva su localStorage.
+function setAdjForNode(level, pathKey, slotIdx, value){
+  if(slotIdx < 0 || slotIdx > 5) return;
+  const key = (level === 0 ? 'brand|' : level === 1 ? 'category_parent|' : 'category|') + pathKey;
+  const adj = loadDiscountAdjustments();
+  const current = (adj[key] && Array.isArray(adj[key])) ? adj[key].slice() : [0,0,0,0,0,0];
+  while(current.length < 6) current.push(0);
+  // Sanitizzo il valore: clamp [0, 99.99]
+  let v = parseFloat(value);
+  if(isNaN(v) || v < 0) v = 0;
+  if(v > 99.99) v = 99.99;
+  current[slotIdx] = v;
+  // Se tutti gli slot sono 0, rimuovo l'entry per non accumulare chiavi inutili
+  const allZero = current.every(x => x === 0);
+  if(allZero){
+    delete adj[key];
+  } else {
+    adj[key] = current;
+  }
+  saveDiscountAdjustments();
+}
+
+// Verifica se un nodo ha almeno uno sconto aggiuntivo > 0 (per evidenziazione visiva)
+function hasAdjustments(level, pathKey){
+  const adj = getAdjForNode(level, pathKey);
+  return adj.some(x => x > 0);
+}
+
+// Applica gli sconti in cascata. La formula commerciale standard è:
+//   netto_effettivo = listino × (1 - sc_originale/100) × Π (1 - sc_n/100)
+// Equivalente: sconto_effettivo = 1 - (1-sc_orig) × Π (1-sc_n)
+// Funzione: dato uno sconto originale (in %) e l'array dei 6 sconti aggiuntivi,
+// ritorna il nuovo sconto effettivo (in %).
+function applyCascadingDiscount(originalPct, adjArr){
+  // Validazione difensiva
+  if(originalPct == null || isNaN(originalPct)) return originalPct;
+  let residual = 1 - (originalPct / 100);  // frazione che resta da pagare
+  if(Array.isArray(adjArr)){
+    for(const a of adjArr){
+      const v = parseFloat(a);
+      if(!isNaN(v) && v > 0 && v < 100){
+        residual *= (1 - v / 100);
+      }
+    }
+  }
+  return (1 - residual) * 100;
+}
+
+// Conta quanti sconti aggiuntivi sono > 0 (utile per UI riassuntiva)
+function countActiveAdj(adjArr){
+  if(!Array.isArray(adjArr)) return 0;
+  return adjArr.filter(x => parseFloat(x) > 0).length;
+}
+
+/* ─── V2.5.4: Calcolo prezzi effettivi del singolo prodotto ───
+   Risolve gli sconti aggiuntivi per un articolo applicando la regola
+   "solo il livello più specifico disponibile":
+     1) cerco sconti per la sua Categoria (path: brand/category_parent/category)
+     2) se vuoti, cerco per la sua Macrocategoria (path: brand/category_parent)
+     3) se vuoti, cerco per la sua Marca (path: brand)
+     4) altrimenti nessuno sconto aggiuntivo
+   Restituisce sempre un oggetto con i 4 valori principali, hasAdj per UI,
+   adjPath/adjLevel per debug e tooltip esplicativo.
+
+   IMPORTANTE: non modifica MAI il prodotto sottostante. È puramente di display.
+   Quando l'utente rimuove gli sconti aggiuntivi tutto torna come prima.
+*/
+function getEffectiveProductPrices(product){
+  if(!product) return null;
+  // Valori grezzi (sempre originali, mai sovrascritti)
+  const listino = priceNum(getField(product, 'PVP') || getField(product, 'precio_venta_cliente_final'));
+  const nettoOrig = priceNum(getField(product, 'precio_neto_compra'));
+
+  // Calcolo sconto originale (% rispetto al listino)
+  let scOrig = null;
+  if(listino != null && nettoOrig != null && listino > 0 && nettoOrig <= listino){
+    scOrig = (1 - nettoOrig / listino) * 100;
+  }
+
+  // Lookup gerarchica: più specifico prima
+  const brand = String(getField(product, 'brand') || '').trim();
+  const catParent = String(getField(product, 'category_parent') || '').trim();
+  const cat = String(getField(product, 'category') || '').trim();
+
+  let adjArr = null;
+  let adjPath = null;
+  let adjLevel = null;
+
+  // Tentativo 1: livello Categoria (path completo)
+  if(brand && catParent && cat){
+    const tryCat = getAdjForNode(2, brand + '/' + catParent + '/' + cat);
+    if(tryCat.some(x => x > 0)){
+      adjArr = tryCat; adjPath = brand + ' › ' + catParent + ' › ' + cat; adjLevel = 'category';
+    }
+  }
+  // Tentativo 2: livello Macrocategoria
+  if(!adjArr && brand && catParent){
+    const tryCp = getAdjForNode(1, brand + '/' + catParent);
+    if(tryCp.some(x => x > 0)){
+      adjArr = tryCp; adjPath = brand + ' › ' + catParent; adjLevel = 'category_parent';
+    }
+  }
+  // Tentativo 3: livello Marca
+  if(!adjArr && brand){
+    const tryBrand = getAdjForNode(0, brand);
+    if(tryBrand.some(x => x > 0)){
+      adjArr = tryBrand; adjPath = brand; adjLevel = 'brand';
+    }
+  }
+
+  const hasAdj = !!adjArr;
+  let scEff = scOrig;
+  let nettoEff = nettoOrig;
+  if(hasAdj && scOrig != null){
+    scEff = applyCascadingDiscount(scOrig, adjArr);
+    nettoEff = listino * (1 - scEff / 100);
+  }
+
+  return {
+    listino,
+    nettoOrig,
+    scOrig,
+    nettoEff,
+    scEff,
+    adjArr: adjArr || [0,0,0,0,0,0],
+    adjPath,
+    adjLevel,
+    hasAdj,
+  };
+}
+
+// Toggle modalità modifica
+function toggleDiscountTreeEditMode(){
+  window._DISCOUNT_TREE_EDIT_MODE = !window._DISCOUNT_TREE_EDIT_MODE;
+  const btn = document.getElementById('discTreeEditToggleBtn');
+  const resetBtn = document.getElementById('discTreeResetBtn');
+  if(window._DISCOUNT_TREE_EDIT_MODE){
+    if(btn){
+      btn.innerHTML = '✓ Fine modifica';
+      btn.classList.add('warn');
+      btn.title = 'Disattiva la modalità modifica (gli sconti restano salvati)';
+    }
+    if(resetBtn) resetBtn.style.display = '';
+  } else {
+    if(btn){
+      btn.innerHTML = '✏️ Modifica';
+      btn.classList.remove('warn');
+      btn.title = 'Modifica: aggiungi sconti a cascata per Marca/Macrocategoria/Categoria';
+    }
+    if(resetBtn) resetBtn.style.display = 'none';
+  }
+  // Rerendero per mostrare/nascondere le caselle
+  showDiscountTree();
+}
+
+// Reset di tutti gli aggiustamenti (con conferma)
+function resetDiscountTreeAdjustments(){
+  const adj = loadDiscountAdjustments();
+  const count = Object.keys(adj).length;
+  if(count === 0){
+    if(typeof toast === 'function') toast({ type:'info', title:'Nessuno sconto da rimuovere', duration:2500 });
+    return;
+  }
+  if(!confirm('Rimuovere TUTTI gli sconti aggiuntivi salvati? (' + count + ' voci)\n\nL\'operazione è irreversibile.')) return;
+  window._DISCOUNT_TREE_ADJ_CACHE = {};
+  saveDiscountAdjustments();
+  if(typeof toast === 'function') toast({ type:'ok', title:'Sconti rimossi', message: count + ' voci eliminate', duration:3500 });
+  showDiscountTree();
+}
+
+// Handler chiamato dagli input sconto al cambio (onchange / oninput)
+// Path è la chiave gerarchica completa (es. "AJAX" o "AJAX/Centrale/Pannelli")
+function onAdjInputChange(level, path, slotIdx, inputEl){
+  const raw = inputEl.value.replace(',', '.');
+  setAdjForNode(level, path, slotIdx, raw);
+  // Aggiorno SOLO la riga corrente per evitare flicker dell'intera tabella
+  // (ricalcolo i valori derivati nelle 4 colonne statistiche).
+  updateRowStatsAfterAdj(level, path, inputEl);
+}
+
+// Ricalcola e aggiorna i numeri Min/Media/Max/Pesato per una singola riga
+// dopo che è cambiato un sconto aggiuntivo. Non re-renderizza l'intera tabella
+// per evitare di perdere focus sull'input che l'utente sta digitando.
+function updateRowStatsAfterAdj(level, path, inputEl){
+  // Risalgo al <tr> che contiene questo input
+  const tr = inputEl.closest('tr.discount-tree-row');
+  if(!tr) return;
+  // Leggo i valori originali dagli attributi data-* che renderRow ha salvato
+  const origMin = parseFloat(tr.dataset.origMin);
+  const origAvg = parseFloat(tr.dataset.origAvg);
+  const origMax = parseFloat(tr.dataset.origMax);
+  const origWeighted = parseFloat(tr.dataset.origWeighted);
+  const adj = getAdjForNode(level, path);
+  const newMin = applyCascadingDiscount(origMin, adj);
+  const newAvg = applyCascadingDiscount(origAvg, adj);
+  const newMax = applyCascadingDiscount(origMax, adj);
+  const newWeighted = applyCascadingDiscount(origWeighted, adj);
+  // Aggiorno le celle (selettori interni per evitare collisioni)
+  const minCell  = tr.querySelector('.tree-sc-min .tree-sc-effective');
+  const avgCell  = tr.querySelector('.tree-sc-avg .tree-sc-effective');
+  const maxCell  = tr.querySelector('.tree-sc-max .tree-sc-effective');
+  const weiCell  = tr.querySelector('.tree-sc-wei .tree-sc-effective');
+  const hasAnyAdj = adj.some(x => x > 0);
+  if(minCell) minCell.textContent = hasAnyAdj ? fmtDiscount(newMin) : '';
+  if(avgCell) avgCell.textContent = hasAnyAdj ? fmtDiscount(newAvg) : '';
+  if(maxCell) maxCell.textContent = hasAnyAdj ? fmtDiscount(newMax) : '';
+  if(weiCell) weiCell.textContent = hasAnyAdj ? fmtDiscount(newWeighted) : '';
+  // Evidenziazione visiva: aggiungi/rimuovi classe `tree-has-adj`
+  if(hasAnyAdj){
+    tr.classList.add('tree-has-adj');
+  } else {
+    tr.classList.remove('tree-has-adj');
+  }
+}
+
 // Calcola l'aggregazione gerarchica: Marca → Macrocategoria → Categoria.
 // Restituisce array di nodi Marca, ognuno con figli Macrocategoria, ognuno con figli Categoria.
 // Ogni nodo a ogni livello ha le sue statistiche aggregate (min/media/max/pesato).
@@ -23101,6 +23880,10 @@ function openDiscountAnalysis(){
           '<button class="btn small" onclick="showDiscountAnalysis(\'brand\')" title="Aggregato per Marca">📊 Per Marca</button>' +
           '<button class="btn small" onclick="showDiscountAnalysis(\'category_parent\')" title="Aggregato per Macrocategoria">📊 Per Macrocategoria</button>' +
           '<button class="btn small" onclick="showDiscountAnalysis(\'category\')" title="Aggregato per Categoria">📊 Per Categoria</button>' +
+          // V2.5.3: pulsanti Modifica e Reset per gli sconti aggiuntivi a cascata
+          '<span style="width:1px;height:24px;background:var(--border);margin:0 2px"></span>' +
+          '<button class="btn small" id="discTreeEditToggleBtn" onclick="toggleDiscountTreeEditMode()" title="Modifica: aggiungi sconti a cascata per Marca/Macrocategoria/Categoria">✏️ Modifica</button>' +
+          '<button class="btn small" id="discTreeResetBtn" onclick="resetDiscountTreeAdjustments()" title="Rimuovi tutti gli sconti aggiuntivi" style="display:none;color:#dc2626;border-color:#fca5a5">🔄 Reset sconti</button>' +
           '<span style="flex:1"></span>' +  // spaziatore
           '<button class="btn small success" onclick="exportDiscountAnalysis()" title="Esporta tutti i dati in Excel">📥 Esporta Excel</button>' +
           '<button class="btn small" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600" onclick="openDiscountCompareDialog()" title="Carica un nuovo file fornitore e confronta i prezzi">📂 Confronta con CSV/Excel</button>' +
@@ -23270,6 +24053,52 @@ window._DISCOUNT_TREE_EXPANDED = window._DISCOUNT_TREE_EXPANDED || new Set();
 // Chiamato dalle icone "?" negli header delle tabelle.
 // Il parametro highlightCol opzionale evidenzia la colonna su cui l'utente
 // ha cliccato (per dare feedback contestuale).
+// V2.5.3: dialog di spiegazione formula sconti a cascata
+function showCascadingHelp(){
+  document.querySelectorAll('.modal-bg[data-cascading-help-dialog]').forEach(el => el.remove());
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.setAttribute('data-cascading-help-dialog', '1');
+  bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px';
+  bg.onclick = e => { if(e.target === bg) bg.remove(); };
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:10px;max-width:680px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 12px 48px rgba(0,0,0,0.6)';
+  modal.innerHTML =
+    '<div style="padding:18px 22px 14px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:12px">' +
+      '<div style="width:32px;height:32px;border-radius:50%;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.5);display:flex;align-items:center;justify-content:center;color:#d97706;font-weight:700;font-size:16px;flex-shrink:0">%</div>' +
+      '<div style="flex:1">' +
+        '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:900;font-size:20px;letter-spacing:1.5px;text-transform:uppercase;color:var(--fg)">Sconti a cascata — guida</div>' +
+        '<div style="font-size:11px;color:var(--fg3);margin-top:2px">Come funziona la concatenazione di sconti aggiuntivi</div>' +
+      '</div>' +
+      '<button type="button" onclick="this.closest(\'.modal-bg\').remove()" style="background:transparent;border:1px solid var(--border);color:var(--fg2);padding:6px 12px;border-radius:14px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:0.5px">✕ CHIUDI</button>' +
+    '</div>' +
+    '<div style="padding:20px 22px;font-size:13px;line-height:1.6;color:var(--fg)">' +
+      '<p style="margin:0 0 14px;color:var(--fg2)">Gli sconti a cascata seguono la <b>formula commerciale standard</b>: ogni sconto è applicato al netto risultante dallo sconto precedente, non sul listino originale.</p>' +
+      '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin:14px 0;font-family:monospace;font-size:12px;color:var(--fg)">' +
+        'netto = listino × (1 − sc.orig/100) × (1 − sc1/100) × (1 − sc2/100) × …' +
+      '</div>' +
+      '<p style="margin:14px 0 8px;font-weight:700;color:var(--fg)">Esempio pratico:</p>' +
+      '<ul style="margin:0 0 14px;padding-left:22px;color:var(--fg2)">' +
+        '<li>Listino: <b>100,00 €</b></li>' +
+        '<li>Sconto originale: <b>50%</b> → netto provvisorio = 50,00 €</li>' +
+        '<li>Sconto aggiuntivo 1: <b>10%</b> → netto = 50,00 × 0,90 = <b>45,00 €</b></li>' +
+        '<li>Sconto aggiuntivo 2: <b>5%</b> → netto = 45,00 × 0,95 = <b>42,75 €</b></li>' +
+        '<li><b>Sconto effettivo totale: 57,25%</b> (non 65%, che sarebbe la somma 50+10+5)</li>' +
+      '</ul>' +
+      '<p style="margin:14px 0 8px;font-weight:700;color:var(--fg)">Caratteristiche:</p>' +
+      '<ul style="margin:0 0 14px;padding-left:22px;color:var(--fg2)">' +
+        '<li>Gli sconti sono <b>indipendenti per livello</b>: lo sconto su una Categoria <b>non eredita</b> automaticamente lo sconto della Marca padre.</li>' +
+        '<li>I valori <span style="color:#16a34a;font-weight:700">verdi</span> mostrano lo sconto <b>effettivo</b> dopo la cascata.</li>' +
+        '<li>I valori <span style="color:var(--fg3);text-decoration:line-through">grigi barrati</span> sono i valori <b>originali</b> di partenza.</li>' +
+        '<li>Le righe con sconti applicati hanno un <span style="color:#f59e0b;font-weight:700">bordo arancione</span> a sinistra.</li>' +
+        '<li>Tutti gli sconti sono <b>salvati nel browser</b> e ritrovati al prossimo accesso.</li>' +
+      '</ul>' +
+    '</div>';
+  bg.appendChild(modal);
+  document.body.appendChild(bg);
+}
+
 function showDiscountStatsExplanation(highlightCol){
   // Rimuovo eventuali dialog già aperti per evitare sovrapposizioni
   document.querySelectorAll('.modal-bg[data-stats-help-dialog]').forEach(el => el.remove());
@@ -23433,25 +24262,84 @@ function showDiscountTree(){
     const isAltRow = rowIdx % 2 === 1;
     rowIdx++;
 
+    // V2.5.3: edit mode + sconti aggiuntivi a cascata
+    // Le caselle sono visibili solo per livelli 0/1/2 (Marca/Macrocategoria/Categoria)
+    // e solo quando window._DISCOUNT_TREE_EDIT_MODE === true.
+    const editMode = window._DISCOUNT_TREE_EDIT_MODE === true;
+    const isHierarchical = level <= 2;
+    const adjArr = isHierarchical ? getAdjForNode(level, pathKey) : [0,0,0,0,0,0];
+    const hasAdj = isHierarchical && adjArr.some(x => x > 0);
+    // Sconti effettivi dopo cascata (= valori originali se hasAdj === false)
+    const effMin = hasAdj ? applyCascadingDiscount(node.stats.minSc, adjArr) : node.stats.minSc;
+    const effAvg = hasAdj ? applyCascadingDiscount(node.stats.avgSc, adjArr) : node.stats.avgSc;
+    const effMax = hasAdj ? applyCascadingDiscount(node.stats.maxSc, adjArr) : node.stats.maxSc;
+    const effWeighted = hasAdj ? applyCascadingDiscount(node.stats.weightedSc, adjArr) : node.stats.weightedSc;
+
     let rowClass = `discount-tree-row lvl-${level}`;
     if(level === 0) rowClass += ' tree-brand-row';
     if(isAltRow) rowClass += ' tree-alt-row';
+    if(hasAdj) rowClass += ' tree-has-adj';  // V2.5.3: evidenziazione arancio
 
-    let html = `
-      <tr class="${rowClass}"
-          ${hasChildren ? `data-path="${escapeAttr(pathKey)}" onclick="toggleTreeNode('${escapeJs(pathKey)}')" style="cursor:pointer"` : ''}
-          data-level="${level}">
-        <td style="padding-left:${10+indent}px;white-space:nowrap">
-          <span class="tree-icon" style="color:${iconColor}">${icon}</span>
-          <span class="tree-key">${escapeHtml(node.key)}</span>
-        </td>
-        <td class="tree-num">${node.stats.count.toLocaleString('it-IT')}</td>
-        <td class="tree-sc">${fmtDiscount(node.stats.minSc)}</td>
-        <td class="tree-sc tree-avg">${fmtDiscount(node.stats.avgSc)}</td>
-        <td class="tree-sc">${fmtDiscount(node.stats.maxSc)}</td>
-        <td class="tree-sc tree-weighted">${fmtDiscount(node.stats.weightedSc)}</td>
-      </tr>
-    `;
+    // V2.5.3: helper per renderizzare una cella statistica con valore originale
+    // e (opzionalmente) valore effettivo dopo cascata. La cella ha classi specifiche
+    // (tree-sc-min/avg/max/wei) per permettere a updateRowStatsAfterAdj di trovarle.
+    const scCell = (cls, origValue, effValue, extraCls) => {
+      const showEff = hasAdj;  // mostro la riga "effettiva" solo se ci sono sconti
+      const effHtml = showEff
+        ? '<div class="tree-sc-effective" style="font-size:11px;font-weight:700;color:#16a34a;margin-top:1px">' + fmtDiscount(effValue) + '</div>'
+        : '<div class="tree-sc-effective"></div>';  // placeholder vuoto per slot dom stabile
+      return '<td class="tree-sc ' + cls + (extraCls ? ' ' + extraCls : '') + '">' +
+        '<div class="tree-sc-original' + (showEff ? ' tree-sc-faded' : '') + '">' + fmtDiscount(origValue) + '</div>' +
+        effHtml +
+      '</td>';
+    };
+
+    // Costruisco le 6 caselle editabili (rendering condizionale)
+    let adjCellsHtml = '';
+    if(editMode && isHierarchical){
+      const escPath = escapeAttr(pathKey);
+      let cells = '';
+      for(let i = 0; i < 6; i++){
+        const v = adjArr[i];
+        // Formato visualizzato: numero con virgola italiana (12,5), 0 mostrato come placeholder
+        const displayVal = (v === 0) ? '' : (Number.isInteger(v) ? v : v.toFixed(2).replace(/\.?0+$/, '').replace('.', ','));
+        cells += '<td class="tree-adj-cell">' +
+          '<input type="number" class="tree-adj-input" min="0" max="99.99" step="0.5" placeholder="0" ' +
+          'value="' + displayVal + '" ' +
+          'data-level="' + level + '" data-path="' + escPath + '" data-slot="' + i + '" ' +
+          'onclick="event.stopPropagation()" ' +
+          'onchange="onAdjInputChange(' + level + ', this.dataset.path, ' + i + ', this)" ' +
+          'oninput="onAdjInputChange(' + level + ', this.dataset.path, ' + i + ', this)" ' +
+          'title="Sconto aggiuntivo ' + (i + 1) + ' (%) - cascata: prodotto con sconti precedenti">' +
+        '</td>';
+      }
+      adjCellsHtml = cells;
+    } else if(editMode){
+      // Per il livello articolo (level 3) le caselle non si applicano: celle vuote per allineamento
+      adjCellsHtml = '<td colspan="6" class="tree-adj-cell tree-adj-na"></td>';
+    }
+
+    // Attributi data-orig-* per il fast-update senza re-render dell'intera tabella
+    const dataAttrs = isHierarchical
+      ? ' data-orig-min="' + node.stats.minSc + '" data-orig-avg="' + node.stats.avgSc +
+        '" data-orig-max="' + node.stats.maxSc + '" data-orig-weighted="' + node.stats.weightedSc + '"'
+      : '';
+
+    let html = '<tr class="' + rowClass + '"' +
+        (hasChildren ? ' data-path="' + escapeAttr(pathKey) + '" onclick="toggleTreeNode(\'' + escapeJs(pathKey) + '\')" style="cursor:pointer"' : '') +
+        ' data-level="' + level + '"' + dataAttrs + '>' +
+      '<td style="padding-left:' + (10+indent) + 'px;white-space:nowrap">' +
+        '<span class="tree-icon" style="color:' + iconColor + '">' + icon + '</span>' +
+        '<span class="tree-key">' + escapeHtml(node.key) + '</span>' +
+        (hasAdj ? '<span class="tree-adj-badge" title="' + countActiveAdj(adjArr) + ' sconti aggiuntivi applicati">+' + countActiveAdj(adjArr) + '</span>' : '') +
+      '</td>' +
+      '<td class="tree-num">' + node.stats.count.toLocaleString('it-IT') + '</td>' +
+      scCell('tree-sc-min', node.stats.minSc, effMin) +
+      scCell('tree-sc-avg', node.stats.avgSc, effAvg, 'tree-avg') +
+      scCell('tree-sc-max', node.stats.maxSc, effMax) +
+      scCell('tree-sc-wei', node.stats.weightedSc, effWeighted, 'tree-weighted') +
+      adjCellsHtml +
+      '</tr>';
 
     if(isExpanded){
       // Espandi children (Macrocategoria/Categoria) se ce ne sono
@@ -23479,6 +24367,9 @@ function showDiscountTree(){
   // del blocco articoli a livello di stile (evito anomalie di zebra striping).
   const renderItemHeaderRow = (level) => {
     const indent = level * 22;
+    // V2.5.3: in edit mode aggiungo 6 celle vuote per allineamento con le caselle sopra
+    const editMode = window._DISCOUNT_TREE_EDIT_MODE === true;
+    const adjBlank = editMode ? '<td colspan="6" class="tree-item-header-cell" style="border-left:1px dashed var(--border)"></td>' : '';
     return `
       <tr class="discount-tree-row tree-item-header" data-level="3h">
         <td style="padding-left:${10+indent}px;white-space:nowrap;color:var(--fg3);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">
@@ -23489,6 +24380,7 @@ function showDiscountTree(){
         <td class="tree-sc tree-item-header-cell">Sconto</td>
         <td class="tree-sc tree-item-header-cell">Netto</td>
         <td class="tree-sc tree-item-header-cell"></td>
+        ${adjBlank}
       </tr>
     `;
   };
@@ -23503,6 +24395,9 @@ function showDiscountTree(){
     const altClass = isAltRow ? ' tree-alt-row' : '';
     // Nome articolo con codice EAN in grigio tenue a lato
     const eanHtml = item.ean ? `<span class="tree-item-ean"> · ${escapeHtml(item.ean)}</span>` : '';
+    // V2.5.3: in edit mode aggiungo 6 celle vuote per allineamento
+    const editMode = window._DISCOUNT_TREE_EDIT_MODE === true;
+    const adjBlank = editMode ? '<td colspan="6" class="tree-adj-na" style="border-left:1px dashed var(--border)"></td>' : '';
     return `
       <tr class="discount-tree-row tree-item-row${altClass}" data-level="3">
         <td style="padding-left:${10+indent}px;white-space:nowrap">
@@ -23514,6 +24409,7 @@ function showDiscountTree(){
         <td class="tree-sc tree-item-disc">${fmtDiscount(item.sconto)}</td>
         <td class="tree-sc tree-item-price">€ ${fmtPrice(item.netto)}</td>
         <td class="tree-sc">—</td>
+        ${adjBlank}
       </tr>
     `;
   };
@@ -23525,6 +24421,34 @@ function showDiscountTree(){
   const containerStyle = expanded
     ? 'max-height:calc(85vh - 180px);overflow:auto;border:1px solid var(--border);border-radius:4px;background:var(--bg3)'
     : 'max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:4px;background:var(--bg3)';
+
+  // V2.5.3: in edit mode aggiungo header per le 6 caselle sconto
+  const editMode = window._DISCOUNT_TREE_EDIT_MODE === true;
+  const adjThead = editMode
+    ? '<th class="tree-adj-th" style="text-align:center;border-left:1px solid var(--border)" colspan="6">' +
+      'Sconti aggiuntivi a cascata <span class="stats-help-ico" onclick="event.stopPropagation();showCascadingHelp()" title="Cosa significa? Clicca per maggiori informazioni">?</span>' +
+      '</th>'
+    : '';
+  const adjSubThead = editMode
+    ? '<th class="tree-adj-th-sub" style="text-align:center;font-size:9px;color:var(--fg3);font-weight:500;border-left:1px solid var(--border)">Sc. 1 (%)</th>' +
+      '<th class="tree-adj-th-sub" style="text-align:center;font-size:9px;color:var(--fg3);font-weight:500">Sc. 2 (%)</th>' +
+      '<th class="tree-adj-th-sub" style="text-align:center;font-size:9px;color:var(--fg3);font-weight:500">Sc. 3 (%)</th>' +
+      '<th class="tree-adj-th-sub" style="text-align:center;font-size:9px;color:var(--fg3);font-weight:500">Sc. 4 (%)</th>' +
+      '<th class="tree-adj-th-sub" style="text-align:center;font-size:9px;color:var(--fg3);font-weight:500">Sc. 5 (%)</th>' +
+      '<th class="tree-adj-th-sub" style="text-align:center;font-size:9px;color:var(--fg3);font-weight:500">Sc. 6 (%)</th>'
+    : '';
+
+  // V2.5.3: banner informativo in edit mode
+  const adjCount = Object.keys(loadDiscountAdjustments()).length;
+  const editBanner = editMode
+    ? '<div style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--fg2);line-height:1.55">' +
+      '<b style="color:#d97706">✏️ Modalità modifica attiva</b>. Inserisci fino a 6 sconti aggiuntivi (%) per ogni livello gerarchico. ' +
+      'Gli sconti sono concatenati: <code>netto = listino × (1−sc.orig) × (1−sc1) × (1−sc2) × …</code>. ' +
+      'Gli sconti sono <b>indipendenti per livello</b> (non ereditano dalla Marca). ' +
+      'Persistenza automatica nel browser. ' +
+      (adjCount > 0 ? '<b>' + adjCount + '</b> nodi con sconti attivi.' : '') +
+      '</div>'
+    : '';
 
   box.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
@@ -23540,17 +24464,20 @@ function showDiscountTree(){
         </span>
       </div>
     </div>
+    ${editBanner}
     <div id="discount-tree-scroll" style="${containerStyle}">
       <table class="tbl discount-tbl" style="margin:0">
         <thead>
           <tr>
-            <th style="text-align:left">Gerarchia</th>
-            <th style="text-align:right">N.</th>
-            <th style="text-align:right">Min<button type="button" class="stats-help-ico" onclick="event.stopPropagation();showDiscountStatsExplanation('min')" title="Cosa significa? Clicca per maggiori informazioni">?</button></th>
-            <th style="text-align:right">Media<button type="button" class="stats-help-ico" onclick="event.stopPropagation();showDiscountStatsExplanation('avg')" title="Cosa significa? Clicca per maggiori informazioni">?</button></th>
-            <th style="text-align:right">Max<button type="button" class="stats-help-ico" onclick="event.stopPropagation();showDiscountStatsExplanation('max')" title="Cosa significa? Clicca per maggiori informazioni">?</button></th>
-            <th style="text-align:right">Pesato<button type="button" class="stats-help-ico" onclick="event.stopPropagation();showDiscountStatsExplanation('weighted')" title="Cosa significa? Clicca per maggiori informazioni">?</button></th>
+            <th style="text-align:left" rowspan="${editMode ? 2 : 1}">Gerarchia</th>
+            <th style="text-align:right" rowspan="${editMode ? 2 : 1}">N.</th>
+            <th style="text-align:right" rowspan="${editMode ? 2 : 1}">Min<button type="button" class="stats-help-ico" onclick="event.stopPropagation();showDiscountStatsExplanation('min')" title="Cosa significa? Clicca per maggiori informazioni">?</button></th>
+            <th style="text-align:right" rowspan="${editMode ? 2 : 1}">Media<button type="button" class="stats-help-ico" onclick="event.stopPropagation();showDiscountStatsExplanation('avg')" title="Cosa significa? Clicca per maggiori informazioni">?</button></th>
+            <th style="text-align:right" rowspan="${editMode ? 2 : 1}">Max<button type="button" class="stats-help-ico" onclick="event.stopPropagation();showDiscountStatsExplanation('max')" title="Cosa significa? Clicca per maggiori informazioni">?</button></th>
+            <th style="text-align:right" rowspan="${editMode ? 2 : 1}">Pesato<button type="button" class="stats-help-ico" onclick="event.stopPropagation();showDiscountStatsExplanation('weighted')" title="Cosa significa? Clicca per maggiori informazioni">?</button></th>
+            ${adjThead}
           </tr>
+          ${editMode ? '<tr>' + adjSubThead + '</tr>' : ''}
         </thead>
         <tbody>${rowsHtml}</tbody>
       </table>
@@ -25291,6 +26218,2327 @@ function showCompareErrorDialog(message){
     '</div>';
   document.body.appendChild(bg);
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   V2.2.43 — MODALITÀ PREVENTIVO
+   Sistema completo per la creazione di preventivi commerciali B2B:
+   - Toggle on/off dalla voce di menu ⚙️
+   - Bottone P sulle card prodotto (visibile solo in modalità attiva)
+   - Carrello persistente IndexedDB con quantità e prezzi snapshot
+   - Pulsante fluttuante carrello bottom-right con badge conteggio
+   - Modal carrello con totali (PVP, Netto, Margine)
+   - Export Word/PDF/Excel del preventivo finale
+   ════════════════════════════════════════════════════════════════════════ */
+
+// Stato globale modalità preventivo
+window._QUOTE_STATE = {
+  mode: false,        // modalità attiva/disattiva
+  items: [],          // array di { idx, code, nameShort, nameFull, brand, qty, pvp, netto, addedAt }
+  settings: {         // V2.3.4: impostazioni del preventivo, persistite in IDB
+    descMode: 'short',  // 'short' = descrizione breve | 'full' = descrizione completa
+    mode: 'analysis',   // V2.3.7: 'analysis' = vista interna con netto/margine
+                        //         'client'   = preventivo cliente con sconto per riga
+
+    // V2.4.2 (legacy): flag granulari unificati — mantenuti per retrocompat con state IDB pre-V2.6.0.
+    // Il dialog Impostazioni di stampa dalla V2.6.0 lavora invece sui set separati sottostanti.
+    showImage: true,
+    showCode: true,
+    showBrand: true,
+    showListDiscount: true,
+    showPriceTotal: true,
+    showRowTotal: true,
+
+    // V2.6.0: set SEPARATI per modalità Analisi e Cliente. Ognuno con flag indipendenti
+    // per ogni colonna disponibile in quella modalità.
+    // I set sono inizializzati da QUOTE_SETTINGS_DEFAULT al primo accesso.
+    printAnalysis: null,  // popolato da QUOTE_PRINT_DEFAULT_ANALYSIS
+    printClient: null,    // popolato da QUOTE_PRINT_DEFAULT_CLIENT
+  },
+  loaded: false,      // true dopo caricamento IDB iniziale
+};
+
+/* V2.6.0: schema dei set per i due settaggi di stampa.
+   Mantengo struttura piatta {flagName: bool} per semplicità di serializzazione.
+   Ogni set è indipendente: l'utente può configurare ANALISI per "preventivo
+   completo" e CLIENTE per "preventivo essenziale" senza che si sovrascrivano. */
+
+// Default Modalità ANALISI — 10 colonne configurabili
+const QUOTE_PRINT_DEFAULT_ANALYSIS = Object.freeze({
+  showImage:     true,   // Immagine prodotto
+  showCode:      true,   // Codice articolo (nella cella descrizione)
+  showBrand:     true,   // Marca (nella cella descrizione)
+  showListino:   true,   // Listino unitario (PVP)
+  showSconto:    true,   // V2.6.1: Sconto di acquisto (% effettiva, include cascata)
+  showNetto:     true,   // Netto unitario (costo acquisto)
+  showScCliente: true,   // V2.6.1: Sconto applicato al cliente (% riga, Modalità Cliente)
+  showMargine:   true,   // V2.6.1: Margine commerciale % (gross margin sulla vendita)
+  showTotPvp:    true,   // Totale per articolo (PVP × Q.tà)
+  showTotNetto:  true,   // Totale per riga (Netto × Q.tà)
+});
+
+// Default Modalità CLIENTE — 7 colonne configurabili
+const QUOTE_PRINT_DEFAULT_CLIENT = Object.freeze({
+  showImage:    true,   // Immagine prodotto
+  showCode:     true,   // Codice articolo (nella cella descrizione)
+  showBrand:    true,   // Marca (nella cella descrizione)
+  showListino:  true,   // Prezzo di listino
+  showSconto:   true,   // Sconto applicato (%)
+  showPrezzo:   true,   // Prezzo di vendita unitario (Listino × (1 - sc/100))
+  showTotRiga:  true,   // Totale per riga (Prezzo × Q.tà)
+});
+
+// Helper: ritorna il set effettivo per la modalità corrente, con merge sui default.
+// Garantisce sempre un oggetto valido anche con state IDB legacy (pre-V2.6.0).
+function getPrintSettings(mode){
+  const s = window._QUOTE_STATE.settings || {};
+  if(mode === 'client'){
+    return Object.assign({}, QUOTE_PRINT_DEFAULT_CLIENT, s.printClient || {});
+  }
+  return Object.assign({}, QUOTE_PRINT_DEFAULT_ANALYSIS, s.printAnalysis || {});
+}
+
+// Default delle settings — usato come fallback se IDB non ha valori salvati
+// e per merge non distruttivo all'aggiunta di nuovi campi in versioni future.
+const QUOTE_SETTINGS_DEFAULT = {
+  descMode: 'short',
+  mode: 'analysis',  // V2.3.7
+  // Legacy flag — mantenuti per retrocompat con state pre-V2.6.0
+  showImage: true,
+  showCode: true,
+  showBrand: true,
+  showListDiscount: true,
+  showPriceTotal: true,
+  showRowTotal: true,
+  // V2.6.0: nuovi set separati per le due modalità
+  printAnalysis: null,
+  printClient: null,
+};
+
+// Chiavi IndexedDB nello store 'meta'
+const QUOTE_KEY_MODE = 'quote_mode_state';
+const QUOTE_KEY_CART = 'quote_cart';
+const QUOTE_KEY_SETTINGS = 'quote_settings';  // V2.3.4
+
+/* ─── Persistenza IndexedDB ─── */
+
+async function saveQuoteState(){
+  if(typeof db === 'undefined' || !db) return;
+  try {
+    await idbSet('meta', QUOTE_KEY_MODE, { mode: window._QUOTE_STATE.mode });
+    await idbSet('meta', QUOTE_KEY_CART, { items: window._QUOTE_STATE.items });
+    await idbSet('meta', QUOTE_KEY_SETTINGS, { settings: window._QUOTE_STATE.settings });
+  } catch(err){
+    console.warn('[quote] save error:', err);
+  }
+}
+
+async function loadQuoteState(){
+  if(typeof db === 'undefined' || !db) return;
+  try {
+    const modeP = await idbGet('meta', QUOTE_KEY_MODE);
+    const cartP = await idbGet('meta', QUOTE_KEY_CART);
+    const setP = await idbGet('meta', QUOTE_KEY_SETTINGS);
+    if(modeP && typeof modeP.mode === 'boolean'){
+      window._QUOTE_STATE.mode = modeP.mode;
+    }
+    if(cartP && Array.isArray(cartP.items)){
+      window._QUOTE_STATE.items = cartP.items;
+    }
+    // Merge non distruttivo: i campi mancanti restano ai default,
+    // così aggiungere future opzioni non rompe i salvataggi esistenti.
+    if(setP && setP.settings && typeof setP.settings === 'object'){
+      window._QUOTE_STATE.settings = Object.assign({}, QUOTE_SETTINGS_DEFAULT, setP.settings);
+    }
+    window._QUOTE_STATE.loaded = true;
+    // Applica modalità al body
+    applyQuoteMode();
+    // Aggiorna pulsante fluttuante (creandolo se non esiste)
+    renderQuoteFloatingButton();
+  } catch(err){
+    console.warn('[quote] load error:', err);
+  }
+}
+
+/* ─── Toggle modalità ─── */
+
+function toggleQuoteMode(force){
+  const newMode = (typeof force === 'boolean') ? force : !window._QUOTE_STATE.mode;
+  window._QUOTE_STATE.mode = newMode;
+  applyQuoteMode();
+  renderQuoteFloatingButton();
+  saveQuoteState();
+  // Toast feedback
+  if(typeof toast === 'function'){
+    if(newMode){
+      const cnt = window._QUOTE_STATE.items.length;
+      toast({
+        type: 'ok',
+        title: '🛒 Modalità Preventivo attiva',
+        message: cnt > 0 ? 'Carrello con ' + cnt + ' articoli' : 'Clicca la "P" sulle card per aggiungere prodotti',
+        duration: 3500,
+      });
+    } else {
+      toast({
+        type: 'info',
+        title: 'Modalità Preventivo disattivata',
+        message: 'Il carrello resta salvato per future sessioni.',
+        duration: 2500,
+      });
+    }
+  }
+}
+
+function applyQuoteMode(){
+  if(window._QUOTE_STATE.mode){
+    document.body.classList.add('quote-mode');
+  } else {
+    document.body.classList.remove('quote-mode');
+  }
+  // Aggiorna eventuale switch nel menu
+  const sw = document.getElementById('quote-mode-switch');
+  if(sw) sw.checked = window._QUOTE_STATE.mode;
+}
+
+/* ─── V2.3.6: Formattazione numerica italiana per preventivi ───
+   Formato standard IT con punto come separatore migliaia e virgola per
+   i decimali. Usato in tutti i punti di visualizzazione del modulo
+   preventivo: KPI carrello, righe tabella, dialog quantità, export Word/PDF.
+   • _qFmtEur(n)     → "1.234,56 €" oppure "—" se nullo
+   • _qFmtEur0(n)    → "1.234 €" senza decimali
+   • _qFmtNum(n,d)   → "1.234,56" senza simbolo (per Excel-like)
+   • _qFmtPct(n,d)   → "55,0%" con virgola
+*/
+function _qFmtEur(n, decimals){
+  if(n == null || isNaN(n)) return '—';
+  const d = (decimals == null) ? 2 : decimals;
+  return Number(n).toLocaleString('it-IT', {
+    style:'currency', currency:'EUR',
+    minimumFractionDigits:d, maximumFractionDigits:d,
+    useGrouping:true,
+  });
+}
+function _qFmtNum(n, decimals){
+  if(n == null || isNaN(n)) return '—';
+  const d = (decimals == null) ? 2 : decimals;
+  return Number(n).toLocaleString('it-IT', {
+    minimumFractionDigits:d, maximumFractionDigits:d,
+    useGrouping:true,
+  });
+}
+function _qFmtPct(n, decimals){
+  if(n == null || isNaN(n)) return '—';
+  const d = (decimals == null) ? 1 : decimals;
+  return Number(n).toLocaleString('it-IT', {
+    minimumFractionDigits:d, maximumFractionDigits:d,
+    useGrouping:true,
+  }) + '%';
+}
+
+/* ─── V2.3.8: Risolve l'URL assoluto dell'immagine di un item del carrello ───
+   - Item V2.3.8+: it.image è già URL assoluto (salvato via imgUrl al momento
+     dell'aggiunta).
+   - Item legacy (V2.3.1-7): it.image potrebbe essere un path relativo
+     (es. "/products/AB-60/image.jpg"). In tal caso lo passo per imgUrl per
+     ottenere l'URL assoluto (necessario per Word/PDF, che non hanno un
+     baseURL implicito sul dominio dell'app).
+   Costo: O(1), una sola chiamata a startsWith. */
+function _qResolveImg(item){
+  if(!item || !item.image) return '';
+  const raw = String(item.image);
+  if(raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  return (typeof imgUrl === 'function') ? imgUrl(raw) : raw;
+}
+
+/* ─── Helper: testo pulito del nome articolo nel carrello ───
+   V2.3.4: rispetta l'impostazione _QUOTE_STATE.settings.descMode ('short'|'full').
+   - Item moderni (V2.3.4+): hanno nameShort + nameFull già puliti, sceglie il
+     campo giusto e cade sull'altro se quello richiesto è vuoto.
+   - Item legacy (V2.3.1-3): hanno solo `name` (= description completa). Se la
+     modalità è 'short' provo a rileggere short_description da DATA[idx]; se
+     non disponibile uso comunque `name` (strippato se contiene HTML).
+   Costo: O(1) salvo il caso legacy+short che fa una getField su DATA. */
+function getCleanItemName(item){
+  if(!item) return '';
+  const mode = (window._QUOTE_STATE && window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.descMode) || 'short';
+  // Path moderno: i campi nuovi sono presenti
+  const hasNewFields = (typeof item.nameShort === 'string') || (typeof item.nameFull === 'string');
+  if(hasNewFields){
+    const primary = (mode === 'short') ? (item.nameShort || '') : (item.nameFull || '');
+    if(primary) return primary;
+    // Fallback all'altra descrizione se quella richiesta è vuota
+    const fallback = (mode === 'short') ? (item.nameFull || '') : (item.nameShort || '');
+    if(fallback) return fallback;
+    // Ultimo tentativo: vecchio campo `name` (per item creati nel breve range
+    // di tempo in cui esisteva già nameShort ma name era ancora popolato)
+    const legacy = String(item.name || '');
+    return _stripIfHtml(legacy);
+  }
+  // Path legacy (item salvati con V2.3.1/V2.3.2/V2.3.3, hanno solo `name`)
+  if(mode === 'short'){
+    // Provo a rileggere short_description dal DB
+    if(Array.isArray(window.DATA) && item.idx != null && window.DATA[item.idx]){
+      const p = window.DATA[item.idx];
+      const rawShort = getField(p, 'short_description') || getField(p, 'short_description_html') || '';
+      if(rawShort){
+        return (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(String(rawShort)) : String(rawShort);
+      }
+    }
+  }
+  // Fallback finale: vecchio `name` (descrizione completa salvata nelle V2.3.1-3),
+  // strippato se contiene HTML (V2.3.1 lo salvava grezzo).
+  return _stripIfHtml(String(item.name || ''));
+}
+
+function _stripIfHtml(s){
+  if(!s) return '';
+  if(s.indexOf('<') === -1 && s.indexOf('&') === -1) return s;
+  return (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(s) : s;
+}
+
+/* ─── Operazioni sul carrello ─── */
+
+function addToQuoteCart(productIdx, qty){
+  if(!Array.isArray(DATA) || productIdx == null) return false;
+  const p = DATA[productIdx];
+  if(!p) return false;
+  qty = parseInt(qty, 10);
+  if(isNaN(qty) || qty <= 0) qty = 1;
+
+  const code = String(getField(p, 'name') || '').trim();
+  if(!code) return false;
+
+  // Cerco se già presente: in tal caso aggiorno quantità
+  const existingIdx = window._QUOTE_STATE.items.findIndex(it => it.code === code);
+  const pvp = priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
+  // V2.5.4: NETTO ricalcolato applicando gli sconti aggiuntivi a cascata
+  // (se ci sono per Marca/Macrocategoria/Categoria di questo articolo).
+  // Il PVP resta sempre quello originale (è il prezzo di listino verso il cliente).
+  // Memorizzo anche nettoOrig per poter capire se è stato modificato dagli sconti aggiuntivi.
+  const _eff = getEffectiveProductPrices(p);
+  const nettoOrig = priceNum(getField(p, 'precio_neto_compra'));
+  const netto = (_eff && _eff.hasAdj) ? _eff.nettoEff : nettoOrig;
+  const cascadeAdjArr = (_eff && _eff.hasAdj) ? _eff.adjArr.slice() : null;
+  const cascadeAdjPath = (_eff && _eff.hasAdj) ? _eff.adjPath : null;
+
+  if(existingIdx >= 0){
+    window._QUOTE_STATE.items[existingIdx].qty += qty;
+    // Aggiorno snapshot prezzi (potrebbero essere cambiati o avere nuovi sconti aggiuntivi)
+    window._QUOTE_STATE.items[existingIdx].pvp = pvp;
+    window._QUOTE_STATE.items[existingIdx].netto = netto;
+    window._QUOTE_STATE.items[existingIdx].nettoOrig = nettoOrig;
+    window._QUOTE_STATE.items[existingIdx].cascadeAdjArr = cascadeAdjArr;
+    window._QUOTE_STATE.items[existingIdx].cascadeAdjPath = cascadeAdjPath;
+    window._QUOTE_STATE.items[existingIdx].updatedAt = Date.now();
+  } else {
+    // V2.3.4: salvo ENTRAMBE le descrizioni (breve + completa) pulite, così
+    // l'opzione "Descrizione articoli" delle impostazioni preventivo può
+    // alternarle senza dover rileggere da DATA[idx] (che potrebbe non esserci
+    // più, ad esempio se il prodotto è stato cancellato dal DB dopo l'aggiunta).
+    const rawShort = String(getField(p, 'short_description') || getField(p, 'short_description_html') || '');
+    const rawFull  = String(getField(p, 'description') || '');
+    const cleanShort = (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawShort) : rawShort;
+    const cleanFull  = (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawFull)  : rawFull;
+    window._QUOTE_STATE.items.push({
+      idx: productIdx,
+      code,
+      // `name` resta per retrocompatibilità con render legacy ma da V2.3.4
+      // viene popolato in coerenza con la descMode corrente. La fonte di verità
+      // sono nameShort/nameFull, getCleanItemName sceglie quale usare.
+      name: cleanFull || cleanShort || code,
+      nameShort: cleanShort,
+      nameFull: cleanFull,
+      brand: String(getField(p, 'brand') || ''),
+      category: String(getField(p, 'category') || ''),
+      ean: String(getField(p, 'ean') || ''),
+      // V2.3.8: salvo l'immagine come URL ASSOLUTO (via imgUrl) così funziona
+      // sia nel render del carrello sia negli export Word/PDF (che senza dominio
+      // non saprebbero da dove prendere l'immagine).
+      image: (function(){
+        const raw = getField(p, 'image_path') || '';
+        if(!raw) return '';
+        return (typeof imgUrl === 'function') ? imgUrl(raw) : raw;
+      })(),
+      qty,
+      pvp,
+      netto,         // V2.5.4: netto effettivo (con sconti a cascata se presenti)
+      nettoOrig,     // V2.5.4: netto originale (senza sconti aggiuntivi)
+      cascadeAdjArr, // V2.5.4: array dei 6 sconti applicati (null se nessuno)
+      cascadeAdjPath,// V2.5.4: path del nodo da cui sono stati pescati gli sconti
+      discountPct: 0,  // V2.3.7: sconto per riga (Modalità Cliente). Default 0%.
+      addedAt: Date.now(),
+    });
+  }
+
+  saveQuoteState();
+  renderQuoteFloatingButton(true);  // true = anima il bump
+  return true;
+}
+
+function updateCartItemQty(code, newQty){
+  newQty = parseInt(newQty, 10);
+  if(isNaN(newQty) || newQty < 0) return;
+  if(newQty === 0){
+    removeFromQuoteCart(code);
+    return;
+  }
+  const item = window._QUOTE_STATE.items.find(it => it.code === code);
+  if(item){
+    item.qty = newQty;
+    item.updatedAt = Date.now();
+    saveQuoteState();
+    renderQuoteFloatingButton();
+  }
+}
+
+function removeFromQuoteCart(code){
+  const i = window._QUOTE_STATE.items.findIndex(it => it.code === code);
+  if(i >= 0){
+    window._QUOTE_STATE.items.splice(i, 1);
+    saveQuoteState();
+    renderQuoteFloatingButton();
+  }
+}
+
+// V2.3.7: aggiorna lo sconto % di una riga (Modalità Cliente).
+// Accetta numero o stringa (con virgola/punto). Normalizza in 0..100.
+function updateCartItemDiscount(code, newPct){
+  const item = window._QUOTE_STATE.items.find(it => it.code === code);
+  if(!item) return;
+  item.discountPct = _normDiscountPct(newPct);
+  item.updatedAt = Date.now();
+  saveQuoteState();
+}
+
+function clearQuoteCart(){
+  window._QUOTE_STATE.items = [];
+  saveQuoteState();
+  renderQuoteFloatingButton();
+}
+
+/* ─── Calcoli totali carrello ─── */
+
+function computeQuoteTotals(){
+  const items = window._QUOTE_STATE.items;
+  let totalPvp = 0, totalNetto = 0, totalQty = 0, validRows = 0;
+  // V2.3.7: campi per Modalità Cliente
+  // Lo sconto è applicato sul PVP (prezzo listino) per ottenere il prezzo vendita.
+  // sellPrice_unit = pvp * (1 - discountPct/100)
+  let totalSellPrice = 0;        // somma di (sellPrice_unit * qty) per le righe con PVP valido
+  let totalDiscountValue = 0;    // (totalPvp - totalSellPrice) — quanto ha "tolto" lo sconto
+  let weightedDiscountSum = 0;   // per calcolare lo sconto medio pesato sul valore listino
+  let weightedDiscountBase = 0;
+  for(const it of items){
+    totalQty += it.qty;
+    const pvpValid = (it.pvp != null && it.pvp > 0);
+    const nettoValid = (it.netto != null && it.netto > 0);
+    if(pvpValid){
+      const lineList = it.pvp * it.qty;
+      totalPvp += lineList;
+      // Sconto cliente: 0..100. Qualsiasi valore non valido viene trattato come 0.
+      const dPct = _normDiscountPct(it.discountPct);
+      const lineSell = lineList * (1 - dPct / 100);
+      totalSellPrice += lineSell;
+      // Per lo sconto medio pesato: il "peso" è il valore listino della riga.
+      weightedDiscountSum  += dPct * lineList;
+      weightedDiscountBase += lineList;
+    }
+    if(nettoValid){
+      totalNetto += it.netto * it.qty;
+    }
+    if(pvpValid && nettoValid){
+      validRows++;
+    }
+  }
+  // V2.6.5: Margine totale Modalità Analisi — formula commerciale standard coerente
+  // con il margine per riga (V2.5.9): (prezzo_vendita − netto) / prezzo_vendita × 100.
+  // Il "prezzo_vendita" totale è totalSellPrice (= somma di PVP × qty × (1 − sc.cliente/100)).
+  // Fallback su totalPvp se totalSellPrice è 0 o non disponibile (es. nessuno sconto cliente).
+  const margineBase = (totalSellPrice > 0) ? totalSellPrice : totalPvp;
+  const marginPct = (margineBase > 0 && totalNetto > 0)
+    ? ((margineBase - totalNetto) / margineBase * 100)
+    : null;
+  // Sconto medio pesato modalità Cliente
+  const avgDiscountPct = (weightedDiscountBase > 0)
+    ? (weightedDiscountSum / weightedDiscountBase)
+    : null;
+  totalDiscountValue = totalPvp - totalSellPrice;
+  return {
+    items, totalPvp, totalNetto, totalQty, marginPct, validRows,
+    totalSellPrice, totalDiscountValue, avgDiscountPct,
+  };
+}
+
+// V2.3.7: normalizza un valore sconto in 0..100 (numero o stringa, virgola o punto)
+function _normDiscountPct(v){
+  if(v == null || v === '') return 0;
+  let n;
+  if(typeof v === 'number') n = v;
+  else n = parseFloat(String(v).replace(',', '.'));
+  if(isNaN(n)) return 0;
+  if(n < 0) return 0;
+  if(n > 100) return 100;
+  return n;
+}
+
+/* ─── Pulsante fluttuante carrello ─── */
+
+function renderQuoteFloatingButton(animateBump){
+  let btn = document.getElementById('quote-float-btn');
+  // Se modalità OFF: rimuovi
+  if(!window._QUOTE_STATE.mode){
+    if(btn) btn.remove();
+    return;
+  }
+  // Crea se non esiste
+  if(!btn){
+    btn = document.createElement('button');
+    btn.id = 'quote-float-btn';
+    btn.title = 'Apri carrello preventivo';
+    btn.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">' +
+        '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>' +
+        '<path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>' +
+      '</svg>' +
+      '<span class="quote-float-badge" id="quote-float-badge">0</span>';
+    btn.addEventListener('click', () => openQuoteCart());
+    document.body.appendChild(btn);
+  }
+  // Aggiorno badge
+  const badge = document.getElementById('quote-float-badge');
+  const totalQty = window._QUOTE_STATE.items.reduce((s, it) => s + (it.qty || 0), 0);
+  if(badge){
+    badge.textContent = totalQty.toLocaleString('it-IT');
+    badge.style.display = totalQty > 0 ? 'flex' : 'none';
+  }
+  // Animazione bump
+  if(animateBump){
+    btn.classList.remove('quote-bump');
+    void btn.offsetWidth;  // reflow per restartare l'animazione
+    btn.classList.add('quote-bump');
+  }
+}
+
+/* ─── Dialog quantità ─── */
+
+function openQuoteAddDialog(productIdx){
+  if(!Array.isArray(DATA) || productIdx == null) return;
+  const p = DATA[productIdx];
+  if(!p) return;
+
+  const code = String(getField(p, 'name') || '').trim();
+  // V2.3.4: rispetto l'impostazione descMode (default = short). Mostro la
+  // descrizione che effettivamente apparirà nel preventivo, così l'utente sa
+  // cosa sta aggiungendo. Con fallback all'altra se il campo scelto è vuoto.
+  const descMode = (window._QUOTE_STATE && window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.descMode) || 'short';
+  const rawShort = String(getField(p, 'short_description') || getField(p, 'short_description_html') || '').trim();
+  const rawFull  = String(getField(p, 'description') || '').trim();
+  const cleanShort = rawShort && (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawShort) : rawShort;
+  const cleanFull  = rawFull  && (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawFull)  : rawFull;
+  const desc = (descMode === 'short') ? (cleanShort || cleanFull) : (cleanFull || cleanShort);
+  const brand = String(getField(p, 'brand') || '').trim();
+  const pvp = priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
+  const netto = priceNum(getField(p, 'precio_neto_compra'));
+  // V2.5.4: leggo gli sconti aggiuntivi a cascata applicabili a questo articolo
+  const _eff = getEffectiveProductPrices(p);
+  const _showEff = _eff && _eff.hasAdj;
+  const nettoToShow = _showEff ? _eff.nettoEff : netto;
+
+  // Quantità attuale già nel carrello (se presente)
+  const existing = window._QUOTE_STATE.items.find(it => it.code === code);
+  const currentQty = existing ? existing.qty : 0;
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.style.zIndex = '500';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:480px">' +
+      '<div class="modal-head">' +
+        '<h3>🛒 Aggiungi al preventivo</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:18px 22px">' +
+        '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px">' +
+          '<div style="font-size:10.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">' + escapeHtml(brand || 'Prodotto') + '</div>' +
+          '<div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:4px">' + escapeHtml(code) + '</div>' +
+          '<div style="font-size:11.5px;color:var(--fg2);line-height:1.5;white-space:pre-line;max-height:120px;overflow-y:auto">' + escapeHtml(desc).slice(0, 400) + (desc.length > 400 ? '…' : '') + '</div>' +
+          (function(){
+            // V2.3.7: in Modalità Cliente nascondo il netto (dato sensibile interno).
+            const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+            const showNetto = (qMode !== 'client') && (nettoToShow != null);
+            const showPvp = (pvp != null);
+            if(!showPvp && !showNetto) return '';
+            // V2.5.4: se ci sono sconti aggiuntivi, evidenzio con stella e tooltip
+            const nettoLabel = _showEff ? 'Netto effettivo' : 'Netto';
+            const nettoStar = _showEff ? ' <span style="color:#f59e0b;font-size:10px" title="' + escapeAttr(_eff.adjPath) + ': −' + _eff.adjArr.filter(x => x > 0).map(x => fmtDiscount(x)).join(' · −') + ' (sc. orig: ' + fmtDiscount(_eff.scOrig) + ' → effettivo: ' + fmtDiscount(_eff.scEff) + ')">★</span>' : '';
+            return '<div style="display:flex;gap:14px;margin-top:8px;font-size:11px">' +
+              (showPvp ? '<div><span style="color:var(--fg3)">' + (qMode === 'client' ? 'Listino' : 'PVP') + ':</span> <b>' + _qFmtEur(pvp) + '</b></div>' : '') +
+              (showNetto ? '<div><span style="color:var(--fg3)">' + nettoLabel + ':</span> <b style="color:var(--accent)">' + _qFmtEur(nettoToShow) + '</b>' + nettoStar + '</div>' : '') +
+            '</div>';
+          })() +
+        '</div>' +
+        (currentQty > 0
+          ? '<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:6px;padding:8px 12px;font-size:11.5px;color:var(--fg2);margin-bottom:12px">' +
+              'ℹ️ Già presente nel carrello con quantità <b>' + currentQty + '</b>. La nuova quantità verrà <b>sommata</b>.' +
+            '</div>'
+          : '') +
+        '<label style="display:block;font-size:11px;font-weight:600;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Quantità da aggiungere</label>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
+          '<button class="btn small" id="qaQtyMinus" type="button" style="width:36px;font-size:18px;font-weight:700">−</button>' +
+          '<input type="number" id="qaQtyInput" value="1" min="1" max="9999" ' +
+            'style="flex:1;text-align:center;font-size:18px;font-weight:700;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-family:inherit">' +
+          '<button class="btn small" id="qaQtyPlus" type="button" style="width:36px;font-size:18px;font-weight:700">+</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' +
+          '<button class="btn small ghost qa-quick-qty" data-qty="1" type="button" style="flex:1">1</button>' +
+          '<button class="btn small ghost qa-quick-qty" data-qty="5" type="button" style="flex:1">5</button>' +
+          '<button class="btn small ghost qa-quick-qty" data-qty="10" type="button" style="flex:1">10</button>' +
+          '<button class="btn small ghost qa-quick-qty" data-qty="20" type="button" style="flex:1">20</button>' +
+          '<button class="btn small ghost qa-quick-qty" data-qty="50" type="button" style="flex:1">50</button>' +
+          '<button class="btn small ghost qa-quick-qty" data-qty="100" type="button" style="flex:1">100</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="qaCancel">Annulla</button>' +
+        '<button class="btn primary" id="qaConfirm">✓ Aggiungi al carrello</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+  const inp = document.getElementById('qaQtyInput');
+  inp.focus();
+  inp.select();
+
+  const close = () => {
+    bg.remove();
+    document.removeEventListener('keydown', escHandler);
+  };
+  const escHandler = (e) => {
+    if(e.key === 'Escape') close();
+    else if(e.key === 'Enter') { e.preventDefault(); doAdd(); }
+  };
+  document.addEventListener('keydown', escHandler);
+
+  document.getElementById('qaQtyMinus').addEventListener('click', () => {
+    inp.value = Math.max(1, parseInt(inp.value || '1', 10) - 1);
+  });
+  document.getElementById('qaQtyPlus').addEventListener('click', () => {
+    inp.value = Math.min(9999, parseInt(inp.value || '0', 10) + 1);
+  });
+  bg.querySelectorAll('.qa-quick-qty').forEach(btn => {
+    btn.addEventListener('click', () => {
+      inp.value = btn.dataset.qty;
+    });
+  });
+
+  const doAdd = () => {
+    const q = parseInt(inp.value, 10);
+    if(isNaN(q) || q <= 0){
+      toast('Inserisci una quantità valida', 'warn', 3000);
+      return;
+    }
+    if(addToQuoteCart(productIdx, q)){
+      toast({
+        type: 'ok',
+        title: 'Aggiunto al carrello',
+        message: q + ' × ' + code,
+        duration: 2500,
+      });
+      close();
+    } else {
+      toast('Errore aggiunta al carrello', 'err', 3000);
+    }
+  };
+
+  document.getElementById('qaCancel').addEventListener('click', close);
+  document.getElementById('qaConfirm').addEventListener('click', doAdd);
+}
+
+/* ─── Modal Carrello ─── */
+
+function openQuoteCart(){
+  const ex = document.getElementById('quoteCartModal');
+  if(ex) ex.remove();
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'quoteCartModal';
+  bg.style.zIndex = '480';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  // V2.3.7: badge che mostra la modalità preventivo attiva nell'header del modal
+  // V2.5.2: il badge è stato dotato di id 'quoteCartModeBadge' così che
+  // renderQuoteCartContent possa aggiornarne il contenuto al volo quando
+  // l'utente cambia modalità via "Impostazioni preventivo" senza chiudere il modal.
+  // V2.5.6: il badge è ora un TOGGLE SWITCH a 2 segmenti cliccabili. L'utente può
+  // passare tra Modalità Analisi (viola) e Modalità Cliente (blu) direttamente
+  // dall'header del modal carrello, senza aprire le impostazioni preventivo.
+  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  const modeSwitchHtml =
+    '<div id="quoteCartModeBadge" class="qcart-mode-switch" role="tablist" aria-label="Modalità preventivo">' +
+      '<button type="button" class="qcart-mode-seg' + (qMode === 'analysis' ? ' qcart-mode-active qcart-mode-analysis' : '') + '" ' +
+        'data-mode="analysis" role="tab" aria-selected="' + (qMode === 'analysis' ? 'true' : 'false') + '" ' +
+        'title="Vista interna: PVP + Netto + Margine">Analisi</button>' +
+      '<button type="button" class="qcart-mode-seg' + (qMode === 'client' ? ' qcart-mode-active qcart-mode-client' : '') + '" ' +
+        'data-mode="client" role="tab" aria-selected="' + (qMode === 'client' ? 'true' : 'false') + '" ' +
+        'title="Vista commerciale: prezzo di listino, sconto editabile per riga, prezzo di vendita">Cliente</button>' +
+    '</div>';
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:95vw;width:95vw;max-height:95vh;display:flex;flex-direction:column">' +
+      '<div class="modal-head" style="display:flex;align-items:center;gap:12px">' +
+        '<h3 style="margin:0">🛒 Carrello preventivo</h3>' +
+        modeSwitchHtml +
+        '<span style="flex:1"></span>' +
+        // V2.4.7: due pulsanti separati
+        // - Impostazioni preventivo: configurazione semantica del preventivo
+        //   (Modalità Cliente/Analisi, Descrizione breve/completa)
+        // - Impostazioni di stampa: cosa includere nelle esportazioni
+        //   (Immagine, Codice, Marca, Listino+Sconto, Prezzo+Totale, Totale riga)
+        '<button class="btn small ghost" id="quoteCartSettingsBtn" type="button" title="Modalità preventivo e descrizione" style="font-size:13px">⚙️ Impostazioni preventivo</button>' +
+        '<button class="btn small ghost" id="quoteCartPrintSettingsBtn" type="button" title="Cosa includere nelle esportazioni" style="font-size:13px">🖨️ Impostazioni di stampa</button>' +
+      '</div>' +
+      // Modal-body: flex container che propaga l'altezza al figlio scrollabile.
+      // padding:0 + grid-template-columns:none per neutralizzare il CSS base
+      // di .modal-body (che è disegnato per l'editor prodotti).
+      '<div class="modal-body" style="display:flex;flex-direction:column;padding:0;overflow:hidden;flex:1;min-height:0;grid-template-columns:none">' +
+        '<div id="quoteCartContent" style="flex:1;min-height:0;overflow-y:auto;overflow-x:auto;padding:18px 24px"></div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="quoteCartCloseBtn">Chiudi</button>' +
+        '<button class="btn ghost" id="quoteCartClearBtn" style="color:#ef4444">🗑️ Svuota carrello</button>' +
+        '<span style="flex:1"></span>' +
+        '<button class="btn small" id="quoteCartExportBtn">📥 Genera preventivo</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+
+  document.getElementById('quoteCartCloseBtn').addEventListener('click', () => bg.remove());
+  document.getElementById('quoteCartSettingsBtn').addEventListener('click', () => openQuoteSettingsDialog());
+  // V2.4.7: handler per il nuovo pulsante Impostazioni di stampa
+  document.getElementById('quoteCartPrintSettingsBtn').addEventListener('click', () => openQuotePrintSettingsDialog());
+
+  // V2.5.6: handler dei segmenti dello switch modalità.
+  // Click su un segmento → cambia mode in _QUOTE_STATE.settings, salva in IDB,
+  // re-renderizza il contenuto del carrello. Nessun toast intrusivo: la conferma
+  // visiva è data dall'aggiornamento dello switch stesso e del contenuto sotto.
+  bg.querySelectorAll('.qcart-mode-seg').forEach(seg => {
+    seg.addEventListener('click', () => {
+      const newMode = seg.dataset.mode === 'client' ? 'client' : 'analysis';
+      const oldMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+      if(newMode === oldMode) return;  // no-op se già attivo
+      if(!window._QUOTE_STATE.settings) window._QUOTE_STATE.settings = Object.assign({}, QUOTE_SETTINGS_DEFAULT);
+      window._QUOTE_STATE.settings.mode = newMode;
+      saveQuoteState();
+      // Re-render: aggiorna sia lo switch (via _updateModeSwitchUI dentro
+      // renderQuoteCartContent) sia il contenuto della tabella articoli.
+      renderQuoteCartContent();
+    });
+  });
+  document.getElementById('quoteCartClearBtn').addEventListener('click', () => {
+    if(!window._QUOTE_STATE.items.length){
+      toast('Carrello già vuoto', 'info', 2500);
+      return;
+    }
+    if(!confirm('Svuotare il carrello? Verranno rimossi tutti i ' + window._QUOTE_STATE.items.length + ' articoli. L\'operazione non può essere annullata.')) return;
+    clearQuoteCart();
+    renderQuoteCartContent();
+    toast({ type:'ok', title:'Carrello svuotato', duration:2500 });
+  });
+  document.getElementById('quoteCartExportBtn').addEventListener('click', () => openQuoteExportDialog());
+
+  const esc = (e) => { if(e.key === 'Escape'){ bg.remove(); document.removeEventListener('keydown', esc); } };
+  document.addEventListener('keydown', esc);
+
+  renderQuoteCartContent();
+}
+
+/* ─── V2.3.4: Dialog Impostazioni Preventivo ───
+   Apribile dal pulsante ⚙️ nel modal carrello. Contenitore preparato per
+   future opzioni: bastera aggiungere una nuova <section> al body e un campo
+   in QUOTE_SETTINGS_DEFAULT. Le modifiche sono persistite immediatamente
+   e il modal carrello viene re-renderizzato per riflettere il cambio. */
+function openQuoteSettingsDialog(){
+  const ex = document.getElementById('quoteSettingsModal');
+  if(ex) ex.remove();
+
+  // Garantisco che settings esista (difensivo: in caso di state non migrato)
+  if(!window._QUOTE_STATE.settings){
+    window._QUOTE_STATE.settings = Object.assign({}, QUOTE_SETTINGS_DEFAULT);
+  }
+  const s = window._QUOTE_STATE.settings;
+  const currentDescMode = s.descMode === 'full' ? 'full' : 'short';
+  const currentQMode    = s.mode === 'client' ? 'client' : 'analysis';  // V2.3.7
+
+  // Anteprima dinamica: prendo il primo articolo del carrello (se presente)
+  // per mostrare in tempo reale come apparirà la descrizione scelta.
+  const firstItem = (window._QUOTE_STATE.items && window._QUOTE_STATE.items[0]) || null;
+
+  const renderPreview = (mode) => {
+    if(!firstItem) return '<i style="color:var(--fg3)">Aggiungi un articolo al carrello per vedere l\'anteprima</i>';
+    const original = window._QUOTE_STATE.settings.descMode;
+    window._QUOTE_STATE.settings.descMode = mode;
+    let txt = '';
+    try { txt = getCleanItemName(firstItem); } catch(e){ txt = ''; }
+    window._QUOTE_STATE.settings.descMode = original;  // ripristino, salverò solo a conferma
+    if(!txt) return '<i style="color:var(--fg3)">— campo vuoto per questo articolo —</i>';
+    const trunc = txt.slice(0, 280);
+    return escapeHtml(trunc) + (txt.length > 280 ? '…' : '');
+  };
+
+  // Helper per le righe radio (DRY): ognuna ha background/bordo che reagiscono allo stato attivo
+  const radioRow = (group, value, isActive, badge, title, description) => {
+    const activeBg = group === 'qs-quote-mode' ? 'rgba(59,130,246,0.08)' : 'rgba(34,197,94,0.08)';
+    const activeBorder = group === 'qs-quote-mode' ? 'rgba(59,130,246,0.5)' : 'rgba(34,197,94,0.5)';
+    const bg = isActive ? activeBg : 'var(--bg)';
+    const border = isActive ? activeBorder : 'var(--border)';
+    return '<label class="qs-radio-row" data-group="' + group + '" style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid ' + border + ';border-radius:8px;cursor:pointer;background:' + bg + '">' +
+        '<input type="radio" name="' + group + '" value="' + value + '" ' + (isActive ? 'checked' : '') + ' style="margin-top:2px">' +
+        '<div style="flex:1">' +
+          '<div style="font-weight:600;font-size:13px;color:var(--fg);margin-bottom:2px">' + title + (badge ? badge : '') + '</div>' +
+          '<div style="font-size:11.5px;color:var(--fg3);line-height:1.5">' + description + '</div>' +
+        '</div>' +
+      '</label>';
+  };
+
+  const consigliatoBadge = ' <span style="font-size:10px;font-weight:600;color:#22c55e;background:rgba(34,197,94,0.15);padding:1px 6px;border-radius:3px;margin-left:6px;text-transform:uppercase;letter-spacing:.4px">consigliato</span>';
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'quoteSettingsModal';
+  bg.style.zIndex = '510';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  const sectionTitle = (txt) => '<div style="font-size:11px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">' + txt + '</div>';
+  const sectionIntro = (txt) => '<div style="font-size:12px;color:var(--fg2);line-height:1.5;margin-bottom:12px">' + txt + '</div>';
+  const sectionSep = '<div style="height:1px;background:var(--border);margin:22px 0"></div>';
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:680px;max-height:92vh;display:flex;flex-direction:column">' +
+      '<div class="modal-head">' +
+        '<h3>⚙️ Impostazioni preventivo</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:18px 22px;overflow-y:auto;grid-template-columns:none">' +
+
+        // ── V2.3.7: Sezione MODALITÀ PREVENTIVO ──
+        '<section>' +
+          sectionTitle('Modalità preventivo') +
+          sectionIntro('Determina cosa viene mostrato nel carrello e nei preventivi esportati.') +
+          '<div style="display:flex;flex-direction:column;gap:8px">' +
+            radioRow(
+              'qs-quote-mode', 'analysis', currentQMode === 'analysis',
+              null,
+              'Modalità Analisi',
+              'Vista interna con prezzi <b>PVP</b> + <b>Netto</b> + <b>Margine</b>. Ideale per valutare la profittabilità di un\'offerta prima di sottoporla al cliente.'
+            ) +
+            radioRow(
+              'qs-quote-mode', 'client', currentQMode === 'client',
+              null,
+              'Modalità Cliente',
+              'Vista commerciale con <b>prezzo di listino</b>, <b>sconto editabile per riga</b> e <b>prezzo di vendita</b>. I dati di costo (netto) e margine non vengono mai mostrati né esportati.'
+            ) +
+          '</div>' +
+        '</section>' +
+
+        sectionSep +
+
+        // ── Sezione: Descrizione articoli ──
+        '<section>' +
+          sectionTitle('Descrizione articoli') +
+          sectionIntro('Scegli quale testo descrittivo viene utilizzato nel carrello e nei preventivi esportati (Word, PDF, Excel).') +
+          '<div style="display:flex;flex-direction:column;gap:8px">' +
+            radioRow(
+              'qs-desc-mode', 'short', currentDescMode === 'short',
+              consigliatoBadge,
+              'Descrizione breve',
+              'Testo conciso (campo <code>short_description</code>): ideale per preventivi compatti e leggibili.'
+            ) +
+            radioRow(
+              'qs-desc-mode', 'full', currentDescMode === 'full',
+              null,
+              'Descrizione completa',
+              'Testo esteso (campo <code>description</code>): include tutte le caratteristiche tecniche, utile per preventivi dettagliati.'
+            ) +
+          '</div>' +
+
+          // Anteprima
+          '<div style="margin-top:14px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">' +
+            '<div style="font-size:10px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Anteprima ' + (firstItem ? '(primo articolo del carrello)' : '') + '</div>' +
+            '<div id="qsPreviewBox" style="font-size:11.5px;color:var(--fg2);line-height:1.5;white-space:pre-line;max-height:140px;overflow-y:auto">' +
+              renderPreview(currentDescMode) +
+            '</div>' +
+          '</div>' +
+        '</section>' +
+
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="qsCancelBtn">Annulla</button>' +
+        '<span style="flex:1"></span>' +
+        '<button class="btn primary" id="qsSaveBtn">✓ Salva impostazioni</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+
+  // Update stile riga radio in base allo stato attivo
+  const refreshRadioStyles = (groupName) => {
+    const sel = bg.querySelector('input[name="' + groupName + '"]:checked');
+    const val = sel ? sel.value : '';
+    const activeBg = groupName === 'qs-quote-mode' ? 'rgba(59,130,246,0.08)' : 'rgba(34,197,94,0.08)';
+    const activeBorder = groupName === 'qs-quote-mode' ? 'rgba(59,130,246,0.5)' : 'rgba(34,197,94,0.5)';
+    bg.querySelectorAll('.qs-radio-row[data-group="' + groupName + '"]').forEach(row => {
+      const inp = row.querySelector('input[type="radio"]');
+      const isActive = inp && inp.value === val;
+      row.style.background = isActive ? activeBg : 'var(--bg)';
+      row.style.borderColor = isActive ? activeBorder : 'var(--border)';
+    });
+  };
+  // Listener cambio descMode → aggiorna anteprima + stile
+  bg.querySelectorAll('input[name="qs-desc-mode"]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      refreshRadioStyles('qs-desc-mode');
+      const previewBox = document.getElementById('qsPreviewBox');
+      if(previewBox) previewBox.innerHTML = renderPreview(inp.value);
+    });
+  });
+  // Listener cambio modalità preventivo → aggiorna stile (no anteprima qui)
+  bg.querySelectorAll('input[name="qs-quote-mode"]').forEach(inp => {
+    inp.addEventListener('change', () => refreshRadioStyles('qs-quote-mode'));
+  });
+
+  // Annulla → chiudo senza salvare
+  document.getElementById('qsCancelBtn').addEventListener('click', () => bg.remove());
+
+  // Salva → applico tutte le impostazioni, persisto, rerender carrello
+  document.getElementById('qsSaveBtn').addEventListener('click', () => {
+    const selDesc = bg.querySelector('input[name="qs-desc-mode"]:checked');
+    const selMode = bg.querySelector('input[name="qs-quote-mode"]:checked');
+    const newDescMode = selDesc && selDesc.value === 'full' ? 'full' : 'short';
+    const newQMode    = selMode && selMode.value === 'client' ? 'client' : 'analysis';
+
+    const oldDescMode = window._QUOTE_STATE.settings.descMode;
+    const oldQMode    = window._QUOTE_STATE.settings.mode || 'analysis';
+    const descChanged = (oldDescMode !== newDescMode);
+    const modeChanged = (oldQMode !== newQMode);
+
+    window._QUOTE_STATE.settings.descMode = newDescMode;
+    window._QUOTE_STATE.settings.mode     = newQMode;
+    saveQuoteState();
+    bg.remove();
+
+    if(descChanged || modeChanged){
+      if(typeof renderQuoteCartContent === 'function') renderQuoteCartContent();
+      // Toast riepilogativo intelligente: priorità al cambio modalità
+      let title = 'Impostazioni salvate';
+      let message = '';
+      if(modeChanged){
+        message = (newQMode === 'client')
+          ? 'Modalità Cliente attiva: vedrai sconto e prezzo di vendita per riga.'
+          : 'Modalità Analisi attiva: vedrai netto e margine per riga.';
+      } else if(descChanged){
+        message = newDescMode === 'short'
+          ? 'I preventivi useranno la descrizione breve.'
+          : 'I preventivi useranno la descrizione completa.';
+      }
+      if(typeof toast === 'function'){
+        toast({ type:'ok', title, message, duration:3800 });
+      }
+    } else {
+      if(typeof toast === 'function') toast({ type:'info', title:'Nessuna modifica', duration:2000 });
+    }
+  });
+
+  // ESC chiude
+  const esc = (e) => { if(e.key === 'Escape'){ bg.remove(); document.removeEventListener('keydown', esc); } };
+  document.addEventListener('keydown', esc);
+}
+
+/* ─── V2.4.7: Dialog Impostazioni di stampa ───
+   Pannello dedicato ai 6 flag granulari che controllano cosa appare nei
+   preventivi esportati (Word/PDF). Mantiene la stessa logica di
+   openQuoteExportDialog ma in un dialog autonomo, persistito in IDB e
+   utilizzabile prima di aprire "Genera preventivo".
+
+   I flag sono:
+   - showImage / showCode / showBrand → indipendenti
+   - showListDiscount → coppia logica Listino+Sconto (Cliente) o Listino+Netto (Analisi)
+   - showPriceTotal → coppia logica Prezzo+Totale (solo Cliente)
+   - showRowTotal → colonna Totale per riga
+*/
+function openQuotePrintSettingsDialog(){
+  const ex = document.getElementById('quotePrintSettingsModal');
+  if(ex) ex.remove();
+
+  // Garantisco che settings esista
+  if(!window._QUOTE_STATE.settings){
+    window._QUOTE_STATE.settings = Object.assign({}, QUOTE_SETTINGS_DEFAULT);
+  }
+  // V2.6.0: il dialog mostra SOLO le colonne della modalità attualmente attiva.
+  // Il set salvato per l'altra modalità viene preservato intatto (non toccato).
+  const qMode = (window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  const init = getPrintSettings(qMode);
+
+  const modeBadge = qMode === 'client'
+    ? '<span style="display:inline-block;font-size:10px;font-weight:700;color:#2563eb;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;margin-left:8px;vertical-align:middle">Cliente</span>'
+    : '<span style="display:inline-block;font-size:10px;font-weight:700;color:#a855f7;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3);padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;margin-left:8px;vertical-align:middle">Analisi</span>';
+
+  // V2.6.0: definisco lo schema di colonne per ogni modalità.
+  // Ogni voce è { flag, label, hint } — flag corrisponde al nome del campo nel set.
+  // schema[qMode] è la lista delle colonne disponibili per la modalità corrente.
+  const schemaAnalysis = [
+    { flag: 'showImage',     label: 'Immagine',            hint: 'Mostra la foto del prodotto.' },
+    { flag: 'showCode',      label: 'Codice articolo',     hint: 'Codice prodotto sopra la descrizione.' },
+    { flag: 'showBrand',     label: 'Marca / Produttore',  hint: 'Nome del produttore sotto la descrizione.' },
+    { flag: 'showListino',   label: 'Listino unitario',    hint: 'Prezzo PVP unitario.' },
+    { flag: 'showSconto',    label: 'Sconto di acquisto',  hint: 'Percentuale di sconto effettiva (include eventuali sconti aggiuntivi a cascata).' },
+    { flag: 'showNetto',     label: 'Netto unitario',      hint: 'Prezzo netto di acquisto unitario.' },
+    { flag: 'showScCliente', label: 'Sc. Cliente',         hint: 'Sconto applicato al cliente (impostato in Modalità Cliente per riga).' },
+    { flag: 'showMargine',   label: 'Margine',             hint: 'Margine commerciale %: (prezzo_vendita − netto) / prezzo_vendita × 100.' },
+    { flag: 'showTotPvp',    label: 'Totale per articolo', hint: 'Totale PVP per riga (PVP × quantità).' },
+    { flag: 'showTotNetto',  label: 'Totale per riga',     hint: 'Totale netto per riga (Netto × quantità).' },
+  ];
+  const schemaClient = [
+    { flag: 'showImage',    label: 'Immagine',           hint: 'Mostra la foto del prodotto.' },
+    { flag: 'showCode',     label: 'Codice articolo',    hint: 'Codice prodotto sopra la descrizione.' },
+    { flag: 'showBrand',    label: 'Marca / Produttore', hint: 'Nome del produttore sotto la descrizione.' },
+    { flag: 'showListino',  label: 'Listino',            hint: 'Prezzo di listino unitario.' },
+    { flag: 'showSconto',   label: 'Sconto',             hint: 'Sconto applicato per riga (%).' },
+    { flag: 'showPrezzo',   label: 'Prezzo di vendita',  hint: 'Prezzo unitario di vendita (Listino × (1 − sconto)).' },
+    { flag: 'showTotRiga',  label: 'Totale per riga',    hint: 'Totale per riga (Prezzo × quantità).' },
+  ];
+  const schema = qMode === 'client' ? schemaClient : schemaAnalysis;
+
+  // Factory di una riga checkbox compatta
+  const optRow = (id, checked, label, hint) => {
+    return '<label class="qprint-opt-row" style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;padding:6px 4px;line-height:1.35">' +
+      '<input type="checkbox" id="' + id + '" ' + (checked ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;flex-shrink:0;margin-top:2px">' +
+      '<div style="flex:1">' +
+        '<div style="font-size:12.5px;font-weight:600;color:var(--fg)">' + label + '</div>' +
+        (hint ? '<div style="font-size:11px;color:var(--fg3);margin-top:1px">' + hint + '</div>' : '') +
+      '</div>' +
+    '</label>';
+  };
+
+  // Costruisco le righe checkbox dallo schema
+  let rowsHtml = '';
+  schema.forEach(col => {
+    rowsHtml += optRow('qprintOpt_' + col.flag, init[col.flag] !== false, col.label, col.hint);
+  });
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'quotePrintSettingsModal';
+  bg.style.zIndex = '510';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  // V2.6.0: hint contestuale che ricorda all'utente che il set è per la modalità corrente.
+  // Se vuole configurare l'altra modalità deve cambiare il toggle in alto.
+  const otherModeName = qMode === 'client' ? 'Analisi' : 'Cliente';
+  const otherModeColor = qMode === 'client' ? '#a855f7' : '#2563eb';
+  const contextualHint =
+    '<div style="margin-bottom:14px;padding:8px 12px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.18);border-radius:6px;font-size:11.5px;color:var(--fg2);line-height:1.5">' +
+      'Questo set di impostazioni si applica <b>solo alla Modalità <span style="color:' + (qMode === 'client' ? '#2563eb' : '#a855f7') + '">' + (qMode === 'client' ? 'Cliente' : 'Analisi') + '</span></b>. ' +
+      'Per configurare la modalità <b style="color:' + otherModeColor + '">' + otherModeName + '</b>, ' +
+      'cambia modalità con lo switch in alto e riapri questo dialog.' +
+    '</div>';
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:680px;max-height:92vh;display:flex;flex-direction:column">' +
+      '<div class="modal-head">' +
+        '<h3>🖨️ Impostazioni di stampa' + modeBadge + '</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:18px 22px;overflow-y:auto;grid-template-columns:none">' +
+        '<p style="font-size:12.5px;color:var(--fg2);line-height:1.55;margin:0 0 14px 0">' +
+          'Configura quali colonne includere nei preventivi esportati (Word, PDF). ' +
+          'Le impostazioni vengono salvate per la modalità corrente e applicate alle prossime esportazioni.' +
+        '</p>' +
+        contextualHint +
+
+        // Sezione opzioni
+        '<div style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:var(--bg)">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+            '<div style="font-size:10.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px">Cosa includere nel preventivo</div>' +
+            '<div style="display:flex;gap:6px">' +
+              '<button type="button" id="qprintOptAll" class="btn small ghost" style="font-size:10.5px;padding:3px 8px;height:auto">Tutto</button>' +
+              '<button type="button" id="qprintOptMin" class="btn small ghost" style="font-size:10.5px;padding:3px 8px;height:auto">Minimo</button>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px">' +
+            rowsHtml +
+          '</div>' +
+          '<div style="margin-top:10px;padding:7px 10px;background:rgba(59,130,246,0.06);border-radius:6px;font-size:11px;color:var(--fg2);line-height:1.45">' +
+            '<b>Sempre presenti:</b> Descrizione articolo e Quantità.' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="qprintCancelBtn">Annulla</button>' +
+        '<span style="flex:1"></span>' +
+        '<button class="btn primary" id="qprintSaveBtn">✓ Salva impostazioni</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+
+  // Helper: leggo i flag in base allo schema corrente
+  const readFlags = () => {
+    const out = {};
+    schema.forEach(col => {
+      const el = document.getElementById('qprintOpt_' + col.flag);
+      out[col.flag] = !!(el && el.checked);
+    });
+    return out;
+  };
+  // Helper: imposto tutti i flag (passando un set, anche parziale)
+  const setFlags = (flags) => {
+    schema.forEach(col => {
+      const el = document.getElementById('qprintOpt_' + col.flag);
+      if(el){
+        // Default true se la flag non è nell'oggetto passato
+        el.checked = flags[col.flag] !== false;
+      }
+    });
+  };
+
+  // V2.6.0: preset "Tutto" = tutti ON. Preset "Minimo" = configurazione essenziale
+  // calibrata per la modalità corrente:
+  //  - Analisi:  Immagine + Listino + Netto + Totali (no codice/marca per look pulito)
+  //  - Cliente:  Immagine + Prezzo + Totale (preventivo cliente essenziale)
+  document.getElementById('qprintOptAll').addEventListener('click', () => {
+    const all = {};
+    schema.forEach(col => { all[col.flag] = true; });
+    setFlags(all);
+  });
+  document.getElementById('qprintOptMin').addEventListener('click', () => {
+    if(qMode === 'client'){
+      setFlags({
+        showImage: true, showCode: false, showBrand: false,
+        showListino: false, showSconto: false,
+        showPrezzo: true, showTotRiga: true,
+      });
+    } else {
+      setFlags({
+        showImage: true, showCode: false, showBrand: false,
+        showListino: true, showSconto: false, showNetto: true,
+        showScCliente: false, showMargine: false,
+        showTotPvp: false, showTotNetto: true,
+      });
+    }
+  });
+
+  document.getElementById('qprintCancelBtn').addEventListener('click', () => bg.remove());
+
+  document.getElementById('qprintSaveBtn').addEventListener('click', () => {
+    const flags = readFlags();
+    if(!window._QUOTE_STATE.settings) window._QUOTE_STATE.settings = Object.assign({}, QUOTE_SETTINGS_DEFAULT);
+    // V2.6.0: salvo nel set della modalità corrente, lascio l'altro intatto.
+    if(qMode === 'client'){
+      window._QUOTE_STATE.settings.printClient = Object.assign({}, QUOTE_PRINT_DEFAULT_CLIENT, flags);
+    } else {
+      window._QUOTE_STATE.settings.printAnalysis = Object.assign({}, QUOTE_PRINT_DEFAULT_ANALYSIS, flags);
+    }
+    saveQuoteState();
+    bg.remove();
+    if(typeof toast === 'function'){
+      toast({ type:'ok', title:'Impostazioni di stampa salvate', message:'Set "' + (qMode === 'client' ? 'Cliente' : 'Analisi') + '" aggiornato. Verrà applicato alla prossima esportazione.', duration:3500 });
+    }
+  });
+
+  // ESC chiude
+  const esc = (e) => { if(e.key === 'Escape'){ bg.remove(); document.removeEventListener('keydown', esc); } };
+  document.addEventListener('keydown', esc);
+}
+
+function renderQuoteCartContent(){
+  const container = document.getElementById('quoteCartContent');
+  if(!container) return;
+
+  // V2.5.2: aggiorno il badge modalità nell'header del modal in modo che
+  // resti sincronizzato con la modalità corrente (Cliente/Analisi). Senza
+  // questo, cambiando modalità via "Impostazioni preventivo" il badge restava
+  // bloccato sul valore al momento dell'apertura del modal.
+  // V2.5.6: il badge è ora uno switch a 2 segmenti. Sposto solo la classe
+  // `qcart-mode-active` sul segmento giusto, lo sfondo a "barretta" che evidenzia
+  // il segmento attivo è gestito dal CSS via :has() / classe.
+  const _badgeEl = document.getElementById('quoteCartModeBadge');
+  if(_badgeEl){
+    const _qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+    _badgeEl.querySelectorAll('.qcart-mode-seg').forEach(seg => {
+      const segMode = seg.dataset.mode === 'client' ? 'client' : 'analysis';
+      const isActive = (segMode === _qMode);
+      seg.classList.toggle('qcart-mode-active', isActive);
+      // Aggiorno le classi di colore (analisi viola / cliente blu) solo sul segmento attivo
+      seg.classList.toggle('qcart-mode-analysis', isActive && segMode === 'analysis');
+      seg.classList.toggle('qcart-mode-client',   isActive && segMode === 'client');
+      seg.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+  }
+
+  const t = computeQuoteTotals();
+
+  if(t.items.length === 0){
+    container.innerHTML =
+      '<div style="text-align:center;padding:60px 20px;color:var(--fg3)">' +
+        '<div style="font-size:64px;margin-bottom:14px;opacity:.4">🛒</div>' +
+        '<div style="font-size:16px;font-weight:600;color:var(--fg);margin-bottom:6px">Carrello vuoto</div>' +
+        '<div style="font-size:13px;line-height:1.6;max-width:480px;margin:0 auto">' +
+          'Per aggiungere articoli al preventivo, clicca il pulsante <b style="color:var(--accent)">P</b> sulle card prodotto. ' +
+          'La modalità preventivo deve essere attiva (<b>⚙️ → Modalità Preventivo</b>).' +
+        '</div>' +
+      '</div>';
+    return;
+  }
+
+  // Header riepilogo (V2.3.9: font +25%, padding più ampio)
+  // V2.6.5: "guadagno" coerente col Margine: prezzo_vendita_cliente − netto
+  // (era PVP − netto, ignorando lo sconto cliente). Se totalSellPrice è 0
+  // perché non ci sono sconti cliente impostati, prezzo_vendita = totalPvp.
+  const _margineBase = (t.totalSellPrice > 0) ? t.totalSellPrice : t.totalPvp;
+  const totalSavings = (_margineBase > 0 && t.totalNetto > 0) ? (_margineBase - t.totalNetto) : 0;
+  const cardLabel = 'font-size:12.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px';
+  const cardValue = 'font-size:28px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums';
+  const cardSub   = 'font-size:14px;color:var(--fg3);margin-top:3px';
+  // V2.3.9: modalità preventivo
+  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+
+  let summaryCards;
+  if(qMode === 'client'){
+    // ── KPI cards Modalità CLIENTE ──
+    // Niente netto/margine (sono dati interni). Mostro: Articoli, Totale Listino,
+    // Sconto medio (con valore in € accanto), Totale Vendita (in evidenza).
+    const showDiscount = (t.avgDiscountPct != null && t.totalDiscountValue > 0.005);
+    summaryCards =
+      '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px">' +
+        '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #3b82f6;border-radius:8px;padding:15px 18px">' +
+          '<div style="' + cardLabel + '">Articoli</div>' +
+          '<div style="' + cardValue + '">' + t.items.length + '</div>' +
+          '<div style="' + cardSub   + '">' + t.totalQty.toLocaleString('it-IT') + ' pezzi totali</div>' +
+        '</div>' +
+        '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #f59e0b;border-radius:8px;padding:15px 18px">' +
+          '<div style="' + cardLabel + '">Totale Listino</div>' +
+          '<div style="' + cardValue + '">' + _qFmtEur(t.totalPvp) + '</div>' +
+          '<div style="' + cardSub   + '">prezzo di listino</div>' +
+        '</div>' +
+        '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #ef4444;border-radius:8px;padding:15px 18px">' +
+          '<div style="' + cardLabel + '">Sconto medio</div>' +
+          '<div style="' + cardValue + '">' + (showDiscount ? _qFmtPct(t.avgDiscountPct, 1) : '—') + '</div>' +
+          '<div style="' + cardSub   + '">' + (showDiscount ? '−' + _qFmtEur(t.totalDiscountValue) : 'nessuno sconto applicato') + '</div>' +
+        '</div>' +
+        // V2.6.7: card dedicata "Risparmio cliente" — mostra l'importo in € che il
+        // cliente non paga rispetto al listino. Accento verde acqua coerente con
+        // la card "Guadagno" in Mod. Analisi (positivo, sinonimo di risparmio).
+        '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #10b981;border-radius:8px;padding:15px 18px">' +
+          '<div style="' + cardLabel + '">Risparmio cliente</div>' +
+          '<div style="' + cardValue + '">' + (showDiscount ? _qFmtEur(t.totalDiscountValue) : '—') + '</div>' +
+          '<div style="' + cardSub   + '">' + (showDiscount ? 'rispetto al listino' : 'nessuno sconto applicato') + '</div>' +
+        '</div>' +
+        '<div style="flex:1;min-width:175px;background:linear-gradient(135deg,rgba(34,197,94,0.06),rgba(34,197,94,0.02));border:1px solid rgba(34,197,94,0.4);border-left:3px solid #22c55e;border-radius:8px;padding:15px 18px">' +
+          '<div style="' + cardLabel + ';color:#16a34a">Totale Vendita</div>' +
+          '<div style="' + cardValue + ';color:#16a34a">' + _qFmtEur(t.totalSellPrice) + '</div>' +
+          '<div style="' + cardSub   + '">prezzo finale al cliente</div>' +
+        '</div>' +
+      '</div>';
+  } else {
+    // ── KPI cards Modalità ANALISI (comportamento storico) ──
+    summaryCards =
+      '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px">' +
+        '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #3b82f6;border-radius:8px;padding:15px 18px">' +
+          '<div style="' + cardLabel + '">Articoli</div>' +
+          '<div style="' + cardValue + '">' + t.items.length + '</div>' +
+          '<div style="' + cardSub   + '">' + t.totalQty.toLocaleString('it-IT') + ' pezzi totali</div>' +
+        '</div>' +
+        '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #f59e0b;border-radius:8px;padding:15px 18px">' +
+          '<div style="' + cardLabel + '">Totale PVP</div>' +
+          '<div style="' + cardValue + '">' + _qFmtEur(t.totalPvp) + '</div>' +
+          '<div style="' + cardSub   + '">prezzo di listino</div>' +
+        '</div>' +
+        // V2.6.8: card "Totale Vendita" anche in Mod. Analisi — mostra l'incasso
+        // effettivo al netto degli sconti cliente (totalSellPrice). Stesso accento
+        // verde scuro (#16a34a) usato in Mod. Cliente per la stessa metrica.
+        '<div style="flex:1;min-width:175px;background:linear-gradient(135deg,rgba(34,197,94,0.06),rgba(34,197,94,0.02));border:1px solid rgba(34,197,94,0.4);border-left:3px solid #16a34a;border-radius:8px;padding:15px 18px">' +
+          '<div style="' + cardLabel + ';color:#16a34a">Totale Vendita</div>' +
+          '<div style="' + cardValue + ';color:#16a34a">' + _qFmtEur(t.totalSellPrice) + '</div>' +
+          '<div style="' + cardSub   + '">prezzo finale al cliente</div>' +
+        '</div>' +
+        '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #22c55e;border-radius:8px;padding:15px 18px">' +
+          '<div style="' + cardLabel + '">Totale Netto</div>' +
+          '<div style="' + cardValue + '">' + _qFmtEur(t.totalNetto) + '</div>' +
+          '<div style="' + cardSub   + '">costo di acquisto</div>' +
+        '</div>' +
+        (t.marginPct != null ? (
+          // V2.6.6: card Margine ora mostra solo la percentuale; il guadagno in €
+          // ha una propria card dedicata accanto (vedi sotto).
+          '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #a855f7;border-radius:8px;padding:15px 18px">' +
+            '<div style="' + cardLabel + '">Margine</div>' +
+            '<div style="' + cardValue + '">' + _qFmtPct(t.marginPct, 1) + '</div>' +
+            '<div style="' + cardSub   + '">% di guadagno sulla vendita</div>' +
+          '</div>' +
+          // V2.6.6: nuova card "Guadagno" — accento verde acqua (#10b981) per
+          // differenziarsi sia dal verde "netto/costo" (#22c55e) sia dal viola
+          // "margine" (#a855f7), mantenendo coerenza con la palette esistente.
+          '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #10b981;border-radius:8px;padding:15px 18px">' +
+            '<div style="' + cardLabel + '">Guadagno</div>' +
+            '<div style="' + cardValue + '">' + _qFmtEur(totalSavings) + '</div>' +
+            '<div style="' + cardSub   + '">prezzo vendita − netto</div>' +
+          '</div>'
+        ) : '') +
+      '</div>';
+  }
+
+  // Tabella articoli — render diverso a seconda della modalità
+  let tbody = '';
+  let tableHtml;
+
+  if(qMode === 'client'){
+    // ── Tabella Modalità CLIENTE ──
+    // Colonne: # · Img · Codice · Marca · Descrizione · Q.tà · Listino unit · Sconto% · Vendita unit · Tot vendita · ✕
+    t.items.forEach((it, i) => {
+      const dPct = _normDiscountPct(it.discountPct);
+      const sellUnit = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+      const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
+      const subList  = (it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
+      const lineDiscountValue = (subList != null && sellUnit != null) ? (subList - subSell) : null;
+      tbody +=
+        '<tr data-code="' + escapeAttr(it.code) + '">' +
+          '<td style="text-align:center;color:var(--fg3);font-variant-numeric:tabular-nums;font-size:14px">' + (i + 1) + '</td>' +
+          '<td>' +
+            (function(){ const u = _qResolveImg(it); return u ? '<img src="' + escapeAttr(u) + '" loading="lazy" style="width:52px;height:52px;object-fit:contain;border-radius:5px;background:var(--bg)" onerror="this.style.display=\'none\'">' : ''; })() +
+          '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(it.code) + '</td>' +
+          '<td style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
+          (function(){
+            const cleanName = getCleanItemName(it);
+            const truncated = cleanName.slice(0, 175);
+            return '<td style="font-size:14px;color:var(--fg2);max-width:400px;line-height:1.4" title="' + escapeAttr(cleanName) + '">' + escapeHtml(truncated) + (cleanName.length > 175 ? '…' : '') + '</td>';
+          })() +
+          '<td>' +
+            '<div style="display:flex;align-items:center;gap:6px;justify-content:center">' +
+              '<button class="btn small ghost qcart-qty-minus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">−</button>' +
+              '<input type="number" class="qcart-qty-input qcart-qty-input-css" data-code="' + escapeAttr(it.code) + '" value="' + it.qty + '" min="0" max="9999">' +
+              '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
+            '</div>' +
+          '</td>' +
+          '<td class="num">' + (it.pvp != null ? _qFmtEur(it.pvp) : '—') + '</td>' +
+          '<td>' +
+            // V2.6.4: UI compatta identica a quella della colonna "Sc. Cliente"
+            // in Modalità Analisi (V2.6.2). Solo casella + simbolo % allineati a destra.
+            // Rimosso l'importo in euro sotto (era ridondante: il prezzo finale è
+            // già visibile nelle colonne "Vendita unit." e "Tot. Vendita" accanto).
+            '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
+              '<input type="number" class="qcart-discount-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + (dPct % 1 === 0 ? dPct : dPct.toFixed(1).replace('.',',')) + '" min="0" max="100" step="0.1" ' +
+                'style="width:54px;padding:3px 6px;font-size:12px" ' +
+                (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>' +
+              '<span style="font-size:11px;color:var(--fg3);font-weight:600">%</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="num" style="font-weight:600">' + (sellUnit != null ? _qFmtEur(sellUnit) : '—') + '</td>' +
+          '<td class="num" style="font-weight:700;color:#16a34a">' + (subSell != null ? _qFmtEur(subSell) : '—') + '</td>' +
+          '<td style="text-align:center">' +
+            '<button class="btn small ghost qcart-remove qcart-remove-btn" data-code="' + escapeAttr(it.code) + '" title="Rimuovi dal carrello">✕</button>' +
+          '</td>' +
+        '</tr>';
+    });
+    tableHtml =
+      '<table class="quote-cart-tbl">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>Riga</th>' +  // V2.7.9: rinominato (era #)
+            '<th>Foto</th>' +  // V2.7.9: rinominato (era Img)
+            '<th>Codice</th>' +
+            '<th>Marca</th>' +
+            '<th>Descrizione</th>' +
+            '<th style="text-align:center">Q.tà</th>' +  // V2.7.4: centrato sopra il box quantità
+            '<th class="num">Listino</th>' +
+            '<th class="num" style="text-align:center">Sconto</th>' +  // V2.7.4: centrato sopra il box sconto
+            '<th class="num">Prezzo</th>' +  // V2.7.9: rinominato (era Vendita)
+            '<th class="num">Tot. Prezzo</th>' +  // V2.7.9: rinominato (era Tot. Vendita)
+            '<th></th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>' + tbody + '</tbody>' +
+      '</table>';
+  } else {
+    // ── Tabella Modalità ANALISI (comportamento storico) ──
+    t.items.forEach((it, i) => {
+      const subPvp = (it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
+      const subNetto = (it.netto != null && it.netto > 0) ? it.netto * it.qty : null;
+      // V2.5.7: calcolo lo sconto effettivo % (include eventuale cascata: il netto
+      // salvato nell'item è già quello effettivo grazie a V2.5.4 in addToQuoteCart).
+      // hasCascadeAdj indica che gli sconti aggiuntivi sono stati applicati al
+      // momento dell'aggiunta — usato per il badge ★ viola di tracciabilità.
+      const scontoPct = (it.pvp != null && it.pvp > 0 && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
+        ? (1 - it.netto / it.pvp) * 100
+        : null;
+      const hasCascadeAdj = Array.isArray(it.cascadeAdjArr) && it.cascadeAdjArr.some(x => x > 0);
+      // Tooltip dettaglio cascata (mostrato solo se applicata)
+      let scTip = '';
+      if(hasCascadeAdj){
+        const slots = it.cascadeAdjArr.filter(x => x > 0).map(x => _qFmtPct(x, 1)).join(' · ');
+        const pathStr = it.cascadeAdjPath || '';
+        scTip = ' title="Sconti aggiuntivi a cascata (' + escapeAttr(pathStr) + '): ' + escapeAttr(slots) + '"';
+      }
+      // V2.5.9: Sc. cliente = sconto applicato in Modalità Cliente (it.discountPct).
+      // Se 0, prezzo vendita cliente = PVP (nessuno sconto). Se >0, il cliente
+      // pagherà PVP × (1 - discountPct/100).
+      // Margine = (prezzo_vendita - netto) / prezzo_vendita × 100 (formula
+      // commerciale standard "gross margin %"). Più alto è il margine, più
+      // alto è il guadagno relativo sulla vendita.
+      const scCliente = _normDiscountPct(it.discountPct);  // 0..100, default 0
+      const prezzoVendita = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - scCliente / 100) : null;
+      const margine = (prezzoVendita != null && it.netto != null && it.netto > 0 && prezzoVendita > 0)
+        ? (prezzoVendita - it.netto) / prezzoVendita * 100
+        : null;
+      // Colore margine: verde se positivo (guadagno), rosso se negativo (sotto costo)
+      const margineColor = (margine == null) ? 'var(--fg3)'
+                         : (margine >= 30) ? '#16a34a'   // verde scuro: ottimo
+                         : (margine >= 15) ? '#22c55e'   // verde chiaro: buono
+                         : (margine >= 0)  ? '#d97706'   // arancio: marginale
+                         : '#dc2626';                     // rosso: in perdita
+      tbody +=
+        '<tr data-code="' + escapeAttr(it.code) + '">' +
+          '<td style="text-align:center;color:var(--fg3);font-variant-numeric:tabular-nums;font-size:14px">' + (i + 1) + '</td>' +
+          '<td>' +
+            (function(){ const u = _qResolveImg(it); return u ? '<img src="' + escapeAttr(u) + '" loading="lazy" style="width:52px;height:52px;object-fit:contain;border-radius:5px;background:var(--bg)" onerror="this.style.display=\'none\'">' : ''; })() +
+          '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(it.code) + '</td>' +
+          '<td style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
+          (function(){
+            const cleanName = getCleanItemName(it);
+            const truncated = cleanName.slice(0, 175);
+            return '<td style="font-size:14px;color:var(--fg2);max-width:400px;line-height:1.4" title="' + escapeAttr(cleanName) + '">' + escapeHtml(truncated) + (cleanName.length > 175 ? '…' : '') + '</td>';
+          })() +
+          '<td>' +
+            '<div style="display:flex;align-items:center;gap:6px;justify-content:center">' +
+              '<button class="btn small ghost qcart-qty-minus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">−</button>' +
+              '<input type="number" class="qcart-qty-input qcart-qty-input-css" data-code="' + escapeAttr(it.code) + '" value="' + it.qty + '" min="0" max="9999">' +
+              '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
+            '</div>' +
+          '</td>' +
+          '<td class="num">' + (it.pvp != null ? _qFmtEur(it.pvp) : '—') + '</td>' +
+          // V2.5.7: nuova colonna "Sconto" tra PVP e Netto. Viola con ★ se cascata.
+          '<td class="num"' + scTip + '>' +
+            (scontoPct != null
+              ? '<span style="' + (hasCascadeAdj ? 'color:#7c3aed;font-weight:700' : 'color:#d97706') + '">' +
+                _qFmtPct(scontoPct, 1) +
+                (hasCascadeAdj ? ' <span style="color:#7c3aed;font-size:11px;font-weight:900" title="Include sconti aggiuntivi a cascata">★</span>' : '') +
+                '</span>'
+              : '—') +
+          '</td>' +
+          // V2.7.1: Sequenza colonne: PVP unit. → Sconto → Netto unit. → Tot. Netto → Sc. Cliente → Prezzo Vendita → Margine → Tot. PVP.
+          '<td class="num">' + (it.netto != null ? _qFmtEur(it.netto) : '—') + '</td>' +
+          // V2.7.1: Tot. Netto (netto × qty) subito dopo Netto unit. per leggibilita' "lato acquisto"
+          '<td class="num" style="font-weight:700;color:var(--accent)">' + (subNetto != null ? _qFmtEur(subNetto) : '—') + '</td>' +
+          // V2.5.9 / V2.6.2: cella "Sc. Cliente" EDITABILE anche in Modalità Analisi.
+          // Stesso modello dati (it.discountPct) e stessa persistenza dell'input
+          // in Modalità Cliente: cambiando modalità Cliente↔Analisi il valore
+          // viene ritrovato identico, ed è applicato nei preventivi cliente.
+          // UI compatta: solo casella + simbolo % (niente importo sotto, perché
+          // PVP e Netto sono già visibili in colonne dedicate accanto).
+          '<td class="num" title="Sconto applicato al cliente — modificabile direttamente (sincronizzato con Modalità Cliente)">' +
+            '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
+              // V2.6.3: rimosso il segno meno davanti all'input — il contesto della
+              // colonna "Sc. Cliente" e l'unita' "%" rendono il significato chiaro.
+              '<input type="number" class="qcart-discount-input qcart-sccli-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + (scCliente % 1 === 0 ? scCliente : scCliente.toFixed(1).replace('.',',')) + '" min="0" max="100" step="0.1" ' +
+                'style="width:54px;padding:3px 6px;font-size:12px" ' +
+                (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>' +
+              '<span style="font-size:11px;color:var(--fg3);font-weight:600">%</span>' +
+            '</div>' +
+          '</td>' +
+          // V2.7.0: nuova colonna "Prezzo Vendita" tra Sc. Cliente e Margine.
+          // = PVP × (1 − sc.cliente/100). Classe qcart-pvend-cell per fast-update
+          // sincrono al cambio dello sconto cliente (live, senza re-render tabella).
+          '<td class="num qcart-pvend-cell" title="Prezzo unitario di vendita al cliente: PVP × (1 − sc.cliente/100)" style="font-weight:600">' +
+            (prezzoVendita != null ? _qFmtEur(prezzoVendita) : '—') +
+          '</td>' +
+          // V2.5.9 / V2.6.2: cella Margine con classe specifica per fast-update
+          // dopo modifica di Sc. Cliente. Il colore e il valore sono ricalcolati
+          // in tempo reale da updateRowMargineAfterDiscountChange().
+          '<td class="num qcart-margin-cell" title="Margine commerciale: (prezzo_vendita_cliente − netto) / prezzo_vendita_cliente × 100. Verde ≥30% (ottimo) · 15-30% (buono) · 0-15% (marginale) · <0% (in perdita)">' +
+            (margine != null
+              ? '<span style="color:' + margineColor + ';font-weight:700">' + _qFmtPct(margine, 1) + '</span>'
+              : '<span style="color:var(--fg3)">—</span>') +
+          '</td>' +
+          // V2.7.7: colonna Tot. Listino nascosta su richiesta utente — Tot. Netto resta visibile come totale per riga.
+          '<td style="text-align:center">' +
+            '<button class="btn small ghost qcart-remove qcart-remove-btn" data-code="' + escapeAttr(it.code) + '" title="Rimuovi dal carrello">✕</button>' +
+          '</td>' +
+        '</tr>';
+    });
+    tableHtml =
+      '<table class="quote-cart-tbl">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>Riga</th>' +  // V2.7.8: rinominato (era #)
+            '<th>Img</th>' +
+            '<th>Codice</th>' +
+            '<th>Marca</th>' +
+            '<th>Descrizione</th>' +
+            '<th style="text-align:center">Q.tà</th>' +  // V2.7.4: centrato sopra il box quantità
+            '<th class="num">Listino</th>' +
+            '<th class="num">Sconto ACQ</th>' +
+            '<th class="num">Netto ACQ</th>' +  // V2.7.8: rinominato (era Netto)
+            '<th class="num">Tot. Netto ACQ</th>' +  // V2.7.8: rinominato (era Tot. Netto)
+            '<th class="num" style="text-align:center">Sc. Cliente</th>' +  // V2.5.9+V2.7.4: centrato sopra il box sconto
+            '<th class="num">Prezzo</th>' +  // V2.7.8: rinominato (era Vendita)
+            '<th class="num">Margine</th>' +      // V2.5.9: % di guadagno sulla vendita
+            '<th></th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>' + tbody + '</tbody>' +
+      '</table>';
+  }
+
+  container.innerHTML = summaryCards + tableHtml;
+
+  // Event delegation per i controlli quantità
+  container.querySelectorAll('.qcart-qty-minus').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.dataset.code;
+      const item = window._QUOTE_STATE.items.find(it => it.code === code);
+      if(!item) return;
+      updateCartItemQty(code, item.qty - 1);
+      renderQuoteCartContent();
+    });
+  });
+  container.querySelectorAll('.qcart-qty-plus').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.dataset.code;
+      const item = window._QUOTE_STATE.items.find(it => it.code === code);
+      if(!item) return;
+      updateCartItemQty(code, item.qty + 1);
+      renderQuoteCartContent();
+    });
+  });
+  container.querySelectorAll('.qcart-qty-input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      updateCartItemQty(inp.dataset.code, inp.value);
+      renderQuoteCartContent();
+    });
+  });
+  container.querySelectorAll('.qcart-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.dataset.code;
+      if(!confirm('Rimuovere "' + code + '" dal carrello?')) return;
+      removeFromQuoteCart(code);
+      renderQuoteCartContent();
+    });
+  });
+  // V2.3.9: input sconto % (Modalità Cliente nella sua colonna dedicata,
+  // V2.6.2: anche Modalità Analisi nella colonna "Sc. Cliente" editabile).
+  container.querySelectorAll('.qcart-discount-input').forEach(inp => {
+    // Su 'change' (blur o invio) ricalcolo e re-render per aggiornare KPI e subtotali
+    inp.addEventListener('change', () => {
+      updateCartItemDiscount(inp.dataset.code, inp.value);
+      renderQuoteCartContent();
+    });
+    // Su 'input' (mentre digito) aggiorno solo l'item, niente re-render — UX più fluida.
+    // V2.6.2: in Modalità Analisi (classe qcart-sccli-input) aggiorno anche la
+    // cella Margine in tempo reale per dare feedback immediato all'utente:
+    // ad ogni cifra digitata vede subito l'impatto sulla redditività.
+    inp.addEventListener('input', () => {
+      updateCartItemDiscount(inp.dataset.code, inp.value);
+      if(inp.classList.contains('qcart-sccli-input')){
+        updateRowMargineAfterDiscountChange(inp);
+      }
+    });
+    // Seleziona tutto al focus per facilitare la sostituzione del valore
+    inp.addEventListener('focus', () => {
+      try { inp.select(); } catch(e){ /* ignore */ }
+    });
+  });
+}
+
+/* V2.6.2 / V2.7.0: fast-update delle celle Margine e Prezzo Vendita quando si
+   modifica Sc. Cliente in Modalità Analisi senza re-renderizzare tutta la tabella.
+   Margine e Prezzo Vendita sono entrambi funzione di discountPct, quindi vanno
+   aggiornati live a ogni cifra digitata per dare feedback immediato all'utente.
+   Sconto, Tot. PVP, Tot. Netto, Netto unit. non dipendono da discountPct e
+   restano invariati.
+   Il KPI globale Margine in cima e Tot. Vendita NON vengono aggiornati live qui
+   per evitare overhead — si aggiornano al 'change' (blur/invio) con il re-render. */
+function updateRowMargineAfterDiscountChange(inputEl){
+  const tr = inputEl.closest('tr');
+  if(!tr) return;
+  const code = inputEl.dataset.code;
+  const item = window._QUOTE_STATE.items.find(it => it.code === code);
+  if(!item) return;
+  // Ricalcolo prezzo vendita e margine
+  const scCliente = _normDiscountPct(item.discountPct);
+  const prezzoVendita = (item.pvp != null && item.pvp > 0) ? item.pvp * (1 - scCliente / 100) : null;
+  const margine = (prezzoVendita != null && item.netto != null && item.netto > 0 && prezzoVendita > 0)
+    ? (prezzoVendita - item.netto) / prezzoVendita * 100
+    : null;
+  // V2.7.0: aggiorno cella Prezzo Vendita
+  const pvendCell = tr.querySelector('.qcart-pvend-cell');
+  if(pvendCell){
+    pvendCell.textContent = prezzoVendita != null ? _qFmtEur(prezzoVendita) : '—';
+  }
+  // Aggiorno la cella Margine
+  const cell = tr.querySelector('.qcart-margin-cell');
+  if(!cell) return;
+  // Stesso schema cromatico semaforo della V2.5.9
+  const margineColor = (margine == null) ? 'var(--fg3)'
+                     : (margine >= 30) ? '#16a34a'
+                     : (margine >= 15) ? '#22c55e'
+                     : (margine >= 0)  ? '#d97706'
+                     : '#dc2626';
+  cell.innerHTML = (margine != null
+    ? '<span style="color:' + margineColor + ';font-weight:700">' + _qFmtPct(margine, 1) + '</span>'
+    : '<span style="color:var(--fg3)">—</span>');
+}
+
+/* ─── Dialog Esportazione ─── */
+
+function openQuoteExportDialog(){
+  if(window._QUOTE_STATE.items.length === 0){
+    toast('Aggiungi articoli al carrello prima di generare il preventivo', 'warn', 4000);
+    return;
+  }
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.style.zIndex = '510';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  const t = computeQuoteTotals();
+
+  // V2.3.9: badge + totale coerenti con la modalità preventivo attiva
+  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  const modeBadge = qMode === 'client'
+    ? '<span style="display:inline-block;font-size:10px;font-weight:700;color:#2563eb;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;margin-left:8px;vertical-align:middle">Cliente</span>'
+    : '<span style="display:inline-block;font-size:10px;font-weight:700;color:#a855f7;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3);padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;margin-left:8px;vertical-align:middle">Analisi</span>';
+  const totalLabel = qMode === 'client' ? 'Totale vendita' : 'Totale netto';
+  const totalValue = qMode === 'client' ? t.totalSellPrice : t.totalNetto;
+  const totalColor = qMode === 'client' ? '#16a34a' : 'var(--accent)';
+
+  // V2.6.0: leggo i flag della modalità corrente per il riepilogo "cosa verrà incluso"
+  const printS = getPrintSettings(qMode);
+  const incl = [];
+  if(printS.showImage !== false) incl.push('Immagine');
+  incl.push('Descrizione');
+  if(printS.showCode !== false) incl.push('Codice');
+  if(printS.showBrand !== false) incl.push('Marca');
+  incl.push('Q.tà');
+  if(qMode === 'client'){
+    if(printS.showListino !== false) incl.push('Listino');
+    if(printS.showSconto !== false) incl.push('Sconto');
+    if(printS.showPrezzo !== false) incl.push('Prezzo');
+    if(printS.showTotRiga !== false) incl.push('Totale');
+  } else {
+    if(printS.showListino !== false) incl.push('Listino');
+    if(printS.showSconto !== false) incl.push('Sconto');
+    if(printS.showNetto !== false) incl.push('Netto');
+    if(printS.showScCliente !== false) incl.push('Sc. Cliente');
+    if(printS.showMargine !== false) incl.push('Margine');
+    if(printS.showTotPvp !== false) incl.push('Tot. PVP');
+    if(printS.showTotNetto !== false) incl.push('Tot. Netto');
+  }
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:560px">' +
+      '<div class="modal-head">' +
+        '<h3>📥 Genera preventivo' + modeBadge + '</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:18px 22px">' +
+        '<p style="font-size:13px;color:var(--fg2);line-height:1.6;margin:0 0 12px 0">' +
+          '<b>' + t.items.length + '</b> articoli · <b>' + t.totalQty + '</b> pezzi totali · ' +
+          totalLabel + ' <b style="color:' + totalColor + '">' + _qFmtEur(totalValue) + '</b>' +
+        '</p>' +
+
+        // V2.4.7: riepilogo compatto delle colonne incluse + link a Impostazioni di stampa
+        '<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:16px;font-size:11.5px;color:var(--fg2);line-height:1.5">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px">' +
+            '<div style="font-size:10px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.4px">Colonne incluse</div>' +
+            '<button type="button" id="qexpOpenPrintSettings" class="btn small ghost" style="font-size:10.5px;padding:3px 8px;height:auto" title="Modifica le colonne incluse">🖨️ Modifica</button>' +
+          '</div>' +
+          '<div>' + incl.map(x => '<span style="display:inline-block;background:var(--bg3);padding:1px 7px;border-radius:3px;margin:1px 3px 1px 0;font-size:11px">' + escapeHtml(x) + '</span>').join('') + '</div>' +
+        '</div>' +
+
+        '<div style="font-size:10.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Formato di esportazione</div>' +
+        '<div style="display:flex;flex-direction:column;gap:10px">' +
+          '<button class="format-option qexp-format" data-format="docx" type="button">' +
+            '<div class="format-option-label">📄 Word (.docx)</div>' +
+            '<div class="format-option-hint">Documento editabile con intestazione aziendale Security TOWER</div>' +
+          '</button>' +
+          '<button class="format-option qexp-format" data-format="pdf" type="button">' +
+            '<div class="format-option-label">📕 PDF</div>' +
+            '<div class="format-option-hint">Documento finalizzato pronto per invio email</div>' +
+          '</button>' +
+          '<button class="format-option qexp-format" data-format="xlsx" type="button">' +
+            '<div class="format-option-label">📊 Excel (.xlsx)</div>' +
+            '<div class="format-option-hint">Foglio di calcolo per analisi e modifiche numeriche</div>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="qexpCancel">Annulla</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+
+  document.getElementById('qexpCancel').addEventListener('click', () => bg.remove());
+
+  // V2.4.7: il pulsante "Modifica" apre il dialog Impostazioni di stampa.
+  // Quando l'utente salva o annulla lì, si torna automaticamente al dialog
+  // Genera preventivo refreshato (chiudo e riapro).
+  document.getElementById('qexpOpenPrintSettings').addEventListener('click', () => {
+    bg.remove();
+    openQuotePrintSettingsDialog();
+    // Listener one-shot: quando il dialog Impostazioni di stampa viene chiuso,
+    // riapro Genera preventivo se il modal carrello è ancora aperto.
+    const reopenObserver = new MutationObserver(() => {
+      if(!document.getElementById('quotePrintSettingsModal')){
+        reopenObserver.disconnect();
+        if(document.getElementById('quoteCartModal')){
+          // Riapro Genera preventivo dopo un breve delay per dare tempo
+          // al toast eventuale di mostrarsi
+          setTimeout(() => openQuoteExportDialog(), 80);
+        }
+      }
+    });
+    reopenObserver.observe(document.body, { childList: true, subtree: false });
+  });
+
+  bg.querySelectorAll('.qexp-format').forEach(b => {
+    b.addEventListener('click', () => {
+      const fmt = b.dataset.format;
+      // V2.4.7: i flag sono già persistiti dal dialog Impostazioni di stampa.
+      // Qui non c'è più nulla da salvare, lancio direttamente l'export.
+      bg.remove();
+      if(fmt === 'docx') exportQuoteWord();
+      else if(fmt === 'pdf') exportQuotePdf();
+      else if(fmt === 'xlsx') exportQuoteExcel();
+    });
+  });
+
+  const esc = (e) => { if(e.key === 'Escape'){ bg.remove(); document.removeEventListener('keydown', esc); } };
+  document.addEventListener('keydown', esc);
+}
+
+/* ─── Esportazione Excel ─── */
+
+async function exportQuoteExcel(){
+  if(typeof XLSX === 'undefined'){ toast('Libreria Excel non disponibile', 'err'); return; }
+  const t = computeQuoteTotals();
+  if(t.items.length === 0) return;
+
+  if(typeof showLoaderAdvanced === 'function') showLoaderAdvanced('Generazione preventivo Excel', '', 'export');
+
+  // V2.3.9: scelgo struttura colonne in base alla modalità
+  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+
+  try {
+    const wb = XLSX.utils.book_new();
+
+    let header, rows, totalRow, cols;
+
+    if(qMode === 'client'){
+      // ── Modalità CLIENTE: niente costi/margine, solo prezzi vendita ──
+      header = ['#', 'Codice', 'Marca', 'Descrizione', 'URL Immagine', 'EAN', 'Q.tà',
+                'Listino unit. (€)', 'Sconto %', 'Vendita unit. (€)',
+                'Tot. Listino (€)', 'Sconto (€)', 'Tot. Vendita (€)'];
+      rows = t.items.map((it, i) => {
+        const dPct = _normDiscountPct(it.discountPct);
+        const sellUnit = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+        const subList  = (it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
+        const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
+        const lineDisc = (subList != null && subSell != null) ? (subList - subSell) : null;
+        return [
+          i + 1,
+          it.code,
+          it.brand,
+          getCleanItemName(it),
+          _qResolveImg(it),
+          it.ean,
+          it.qty,
+          it.pvp != null ? Number(it.pvp.toFixed(2)) : '',
+          dPct,
+          sellUnit != null ? Number(sellUnit.toFixed(2)) : '',
+          subList != null ? Number(subList.toFixed(2)) : '',
+          lineDisc != null ? Number(lineDisc.toFixed(2)) : '',
+          subSell != null ? Number(subSell.toFixed(2)) : '',
+        ];
+      });
+      // Riga totali
+      totalRow = ['', '', '', '', '', 'TOTALE', t.totalQty, '',
+                  t.avgDiscountPct != null ? Number(t.avgDiscountPct.toFixed(1)) : '',
+                  '',
+                  Number(t.totalPvp.toFixed(2)),
+                  Number(t.totalDiscountValue.toFixed(2)),
+                  Number(t.totalSellPrice.toFixed(2))];
+      cols = [{wch:5},{wch:22},{wch:18},{wch:50},{wch:55},{wch:16},{wch:7},{wch:14},{wch:9},{wch:14},{wch:14},{wch:13},{wch:14}];
+    } else {
+      // ── Modalità ANALISI (comportamento storico): netto + margine ──
+      header = ['#', 'Codice', 'Marca', 'Descrizione', 'URL Immagine', 'EAN', 'Q.tà',
+                'PVP unit. (€)', 'Netto unit. (€)',
+                'Totale PVP (€)', 'Totale Netto (€)', 'Sconto %'];
+      rows = t.items.map((it, i) => {
+        const subPvp = (it.pvp != null && it.pvp > 0) ? Number((it.pvp * it.qty).toFixed(2)) : '';
+        const subNet = (it.netto != null && it.netto > 0) ? Number((it.netto * it.qty).toFixed(2)) : '';
+        const sconto = (it.pvp != null && it.netto != null && it.pvp > 0 && it.netto > 0)
+          ? Number(((1 - it.netto / it.pvp) * 100).toFixed(1))
+          : '';
+        return [
+          i + 1,
+          it.code,
+          it.brand,
+          getCleanItemName(it),
+          _qResolveImg(it),
+          it.ean,
+          it.qty,
+          it.pvp != null ? Number(it.pvp.toFixed(2)) : '',
+          it.netto != null ? Number(it.netto.toFixed(2)) : '',
+          subPvp,
+          subNet,
+          sconto,
+        ];
+      });
+      totalRow = ['', '', '', '', '', 'TOTALE', t.totalQty, '', '',
+                  Number(t.totalPvp.toFixed(2)),
+                  Number(t.totalNetto.toFixed(2)),
+                  t.marginPct != null ? Number(t.marginPct.toFixed(1)) : ''];
+      cols = [{wch:5},{wch:22},{wch:18},{wch:50},{wch:55},{wch:16},{wch:7},{wch:13},{wch:13},{wch:13},{wch:13},{wch:10}];
+    }
+
+    rows.push([]);
+    rows.push(totalRow);
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    ws['!cols'] = cols;
+    XLSX.utils.book_append_sheet(wb, ws, 'Preventivo');
+
+    const ts = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const fname = 'preventivo_' + (qMode === 'client' ? 'cliente_' : '') + ts + '.xlsx';
+    XLSX.writeFile(wb, fname);
+
+    if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
+    toast({ type:'ok', title:'Preventivo esportato', message: fname, duration: 4500 });
+  } catch(err){
+    if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
+    console.error('[quote] excel export error:', err);
+    toast('Errore export Excel: ' + (err.message || err), 'err', 5000);
+  }
+}
+
+/* ─── Esportazione Word ─── */
+
+async function exportQuoteWord(){
+  const t = computeQuoteTotals();
+  if(t.items.length === 0) return;
+
+  if(typeof showLoaderAdvanced === 'function') showLoaderAdvanced('Generazione preventivo Word', '', 'export');
+
+  // V2.3.9: scelgo struttura colonne in base alla modalità
+  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  // V2.6.0: leggo il set di flag della modalità corrente (analisi/cliente).
+  // I flag sono distinti per modalità: vedi schemaAnalysis / schemaClient in openQuotePrintSettingsDialog.
+  const printS = getPrintSettings(qMode);
+  // Alias condivisi (presenti in entrambe le modalità)
+  const showImage = printS.showImage !== false;
+  const showCode  = printS.showCode !== false;
+  const showBrand = printS.showBrand !== false;
+  // Alias specifici Modalità Analisi
+  const showListino  = printS.showListino !== false;
+  const showNetto    = printS.showNetto !== false;
+  const showTotPvp   = printS.showTotPvp !== false;
+  const showTotNetto = printS.showTotNetto !== false;
+  // V2.6.1: 3 nuove colonne disponibili in Modalità Analisi
+  const showScontoAnalisi = printS.showSconto !== false;       // sconto acquisto effettivo
+  const showScCliente     = printS.showScCliente !== false;    // sconto applicato al cliente
+  const showMargine       = printS.showMargine !== false;      // margine commerciale %
+  // Alias specifici Modalità Cliente (showSconto in client = sconto cliente per riga)
+  const showSconto   = printS.showSconto !== false;
+  const showPrezzo   = printS.showPrezzo !== false;
+  const showTotRiga  = printS.showTotRiga !== false;
+  // V2.6.0: alias di compatibilità con la logica V2.4.2 — usata sotto nel rendering.
+  // Cliente: showListDiscount mappa su showListino (Listino) e Sconto è gestito a parte.
+  //          showPriceTotal mappa su showPrezzo, showRowTotal su showTotRiga.
+  // Analisi: showListDiscount mappa su showListino+showNetto (entrambi indipendenti),
+  //          showRowTotal su showTotNetto, showTotPvp è una nuova colonna separata.
+
+  try {
+    const today = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' });
+    const quoteNum = 'PREV-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+
+    let rowsHtml = '';
+    let theadHtml = '';
+    let totalsHtml = '';
+
+    if(qMode === 'client'){
+      // ── Modalità CLIENTE ──
+      // V2.4.2: render dinamico delle colonne in base ai flag.
+      // Schema colonne con peso relativo (verrà normalizzato a 100%):
+      //   img(10) | desc(38) | qty(6) | listino(10) | sconto(8) | prezzo(10) | totale(13)
+      // V2.6.0: ogni colonna ha un flag INDIPENDENTE (showListino, showSconto, showPrezzo, showTotRiga).
+      const cols = [];
+      if(showImage)        cols.push({key:'img',     w:10, label:'Img'});
+                           cols.push({key:'desc',    w:38, label:'Descrizione'});  // sempre
+                           cols.push({key:'qty',     w: 6, label:'Q.tà'});         // sempre
+      if(showListino)      cols.push({key:'list',    w:10, label:'Listino'});
+      if(showSconto)       cols.push({key:'discount',w: 8, label:'Sconto'});
+      if(showPrezzo)       cols.push({key:'price',   w:10, label:'Prezzo'});
+      if(showTotRiga)      cols.push({key:'rtotal',  w:13, label:'Totale'});
+
+      // Normalizzo le width a 100% (pixel-perfect non importa, ma somma vicina a 100)
+      const wSum = cols.reduce((s, c) => s + c.w, 0);
+      const wPct = (w) => Math.round((w / wSum) * 100 * 10) / 10;  // 1 decimale
+
+      t.items.forEach((it) => {
+        const dPct = _normDiscountPct(it.discountPct);
+        const sellUnit = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+        const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
+        const fmt = (v) => v != null ? _qFmtEur(v) : '—';
+        const dPctStr = (dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
+        const imgUrlAbs = _qResolveImg(it);
+        const imgCell = imgUrlAbs
+          ? '<img src="' + escapeAttr(imgUrlAbs) + '" style="width:50pt;height:50pt;object-fit:contain" alt="">'
+          : '';
+        // Cella descrizione strutturata: codice (opt) + desc + marca (opt)
+        const descParts = [];
+        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(it.code) + '</div>');
+        descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
+        if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
+        const descContent = descParts.join('');
+
+        // Renderizzo solo le celle delle colonne attive
+        const cellMap = {
+          img:      '<td class="col-img">' + imgCell + '</td>',
+          desc:     '<td class="col-desc">' + descContent + '</td>',
+          qty:      '<td class="col-qty">' + it.qty + '</td>',
+          list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
+          discount: '<td class="col-discount">' + dPctStr + '</td>',
+          price:    '<td class="col-money">' + fmt(sellUnit) + '</td>',
+          rtotal:   '<td class="col-money col-tot"><b>' + (subSell != null ? _qFmtEur(subSell) : '—') + '</b></td>',
+        };
+        rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
+      });
+      theadHtml = '<tr>' + cols.map(c => {
+        const cls = (c.key === 'discount') ? 'col-discount'
+                  : (c.key === 'list' || c.key === 'price' || c.key === 'rtotal') ? 'col-money'
+                  : 'col-' + c.key;
+        return '<th class="' + cls + '" style="width:' + wPct(c.w) + '%">' + c.label + '</th>';
+      }).join('') + '</tr>';
+
+      totalsHtml =
+        // V2.6.0: Totale Listino mostrato solo se la colonna Listino è visibile
+        (showListino ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.totalPvp) + '</td></tr>' : '') +
+        // Sconto applicato mostrato solo se almeno una colonna tra Listino e Sconto è visibile
+        ((showListino || showSconto) && t.totalDiscountValue > 0.005
+          ? '<tr><td class="label">Sconto applicato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.totalDiscountValue) + '</td></tr>'
+          : '') +
+        '<tr class="grand"><td class="label">TOTALE</td><td class="val">' + _qFmtEur(t.totalSellPrice) + '</td></tr>';
+    } else {
+      // ── Modalità ANALISI ──
+      // V2.6.1: 10 colonne disponibili.
+      // Pesi calibrati assumendo che alcune colonne siano spesso OFF (Tot. PVP, Sc. Cliente)
+      // — l'algoritmo wPct normalizza comunque a 100% finale.
+      const cols = [];
+      if(showImage)            cols.push({key:'img',     w: 9, label:'Img'});
+                               cols.push({key:'desc',    w:32, label:'Descrizione'});
+                               cols.push({key:'qty',     w: 6, label:'Q.tà'});
+      if(showListino)          cols.push({key:'list',    w: 9, label:'Listino'});
+      if(showScontoAnalisi)    cols.push({key:'scAcq',   w: 7, label:'Sconto'});
+      if(showNetto)            cols.push({key:'netto',   w: 9, label:'Netto'});
+      if(showScCliente)        cols.push({key:'scCli',   w: 7, label:'Sc. Cliente'});
+      if(showMargine)          cols.push({key:'margine', w: 7, label:'Margine'});
+      if(showTotPvp)           cols.push({key:'totpvp',  w: 9, label:'Tot. PVP'});
+      if(showTotNetto)         cols.push({key:'totnetto',w:11, label:'Tot. Netto'});
+
+      const wSum = cols.reduce((s, c) => s + c.w, 0);
+      const wPct = (w) => Math.round((w / wSum) * 100 * 10) / 10;
+
+      t.items.forEach((it) => {
+        const subPvp = (it.pvp != null && it.pvp > 0) ? (it.pvp * it.qty) : 0;
+        const subNet = (it.netto != null && it.netto > 0) ? (it.netto * it.qty) : 0;
+        const fmt = (v) => v != null ? _qFmtEur(v) : '—';
+        // V2.6.1: calcoli sc. acquisto, sc. cliente, margine (stessa logica del carrello V2.5.7/V2.5.9)
+        const scAcqPct = (it.pvp != null && it.pvp > 0 && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
+          ? (1 - it.netto / it.pvp) * 100 : null;
+        const scCliPct = _normDiscountPct(it.discountPct);
+        const prezzoVendita = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - scCliPct / 100) : null;
+        const marginePct = (prezzoVendita != null && it.netto != null && it.netto > 0 && prezzoVendita > 0)
+          ? (prezzoVendita - it.netto) / prezzoVendita * 100 : null;
+        const imgUrlAbs = _qResolveImg(it);
+        const imgCell = imgUrlAbs
+          ? '<img src="' + escapeAttr(imgUrlAbs) + '" style="width:50pt;height:50pt;object-fit:contain" alt="">'
+          : '';
+        const descParts = [];
+        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(it.code) + '</div>');
+        descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
+        if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
+        const descContent = descParts.join('');
+
+        const cellMap = {
+          img:      '<td class="col-img">' + imgCell + '</td>',
+          desc:     '<td class="col-desc">' + descContent + '</td>',
+          qty:      '<td class="col-qty">' + it.qty + '</td>',
+          list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
+          scAcq:    '<td class="col-money">' + (scAcqPct != null ? _qFmtPct(scAcqPct, 1) : '—') + '</td>',
+          netto:    '<td class="col-money">' + fmt(it.netto) + '</td>',
+          scCli:    '<td class="col-money">' + (scCliPct > 0 ? _qFmtPct(scCliPct, 1) : '—') + '</td>',
+          margine:  '<td class="col-money">' + (marginePct != null ? _qFmtPct(marginePct, 1) : '—') + '</td>',
+          totpvp:   '<td class="col-money">' + (subPvp ? _qFmtEur(subPvp) : '—') + '</td>',
+          totnetto: '<td class="col-money col-tot"><b>' + (subNet ? _qFmtEur(subNet) : '—') + '</b></td>',
+        };
+        rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
+      });
+      theadHtml = '<tr>' + cols.map(c => {
+        const cls = (['list','netto','totpvp','totnetto','scAcq','scCli','margine'].indexOf(c.key) >= 0) ? 'col-money' : 'col-' + c.key;
+        return '<th class="' + cls + '" style="width:' + wPct(c.w) + '%">' + c.label + '</th>';
+      }).join('') + '</tr>';
+
+      totalsHtml =
+        // V2.6.0: Totale PVP mostrato solo se Listino è visibile nelle colonne (showListino)
+        (showListino ? '<tr><td class="label">Totale PVP</td><td class="val">' + _qFmtEur(t.totalPvp) + '</td></tr>' : '') +
+        (t.marginPct != null ? '<tr><td class="label">Margine</td><td class="val">' + _qFmtPct(t.marginPct, 1) + '</td></tr>' : '') +
+        '<tr class="grand"><td class="label">TOTALE NETTO</td><td class="val">' + _qFmtEur(t.totalNetto) + '</td></tr>';
+    }
+
+    const html =
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preventivo ' + quoteNum + '</title>' +
+      '<style>' +
+        'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#333;margin:0;padding:0}' +
+        '.header{background:#1f2937;color:#fff;padding:24pt 32pt;display:table;width:100%;box-sizing:border-box}' +
+        '.header-left{display:table-cell;vertical-align:top;width:50%}' +
+        '.header-right{display:table-cell;vertical-align:top;width:50%;text-align:right}' +
+        'h1{margin:0 0 4pt 0;font-size:22pt;font-weight:700;letter-spacing:1pt}' +
+        '.subtitle{font-size:10pt;color:#9ca3af;margin:0}' +
+        '.meta{font-size:10pt;line-height:1.7}' +
+        '.content{padding:24pt 32pt}' +
+        'h2{font-size:14pt;color:#1f2937;border-bottom:2pt solid #f59e0b;padding-bottom:4pt;margin-top:18pt;margin-bottom:10pt}' +
+        'table.items{width:100%;border-collapse:collapse;margin-top:10pt;font-size:10pt}' +
+        'table.items th{background:#1f2937;color:#fff;padding:8pt 8pt;text-align:left;font-weight:600;font-size:9.5pt;letter-spacing:0;vertical-align:middle}' +
+        'table.items td{padding:8pt 8pt;border-bottom:1pt solid #e5e7eb;vertical-align:middle;line-height:1.45;font-variant-numeric:tabular-nums}' +
+        // V2.4.1: striping zebra classico (single-row layout)
+        'table.items tbody tr:nth-child(even) td{background:#f9fafb}' +
+        // Img: cella quadrata centrata
+        'table.items th.col-img,table.items td.col-img{text-align:center;padding:6pt 4pt;width:50pt;vertical-align:middle}' +
+        'table.items td.col-img img{max-width:50pt;max-height:50pt}' +
+        // Descrizione strutturata: codice in alto bold, corpo descrizione, marca in fondo small-caps
+        'table.items th.col-desc{text-align:left}' +
+        'table.items td.col-desc{text-align:left;color:#374151;font-size:9.5pt;line-height:1.45;padding:8pt 10pt;vertical-align:middle}' +
+        'table.items td.col-desc .desc-code{font-weight:700;font-size:10.5pt;color:#1f2937;letter-spacing:.2pt;margin-bottom:3pt}' +
+        'table.items td.col-desc .desc-body{text-align:justify;text-align-last:left;white-space:pre-line;hyphens:auto;color:#374151}' +
+        'table.items td.col-desc .desc-brand{font-size:8.5pt;color:#6b7280;font-weight:500;letter-spacing:.3pt;text-transform:uppercase;margin-top:4pt}' +
+        // V2.4.0: colonne numeriche compatte (padding ridotto)
+        'table.items th.col-qty,table.items td.col-qty{text-align:center;font-weight:600;vertical-align:middle;padding-left:3pt;padding-right:3pt}' +
+        'table.items th.col-money,table.items td.col-money{text-align:right;padding-left:4pt;padding-right:6pt;white-space:nowrap;vertical-align:middle}' +
+        'table.items th.col-discount{text-align:right;padding-left:3pt;padding-right:6pt}' +
+        'table.items td.col-discount{text-align:right;padding-left:3pt;padding-right:6pt;white-space:nowrap;font-weight:600;color:#dc2626;vertical-align:middle}' +
+        'table.items td.col-tot{font-weight:700;color:#1f2937}' +
+        '.totals{margin-top:18pt;display:table;width:100%}' +
+        '.totals-table{margin-left:auto;width:55%;border-collapse:collapse;font-size:11pt}' +
+        '.totals-table td{padding:6pt 12pt;border-bottom:1pt solid #e5e7eb}' +
+        '.totals-table td.label{color:#6b7280;font-weight:600;text-align:right}' +
+        '.totals-table td.val{text-align:right;font-weight:700;color:#1f2937;width:40%}' +
+        '.totals-table tr.grand td{font-size:14pt;background:#1f2937;color:#fff;padding:10pt 12pt}' +
+        '.totals-table tr.grand td.val{color:#f59e0b}' +
+        '.footer{margin-top:30pt;padding-top:14pt;border-top:1pt solid #e5e7eb;font-size:9pt;color:#9ca3af;line-height:1.6}' +
+        '.notes{background:#fef3c7;border-left:3pt solid #f59e0b;padding:10pt 14pt;margin-top:18pt;font-size:10pt;color:#78350f}' +
+      '</style></head><body>' +
+      '<div class="header">' +
+        '<div class="header-left">' +
+          '<h1>SECURITY TOWER</h1>' +
+          '<p class="subtitle">Sistemi di sicurezza e videosorveglianza</p>' +
+        '</div>' +
+        '<div class="header-right meta">' +
+          '<b>PREVENTIVO</b><br>' +
+          'N° ' + quoteNum + '<br>' +
+          'Data: ' + today + '<br>' +
+        '</div>' +
+      '</div>' +
+      '<div class="content">' +
+        '<h2>Dettaglio articoli</h2>' +
+        '<table class="items">' +
+          '<thead>' + theadHtml + '</thead>' +
+          '<tbody>' + rowsHtml + '</tbody>' +
+        '</table>' +
+        '<div class="totals">' +
+          '<table class="totals-table">' +
+            totalsHtml +
+          '</table>' +
+        '</div>' +
+        '<div class="notes">' +
+          '<b>Note:</b> Prezzi IVA esclusa. Validità preventivo 30 giorni dalla data di emissione. ' +
+          'Trasporto e installazione non inclusi salvo diversa indicazione.' +
+        '</div>' +
+        '<div class="footer">' +
+          'Preventivo generato il ' + new Date().toLocaleString('it-IT') + ' tramite Gestione Prodotti ' + APP_VERSION +
+        '</div>' +
+      '</div>' +
+      '</body></html>';
+
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'preventivo_' + (qMode === 'client' ? 'cliente_' : '') + new Date().toISOString().slice(0,10).replace(/-/g,'') + '.doc';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
+    toast({ type:'ok', title:'Preventivo Word generato', message: a.download, duration: 4500 });
+  } catch(err){
+    if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
+    console.error('[quote] word export error:', err);
+    toast('Errore export Word: ' + (err.message || err), 'err', 5000);
+  }
+}
+
+/* ─── Esportazione PDF ─── */
+
+async function exportQuotePdf(){
+  const t = computeQuoteTotals();
+  if(t.items.length === 0) return;
+
+  if(typeof showLoaderAdvanced === 'function') showLoaderAdvanced('Apertura anteprima PDF', '', 'export');
+
+  // V2.3.9: scelgo struttura colonne in base alla modalità
+  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  // V2.6.0: flag granulari per modalità (vedi exportQuoteWord)
+  const printS = getPrintSettings(qMode);
+  const showImage = printS.showImage !== false;
+  const showCode  = printS.showCode !== false;
+  const showBrand = printS.showBrand !== false;
+  const showListino  = printS.showListino !== false;
+  const showNetto    = printS.showNetto !== false;
+  const showTotPvp   = printS.showTotPvp !== false;
+  const showTotNetto = printS.showTotNetto !== false;
+  // V2.6.1: 3 nuove colonne Analisi
+  const showScontoAnalisi = printS.showSconto !== false;
+  const showScCliente     = printS.showScCliente !== false;
+  const showMargine       = printS.showMargine !== false;
+  // Cliente
+  const showSconto   = printS.showSconto !== false;
+  const showPrezzo   = printS.showPrezzo !== false;
+  const showTotRiga  = printS.showTotRiga !== false;
+
+  try {
+    const today = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' });
+    const quoteNum = 'PREV-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+
+    let rowsHtml = '';
+    let theadHtml = '';
+    let totalsHtml = '';
+
+    if(qMode === 'client'){
+      // ── Modalità CLIENTE ──
+      // V2.6.0: flag indipendenti showListino/showSconto/showPrezzo/showTotRiga
+      const cols = [];
+      if(showImage)        cols.push({key:'img',     w: 8, label:'Img'});
+                           cols.push({key:'desc',    w:38, label:'Descrizione'});
+                           cols.push({key:'qty',     w: 6, label:'Q.tà'});
+      if(showListino)      cols.push({key:'list',    w:11, label:'Listino'});
+      if(showSconto)       cols.push({key:'discount',w: 9, label:'Sconto'});
+      if(showPrezzo)       cols.push({key:'price',   w:13, label:'Prezzo'});
+      if(showTotRiga)      cols.push({key:'rtotal',  w:15, label:'Totale'});
+
+      const wSum = cols.reduce((s, c) => s + c.w, 0);
+      const wPct = (w) => Math.round((w / wSum) * 100 * 10) / 10;
+
+      t.items.forEach((it) => {
+        const dPct = _normDiscountPct(it.discountPct);
+        const sellUnit = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+        const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
+        const fmt = (v) => v != null ? _qFmtEur(v) : '—';
+        const dPctStr = (dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
+        const imgUrlAbs = _qResolveImg(it);
+        const imgCell = imgUrlAbs ? '<img src="' + escapeAttr(imgUrlAbs) + '" alt="">' : '';
+        const descParts = [];
+        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(it.code) + '</div>');
+        descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
+        if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
+        const descContent = descParts.join('');
+
+        const cellMap = {
+          img:      '<td class="col-img">' + imgCell + '</td>',
+          desc:     '<td class="col-desc">' + descContent + '</td>',
+          qty:      '<td class="col-qty">' + it.qty + '</td>',
+          list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
+          discount: '<td class="col-discount">' + dPctStr + '</td>',
+          price:    '<td class="col-money">' + fmt(sellUnit) + '</td>',
+          rtotal:   '<td class="col-money col-tot"><b>' + (subSell != null ? _qFmtEur(subSell) : '—') + '</b></td>',
+        };
+        rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
+      });
+      theadHtml = '<tr>' + cols.map(c => {
+        const cls = (c.key === 'discount') ? 'col-discount'
+                  : (c.key === 'list' || c.key === 'price' || c.key === 'rtotal') ? 'col-money'
+                  : 'col-' + c.key;
+        return '<th class="' + cls + '" style="width:' + wPct(c.w) + '%">' + c.label + '</th>';
+      }).join('') + '</tr>';
+
+      totalsHtml =
+        (showListino ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.totalPvp) + '</td></tr>' : '') +
+        ((showListino || showSconto) && t.totalDiscountValue > 0.005
+          ? '<tr><td class="label">Sconto applicato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.totalDiscountValue) + '</td></tr>'
+          : '') +
+        '<tr class="grand"><td class="label">TOTALE</td><td class="val">' + _qFmtEur(t.totalSellPrice) + '</td></tr>';
+    } else {
+      // ── Modalità ANALISI ──
+      // V2.6.1: 10 colonne disponibili con Sconto, Sc.Cliente, Margine
+      const cols = [];
+      if(showImage)            cols.push({key:'img',     w: 7, label:'Img'});
+                               cols.push({key:'desc',    w:32, label:'Descrizione'});
+                               cols.push({key:'qty',     w: 6, label:'Q.tà'});
+      if(showListino)          cols.push({key:'list',    w:10, label:'Listino'});
+      if(showScontoAnalisi)    cols.push({key:'scAcq',   w: 8, label:'Sconto'});
+      if(showNetto)            cols.push({key:'netto',   w:10, label:'Netto'});
+      if(showScCliente)        cols.push({key:'scCli',   w: 8, label:'Sc. Cliente'});
+      if(showMargine)          cols.push({key:'margine', w: 8, label:'Margine'});
+      if(showTotPvp)           cols.push({key:'totpvp',  w:11, label:'Tot. PVP'});
+      if(showTotNetto)         cols.push({key:'totnetto',w:12, label:'Tot. Netto'});
+
+      const wSum = cols.reduce((s, c) => s + c.w, 0);
+      const wPct = (w) => Math.round((w / wSum) * 100 * 10) / 10;
+
+      t.items.forEach((it) => {
+        const subPvp = (it.pvp != null && it.pvp > 0) ? (it.pvp * it.qty) : 0;
+        const subNet = (it.netto != null && it.netto > 0) ? (it.netto * it.qty) : 0;
+        const fmt = (v) => v != null ? _qFmtEur(v) : '—';
+        const scAcqPct = (it.pvp != null && it.pvp > 0 && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
+          ? (1 - it.netto / it.pvp) * 100 : null;
+        const scCliPct = _normDiscountPct(it.discountPct);
+        const prezzoVendita = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - scCliPct / 100) : null;
+        const marginePct = (prezzoVendita != null && it.netto != null && it.netto > 0 && prezzoVendita > 0)
+          ? (prezzoVendita - it.netto) / prezzoVendita * 100 : null;
+        const imgUrlAbs = _qResolveImg(it);
+        const imgCell = imgUrlAbs ? '<img src="' + escapeAttr(imgUrlAbs) + '" alt="">' : '';
+        const descParts = [];
+        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(it.code) + '</div>');
+        descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
+        if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
+        const descContent = descParts.join('');
+
+        const cellMap = {
+          img:      '<td class="col-img">' + imgCell + '</td>',
+          desc:     '<td class="col-desc">' + descContent + '</td>',
+          qty:      '<td class="col-qty">' + it.qty + '</td>',
+          list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
+          scAcq:    '<td class="col-money">' + (scAcqPct != null ? _qFmtPct(scAcqPct, 1) : '—') + '</td>',
+          netto:    '<td class="col-money">' + fmt(it.netto) + '</td>',
+          scCli:    '<td class="col-money">' + (scCliPct > 0 ? _qFmtPct(scCliPct, 1) : '—') + '</td>',
+          margine:  '<td class="col-money">' + (marginePct != null ? _qFmtPct(marginePct, 1) : '—') + '</td>',
+          totpvp:   '<td class="col-money">' + (subPvp ? _qFmtEur(subPvp) : '—') + '</td>',
+          totnetto: '<td class="col-money col-tot"><b>' + (subNet ? _qFmtEur(subNet) : '—') + '</b></td>',
+        };
+        rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
+      });
+      theadHtml = '<tr>' + cols.map(c => {
+        const cls = (['list','netto','totpvp','totnetto','scAcq','scCli','margine'].indexOf(c.key) >= 0) ? 'col-money' : 'col-' + c.key;
+        return '<th class="' + cls + '" style="width:' + wPct(c.w) + '%">' + c.label + '</th>';
+      }).join('') + '</tr>';
+
+      totalsHtml =
+        (showListino ? '<tr><td class="label">Totale PVP</td><td class="val">' + _qFmtEur(t.totalPvp) + '</td></tr>' : '') +
+        (t.marginPct != null ? '<tr><td class="label">Margine</td><td class="val">' + _qFmtPct(t.marginPct, 1) + '</td></tr>' : '') +
+        '<tr class="grand"><td class="label">TOTALE NETTO</td><td class="val">' + _qFmtEur(t.totalNetto) + '</td></tr>';
+    }
+
+    const html =
+      '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Preventivo ' + quoteNum + '</title>' +
+      '<style>' +
+        '@page{size:A4;margin:14mm}' +
+        '*{box-sizing:border-box}' +
+        'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:10pt;color:#333;margin:0;padding:0}' +
+        '.header{background:#1f2937;color:#fff;padding:18pt 24pt;display:flex;justify-content:space-between;align-items:flex-start}' +
+        'h1{margin:0 0 3pt 0;font-size:20pt;font-weight:700;letter-spacing:1pt}' +
+        '.subtitle{font-size:9pt;color:#9ca3af;margin:0}' +
+        '.meta{font-size:9.5pt;line-height:1.7;text-align:right}' +
+        '.content{padding:18pt 24pt}' +
+        'h2{font-size:13pt;color:#1f2937;border-bottom:2pt solid #f59e0b;padding-bottom:3pt;margin:18pt 0 8pt}' +
+        'table.items{width:100%;border-collapse:collapse;font-size:9.5pt}' +
+        'table.items th{background:#1f2937;color:#fff;padding:7pt 7pt;text-align:left;font-weight:600;font-size:9pt;letter-spacing:0;vertical-align:middle}' +
+        'table.items td{padding:7pt 7pt;border-bottom:1pt solid #e5e7eb;vertical-align:middle;line-height:1.45;font-variant-numeric:tabular-nums}' +
+        // V2.4.1: striping zebra classico
+        'table.items tbody tr:nth-child(even) td{background:#f9fafb}' +
+        // Img: cella quadrata centrata
+        'table.items th.col-img,table.items td.col-img{text-align:center;padding:5pt 3pt;width:42pt;vertical-align:middle}' +
+        'table.items td.col-img img{max-width:42pt;max-height:42pt;display:block;margin:0 auto}' +
+        // Descrizione strutturata: codice in alto bold, corpo descrizione, marca in fondo
+        'table.items th.col-desc{text-align:left}' +
+        'table.items td.col-desc{text-align:left;color:#374151;font-size:9pt;line-height:1.45;padding:7pt 8pt;vertical-align:middle}' +
+        'table.items td.col-desc .desc-code{font-weight:700;font-size:9.5pt;color:#1f2937;letter-spacing:.2pt;margin-bottom:2pt}' +
+        'table.items td.col-desc .desc-body{text-align:justify;text-align-last:left;white-space:pre-line;hyphens:auto;color:#374151}' +
+        'table.items td.col-desc .desc-brand{font-size:7.5pt;color:#6b7280;font-weight:500;letter-spacing:.3pt;text-transform:uppercase;margin-top:3pt}' +
+        // Colonne numeriche compatte
+        'table.items th.col-qty,table.items td.col-qty{text-align:center;font-weight:600;vertical-align:middle;padding-left:2pt;padding-right:2pt}' +
+        'table.items th.col-money,table.items td.col-money{text-align:right;padding-left:3pt;padding-right:5pt;white-space:nowrap;vertical-align:middle}' +
+        'table.items th.col-discount{text-align:right;padding-left:2pt;padding-right:5pt}' +
+        'table.items td.col-discount{text-align:right;padding-left:2pt;padding-right:5pt;white-space:nowrap;font-weight:600;color:#dc2626;vertical-align:middle}' +
+        'table.items td.col-tot{font-weight:700;color:#1f2937}' +
+        '.num{text-align:right;font-variant-numeric:tabular-nums}' +
+        '.muted{color:#9ca3af;font-size:8.5pt}' +
+        '.totals-wrap{display:flex;justify-content:flex-end;margin-top:14pt}' +
+        '.totals-table{border-collapse:collapse;font-size:10pt;min-width:300pt}' +
+        '.totals-table td{padding:5pt 12pt;border-bottom:1pt solid #e5e7eb}' +
+        '.totals-table td.label{color:#6b7280;font-weight:600;text-align:right}' +
+        '.totals-table td.val{text-align:right;font-weight:700;color:#1f2937}' +
+        '.totals-table tr.grand td{font-size:12pt;background:#1f2937;color:#fff;padding:9pt 12pt}' +
+        '.totals-table tr.grand td.val{color:#f59e0b}' +
+        '.footer{margin-top:22pt;padding-top:10pt;border-top:1pt solid #e5e7eb;font-size:8pt;color:#9ca3af;line-height:1.5}' +
+        '.notes{background:#fef3c7;border-left:3pt solid #f59e0b;padding:8pt 12pt;margin-top:14pt;font-size:9pt;color:#78350f}' +
+        '.print-bar{position:fixed;top:10px;right:10px;background:#fff;border:1px solid #ccc;padding:8px 12px;border-radius:6px;display:flex;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:1000}' +
+        '.print-bar button{padding:6px 12px;font-size:13px;border-radius:4px;cursor:pointer;border:1px solid #999}' +
+        '@media print{.print-bar{display:none}}' +
+      '</style></head><body>' +
+      '<div class="print-bar">' +
+        '<button onclick="window.print()">🖨️ Stampa / Salva PDF</button>' +
+        '<button onclick="window.close()">Chiudi</button>' +
+      '</div>' +
+      '<div class="header">' +
+        '<div>' +
+          '<h1>SECURITY TOWER</h1>' +
+          '<p class="subtitle">Sistemi di sicurezza e videosorveglianza</p>' +
+        '</div>' +
+        '<div class="meta">' +
+          '<b>PREVENTIVO</b><br>' +
+          'N° ' + quoteNum + '<br>' +
+          'Data: ' + today +
+        '</div>' +
+      '</div>' +
+      '<div class="content">' +
+        '<h2>Dettaglio articoli</h2>' +
+        '<table class="items">' +
+          '<thead>' + theadHtml + '</thead>' +
+          '<tbody>' + rowsHtml + '</tbody>' +
+        '</table>' +
+        '<div class="totals-wrap">' +
+          '<table class="totals-table">' +
+            totalsHtml +
+          '</table>' +
+        '</div>' +
+        '<div class="notes">' +
+          '<b>Note:</b> Prezzi IVA esclusa. Validità preventivo 30 giorni dalla data di emissione. ' +
+          'Trasporto e installazione non inclusi salvo diversa indicazione.' +
+        '</div>' +
+        '<div class="footer">' +
+          'Preventivo generato il ' + new Date().toLocaleString('it-IT') + ' tramite Gestione Prodotti ' + APP_VERSION +
+        '</div>' +
+      '</div>' +
+      '</body></html>';
+
+    const w = window.open('', '_blank');
+    if(!w){
+      if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
+      toast('Popup bloccato dal browser. Abilita i popup per questo sito.', 'err', 6000);
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+
+    if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
+    toast({ type:'ok', title:'Preventivo PDF aperto', message:'Usa "Stampa" → "Salva come PDF" nella nuova finestra', duration:5500 });
+  } catch(err){
+    if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
+    console.error('[quote] pdf export error:', err);
+    toast('Errore generazione PDF: ' + (err.message || err), 'err', 5000);
+  }
+}
+
 
 
 /* ========== RESET DB ========== */
@@ -27735,6 +30983,13 @@ async function confirmDeleteSelected(){
 async function init(){
   await openDB();
 
+  // V2.2.43: carica lo stato della Modalità Preventivo (modalità + carrello) appena IDB pronto.
+  // Se la modalità era attiva nella sessione precedente, viene riattivata automaticamente
+  // e il pulsante fluttuante carrello viene riposizionato.
+  if(typeof loadQuoteState === 'function'){
+    loadQuoteState().catch(e => console.warn('[quote] loadState error:', e));
+  }
+
   // Multi-tab sync: quando una tab svuota il DB, le altre reagiscono automaticamente
   // resetando la propria UI senza richiedere refresh manuale.
   // BroadcastChannel è supportato da tutti i browser moderni (Chrome, Safari, Firefox, Edge).
@@ -27986,6 +31241,27 @@ function bindUIListeners(){
   };
   safe('fileIn', 'change', onFile);
   safe('fileIn2', 'change', onFile);
+
+  // V2.2.43: Modalità Preventivo — listener su voce menu + switch.
+  // Click sulla voce → toggle. Click sullo switch interno → toggle (con stopPropagation).
+  const quoteMenuBtn = document.getElementById('quoteModeMenuBtn');
+  if(quoteMenuBtn){
+    quoteMenuBtn.addEventListener('click', (e) => {
+      // Lascio passare il click sullo switch al suo handler dedicato
+      if(e.target.closest('input[type="checkbox"]')) return;
+      if(typeof toggleQuoteMode === 'function') toggleQuoteMode();
+      // Aggiorno stato switch dopo toggle
+      const sw = document.getElementById('quote-mode-switch');
+      if(sw) sw.checked = window._QUOTE_STATE.mode;
+    });
+    const sw = document.getElementById('quote-mode-switch');
+    if(sw){
+      sw.addEventListener('click', (e) => {
+        e.stopPropagation();  // non chiudere il menu
+        if(typeof toggleQuoteMode === 'function') toggleQuoteMode(sw.checked);
+      });
+    }
+  }
 }
 
 // V2.1.11: aggancia i listener SUBITO al parse dello script, prima di init().
