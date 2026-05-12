@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.7.9</title>
+<title>Gestione Prodotti V2.8.4</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
@@ -5730,18 +5730,37 @@ body.theme-light .discount-tree-row.tree-has-adj{
 }
 
 /* Badge "+N" accanto al nome del nodo, indica quanti sconti aggiuntivi sono attivi */
+/* V2.8.2: badge viola (#7c3aed) per coerenza con la pillola "Sc. X% ★" gia'
+   usata in galleria/lista (V2.5.5) per indicare gli sconti aggiuntivi a cascata.
+   L'utente vede un unico schema cromatico: arancione = sconto base ufficiale,
+   viola = sconto aggiuntivo a cascata (applicato sopra al base). */
 .tree-adj-badge{
   display: inline-block;
   margin-left: 8px;
-  padding: 1px 6px;
-  background: #f59e0b;
+  padding: 1px 7px;
+  background: #7c3aed;
   color: #fff;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   border-radius: 9px;
   letter-spacing: 0.3px;
   vertical-align: middle;
-  line-height: 1.4;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+/* V2.8.1/V2.8.2: variante "outline" per i nodi parent che NON hanno sconti propri
+   ma hanno discendenti con sconti aggiuntivi. Mantiene la stessa famiglia
+   cromatica (viola) ma con riempimento trasparente, in modo che l'utente
+   distingua subito a colpo d'occhio "sconti miei" vs "sconti sotto di me". */
+.tree-adj-badge.tree-adj-badge-downstream{
+  background: transparent;
+  color: #7c3aed;
+  border: 1px solid rgba(124, 58, 237, 0.55);
+  padding: 0 6px;
+}
+body.theme-light .tree-adj-badge.tree-adj-badge-downstream{
+  color: #6d28d9;
+  border-color: rgba(109, 40, 217, 0.5);
 }
 
 /* Stile dei valori statistici quando c'è uno sconto attivo:
@@ -6968,7 +6987,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.7.9</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.8.4</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -7374,7 +7393,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.7.9');
+console.info('[bootstrap] script avvio — V2.8.4');
 
 window.openStatsDashboard = function(){
   try {
@@ -8804,7 +8823,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.7.9';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.8.4';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 let DICT = {};           // dizionario corrente (LocalStorage)
@@ -10070,14 +10089,34 @@ function _driveBuildFullPayload(){
     if(v !== null) settingsObj[k] = v;
   });
 
+  // V2.8.0: sincronizzo anche gli sconti aggiuntivi a cascata (i 6 slot Sc.1...Sc.6
+  // per ciascun nodo marca/macrocat/cat). Leggo da localStorage perche' la cache
+  // window._DISCOUNT_TREE_ADJ_CACHE potrebbe essere null se l'utente non ha mai
+  // aperto l'Analisi scontistiche in questa sessione, ma il dato deve comunque
+  // partecipare al sync.
+  let cascadeDiscounts = null;
+  try {
+    const raw = localStorage.getItem('discountTreeAdjustments_v1');
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0){
+        cascadeDiscounts = parsed;
+      }
+    }
+  } catch(e){
+    console.warn('[drive] errore lettura sconti aggiuntivi:', e);
+  }
+
   return {
     data: DATA,
     edits: EDITS,
     settings: settingsObj,
+    cascadeDiscounts: cascadeDiscounts,  // V2.8.0: sconti aggiuntivi a cascata
     _meta: {
       savedAt: new Date().toISOString(),
       count: DATA.length,
       editsCount: Object.keys(EDITS).length,
+      cascadeAdjCount: cascadeDiscounts ? Object.keys(cascadeDiscounts).length : 0,
       appVersion: APP_VERSION,
       driveVersion: DRIVE_VERSION,
     }
@@ -11776,9 +11815,154 @@ async function driveApplyRemoteData(payload){
     if(typeof loadSettings === 'function') loadSettings();
   }
 
+  // V2.8.0: 4. CASCADE DISCOUNTS — sconti aggiuntivi a cascata su marca/macrocat/cat
+  // Se il payload ha cascadeDiscounts, lo applichiamo dopo aver verificato
+  // che non si distrugga lavoro locale non sincronizzato.
+  if(payload.cascadeDiscounts && typeof payload.cascadeDiscounts === 'object'){
+    await _driveApplyCascadeDiscounts(payload.cascadeDiscounts);
+  }
+
   // Re-render
   if(typeof applyFilters === 'function') applyFilters({ refreshCascade: true });
   else if(typeof render === 'function') render();
+}
+
+/* V2.8.0: applica gli sconti aggiuntivi remoti alla localStorage.
+   Confronto con i locali: se identici o locali vuoti, applica silente.
+   Se diversi, mostra dialog di conferma per evitare perdita di lavoro locale
+   non sincronizzato. Ritorna una Promise (puo' essere async per il dialog). */
+async function _driveApplyCascadeDiscounts(remote){
+  const KEY = 'discountTreeAdjustments_v1';
+  let local = null;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if(raw) local = JSON.parse(raw);
+  } catch(e){
+    local = null;
+  }
+  // Normalizzo entrambi a oggetto vuoto per confronto
+  const localObj = (local && typeof local === 'object') ? local : {};
+  const remoteObj = (remote && typeof remote === 'object') ? remote : {};
+
+  // Confronto stringhe JSON ordinate per stabilita'
+  const localJson = JSON.stringify(_sortKeys(localObj));
+  const remoteJson = JSON.stringify(_sortKeys(remoteObj));
+  if(localJson === remoteJson){
+    // Identici: nulla da fare
+    return;
+  }
+
+  const localHasData = Object.keys(localObj).length > 0;
+  if(!localHasData){
+    // Locale vuoto: applica silente
+    _driveWriteCascadeDiscounts(remoteObj);
+    return;
+  }
+
+  // Conflitto: dialog di conferma. Calcolo differenze per dare contesto.
+  const allKeys = new Set([...Object.keys(localObj), ...Object.keys(remoteObj)]);
+  let nDifferenti = 0, nSoloLocali = 0, nSoloRemoti = 0;
+  allKeys.forEach(k => {
+    const inL = k in localObj, inR = k in remoteObj;
+    if(inL && inR){
+      if(JSON.stringify(localObj[k]) !== JSON.stringify(remoteObj[k])) nDifferenti++;
+    } else if(inL && !inR){
+      nSoloLocali++;
+    } else if(!inL && inR){
+      nSoloRemoti++;
+    }
+  });
+
+  const userChoice = await _driveShowCascadeConflictDialog({
+    nDifferenti, nSoloLocali, nSoloRemoti,
+    localCount: Object.keys(localObj).length,
+    remoteCount: Object.keys(remoteObj).length,
+  });
+  if(userChoice === 'use-remote'){
+    _driveWriteCascadeDiscounts(remoteObj);
+  } else if(userChoice === 'keep-local'){
+    // Mantieni i locali: scrivo subito sul Drive per propagare le mie modifiche
+    if(typeof driveNotifyChange === 'function'){
+      driveNotifyChange('settings', '__cascadeDiscounts__', null);
+    }
+  }
+  // 'cancel' = non fare nulla
+}
+
+/* Scrive l'oggetto sconti aggiuntivi in localStorage e aggiorna la cache. */
+function _driveWriteCascadeDiscounts(obj){
+  try {
+    localStorage.setItem('discountTreeAdjustments_v1', JSON.stringify(obj));
+    window._DISCOUNT_TREE_ADJ_CACHE = obj;
+    // Se l'utente sta vedendo l'Analisi scontistiche in questo momento, ri-renderizzo
+    if(typeof renderDiscountTree === 'function' && window._DISCOUNT_TREE_RENDERED){
+      try { renderDiscountTree(); } catch(_){}
+    }
+    if(typeof toast === 'function'){
+      toast({
+        type: 'ok',
+        title: 'Sconti aggiuntivi sincronizzati',
+        message: 'Caricati ' + Object.keys(obj).length + ' nodi di scontistica aggiuntiva da Drive.',
+        duration: 3500
+      });
+    }
+  } catch(e){
+    console.error('[drive] scrittura cascadeDiscounts fallita:', e);
+  }
+}
+
+/* Helper: ritorna una copia oggetto con chiavi ordinate (per JSON stabile). */
+function _sortKeys(obj){
+  if(obj === null || typeof obj !== 'object') return obj;
+  if(Array.isArray(obj)) return obj.map(_sortKeys);
+  const out = {};
+  Object.keys(obj).sort().forEach(k => { out[k] = _sortKeys(obj[k]); });
+  return out;
+}
+
+/* Dialog di conferma per conflitto sconti aggiuntivi cascata. */
+function _driveShowCascadeConflictDialog(stats){
+  return new Promise((resolve) => {
+    const ex = document.getElementById('cascadeConflictModal');
+    if(ex) ex.remove();
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.id = 'cascadeConflictModal';
+    bg.style.zIndex = '530';
+    const summary = [];
+    if(stats.nDifferenti > 0) summary.push(stats.nDifferenti + ' nodi con valori diversi');
+    if(stats.nSoloLocali > 0) summary.push(stats.nSoloLocali + ' nodi presenti solo localmente');
+    if(stats.nSoloRemoti > 0) summary.push(stats.nSoloRemoti + ' nodi presenti solo su Drive');
+    bg.innerHTML =
+      '<div class="modal" style="max-width:560px">' +
+        '<div class="modal-head"><h3>⚠️ Sconti aggiuntivi: conflitto</h3></div>' +
+        '<div class="modal-body" style="display:block;padding:18px 22px">' +
+          '<p style="font-size:13px;color:var(--fg2);line-height:1.55;margin:0 0 12px 0">' +
+            'Gli sconti aggiuntivi a cascata salvati su Drive sono diversi da quelli attuali locali.' +
+          '</p>' +
+          '<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;line-height:1.6">' +
+            '<b>Differenze rilevate:</b><br>' + (summary.length ? summary.join('<br>') : 'Valori complessivi differenti.') +
+            '<br><br>' +
+            '<span style="color:var(--fg3)">Locale: ' + stats.localCount + ' nodi · Drive: ' + stats.remoteCount + ' nodi</span>' +
+          '</div>' +
+          '<p style="font-size:12.5px;color:var(--fg2);line-height:1.55;margin:0">' +
+            'Cosa vuoi fare?' +
+          '</p>' +
+        '</div>' +
+        '<div class="modal-foot" style="gap:8px">' +
+          '<button class="btn ghost" id="cascadeConfCancel">Annulla</button>' +
+          '<span style="flex:1"></span>' +
+          '<button class="btn" id="cascadeConfKeep" style="background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.5);color:#3b82f6">Tieni i locali (e salva su Drive)</button>' +
+          '<button class="btn primary" id="cascadeConfUseRemote">Usa quelli da Drive</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(bg);
+    const cleanup = (val) => { bg.remove(); resolve(val); };
+    document.getElementById('cascadeConfCancel').addEventListener('click', () => cleanup('cancel'));
+    document.getElementById('cascadeConfKeep').addEventListener('click', () => cleanup('keep-local'));
+    document.getElementById('cascadeConfUseRemote').addEventListener('click', () => cleanup('use-remote'));
+    bg.addEventListener('click', e => { if(e.target === bg) cleanup('cancel'); });
+  });
 }
 
 // ─── Dialog: conflitto fra locale e remoto ───
@@ -23428,6 +23612,12 @@ function loadDiscountAdjustments(){
 function saveDiscountAdjustments(){
   try {
     localStorage.setItem(DTA_STORAGE_KEY, JSON.stringify(window._DISCOUNT_TREE_ADJ_CACHE || {}));
+    // V2.8.0: trigger sync automatico Drive. driveNotifyChange su 'settings' rifa'
+    // il merge completo della whitelist + cascadeDiscounts via _driveBuildFullPayload
+    // alla prossima esecuzione di sync schedulato.
+    if(typeof driveNotifyChange === 'function'){
+      driveNotifyChange('settings', '__cascadeDiscounts__', null);
+    }
   } catch(e){
     console.error('[disc-adj] errore salvataggio localStorage:', e);
     if(typeof toast === 'function') toast('Errore salvataggio sconti: ' + (e.message || e), 'err', 5000);
@@ -23503,6 +23693,49 @@ function countActiveAdj(adjArr){
   if(!Array.isArray(adjArr)) return 0;
   return adjArr.filter(x => parseFloat(x) > 0).length;
 }
+
+/* V2.8.1: helper che calcola lo "sconto residuo composto" dei 6 slot di un nodo.
+   Formula: 1 - prod(1 - sc_i/100), restituito come percentuale (0..100).
+   Esempio: slot [20, 5, 0, 0, 0, 0] -> 1 - (1-0.20)(1-0.05) = 24%. */
+function computeNodeOwnAdjResidual(adjArr){
+  if(!Array.isArray(adjArr)) return 0;
+  var residual = 1;
+  for(var i = 0; i < adjArr.length; i++){
+    var v = adjArr[i];
+    if(typeof v === 'number' && v > 0) residual *= (1 - v / 100);
+  }
+  return (1 - residual) * 100;
+}
+
+/* V2.8.1: per un nodo parent (Marca o Macrocat), conta quanti suoi discendenti
+   nei livelli sottostanti hanno sconti aggiuntivi attivi. Usato per mostrare il
+   badge "downstream" sui nodi parent che non hanno sconti propri ma ne hanno
+   nella sottogerarchia.
+
+   level: livello del nodo CORRENTE (0=marca, 1=macrocat, 2=cat)
+   pathKey: chiave gerarchica del nodo (es. "AJAX" o "AJAX/Ajax Wireless")
+   Ritorna: numero intero di discendenti con sconti propri. */
+function countDescendantAdj(level, pathKey){
+  if(level >= 2) return 0;
+  var adj = loadDiscountAdjustments();
+  var count = 0;
+  var prefixes = (level === 0)
+    ? ['category_parent|' + pathKey + '/', 'category|' + pathKey + '/']
+    : ['category|' + pathKey + '/'];
+  Object.keys(adj).forEach(function(k){
+    for(var i = 0; i < prefixes.length; i++){
+      if(k.indexOf(prefixes[i]) === 0){
+        var arr = adj[k];
+        if(Array.isArray(arr) && arr.some(function(x){ return typeof x === 'number' && x > 0; })){
+          count++;
+        }
+        return;
+      }
+    }
+  });
+  return count;
+}
+
 
 /* ─── V2.5.4: Calcolo prezzi effettivi del singolo prodotto ───
    Risolve gli sconti aggiuntivi per un articolo applicando la regola
@@ -23662,6 +23895,85 @@ function updateRowStatsAfterAdj(level, path, inputEl){
     tr.classList.add('tree-has-adj');
   } else {
     tr.classList.remove('tree-has-adj');
+  }
+
+  // V2.8.1: aggiorno il badge accanto al nome del nodo senza re-renderizzare.
+  // Sostituisco il vecchio badge (qualsiasi tipo) con la nuova versione
+  // calcolata in base allo stato attuale di adj.
+  var keyEl = tr.querySelector('.tree-key');
+  if(keyEl){
+    // Rimuovo eventuali badge esistenti accanto al nome
+    var sib = keyEl.nextElementSibling;
+    while(sib && sib.classList && sib.classList.contains('tree-adj-badge')){
+      var toRemove = sib;
+      sib = sib.nextElementSibling;
+      toRemove.remove();
+    }
+    // Decido cosa mostrare: residuo composto se hasAnyAdj, altrimenti downstream
+    var newBadgeHtml = '';
+    if(hasAnyAdj){
+      var residual = computeNodeOwnAdjResidual(adj);
+      var residualFmt = fmtDiscount(residual);
+      var tipParts = [];
+      for(var i = 0; i < adj.length; i++){
+        if(adj[i] > 0) tipParts.push('Sc.' + (i+1) + ' ' + fmtDiscount(adj[i]));
+      }
+      var tip = countActiveAdj(adj) + ' sconti aggiuntivi (' + tipParts.join(' \u00b7 ') + ') \u2192 residuo composto: ' + residualFmt;
+      newBadgeHtml = '<span class="tree-adj-badge" title="' + escapeAttr(tip) + '">+' + residualFmt + '</span>';
+    } else if(level <= 1){
+      var nDesc = countDescendantAdj(level, path);
+      if(nDesc > 0){
+        var tipDesc = nDesc + ' ' + (nDesc === 1 ? 'discendente ha' : 'discendenti hanno') + ' sconti aggiuntivi propri';
+        newBadgeHtml = '<span class="tree-adj-badge tree-adj-badge-downstream" title="' + escapeAttr(tipDesc) + '">\u2605 ' + nDesc + '</span>';
+      }
+    }
+    if(newBadgeHtml){
+      keyEl.insertAdjacentHTML('afterend', newBadgeHtml);
+    }
+  }
+
+  // V2.8.1: aggiorno anche i badge dei nodi parent (Marca, Macrocat) che potrebbero
+  // aver guadagnato/perso un "discendente scontato" a seguito di questa modifica.
+  // Logica semplificata: cerco tutti i tr discount-tree-row il cui data-path
+  // e' prefisso del percorso del nodo modificato, aggiorno solo i loro badge
+  // (no stats, perche' quelle dipendono solo dal nodo stesso).
+  try {
+    var parents = [];
+    var slashIdx = path.lastIndexOf('/');
+    while(slashIdx > 0){
+      var parentPath = path.substring(0, slashIdx);
+      parents.push(parentPath);
+      slashIdx = parentPath.lastIndexOf('/');
+    }
+    parents.forEach(function(pPath){
+      var pTr = document.querySelector('tr.discount-tree-row[data-path="' + CSS.escape(pPath) + '"]');
+      if(!pTr) return;
+      var pLevel = parseInt(pTr.dataset.level || '0', 10);
+      // Solo level 0 e 1 ricevono il downstream badge
+      if(pLevel > 1) return;
+      // Se il parent non ha sconti propri, devo aggiornare il suo downstream badge.
+      var pAdj = getAdjForNode(pLevel, pPath);
+      var pHasOwn = pAdj.some(function(x){ return x > 0; });
+      if(pHasOwn) return;  // il suo badge resta "proprio", non downstream
+      var pKey = pTr.querySelector('.tree-key');
+      if(!pKey) return;
+      // Rimuovo vecchio badge downstream
+      var pSib = pKey.nextElementSibling;
+      while(pSib && pSib.classList && pSib.classList.contains('tree-adj-badge')){
+        var pToRm = pSib;
+        pSib = pSib.nextElementSibling;
+        pToRm.remove();
+      }
+      // Ricalcolo nDesc e ri-inserisco se > 0
+      var pNDesc = countDescendantAdj(pLevel, pPath);
+      if(pNDesc > 0){
+        var pTip = pNDesc + ' ' + (pNDesc === 1 ? 'discendente ha' : 'discendenti hanno') + ' sconti aggiuntivi propri';
+        pKey.insertAdjacentHTML('afterend',
+          '<span class="tree-adj-badge tree-adj-badge-downstream" title="' + escapeAttr(pTip) + '">\u2605 ' + pNDesc + '</span>');
+      }
+    });
+  } catch(e){
+    console.warn('[disc-tree] aggiornamento badge parent fallito:', e);
   }
 }
 
@@ -24331,7 +24643,29 @@ function showDiscountTree(){
       '<td style="padding-left:' + (10+indent) + 'px;white-space:nowrap">' +
         '<span class="tree-icon" style="color:' + iconColor + '">' + icon + '</span>' +
         '<span class="tree-key">' + escapeHtml(node.key) + '</span>' +
-        (hasAdj ? '<span class="tree-adj-badge" title="' + countActiveAdj(adjArr) + ' sconti aggiuntivi applicati">+' + countActiveAdj(adjArr) + '</span>' : '') +
+        // V2.8.1: badge accanto al nome del nodo.
+        //   - Se ha sconti propri: pillola arancione PIENA con residuo composto (+24,5%)
+        //   - Se discendenti hanno sconti (level 0/1, no proprio): pillola OUTLINE con "v N"
+        (function(){
+          if(hasAdj){
+            var residual = computeNodeOwnAdjResidual(adjArr);
+            var residualFmt = fmtDiscount(residual);
+            var tipParts = [];
+            for(var i = 0; i < adjArr.length; i++){
+              if(adjArr[i] > 0) tipParts.push('Sc.' + (i+1) + ' ' + fmtDiscount(adjArr[i]));
+            }
+            var tip = countActiveAdj(adjArr) + ' sconti aggiuntivi (' + tipParts.join(' \u00b7 ') + ') \u2192 residuo composto: ' + residualFmt;
+            return '<span class="tree-adj-badge" title="' + escapeAttr(tip) + '">+' + residualFmt + '</span>';
+          }
+          if(isHierarchical && level <= 1){
+            var nDesc = countDescendantAdj(level, pathKey);
+            if(nDesc > 0){
+              var tipDesc = nDesc + ' ' + (nDesc === 1 ? 'discendente ha' : 'discendenti hanno') + ' sconti aggiuntivi propri';
+              return '<span class="tree-adj-badge tree-adj-badge-downstream" title="' + escapeAttr(tipDesc) + '">\u2605 ' + nDesc + '</span>';
+            }
+          }
+          return '';
+        })() +
       '</td>' +
       '<td class="tree-num">' + node.stats.count.toLocaleString('it-IT') + '</td>' +
       scCell('tree-sc-min', node.stats.minSc, effMin) +
@@ -27422,20 +27756,21 @@ function renderQuoteCartContent(){
         '</div>' +
         '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #ef4444;border-radius:8px;padding:15px 18px">' +
           '<div style="' + cardLabel + '">Sconto medio</div>' +
-          '<div style="' + cardValue + '">' + (showDiscount ? _qFmtPct(t.avgDiscountPct, 1) : '—') + '</div>' +
-          '<div style="' + cardSub   + '">' + (showDiscount ? '−' + _qFmtEur(t.totalDiscountValue) : 'nessuno sconto applicato') + '</div>' +
+          // V2.8.3: classi qcart-kpi-* per fast-update live al cambio di sconto
+          '<div class="qcart-kpi-smedio-val" style="' + cardValue + '">' + (showDiscount ? _qFmtPct(t.avgDiscountPct, 1) : '—') + '</div>' +
+          '<div class="qcart-kpi-smedio-sub" style="' + cardSub   + '">' + (showDiscount ? '−' + _qFmtEur(t.totalDiscountValue) : 'nessuno sconto applicato') + '</div>' +
         '</div>' +
         // V2.6.7: card dedicata "Risparmio cliente" — mostra l'importo in € che il
         // cliente non paga rispetto al listino. Accento verde acqua coerente con
         // la card "Guadagno" in Mod. Analisi (positivo, sinonimo di risparmio).
         '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #10b981;border-radius:8px;padding:15px 18px">' +
           '<div style="' + cardLabel + '">Risparmio cliente</div>' +
-          '<div style="' + cardValue + '">' + (showDiscount ? _qFmtEur(t.totalDiscountValue) : '—') + '</div>' +
-          '<div style="' + cardSub   + '">' + (showDiscount ? 'rispetto al listino' : 'nessuno sconto applicato') + '</div>' +
+          '<div class="qcart-kpi-risp-val" style="' + cardValue + '">' + (showDiscount ? _qFmtEur(t.totalDiscountValue) : '—') + '</div>' +
+          '<div class="qcart-kpi-risp-sub" style="' + cardSub   + '">' + (showDiscount ? 'rispetto al listino' : 'nessuno sconto applicato') + '</div>' +
         '</div>' +
         '<div style="flex:1;min-width:175px;background:linear-gradient(135deg,rgba(34,197,94,0.06),rgba(34,197,94,0.02));border:1px solid rgba(34,197,94,0.4);border-left:3px solid #22c55e;border-radius:8px;padding:15px 18px">' +
           '<div style="' + cardLabel + ';color:#16a34a">Totale Vendita</div>' +
-          '<div style="' + cardValue + ';color:#16a34a">' + _qFmtEur(t.totalSellPrice) + '</div>' +
+          '<div class="qcart-kpi-tvend-val" style="' + cardValue + ';color:#16a34a">' + _qFmtEur(t.totalSellPrice) + '</div>' +
           '<div style="' + cardSub   + '">prezzo finale al cliente</div>' +
         '</div>' +
       '</div>';
@@ -27458,7 +27793,7 @@ function renderQuoteCartContent(){
         // verde scuro (#16a34a) usato in Mod. Cliente per la stessa metrica.
         '<div style="flex:1;min-width:175px;background:linear-gradient(135deg,rgba(34,197,94,0.06),rgba(34,197,94,0.02));border:1px solid rgba(34,197,94,0.4);border-left:3px solid #16a34a;border-radius:8px;padding:15px 18px">' +
           '<div style="' + cardLabel + ';color:#16a34a">Totale Vendita</div>' +
-          '<div style="' + cardValue + ';color:#16a34a">' + _qFmtEur(t.totalSellPrice) + '</div>' +
+          '<div class="qcart-kpi-tvend-val" style="' + cardValue + ';color:#16a34a">' + _qFmtEur(t.totalSellPrice) + '</div>' +
           '<div style="' + cardSub   + '">prezzo finale al cliente</div>' +
         '</div>' +
         '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #22c55e;border-radius:8px;padding:15px 18px">' +
@@ -27532,8 +27867,9 @@ function renderQuoteCartContent(){
               '<span style="font-size:11px;color:var(--fg3);font-weight:600">%</span>' +
             '</div>' +
           '</td>' +
-          '<td class="num" style="font-weight:600">' + (sellUnit != null ? _qFmtEur(sellUnit) : '—') + '</td>' +
-          '<td class="num" style="font-weight:700;color:#16a34a">' + (subSell != null ? _qFmtEur(subSell) : '—') + '</td>' +
+          // V2.8.4: classi qcart-cli-prezzo / qcart-cli-totprezzo per fast-update live
+          '<td class="num qcart-cli-prezzo" style="font-weight:600">' + (sellUnit != null ? _qFmtEur(sellUnit) : '—') + '</td>' +
+          '<td class="num qcart-cli-totprezzo" style="font-weight:700;color:#16a34a">' + (subSell != null ? _qFmtEur(subSell) : '—') + '</td>' +
           '<td style="text-align:center">' +
             '<button class="btn small ghost qcart-remove qcart-remove-btn" data-code="' + escapeAttr(it.code) + '" title="Rimuovi dal carrello">✕</button>' +
           '</td>' +
@@ -27739,7 +28075,12 @@ function renderQuoteCartContent(){
     inp.addEventListener('input', () => {
       updateCartItemDiscount(inp.dataset.code, inp.value);
       if(inp.classList.contains('qcart-sccli-input')){
+        // Modalita' Analisi (V2.6.2/V2.7.0): aggiorno Margine + Prezzo Vendita inline
         updateRowMargineAfterDiscountChange(inp);
+      } else {
+        // V2.8.3: Modalita' Cliente — aggiorno Prezzo, Tot. Prezzo della riga
+        // + KPI globali (Sconto medio, Risparmio, Totale Vendita) live.
+        updateClientRowAfterDiscountChange(inp);
       }
     });
     // Seleziona tutto al focus per facilitare la sostituzione del valore
@@ -27787,6 +28128,66 @@ function updateRowMargineAfterDiscountChange(inputEl){
     ? '<span style="color:' + margineColor + ';font-weight:700">' + _qFmtPct(margine, 1) + '</span>'
     : '<span style="color:var(--fg3)">—</span>');
 }
+
+/* V2.8.3: fast-update delle celle Prezzo e Tot. Prezzo nella row Cliente
+   + delle 3 KPI cards in cima (Sconto medio, Risparmio cliente, Totale Vendita)
+   al cambio dello sconto cliente. Stesso schema del pattern V2.6.2/V2.7.0 di Modalità Analisi.
+
+   Lo scope di questa funzione e' solo Modalità Cliente; se l'utente sta digitando
+   lo sconto da Modalità Analisi (qcart-sccli-input) viene gestito invece da
+   updateRowMargineAfterDiscountChange.
+
+   Strategia: aggiorno la riga (sellUnit/subSell) leggendo dal modello dati, e
+   aggiorno le KPI ricalcolando computeQuoteTotals() (cheap: solo aritmetica
+   sull'array items, no DOM heavy work).
+*/
+function updateClientRowAfterDiscountChange(inputEl){
+  const tr = inputEl.closest('tr');
+  if(!tr) return;
+  const code = inputEl.dataset.code;
+  const item = window._QUOTE_STATE.items.find(it => it.code === code);
+  if(!item) return;
+
+  // 1. Aggiorno la riga: Prezzo (sellUnit) e Tot. Prezzo (subSell)
+  const dPct = _normDiscountPct(item.discountPct);
+  const sellUnit = (item.pvp != null && item.pvp > 0) ? item.pvp * (1 - dPct / 100) : null;
+  const subSell  = (sellUnit != null) ? sellUnit * item.qty : null;
+  const prezzoCell = tr.querySelector('.qcart-cli-prezzo');
+  const totPrezzoCell = tr.querySelector('.qcart-cli-totprezzo');
+  if(prezzoCell)    prezzoCell.textContent    = sellUnit != null ? _qFmtEur(sellUnit) : '—';
+  if(totPrezzoCell) totPrezzoCell.textContent = subSell  != null ? _qFmtEur(subSell)  : '—';
+
+  // 2. Aggiorno i KPI in cima ricalcolando i totali aggregati
+  // Uso computeQuoteTotals() (la stessa funzione usata dal render completo) per
+  // avere coerenza assoluta dei numeri rispetto alle KPI cards.
+  try {
+    const t = computeQuoteTotals();
+    const showDiscount = t.totalPvp > 0 && t.totalDiscountValue > 0.005;
+
+    // Sconto medio (valore + sub con importo)
+    const smedioVal = document.querySelector('.qcart-kpi-smedio-val');
+    const smedioSub = document.querySelector('.qcart-kpi-smedio-sub');
+    if(smedioVal) smedioVal.textContent = showDiscount ? _qFmtPct(t.avgDiscountPct, 1) : '—';
+    if(smedioSub) smedioSub.textContent = showDiscount ? ('−' + _qFmtEur(t.totalDiscountValue)) : 'nessuno sconto applicato';
+
+    // Risparmio cliente
+    const rispVal = document.querySelector('.qcart-kpi-risp-val');
+    const rispSub = document.querySelector('.qcart-kpi-risp-sub');
+    if(rispVal) rispVal.textContent = showDiscount ? _qFmtEur(t.totalDiscountValue) : '—';
+    if(rispSub) rispSub.textContent = showDiscount ? 'rispetto al listino' : 'nessuno sconto applicato';
+
+    // Totale Vendita (la classe e' presente sia in Cliente sia in Analisi: aggiorno
+    // solo se siamo in Modalita' Cliente per non interferire col flusso Analisi)
+    const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+    if(qMode === 'client'){
+      const tvendVal = document.querySelector('.qcart-kpi-tvend-val');
+      if(tvendVal) tvendVal.textContent = _qFmtEur(t.totalSellPrice);
+    }
+  } catch(e){
+    console.warn('[carrello] fast-update KPI Cliente fallito:', e);
+  }
+}
+
 
 /* ─── Dialog Esportazione ─── */
 
