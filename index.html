@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.116</title>
+<title>Gestione Prodotti V2.10.117</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7946,7 +7946,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.116</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.117</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8455,7 +8455,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.116');
+console.info('[bootstrap] script avvio — V2.10.117');
 
 window.openStatsDashboard = function(){
   try {
@@ -9885,7 +9885,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.116';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.117';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -11295,12 +11295,63 @@ function loadSettings(){
     console.warn('[settings] load fallito:', e);
     SETTINGS = Object.assign({}, SETTINGS_DEFAULT);
   }
+  // V2.10.117: inizializzo la cache dell'ultimo business snapshot. Così
+  // il primo saveSettings() di una sessione confronta correttamente.
+  try {
+    _lastBusinessSettingsJson = JSON.stringify(_buildBusinessSettingsSnapshot());
+  } catch(_){ _lastBusinessSettingsJson = null; }
 }
+
+// V2.10.117: campi di vt_settings classificati come "preferenze UI per-device".
+// NON vengono sincronizzati su Drive: ogni Mac mantiene le sue.
+// Quando arriva un vt_settings da Drive (pull o full sync), questi campi
+// del payload remoto vengono IGNORATI e le preferenze locali preservate.
+// Quando un cambio locale tocca SOLO questi campi, NON viene scatenato un sync.
+const SETTINGS_PER_DEVICE_KEYS = [
+  'lastImport',       // 1. timestamp ultimo import catalogo
+  'showDiscount',     // 2. mostra/nasconde prezzo listino + % sconto
+  'theme',            // 3. dark/light
+  'previewCols',      // 4. colonne tooltip hover
+  'previewColsOrder', // 5. ordine colonne tooltip
+  'previewEnabled',   // 6. tooltip on/off
+  'tooltipDelayMs',   // 7. ritardo apertura tooltip
+];
+
+// V2.10.117: snapshot dell'oggetto vt_settings "business-only" (senza campi per-device).
+// Usato per:
+//   - costruire payload da inviare a Drive (escludiamo i per-device)
+//   - confrontare se è cambiato qualcosa di business → triggera sync
+function _buildBusinessSettingsSnapshot(){
+  const out = {};
+  Object.keys(SETTINGS).forEach(k => {
+    if(SETTINGS_PER_DEVICE_KEYS.indexOf(k) === -1){
+      out[k] = SETTINGS[k];
+    }
+  });
+  return out;
+}
+
+// V2.10.117: cache dell'ultima snapshot business inviata.
+// La uso in saveSettings() per capire se devo notificare Drive o no.
+// JSON-stringified per confronto rapido.
+let _lastBusinessSettingsJson = null;
+
 function saveSettings(){
   try {
     localStorage.setItem('vt_settings', JSON.stringify(SETTINGS));
-    // V2.10.115: notify Drive del cambio settings (delta sync automatico)
-    if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
+    // V2.10.117: confronto cosa è cambiato. Notifica Drive SOLO se sono cambiati
+    // i campi business (companyData, loghi, logoLink). I campi per-device
+    // (tema, showDiscount, ecc.) NON triggerano sync.
+    const currentBizJson = JSON.stringify(_buildBusinessSettingsSnapshot());
+    if(currentBizJson !== _lastBusinessSettingsJson){
+      _lastBusinessSettingsJson = currentBizJson;
+      if(typeof _driveNotifyAppSettingsChange === "function"){
+        _driveNotifyAppSettingsChange();
+      }
+    } else {
+      // Cambio solo di preferenze UI per-device → nessun sync.
+      console.info('[settings] saved (UI-only, no Drive sync)');
+    }
   } catch(e){
     console.warn('[settings] save fallito:', e);
     toast('Impossibile salvare impostazioni', 'err');
@@ -12858,14 +12909,29 @@ function _driveBuildFullPayload(){
   // Estraiamo solo le settings rilevanti (no DOM handles, no oggetti complessi)
   // V2.10.115: vt_sidebar_width esclusa volutamente — è per-device (ogni Mac
   // mantiene la sua larghezza preferita per il suo schermo).
+  // V2.10.117: anche i campi UI per-device DENTRO vt_settings (tema, showDiscount,
+  // ecc.) vengono filtrati prima dell'invio.
   const settingsObj = {};
   const SETTINGS_KEYS = [
     'vt_settings', 'vt_presets', 'vt_dict',
     'vt_text_phrases', 'vt_text_words'
   ];
   SETTINGS_KEYS.forEach(k => {
-    const v = localStorage.getItem(k);
-    if(v !== null) settingsObj[k] = v;
+    let v = localStorage.getItem(k);
+    if(v === null) return;
+    // V2.10.117: filtro per-device per vt_settings
+    if(k === 'vt_settings' && typeof SETTINGS_PER_DEVICE_KEYS !== 'undefined'){
+      try {
+        const parsed = JSON.parse(v);
+        if(parsed && typeof parsed === 'object'){
+          SETTINGS_PER_DEVICE_KEYS.forEach(pdk => { delete parsed[pdk]; });
+          v = JSON.stringify(parsed);
+        }
+      } catch(e){
+        console.warn('[drive] filter per-device vt_settings in full payload failed:', e && e.message);
+      }
+    }
+    settingsObj[k] = v;
   });
 
   // V2.8.0: sincronizzo anche gli sconti aggiuntivi a cascata (i 6 slot Sc.1...Sc.6
@@ -14706,6 +14772,10 @@ function driveTargetedHasPending(){
 // 'vt_text_phrases'|'vt_text_words') per scatenare un delta sync.
 // Esclude vt_sidebar_width che resta per-device.
 //
+// V2.10.117: anche dentro vt_settings, i campi SETTINGS_PER_DEVICE_KEYS
+// (tema, showDiscount, ecc.) vengono FILTRATI prima dell'invio. Drive riceve
+// solo i campi business (companyData, loghi, logoLink, lastImport del server).
+//
 // Funzionamento: costruisce uno snapshot completo delle 5 settings sincronizzate
 // e lo manda al delta buffer come singola entry. Sul server il GAS sostituisce
 // il campo "settings" del master con questo snapshot. Costo: 5-50 KB per push.
@@ -14718,7 +14788,21 @@ function _driveNotifyAppSettingsChange(){
     var keys = ['vt_settings', 'vt_presets', 'vt_dict', 'vt_text_phrases', 'vt_text_words'];
     keys.forEach(function(k){
       var v = localStorage.getItem(k);
-      if(v !== null) snapshot[k] = v;
+      if(v === null) return;
+      // V2.10.117: filtro speciale per vt_settings — escludo i campi per-device
+      if(k === 'vt_settings' && typeof SETTINGS_PER_DEVICE_KEYS !== 'undefined'){
+        try {
+          var parsed = JSON.parse(v);
+          if(parsed && typeof parsed === 'object'){
+            SETTINGS_PER_DEVICE_KEYS.forEach(function(pdk){ delete parsed[pdk]; });
+            v = JSON.stringify(parsed);
+          }
+        } catch(e){
+          // Se il parse fallisce per qualsiasi motivo, invio il valore raw originale
+          console.warn('[drive] filter per-device settings failed, sending raw:', e && e.message);
+        }
+      }
+      snapshot[k] = v;
     });
     // V2.10.115: uso un kind 'settings' con key '__all__' che già esiste
     // in driveNotifyChange (riga 14722). Riusa il replace totale.
@@ -14754,14 +14838,28 @@ function driveNotifyChange(kind, key, record){
       } else {
         // Settings vere: replace totale (ricostruisce tutto l'oggetto)
         // V2.10.115: vt_sidebar_width esclusa volutamente (per-device).
+        // V2.10.117: anche campi UI per-device DENTRO vt_settings filtrati.
         const settingsObj = {};
         const SETTINGS_KEYS = [
           'vt_settings', 'vt_presets', 'vt_dict',
           'vt_text_phrases', 'vt_text_words'
         ];
         SETTINGS_KEYS.forEach(k => {
-          const v = localStorage.getItem(k);
-          if(v !== null) settingsObj[k] = v;
+          let v = localStorage.getItem(k);
+          if(v === null) return;
+          // V2.10.117: filtro per-device per vt_settings
+          if(k === 'vt_settings' && typeof SETTINGS_PER_DEVICE_KEYS !== 'undefined'){
+            try {
+              const parsed = JSON.parse(v);
+              if(parsed && typeof parsed === 'object'){
+                SETTINGS_PER_DEVICE_KEYS.forEach(pdk => { delete parsed[pdk]; });
+                v = JSON.stringify(parsed);
+              }
+            } catch(e){
+              console.warn('[drive] filter per-device vt_settings (notifyChange) failed:', e && e.message);
+            }
+          }
+          settingsObj[k] = v;
         });
         DRIVE_DELTA.push('settings', '__all__', settingsObj, 'replace');
       }
@@ -15899,15 +15997,44 @@ async function driveApplyRemoteData(payload){
   // 3. SETTINGS
   // V2.10.115: vt_sidebar_width esclusa volutamente — è per-device (ogni Mac
   // mantiene la sua larghezza preferita per il suo schermo).
+  // V2.10.117: i campi UI per-device DENTRO vt_settings (tema, showDiscount, ecc.)
+  // vengono preservati dal locale, anche se il payload Drive contiene valori per essi.
+  // Questo permette a ogni Mac di mantenere le sue preferenze visive.
   if(payload.settings && typeof payload.settings === 'object'){
     const SETTINGS_KEYS = [
       'vt_settings', 'vt_presets', 'vt_dict',
       'vt_text_phrases', 'vt_text_words'
     ];
     Object.keys(payload.settings).forEach(k => {
-      if(SETTINGS_KEYS.includes(k) && typeof payload.settings[k] === 'string'){
-        try { localStorage.setItem(k, payload.settings[k]); } catch(_){}
+      if(!SETTINGS_KEYS.includes(k) || typeof payload.settings[k] !== 'string') return;
+      let valueToWrite = payload.settings[k];
+      // V2.10.117: per vt_settings, fondo le preferenze per-device LOCALI con
+      // i campi business REMOTI. Logica: prendo il remoto e ci scrivo sopra i
+      // campi per-device del locale (se esistono).
+      if(k === 'vt_settings' && typeof SETTINGS_PER_DEVICE_KEYS !== 'undefined'){
+        try {
+          const remote = JSON.parse(valueToWrite);
+          const localRaw = localStorage.getItem('vt_settings');
+          const local = localRaw ? JSON.parse(localRaw) : {};
+          if(remote && typeof remote === 'object'){
+            // Per ogni campo per-device, sovrascrivi il valore remoto con quello locale
+            SETTINGS_PER_DEVICE_KEYS.forEach(pdk => {
+              if(local && local.hasOwnProperty(pdk)){
+                remote[pdk] = local[pdk];
+              } else if(remote.hasOwnProperty(pdk)){
+                // Il locale non ha il campo (mai impostato) ma il remoto sì
+                // (vecchio backup pre-V2.10.117): elimino dal remoto per
+                // lasciare che SETTINGS_DEFAULT abbia la precedenza.
+                delete remote[pdk];
+              }
+            });
+            valueToWrite = JSON.stringify(remote);
+          }
+        } catch(e){
+          console.warn('[drive] merge per-device vt_settings fallito, applico raw:', e && e.message);
+        }
       }
+      try { localStorage.setItem(k, valueToWrite); } catch(_){}
     });
     if(typeof loadSettings === 'function') loadSettings();
   }
