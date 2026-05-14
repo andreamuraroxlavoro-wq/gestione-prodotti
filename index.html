@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.96</title>
+<title>Gestione Prodotti V2.10.98</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7686,7 +7686,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.96</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.10.98</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8168,7 +8168,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.96');
+console.info('[bootstrap] script avvio — V2.10.98');
 
 window.openStatsDashboard = function(){
   try {
@@ -9598,7 +9598,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.96';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.98';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -11648,6 +11648,38 @@ const DRIVE_DELTA = {
     this._persist();
   },
 
+  // V2.10.97: snapshot del buffer per gestire race condition write-during-sync.
+  // Prima di iniziare un sync, fai un .snapshot() che restituisce un array (shallow copy)
+  // di reference agli oggetti correnti. Le modifiche fatte durante il sync continuano
+  // a fare push normale (che de-dup: rimuove la entry vecchia, ne crea una nuova con
+  // reference diverso). Al termine del sync, .removeSent(snapshot) rimuove dal buffer
+  // SOLO le entry il cui reference è ancora quello dello snapshot (cioè non sono state
+  // sovrascritte da push successivi durante il sync). Le modifiche ri-fatte restano
+  // pending e verranno inviate al prossimo ciclo di debounce.
+  snapshot(){
+    return this.changes.slice();  // shallow copy: stessi reference agli object
+  },
+
+  removeSent(snapshot){
+    if(!Array.isArray(snapshot) || snapshot.length === 0) return 0;
+    // Costruisco un Set dei reference inviati. Identity-based: confronta gli oggetti
+    // per reference, non per valore. Se durante il sync un push ha sostituito una
+    // entry, il nuovo oggetto è un altro reference e non viene rimosso (resta pending).
+    const sentRefs = new Set(snapshot);
+    let removed = 0;
+    const kept = [];
+    for(let i = 0; i < this.changes.length; i++){
+      if(sentRefs.has(this.changes[i])){
+        removed++;
+      } else {
+        kept.push(this.changes[i]);
+      }
+    }
+    this.changes = kept;
+    this._persist();
+    return removed;
+  },
+
   size(){ return this.changes.length; },
   byteSize(){ return JSON.stringify(this.changes).length; },
 
@@ -13154,6 +13186,10 @@ async function driveSaveChunked(silent){
   if(DATA.length === 0) throw new Error('Nessun dato da salvare');
 
   DRIVE_STATE.syncing = true;
+  // V2.10.97: snapshot del buffer pre-sync per gestire race condition write-during-sync.
+  // Le modifiche durante il sync entreranno nel buffer come nuovi reference;
+  // removeSent rimuoverà solo quelle effettivamente inviate alla fine.
+  const sentSnapshotChunked = DRIVE_DELTA.snapshot();
   // V2.2.38: aggiorna sempre il badge per mostrare "sync in corso"
   _driveUpdateBadge();
 
@@ -13394,7 +13430,12 @@ async function driveSaveChunked(silent){
     localStorage.setItem(DRIVE_LAST_FULL_KEY, DRIVE_STATE.lastSyncAt);
     localStorage.setItem(DRIVE_LAST_DRIVE_TS_KEY, commitJ.ts);
     localStorage.setItem(DRIVE_INIT_GUARD_KEY, 'true');
-    DRIVE_DELTA.clear();
+    // V2.10.97: rimuovo solo i delta effettivamente inviati nel full sync.
+    // Le modifiche fatte durante il sync hanno reference diverso e restano pending.
+    const removedChunked = DRIVE_DELTA.removeSent(sentSnapshotChunked);
+    if(DRIVE_DELTA.size() > 0){
+      console.info(`[drive] full-chunked sync done (${removedChunked} svuotati), ${DRIVE_DELTA.size()} pending durante il sync`);
+    }
 
     // V2.2.42: aggiorna cache stats remote con i valori che abbiamo appena caricato
     driveSetCachedStats({
@@ -13466,6 +13507,13 @@ async function driveSaveChunked(silent){
     throw e;
   } finally {
     DRIVE_STATE.syncing = false;
+    // V2.10.97: post-sync reschedule per modifiche arrivate durante il sync
+    if(DRIVE_DELTA.size() > 0 && DRIVE_STATE.url && DRIVE_STATE.enabled && DRIVE_STATE.initialized){
+      console.info(`[drive] post-chunked: ${DRIVE_DELTA.size()} modifiche durante sync, schedulo invio`);
+      if(typeof _driveScheduleSave === 'function'){
+        _driveScheduleSave();
+      }
+    }
   }
 }
 
@@ -13521,6 +13569,8 @@ async function driveSaveFullSync(silent){
   }
 
   DRIVE_STATE.syncing = true;
+  // V2.10.97: snapshot del buffer pre-sync per gestire race condition write-during-sync.
+  const sentSnapshotFull = DRIVE_DELTA.snapshot();
   // V2.2.38: aggiorna sempre badge (silent o no)
   _driveUpdateBadge();
 
@@ -13547,8 +13597,12 @@ async function driveSaveFullSync(silent){
     localStorage.setItem(DRIVE_LAST_DRIVE_TS_KEY, j.ts);
     localStorage.setItem(DRIVE_INIT_GUARD_KEY, 'true');
 
-    // Buffer delta svuotato (full ha sostituito tutto)
-    DRIVE_DELTA.clear();
+    // V2.10.97: rimuovo solo i delta effettivamente inviati nel full sync.
+    // Modifiche fatte durante il sync hanno reference diverso e restano pending.
+    const removedFull = DRIVE_DELTA.removeSent(sentSnapshotFull);
+    if(DRIVE_DELTA.size() > 0){
+      console.info(`[drive] full sync done (${removedFull} svuotati), ${DRIVE_DELTA.size()} pending durante il sync`);
+    }
 
     // V2.2.42: aggiorna la cache delle statistiche remote con i valori che
     // sappiamo essere su Drive (DATA è quello che abbiamo appena inviato).
@@ -13574,6 +13628,13 @@ async function driveSaveFullSync(silent){
     throw e;
   } finally {
     DRIVE_STATE.syncing = false;
+    // V2.10.97: post-sync reschedule per modifiche arrivate durante il sync
+    if(DRIVE_DELTA.size() > 0 && DRIVE_STATE.url && DRIVE_STATE.enabled && DRIVE_STATE.initialized){
+      console.info(`[drive] post-full: ${DRIVE_DELTA.size()} modifiche durante sync, schedulo invio`);
+      if(typeof _driveScheduleSave === 'function'){
+        _driveScheduleSave();
+      }
+    }
   }
 }
 
@@ -13627,6 +13688,11 @@ async function _driveSendDelta(silent){
   DRIVE_STATE.syncing = true;
   const deltaCount = DRIVE_DELTA.size();
   const deltaT0 = Date.now();
+  // V2.10.97: snapshot dei delta da inviare PRIMA di partire. Durante il sync
+  // i push() continuano normalmente sul buffer; al termine rimuovo solo i record
+  // effettivamente inviati (per reference). I record modificati durante il sync
+  // restano pending e verranno schedulati al prossimo ciclo.
+  const sentSnapshot = DRIVE_DELTA.snapshot();
   // V2.2.38: aggiorna sempre il badge (anche silent) per mostrare "sync in corso"
   _driveUpdateBadge();
   console.info(`[drive] sending delta: ${deltaCount} changes, payload ${Math.round(DRIVE_DELTA.byteSize()/1024)} KB`);
@@ -13634,7 +13700,7 @@ async function _driveSendDelta(silent){
   try {
     const payload = {
       action: 'delta',
-      changes: DRIVE_DELTA.changes.slice()  // copia del buffer
+      changes: sentSnapshot.slice()  // copia: snapshot è già una shallow copy
     };
     // V2.2.38 v1.6: timeout esteso a 5 minuti.
     // Il server v1.6 deve: leggere .lz, decomprimere (~15s), applicare delta,
@@ -13659,7 +13725,14 @@ async function _driveSendDelta(silent){
     localStorage.setItem(DRIVE_LAST_SYNC_KEY, DRIVE_STATE.lastSyncAt);
     localStorage.setItem(DRIVE_LAST_DRIVE_TS_KEY, j.ts);
 
-    DRIVE_DELTA.clear();
+    // V2.10.97: rimuovo solo i delta effettivamente inviati (per reference).
+    // Le modifiche fatte DURANTE il sync hanno sostituito le entry originali nel buffer
+    // (push fa dedup), quindi hanno reference diverso dallo snapshot → restano pending.
+    const removedCount = DRIVE_DELTA.removeSent(sentSnapshot);
+    const stillPending = DRIVE_DELTA.size();
+    if(stillPending > 0){
+      console.info(`[drive] delta sent (${removedCount} OK), ${stillPending} modifiche durante il sync restano pending`);
+    }
     // V2.2.42: aggiorna cache stats con i valori locali correnti.
     // Il delta NON ha cambiato il numero di prodotti (DATA è uguale),
     // ma può aver cambiato il numero di edits.
@@ -13739,6 +13812,15 @@ async function _driveSendDelta(silent){
     return false;
   } finally {
     DRIVE_STATE.syncing = false;
+    // V2.10.97: se durante il sync sono arrivate altre modifiche, schedula un nuovo invio.
+    // Il debounce in _driveScheduleSave evita pile-up: se più push sono ancora in coda
+    // viene comunque accorpato in un singolo invio successivo.
+    if(DRIVE_DELTA.size() > 0 && DRIVE_STATE.url && DRIVE_STATE.enabled && DRIVE_STATE.initialized){
+      console.info(`[drive] post-sync: ${DRIVE_DELTA.size()} modifiche durante il sync, schedulo nuovo invio`);
+      if(typeof _driveScheduleSave === 'function'){
+        _driveScheduleSave();
+      }
+    }
   }
 }
 
@@ -13997,6 +14079,13 @@ async function _driveSyncTargetedBootstrap(){
     console.info('[drive-targeted] bootstrap: ' + updated + ' target aggiornati da Drive');
     // Trigger re-render leggero di eventuali UI aperte
     if(typeof updateTopbarShortcuts === 'function') updateTopbarShortcuts();
+    // V2.10.98: aggiorno anche i badge filtri speciali — l'icona Servizi
+    // dipende da _SERVICES_STATE.services che è uno dei target. Senza questa
+    // chiamata, su un Mac fresco l'icona resta nascosta finché non si renderizza
+    // qualcos'altro che la triggera.
+    if(typeof updateSpecialViewsBadges === 'function'){
+      try { updateSpecialViewsBadges(); } catch(_){}
+    }
   }
 }
 
@@ -14837,6 +14926,10 @@ async function driveForcePullAll(btn){
 
     // Re-render UI rilevanti dopo i nuovi dati
     if(typeof updateTopbarShortcuts === 'function') updateTopbarShortcuts();
+    // V2.10.98: aggiorna anche icona Servizi (dipende da _SERVICES_STATE)
+    if(typeof updateSpecialViewsBadges === 'function'){
+      try { updateSpecialViewsBadges(); } catch(_){}
+    }
     if(typeof render === 'function'){
       try { render(); } catch(_){}
     }
@@ -14996,6 +15089,10 @@ async function driveApplyRemoteData(payload){
   // Re-render
   if(typeof applyFilters === 'function') applyFilters({ refreshCascade: true });
   else if(typeof render === 'function') render();
+  // V2.10.98: refresh icona Servizi nella topbar (dipende da _SERVICES_STATE)
+  if(typeof updateSpecialViewsBadges === 'function'){
+    try { updateSpecialViewsBadges(); } catch(_){}
+  }
 }
 
 /* V2.8.0: applica gli sconti aggiuntivi remoti alla localStorage.
