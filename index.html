@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.88</title>
+<title>Gestione Prodotti V2.10.89</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8139,7 +8139,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.88');
+console.info('[bootstrap] script avvio — V2.10.89');
 
 window.openStatsDashboard = function(){
   try {
@@ -9569,7 +9569,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.88';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.89';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -31660,27 +31660,55 @@ async function loadQuotesArchiveFromIdb(){
 
       // V2.10.88: migrazione retroattiva — rimuove campo `image` (base64 pesante)
       // dalle righe di tutte le versioni di tutti i preventivi esistenti.
-      // Ogni preventivo passava da MB a KB. Niente perdita dati: l'immagine viene
-      // ricostruita al volo da _qResolveImg via DATA[idx]/code.
+      // V2.10.89 FIX: strip SOLO per prodotti catalogo Visiotech standard.
+      // Preserva l'image per prodotti personali e servizi (non hanno fonte alternativa).
+      // ATTENZIONE: la migrazione V2.10.88 era troppo aggressiva: rimuoveva image anche
+      // per personali/servizi causando perdita immagine. V2.10.89 non può ripristinare
+      // image già perse (servirà ri-edit manuale o restore da backup) ma evita ulteriori
+      // perdite per chi non ha ancora aperto V2.10.88.
       let stripCount = 0;
       let bytesSaved = 0;
+      let preservedCount = 0;
       window._QUOTES_ARCHIVE.quotes.forEach(q => {
         if(!q || !Array.isArray(q.versions)) return;
         q.versions.forEach(v => {
           if(!v || !Array.isArray(v.items)) return;
           v.items.forEach(it => {
-            if(it && typeof it === 'object' && typeof it.image === 'string' && it.image.length > 200){
-              // Considero "image base64 pesante" solo se >200 caratteri.
-              // URL ordinari (http://.../img.jpg) sono brevi e li lascio per retro-compat.
+            if(!it || typeof it !== 'object') return;
+            if(typeof it.image !== 'string' || it.image.length <= 200) return;
+            // Identifica se è un prodotto del catalogo Visiotech standard
+            let canStrip = false;
+            if(Array.isArray(window.DATA)){
+              let p = null;
+              if(it.idx != null && window.DATA[it.idx]){
+                p = window.DATA[it.idx];
+              }
+              if(!p && it.code){
+                p = window.DATA.find(x => x && (x.reference === it.code || (typeof getField === 'function' && getField(x, 'reference') === it.code)));
+              }
+              if(p){
+                const isPersonal = p.isPersonal === true;
+                const isService  = p.isService === true;
+                if(!isPersonal && !isService){
+                  const hasImagePath = (typeof getField === 'function')
+                    ? !!getField(p, 'image_path')
+                    : !!p.image_path;
+                  if(hasImagePath) canStrip = true;
+                }
+              }
+            }
+            if(canStrip){
               bytesSaved += it.image.length;
               delete it.image;
               stripCount++;
+            } else {
+              preservedCount++;
             }
           });
         });
       });
-      if(stripCount > 0){
-        console.info('[preventivi] migrazione V2.10.88: rimosse ' + stripCount + ' immagini base64 (~' + Math.round(bytesSaved/1024) + ' KB liberati). Le immagini saranno ricostruite al volo dal catalogo.');
+      if(stripCount > 0 || preservedCount > 0){
+        console.info('[preventivi] migrazione V2.10.89: rimosse ' + stripCount + ' immagini base64 da prodotti catalogo (~' + Math.round(bytesSaved/1024) + ' KB liberati), preservate ' + preservedCount + ' immagini per personali/servizi.');
         try {
           if(typeof idbSet === 'function'){
             idbSet('meta', QUOTES_KEY, {
@@ -31689,8 +31717,7 @@ async function loadQuotesArchiveFromIdb(){
               counters: window._QUOTES_ARCHIVE.counters,
             });
           }
-          // Trigger sync targeted per pushare la versione "pulita" su Drive
-          if(typeof driveScheduleTargetedSave === 'function'){
+          if(stripCount > 0 && typeof driveScheduleTargetedSave === 'function'){
             setTimeout(() => driveScheduleTargetedSave('quotesArchive'), 2000);
           }
         } catch(_){}
@@ -31844,17 +31871,44 @@ function _computeSnapshotTotals(items){
 /* Costruisce uno "snapshot version" a partire dallo state attuale del carrello.
    Helper interno usato da quoteCreate e quoteAddVersion.
    V2.10.88: striping del campo `image` dalle righe — sono base64 pesanti (~180 KB cad).
-   L'immagine viene ricostruita al volo da _qResolveImg via DATA[idx] o code lookup. */
+   V2.10.89: strip SOLO per prodotti catalogo Visiotech standard (non personali, non servizi).
+   I prodotti personali e i servizi NON hanno un'immagine sul CDN: il base64 nel carrello
+   è l'unica fonte e va preservato. */
 function _buildVersionSnapshot(noteVersione){
   // Deep clone profondo via JSON per disaccoppiare totalmente dal state runtime
   const items = JSON.parse(JSON.stringify(window._QUOTE_STATE.items || []));
-  // V2.10.88: rimuovo il campo `image` dalle righe per ridurre drasticamente la
-  // dimensione del preventivo salvato. Tipicamente ogni image era una stringa
-  // base64 da 100-200 KB; con 7 righe × 15 versioni si arrivava a 3+ MB per
-  // preventivo. Ora _qResolveImg ricostruisce l'immagine al volo dal catalogo
-  // sia in anteprima sia nell'export Word/PDF.
+  // V2.10.89: rimuovo `image` solo se la riga riferisce un prodotto del catalogo
+  // Visiotech standard (presente in DATA e NON personale/servizio). Per personali
+  // e servizi mantengo l'image originale: per loro è l'unica fonte disponibile.
   items.forEach(it => {
-    if(it && typeof it === 'object') delete it.image;
+    if(!it || typeof it !== 'object') return;
+    if(!it.image) return;
+    // Verifica se è un prodotto Visiotech standard ricostruibile da catalogo
+    let canStrip = false;
+    if(Array.isArray(window.DATA)){
+      let p = null;
+      if(it.idx != null && window.DATA[it.idx]){
+        p = window.DATA[it.idx];
+      }
+      // Verifica anche per code (idx potrebbe essere cambiato dopo re-import)
+      if(!p && it.code){
+        p = window.DATA.find(x => x && (x.reference === it.code || (typeof getField === 'function' && getField(x, 'reference') === it.code)));
+      }
+      if(p){
+        const isPersonal = p.isPersonal === true;
+        const isService  = p.isService === true;
+        // Strip solo se NON personale e NON servizio E ha image_path nel catalogo
+        if(!isPersonal && !isService){
+          const hasImagePath = (typeof getField === 'function')
+            ? !!getField(p, 'image_path')
+            : !!p.image_path;
+          if(hasImagePath) canStrip = true;
+        }
+      }
+    }
+    if(canStrip){
+      delete it.image;
+    }
   });
   const settings = JSON.parse(JSON.stringify(window._QUOTE_STATE.settings || {}));
   const totals = _computeSnapshotTotals(items);
