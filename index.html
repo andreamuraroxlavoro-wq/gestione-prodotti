@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.95</title>
+<title>Gestione Prodotti V2.10.96</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -2038,6 +2038,25 @@ body.theme-light .topbar-pills-bar{
 .tb-special-personal:hover{ color:#7c3aed; }
 /* V2.10.63 + V2.10.68: hover verde smeraldo per il pulsante servizi. */
 .tb-special-service:hover{ color:#10b981; }
+
+/* V2.10.96: pulsante "Refresh da Drive" — accento ciano per distinguersi
+   dagli altri pulsanti vista/tema. Animazione spin durante il pull. */
+.tb-drive-refresh{ color:#06b6d4; }
+.tb-drive-refresh:hover{
+  color:#22d3ee;
+  border-color:rgba(34,211,238,0.45);
+}
+.tb-drive-refresh.is-pulling svg{
+  animation: tb-drive-spin 1.1s linear infinite;
+}
+.tb-drive-refresh:disabled{
+  opacity:0.6;
+  cursor:wait;
+}
+@keyframes tb-drive-spin{
+  from{ transform:rotate(0deg) }
+  to  { transform:rotate(360deg) }
+}
 
 /* V2.2.36: Stato attivo dei pulsanti filtri speciali in topbar.
    Bordo e glow verde acido #CCFF00 — reso molto evidente per comunicare
@@ -7667,7 +7686,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.95</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.10.96</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -7948,6 +7967,16 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <!-- Gruppo "preferenze" wrappato per ereditare lo stesso gap 8px dei bottoni vista -->
     <div class="view-toggle topbar-prefs">
       <button class="btn icon-btn" id="btnEye" onclick="toggleShowDiscount()" title="Mostra/nascondi listino e sconto sulle card" aria-label="Toggle sconto"></button>
+      <!-- V2.10.96: bottone Refresh da Drive — scarica subito prodotti/preventivi/clienti/servizi
+           dal Drive, utile quando lavori su più device e vuoi sincronizzare al volo. -->
+      <button class="btn icon-btn tb-drive-refresh" id="btnDriveRefresh" onclick="driveForcePullAll(this)" title="Sincronizza ora con Google Drive (scarica prodotti, preventivi, clienti, servizi più aggiornati)" aria-label="Refresh da Drive" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/>
+          <polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+          <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+        </svg>
+      </button>
       <button class="btn icon-btn" id="btnTheme" onclick="toggleTheme()" title="Cambia tema chiaro/scuro" aria-label="Cambia tema"></button>
     </div>
 
@@ -8139,7 +8168,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.95');
+console.info('[bootstrap] script avvio — V2.10.96');
 
 window.openStatsDashboard = function(){
   try {
@@ -9569,7 +9598,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.95';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.96';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -11699,6 +11728,8 @@ function driveInit(){
     const restoredCount = DRIVE_DELTA._restore();
 
     _driveUpdateBadge();
+    // V2.10.96: aggiorna visibilità bottone Refresh in topbar
+    if(typeof _driveUpdateTopbarRefreshBtn === 'function') _driveUpdateTopbarRefreshBtn();
 
     // V2.2.38: refresh periodico del badge ogni 30s per mantenere accurato "X min fa"
     if(!window._driveTickStarted){
@@ -11775,6 +11806,8 @@ function driveSaveUrl(url){
     drivePollingStop();
   }
   _driveUpdateBadge();
+  // V2.10.96: aggiorna visibilità bottone Refresh in topbar
+  if(typeof _driveUpdateTopbarRefreshBtn === 'function') _driveUpdateTopbarRefreshBtn();
 }
 
 // ─── Getter/setter modalità ───
@@ -11850,6 +11883,8 @@ function driveSetEnabled(enabled){
   }
 
   _driveUpdateBadge();
+  // V2.10.96: aggiorna visibilità bottone Refresh in topbar
+  if(typeof _driveUpdateTopbarRefreshBtn === 'function') _driveUpdateTopbarRefreshBtn();
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -14743,7 +14778,7 @@ function _driveAttachVisibilityListener(){
 }
 
 // V2.10.95: Forza il pull di tutti i dati da Drive (master + 3 targeted).
-// Usato dal pulsante "Forza pull da Drive" nelle impostazioni.
+// Usato dal pulsante "Forza pull da Drive" nelle impostazioni E dal pulsante Refresh in topbar.
 // Salta il check timestamp e usa un flag "force" che reset localmente i ts targeted
 // così la condizione "fresh device" scatta sicuramente.
 async function driveForcePullAll(btn){
@@ -14755,13 +14790,21 @@ async function driveForcePullAll(btn){
     if(typeof toast === 'function') toast('Sync già in corso, riprova tra qualche secondo', 'warn', 3000);
     return;
   }
-  const originalText = btn ? btn.innerHTML : '';
+  // V2.10.96: gestione UI dual-mode.
+  // - se il bottone è quello topbar (id="btnDriveRefresh" o classe tb-drive-refresh),
+  //   uso animazione spin via classe CSS e mantengo l'SVG.
+  // - se è quello del pannello settings (contenuto testuale), cambio il testo come prima.
+  const isTopbarBtn = btn && (btn.id === 'btnDriveRefresh' || btn.classList.contains('tb-drive-refresh'));
+  let originalText = '';
   if(btn){
     btn.disabled = true;
-    btn.innerHTML = '⏳ Scarico...';
+    if(isTopbarBtn){
+      btn.classList.add('is-pulling');
+    } else {
+      originalText = btn.innerHTML;
+      btn.innerHTML = '⏳ Scarico...';
+    }
   }
-  let okMaster = false;
-  let okTargeted = 0;
   let errors = [];
   try {
     // 1) Forza il pull del master: azzero lastRemoteTs così driveAutoLoadIfNewer scarica sicuro.
@@ -14770,7 +14813,6 @@ async function driveForcePullAll(btn){
     try {
       DRIVE_STATE.lastRemoteTs = null;  // forza ramo "lastRemoteTs vuoto" in driveCheckRemoteAndDecide
       await driveAutoLoadIfNewer();
-      okMaster = true;
     } catch(eM){
       DRIVE_STATE.lastRemoteTs = prevRemoteTs;  // restore on error
       errors.push('master: ' + (eM && eM.message ? eM.message : eM));
@@ -14782,16 +14824,13 @@ async function driveForcePullAll(btn){
       for(const t of ['quotesArchive','clients','services']){
         try { localStorage.removeItem('gp_drive_targeted_ts_' + t); } catch(_){}
       }
-      // NB: non azzero i dati in-memory perché _driveSyncTargetedOne fa il check su hasLocalDataForTarget
-      // controllando in-memory: con ts locale azzerato + dati in-memory presenti, il fresh-device
-      // branch NON scatta. Quindi azzero anche i dati in-memory (verranno ripopolati da Drive subito).
-      // ATTENZIONE: questo è un'operazione distruttiva sul locale, ma il pulsante è esplicitamente
-      // chiamato "Forza pull" e ha senso che sovrascriva.
+      // Azzero anche i dati in-memory perché _driveSyncTargetedOne fa il check su hasLocalDataForTarget:
+      // se restassero pieni il branch "fresh device" non scatterebbe e il pull non avverrebbe.
+      // ATTENZIONE: distruttivo sul locale, ma il pulsante è esplicitamente di "Forza pull".
       if(window._QUOTES_ARCHIVE) window._QUOTES_ARCHIVE.quotes = [];
       if(window._CLIENTS_STATE)  window._CLIENTS_STATE.clients = [];
       if(window._SERVICES_STATE) window._SERVICES_STATE.services = [];
       await _driveSyncTargetedBootstrap();
-      okTargeted = 3; // assumed (Promise.allSettled inside silenzia errori dei singoli)
     } catch(eT){
       errors.push('targeted: ' + (eT && eT.message ? eT.message : eT));
     }
@@ -14801,24 +14840,37 @@ async function driveForcePullAll(btn){
     if(typeof render === 'function'){
       try { render(); } catch(_){}
     }
-    // Refresh del pannello settings stesso per aggiornare contatori
+    // Refresh del pannello settings stesso per aggiornare contatori (se aperto)
     if(typeof driveRenderSettingsPanel === 'function'){
       setTimeout(() => { try { driveRenderSettingsPanel(); } catch(_){} }, 200);
     }
 
     if(typeof toast === 'function'){
       if(errors.length === 0){
-        toast('✓ Pull forzato completato: prodotti, preventivi, clienti, servizi aggiornati da Drive', 'ok', 5000);
+        toast('✓ Dati aggiornati da Drive (prodotti, preventivi, clienti, servizi)', 'ok', 4000);
       } else {
-        toast('⚠ Pull completato con errori: ' + errors.join(' · '), 'warn', 6000);
+        toast('⚠ Refresh completato con errori: ' + errors.join(' · '), 'warn', 6000);
       }
     }
   } finally {
     if(btn){
       btn.disabled = false;
-      btn.innerHTML = originalText;
+      if(isTopbarBtn){
+        btn.classList.remove('is-pulling');
+      } else if(originalText){
+        btn.innerHTML = originalText;
+      }
     }
   }
+}
+
+// V2.10.96: aggiorna visibilità del bottone Refresh in topbar in base allo stato Drive.
+// Visibile solo se Drive è configurato (URL valido) e abilitato.
+function _driveUpdateTopbarRefreshBtn(){
+  const btn = document.getElementById('btnDriveRefresh');
+  if(!btn) return;
+  const visible = !!(DRIVE_STATE.url && DRIVE_STATE.enabled);
+  btn.style.display = visible ? '' : 'none';
 }
 
 // ─── Applica dati remoti ai dati locali (DATA, EDITS, SETTINGS) ───
