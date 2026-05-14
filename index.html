@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.100</title>
+<title>Gestione Prodotti V2.10.101</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7686,7 +7686,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.100</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.10.101</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8168,7 +8168,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.100');
+console.info('[bootstrap] script avvio — V2.10.101');
 
 window.openStatsDashboard = function(){
   try {
@@ -9598,7 +9598,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.100';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.101';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -14949,18 +14949,17 @@ async function driveForcePullAll(btn){
       errors.push('master: ' + (eM && eM.message ? eM.message : eM));
     }
 
-    // 2) Forza il pull dei 3 targeted: azzero i ts locali e i dati locali in-memory,
-    //    poi richiamo _driveSyncTargetedBootstrap che ora vedrà "fresh device" su tutti.
+    // 2) Forza il pull dei 3 targeted: azzero i ts locali così il branch
+    //    "fresh device" di _driveSyncTargetedOne entrerà se il file remoto ha record.
+    //    V2.10.101: NON azzero più i dati in-memory (quotes/clients/services).
+    //    L'azzeramento era distruttivo: se il pull targeted falliva o il file remoto
+    //    era vuoto, perdevamo definitivamente i dati locali. Adesso lascio gli array
+    //    in-memory intatti: _driveSyncTargetedOne deciderà internamente cosa
+    //    sovrascrivere in base al confronto ts + count remoto.
     try {
       for(const t of ['quotesArchive','clients','services']){
         try { localStorage.removeItem('gp_drive_targeted_ts_' + t); } catch(_){}
       }
-      // Azzero anche i dati in-memory perché _driveSyncTargetedOne fa il check su hasLocalDataForTarget:
-      // se restassero pieni il branch "fresh device" non scatterebbe e il pull non avverrebbe.
-      // ATTENZIONE: distruttivo sul locale, ma il pulsante è esplicitamente di "Forza pull".
-      if(window._QUOTES_ARCHIVE) window._QUOTES_ARCHIVE.quotes = [];
-      if(window._CLIENTS_STATE)  window._CLIENTS_STATE.clients = [];
-      if(window._SERVICES_STATE) window._SERVICES_STATE.services = [];
       await _driveSyncTargetedBootstrap();
     } catch(eT){
       errors.push('targeted: ' + (eT && eT.message ? eT.message : eT));
@@ -30446,8 +30445,6 @@ async function _syncAllShadowsFromArchive(){
   const services = window._SERVICES_STATE.services;
   const serviceIds = new Set(services.map(s => s && s.id).filter(Boolean));
   let added = 0, updated = 0, removed = 0;
-  // V2.10.99: lista delle modifiche da notificare a Drive dopo il sync
-  const driveChanges = [];
 
   // 1. Per ogni servizio in archivio, garantisco lo shadow aggiornato
   services.forEach(svc => {
@@ -30458,7 +30455,6 @@ async function _syncAllShadowsFromArchive(){
       const newShadow = _serviceToShadowProduct(svc);
       DATA.push(newShadow);
       added++;
-      driveChanges.push({ code: shadowCode, record: newShadow, op: 'upsert' });
     } else {
       // Aggiorno solo se differiscono i campi chiave (evito write inutili)
       const cur = DATA[idx];
@@ -30468,37 +30464,26 @@ async function _syncAllShadowsFromArchive(){
       if(changed){
         DATA[idx] = fresh;
         updated++;
-        driveChanges.push({ code: shadowCode, record: fresh, op: 'upsert' });
       }
     }
   });
 
-  // 2. Rimuovo shadow orfani (esistono in DATA con isService:true ma non in archivio)
-  for(let i = DATA.length - 1; i >= 0; i--){
-    const p = DATA[i];
-    if(p && p.isService === true && p.serviceId && !serviceIds.has(p.serviceId)){
-      const orphanCode = p.name;
-      DATA.splice(i, 1);
-      removed++;
-      driveChanges.push({ code: orphanCode, record: null, op: 'delete' });
-    }
-  }
+  // V2.10.101: NON rimuovo più gli shadow orfani in modo automatico.
+  // La rimozione automatica era pericolosa: se _SERVICES_STATE viene azzerato
+  // temporaneamente (es. durante driveForcePullAll o durante un pull targeted
+  // in corso), tutti gli shadow vengono visti come "orfani" e cancellati,
+  // E (peggio) la modifica veniva pushata a Drive cancellando i prodotti dal master.
+  // Gli shadow orfani sono solo "rumore visivo" innocuo: meglio lasciarli che rischiare
+  // di perdere dati. La pulizia degli shadow orfani avviene solo quando l'utente
+  // elimina ESPLICITAMENTE un servizio via _syncShadowForService(svcId).
 
-  if(added > 0 || updated > 0 || removed > 0){
-    console.info(`[servizi] sync shadow: +${added} aggiunti, ~${updated} aggiornati, -${removed} rimossi`);
+  if(added > 0 || updated > 0){
+    console.info(`[servizi] sync shadow: +${added} aggiunti, ~${updated} aggiornati (no auto-remove)`);
     await _persistData();
-    // V2.10.99: notifico Drive di tutte le modifiche shadow.
-    // Questo garantisce che gli shadow products vengano sincronizzati col master Drive,
-    // evitando il disallineamento dove un device ha lo shadow e gli altri no.
-    if(typeof driveNotifyChange === 'function'){
-      for(const ch of driveChanges){
-        try {
-          driveNotifyChange('data', ch.code, ch.record);
-        } catch(e){
-          console.warn('[servizi] driveNotifyChange ' + ch.code + ' failed:', e && e.message ? e.message : e);
-        }
-      }
-    }
+    // V2.10.101: NON chiamo più driveNotifyChange automaticamente per gli shadow.
+    // Le modifiche degli shadow products vengono pushate a Drive solo quando
+    // l'utente crea/modifica/elimina un servizio esplicitamente, via _syncShadowForService.
+    // Questo evita push delta inattesi durante operazioni di pull/restore.
   }
 }
 
@@ -42548,7 +42533,12 @@ async function init(){
   const savedEdits = await idbGet('edits','main');
   // V2.10.65: se DATA vuoto ma archivio servizi popolato, sincronizzo comunque
   if((!savedData || savedData.length === 0) && typeof _syncAllShadowsFromArchive === 'function'){
-    Promise.resolve().then(() => _syncAllShadowsFromArchive());
+    Promise.resolve().then(() => _syncAllShadowsFromArchive().then(() => {
+      // V2.10.101: refresh icona Servizi in topbar dopo creazione shadow
+      if(typeof updateSpecialViewsBadges === 'function'){
+        try { updateSpecialViewsBadges(); } catch(_){}
+      }
+    }));
   }
   if(savedData && savedData.length>0){
     DATA = savedData;
@@ -42556,7 +42546,12 @@ async function init(){
     // V2.10.65: sincronizzo shadow servizi appena DATA e' caricato.
     // Differito a microtask per non bloccare il flusso di init.
     if(typeof _syncAllShadowsFromArchive === 'function'){
-      Promise.resolve().then(() => _syncAllShadowsFromArchive());
+      Promise.resolve().then(() => _syncAllShadowsFromArchive().then(() => {
+        // V2.10.101: refresh icona Servizi in topbar dopo creazione shadow
+        if(typeof updateSpecialViewsBadges === 'function'){
+          try { updateSpecialViewsBadges(); } catch(_){}
+        }
+      }));
     }
     // Fix retroattivo: normalizza EAN che potrebbero essere stati salvati come notazione scientifica
     let eanFixed = 0;
