@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.93</title>
+<title>Gestione Prodotti V2.10.94</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7667,7 +7667,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.93</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.10.94</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8139,7 +8139,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.93');
+console.info('[bootstrap] script avvio — V2.10.94');
 
 window.openStatsDashboard = function(){
   try {
@@ -9569,7 +9569,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.93';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.94';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -11449,6 +11449,14 @@ const DRIVE_INIT_GUARD_KEY       = 'gp_drive_initialized'; // flag: true se è s
 const DRIVE_CONFLICT_THRESHOLD   = 0.05;                  // 5% diff = chiedi conferma all'utente
 const DRIVE_DELTA_BUFFER_KEY     = 'gp_drive_delta_buffer'; // V2.2.38 prop A: buffer modifiche pending persistito
 const DRIVE_ENABLED_KEY          = 'gp_drive_enabled';     // V2.2.40: master switch ON/OFF della sincronizzazione
+// V2.10.94: polling automatico di Drive per rilevare modifiche da altri device.
+// Risolve il bug multi-device: un Mac salva su Drive, l'altro Mac non se ne accorge
+// finché non viene chiuso/riaperto. Con il polling ogni N minuti ciascun device
+// controlla il timestamp remoto e, se piu' recente di quanto conosca, scarica i dati.
+// Il check usa driveGetRemoteTimestamp() che chiama solo ?action=ts (payload <100 bytes).
+const DRIVE_POLL_INTERVAL_KEY    = 'gp_drive_poll_interval'; // intervallo polling in minuti (0=off)
+const DRIVE_POLL_DEFAULT_MIN     = 3;                        // default 3 minuti
+const DRIVE_POLL_VALID_VALUES    = [0, 1, 3, 5, 10];         // opzioni ammesse (minuti)
 // V2.2.42: cache delle statistiche remote — aggiornata ad ogni save riuscito.
 // Permette di mostrare conteggio prodotti e dimensione senza scaricare tutto il file.
 const DRIVE_REMOTE_STATS_KEY     = 'gp_drive_remote_stats';
@@ -11564,6 +11572,11 @@ const DRIVE_STATE = {
   syncStartedAt: 0,             // ms timestamp di inizio sync corrente
   syncEstimatedMs: 0,           // stima totale in ms del sync corrente
   syncEtaTimer: null,           // setInterval per aggiornare il badge ogni 1s
+  // V2.10.94: polling Drive multi-device
+  pollIntervalMin: 3,           // minuti tra un check e l'altro (0=off)
+  pollTimer: null,              // setInterval pending del polling
+  pollLastCheckAt: null,        // ISO ts ultimo check polling riuscito
+  pollLastResult: null,         // 'in-sync' | 'remote-newer' | 'error' | null
 };
 
 // V2.10.86: Targeted Sync — file Drive separati per dati write-frequent
@@ -11668,6 +11681,19 @@ function driveInit(){
     // Solo il valore esplicito "false" disabilita il servizio.
     DRIVE_STATE.enabled       = localStorage.getItem(DRIVE_ENABLED_KEY) !== 'false';
 
+    // V2.10.94: intervallo polling (minuti). Default DRIVE_POLL_DEFAULT_MIN, 0 = disabilitato.
+    var _pollRaw = localStorage.getItem(DRIVE_POLL_INTERVAL_KEY);
+    if(_pollRaw === null || _pollRaw === ''){
+      DRIVE_STATE.pollIntervalMin = DRIVE_POLL_DEFAULT_MIN;
+    } else {
+      var _pollN = parseInt(_pollRaw, 10);
+      if(isNaN(_pollN) || DRIVE_POLL_VALID_VALUES.indexOf(_pollN) === -1){
+        DRIVE_STATE.pollIntervalMin = DRIVE_POLL_DEFAULT_MIN;
+      } else {
+        DRIVE_STATE.pollIntervalMin = _pollN;
+      }
+    }
+
     // V2.2.38 (A): carica buffer modifiche pending da localStorage
     // Se ci sono modifiche da una sessione precedente, le riprenderemo dopo l'init dell'app.
     const restoredCount = DRIVE_DELTA._restore();
@@ -11745,6 +11771,8 @@ function driveSaveUrl(url){
     localStorage.removeItem(DRIVE_INIT_GUARD_KEY);
     // V2.2.38 (A): pulisci anche il buffer pending (le modifiche perdono senso senza un Drive collegato)
     DRIVE_DELTA.clear();
+    // V2.10.94: ferma il polling — non c'è più nulla da pollare
+    drivePollingStop();
   }
   _driveUpdateBadge();
 }
@@ -11790,6 +11818,8 @@ function driveSetEnabled(enabled){
       clearTimeout(DRIVE_STATE.scheduledTimer);
       DRIVE_STATE.scheduledTimer = null;
     }
+    // V2.10.94: ferma anche il polling (verrà riavviato al reattivare)
+    drivePollingStop();
     // NB: se c'è un sync HTTP in corso, lo lasciamo terminare (non possiamo abortire)
     if(typeof toast === 'function'){
       const pending = DRIVE_DELTA.size();
@@ -11812,6 +11842,10 @@ function driveSetEnabled(enabled){
           _driveSendDelta(false).catch(e => console.warn('[drive] post-enable sync failed', e));
         }
       }, 800);
+    }
+    // V2.10.94: riavvia polling se configurato
+    if(DRIVE_STATE.url && DRIVE_STATE.initialized && DRIVE_STATE.pollIntervalMin > 0){
+      drivePollingStart();
     }
   }
 
@@ -14511,6 +14545,160 @@ async function driveAutoLoadIfNewer(){
       _driveUpdateBadge();
     }
   }
+}
+
+// V2.10.94: helper per formattare un timestamp ISO come "X min fa" / "X sec fa".
+function _driveFormatRelativeTime(isoTs){
+  if(!isoTs) return '—';
+  try {
+    var t = new Date(isoTs).getTime();
+    if(isNaN(t)) return '—';
+    var diffSec = Math.floor((Date.now() - t) / 1000);
+    if(diffSec < 0) diffSec = 0;
+    if(diffSec < 60)   return diffSec + ' sec fa';
+    var diffMin = Math.floor(diffSec / 60);
+    if(diffMin < 60)   return diffMin + ' min fa';
+    var diffH = Math.floor(diffMin / 60);
+    if(diffH < 24)     return diffH + ' h fa';
+    var diffD = Math.floor(diffH / 24);
+    return diffD + ' g fa';
+  } catch(_){ return '—'; }
+}
+
+// ─── V2.10.94: Polling automatico Drive per multi-device ───
+// Ogni N minuti controlla se il file Drive è stato aggiornato da un altro device.
+// Se sì, scarica automaticamente i nuovi dati (riusa driveAutoLoadIfNewer).
+// Il check è leggero (~100 bytes via ?action=ts), può essere acceso ogni 1-10 min senza problemi.
+
+// Salva l'intervallo polling in localStorage e (re)avvia il timer.
+// Valori ammessi: 0 (off), 1, 3, 5, 10 minuti.
+function driveSetPollInterval(minutes){
+  var n = parseInt(minutes, 10);
+  if(isNaN(n) || DRIVE_POLL_VALID_VALUES.indexOf(n) === -1){
+    console.warn('[drive] pollInterval value not valid:', minutes);
+    return;
+  }
+  DRIVE_STATE.pollIntervalMin = n;
+  try {
+    localStorage.setItem(DRIVE_POLL_INTERVAL_KEY, String(n));
+  } catch(e){
+    console.warn('[drive] cannot persist pollInterval', e.message);
+  }
+  // Riavvia il timer con il nuovo intervallo
+  drivePollingStop();
+  if(n > 0){
+    drivePollingStart();
+    console.info('[drive] polling attivato ogni ' + n + ' min');
+  } else {
+    console.info('[drive] polling disattivato');
+  }
+}
+
+function driveGetPollInterval(){
+  return DRIVE_STATE.pollIntervalMin || 0;
+}
+
+// Avvia il timer di polling. Chiamato da driveInit (al boot) e da driveSetPollInterval.
+function drivePollingStart(){
+  // Cleanup eventuale timer precedente
+  drivePollingStop();
+  var min = DRIVE_STATE.pollIntervalMin || 0;
+  if(min <= 0) return;             // polling disabilitato
+  if(!DRIVE_STATE.url) return;     // Drive non configurato
+  if(!DRIVE_STATE.enabled) return; // master switch OFF
+
+  var intervalMs = min * 60 * 1000;
+  DRIVE_STATE.pollTimer = setInterval(function(){
+    drivePollingTick().catch(function(e){
+      console.warn('[drive] polling tick error:', e && e.message ? e.message : e);
+    });
+  }, intervalMs);
+  console.info('[drive] polling timer attivato (' + min + ' min = ' + intervalMs + ' ms)');
+}
+
+// Ferma il timer di polling.
+function drivePollingStop(){
+  if(DRIVE_STATE.pollTimer){
+    clearInterval(DRIVE_STATE.pollTimer);
+    DRIVE_STATE.pollTimer = null;
+  }
+}
+
+// Singolo "tick" del polling: controlla se Drive ha modifiche più recenti e in caso scarica.
+// Pre-check protettivi:
+//   - tab nascosto (document.hidden) → skip (evita spreco quando l'utente non guarda)
+//   - sync già in corso → skip (no doppi sync)
+//   - delta pending locali → skip (non vogliamo sovrascrivere modifiche locali in attesa)
+//   - offline (navigator.onLine === false) → skip
+async function drivePollingTick(){
+  // Sentinelle: condizioni che richiedono di saltare il check
+  if(!DRIVE_STATE.url) return;
+  if(!DRIVE_STATE.initialized) return;
+  if(!DRIVE_STATE.enabled) return;
+  if(DRIVE_STATE.syncing) return;
+
+  // Tab nascosto: evitiamo di consumare richieste. Quando torna visibile,
+  // visibilitychange triggera un check immediato (vedi listener in driveInit).
+  if(typeof document !== 'undefined' && document.hidden) return;
+
+  // Offline esplicito: skip senza errori
+  if(typeof navigator !== 'undefined' && navigator.onLine === false) return;
+
+  // Delta pending: ci sono modifiche locali non ancora pushate. Skip il pull
+  // per evitare di sovrascrivere queste modifiche con dati remoti più "vecchi"
+  // semanticamente (i nostri delta non sono ancora arrivati a Drive).
+  if(DRIVE_DELTA && typeof DRIVE_DELTA.size === 'function' && DRIVE_DELTA.size() > 0) return;
+
+  DRIVE_STATE.pollLastCheckAt = new Date().toISOString();
+  try {
+    var decision = await driveCheckRemoteAndDecide();
+    if(!decision){
+      DRIVE_STATE.pollLastResult = 'error';
+      return;
+    }
+    if(decision.action === 'in-sync'){
+      DRIVE_STATE.pollLastResult = 'in-sync';
+      return;
+    }
+    if(decision.action === 'remote-newer'){
+      DRIVE_STATE.pollLastResult = 'remote-newer';
+      console.info('[drive] polling: Drive ha modifiche più recenti, scarico...');
+      // Riusa la pipeline esistente: scarica payload completo, applica con soglia
+      // di conflict-protection 5%, aggiorna badge e mostra toast.
+      await driveAutoLoadIfNewer();
+      return;
+    }
+    DRIVE_STATE.pollLastResult = 'unknown';
+  } catch(e){
+    DRIVE_STATE.pollLastResult = 'error';
+    console.warn('[drive] polling tick failed:', e && e.message ? e.message : e);
+  }
+}
+
+// Aggancio visibilitychange: quando il tab torna visibile dopo essere stato in background,
+// forzo un check immediato (così se hai lasciato il tab in background per ore, non aspetti
+// il prossimo tick per vedere i dati aggiornati).
+function _driveAttachVisibilityListener(){
+  if(typeof document === 'undefined') return;
+  if(window._driveVisibilityAttached) return;
+  window._driveVisibilityAttached = true;
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden) return;
+    // Tab tornato visibile
+    if(!DRIVE_STATE.url || !DRIVE_STATE.initialized || !DRIVE_STATE.enabled) return;
+    if(DRIVE_STATE.pollIntervalMin <= 0) return;  // polling disabilitato
+    if(DRIVE_STATE.syncing) return;
+    // Debounce: aspettiamo 1.5s per dare tempo al browser/network di stabilizzarsi
+    // dopo che il tab è tornato in foreground (specialmente su mobile).
+    setTimeout(function(){
+      if(!document.hidden && !DRIVE_STATE.syncing){
+        console.info('[drive] tab tornato visibile, check polling immediato');
+        drivePollingTick().catch(function(e){
+          console.warn('[drive] visibility-trigger polling failed:', e && e.message ? e.message : e);
+        });
+      }
+    }, 1500);
+  });
 }
 
 // ─── Applica dati remoti ai dati locali (DATA, EDITS, SETTINGS) ───
@@ -17237,6 +17425,39 @@ async function driveRenderSettingsPanel(){
               '</div>' +
             '</div>' +
           '</label>' +
+        '</div>' +
+        // V2.10.94: sezione "Pull automatico" — controllo separato dal push.
+        // Risolve il bug multi-device: ogni N minuti il client controlla se altri device
+        // hanno aggiornato Drive e in caso scarica automaticamente.
+        '<div style="margin-top:14px;padding:12px 13px;background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,.2);border-radius:7px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+            '<div style="flex:1;min-width:200px">' +
+              '<div style="font-size:11px;font-weight:700;color:var(--fg);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">🔄 Pull automatico da Drive</div>' +
+              '<div style="font-size:11px;color:var(--fg2);line-height:1.4">' +
+                'Controlla periodicamente se altri device hanno modificato i dati su Drive. ' +
+                'Check leggerissimo (~100 byte), aggiorna automaticamente l\'app. ' +
+                '<b>Consigliato se usi l\'app su più computer.</b>' +
+              '</div>' +
+            '</div>' +
+            '<select id="drive-poll-interval" onchange="driveSetPollInterval(this.value); driveRenderSettingsPanel()" ' +
+              'style="background:var(--bg2);color:var(--fg);border:1px solid var(--bd);padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;min-width:130px">' +
+              '<option value="0"'  + (DRIVE_STATE.pollIntervalMin === 0  ? ' selected' : '') + '>🔴 Disattivato</option>' +
+              '<option value="1"'  + (DRIVE_STATE.pollIntervalMin === 1  ? ' selected' : '') + '>Ogni 1 minuto</option>' +
+              '<option value="3"'  + (DRIVE_STATE.pollIntervalMin === 3  ? ' selected' : '') + '>Ogni 3 minuti</option>' +
+              '<option value="5"'  + (DRIVE_STATE.pollIntervalMin === 5  ? ' selected' : '') + '>Ogni 5 minuti</option>' +
+              '<option value="10"' + (DRIVE_STATE.pollIntervalMin === 10 ? ' selected' : '') + '>Ogni 10 minuti</option>' +
+            '</select>' +
+          '</div>' +
+          (DRIVE_STATE.pollIntervalMin > 0
+            ? '<div style="margin-top:8px;font-size:10px;color:var(--fg3);display:flex;align-items:center;gap:6px">' +
+                '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.6)"></span>' +
+                'Polling attivo · controllo ogni ' + DRIVE_STATE.pollIntervalMin + ' min' +
+                (DRIVE_STATE.pollLastCheckAt
+                  ? ' · ultimo check: ' + escapeHtml(_driveFormatRelativeTime(DRIVE_STATE.pollLastCheckAt))
+                  : '') +
+              '</div>'
+            : '<div style="margin-top:8px;font-size:10px;color:var(--fg3)">⚠ Senza pull automatico, le modifiche da altri device si vedono solo chiudendo e riaprendo l\'app.</div>'
+          ) +
         '</div>' +
       '</div>' +
     '</div>';
@@ -42031,6 +42252,12 @@ async function init(){
       // Asincrono, non bloccante: l'app si avvia con dati locali, poi Drive fa l'update se serve
       driveAutoLoadIfNewer().catch(e => console.warn('[drive] auto-load failed', e));
     }
+    // V2.10.94: avvia il polling automatico multi-device (se configurato e abilitato)
+    if(DRIVE_STATE.url && DRIVE_STATE.initialized && DRIVE_STATE.enabled && DRIVE_STATE.pollIntervalMin > 0){
+      drivePollingStart();
+    }
+    // Listener visibilitychange per check immediato al ritorno dal background
+    _driveAttachVisibilityListener();
   } catch(e){
     console.warn('[drive] init failed', e);
   }
