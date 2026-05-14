@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.90</title>
+<title>Gestione Prodotti V2.10.92</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7667,7 +7667,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.90</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.10.92</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8139,7 +8139,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.90');
+console.info('[bootstrap] script avvio — V2.10.92');
 
 window.openStatsDashboard = function(){
   try {
@@ -9569,7 +9569,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.90';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.92';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -11453,6 +11453,102 @@ const DRIVE_ENABLED_KEY          = 'gp_drive_enabled';     // V2.2.40: master sw
 // Permette di mostrare conteggio prodotti e dimensione senza scaricare tutto il file.
 const DRIVE_REMOTE_STATS_KEY     = 'gp_drive_remote_stats';
 
+// V2.10.92: storico durate dei full sync per stimare ETA accurato.
+// Manteniamo array degli ultimi N sync con durata in ms. La media è usata
+// come ETA durante la sync successiva. Schema: [{ms, sizeKB, ts}, ...]
+const DRIVE_SYNC_HISTORY_KEY     = 'gp_drive_sync_history';
+const DRIVE_SYNC_HISTORY_MAX     = 5;  // tieni gli ultimi N sync
+
+// Helper: leggi storico sync
+function _driveGetSyncHistory(){
+  try {
+    const raw = localStorage.getItem(DRIVE_SYNC_HISTORY_KEY);
+    if(!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch(_) { return []; }
+}
+
+// Helper: aggiungi nuovo sync allo storico
+function _driveRecordSyncDuration(ms, sizeKB){
+  try {
+    const history = _driveGetSyncHistory();
+    history.unshift({ ms: ms, sizeKB: sizeKB, ts: new Date().toISOString() });
+    while(history.length > DRIVE_SYNC_HISTORY_MAX) history.pop();
+    localStorage.setItem(DRIVE_SYNC_HISTORY_KEY, JSON.stringify(history));
+  } catch(_){}
+}
+
+// Helper: stima ETA in ms basata su storico (o stima dimensione)
+function _driveEstimateSyncDuration(payloadSizeKB){
+  const history = _driveGetSyncHistory();
+  if(history.length > 0){
+    // Media delle durate, eventualmente scalate dalla dimensione
+    let totalMs = 0;
+    let count = 0;
+    for(const h of history){
+      if(!h.ms) continue;
+      // Se conosco le dimensioni, scalo proporzionalmente
+      if(payloadSizeKB && h.sizeKB && h.sizeKB > 0){
+        totalMs += h.ms * (payloadSizeKB / h.sizeKB);
+      } else {
+        totalMs += h.ms;
+      }
+      count++;
+    }
+    return count > 0 ? Math.round(totalMs / count) : 0;
+  }
+  // Fallback: stima euristica
+  // ~1.2s per 1000 KB compresso (LZ + upload chunk + delay)
+  if(payloadSizeKB && payloadSizeKB > 0){
+    return Math.round(payloadSizeKB * 1.2 * 1000 / 1000) + 30000;  // +30s overhead
+  }
+  return 90000;  // default 90s
+}
+
+// Helper: formatta ms come "1m 23s" / "45s" / "1m 05s"
+function _driveFormatEta(ms){
+  if(!ms || ms < 0) return '';
+  const totSec = Math.max(0, Math.round(ms / 1000));
+  if(totSec < 60) return totSec + 's';
+  const m = Math.floor(totSec / 60);
+  const s = totSec % 60;
+  return m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+}
+
+// V2.10.92: Timer ETA — aggiorna il badge in sidebar ogni 1s con il tempo
+// rimanente stimato durante la sync. Si auto-arresta quando il sync finisce.
+function _driveStartEtaTimer(estimatedMs, payloadSizeKB){
+  _driveStopEtaTimer();
+  DRIVE_STATE.syncStartedAt = Date.now();
+  DRIVE_STATE.syncEstimatedMs = estimatedMs;
+  DRIVE_STATE.syncEtaTimer = setInterval(() => {
+    const elapsed = Date.now() - DRIVE_STATE.syncStartedAt;
+    let remaining = DRIVE_STATE.syncEstimatedMs - elapsed;
+    // Se siamo andati oltre la stima, mostra solo l'elapsed con un "+"
+    let label;
+    if(remaining > 0){
+      label = 'Drive: salvataggio in corso… (resta ' + _driveFormatEta(remaining) + ')';
+    } else {
+      // Oltre stima: passa a "trascorso N (oltre stima)"
+      const overrun = elapsed - DRIVE_STATE.syncEstimatedMs;
+      label = 'Drive: salvataggio in corso… (' + _driveFormatEta(elapsed) + ' trascorsi)';
+    }
+    _driveUpdateBadge('syncing', label);
+  }, 1000);
+  // Primo refresh immediato (senza aspettare 1s)
+  _driveUpdateBadge('syncing', 'Drive: salvataggio in corso… (resta ' + _driveFormatEta(estimatedMs) + ')');
+}
+
+function _driveStopEtaTimer(){
+  if(DRIVE_STATE.syncEtaTimer){
+    clearInterval(DRIVE_STATE.syncEtaTimer);
+    DRIVE_STATE.syncEtaTimer = null;
+  }
+  DRIVE_STATE.syncStartedAt = 0;
+  DRIVE_STATE.syncEstimatedMs = 0;
+}
+
 // Stato runtime Drive Sync
 const DRIVE_STATE = {
   url: null,                    // URL Apps Script
@@ -11464,6 +11560,10 @@ const DRIVE_STATE = {
   syncing: false,               // lock anti-concorrenza
   scheduledTimer: null,         // setTimeout pending del debounce
   initialized: false,           // true dopo upload iniziale confermato
+  // V2.10.92: ETA dinamico
+  syncStartedAt: 0,             // ms timestamp di inizio sync corrente
+  syncEstimatedMs: 0,           // stima totale in ms del sync corrente
+  syncEtaTimer: null,           // setInterval per aggiornare il badge ogni 1s
 };
 
 // V2.10.86: Targeted Sync — file Drive separati per dati write-frequent
@@ -13508,6 +13608,52 @@ async function _driveSendDelta(silent){
     return true;
 
   } catch(e){
+    // V2.10.91: il server può rispondere "delta non supportato — fai full sync"
+    // (caso master compresso .lz). NON è un vero errore: è una decisione di
+    // routing del protocollo. Riconosciamo questo caso e ci comportiamo di
+    // conseguenza: niente errore rosso, transizione diretta a full sync.
+    const isRoutingDecision = e && e.message && (
+      e.message.indexOf('delta sync not supported') >= 0 ||
+      e.message.indexOf('not supported on compressed') >= 0 ||
+      e.message.indexOf('needsFullSync') >= 0
+    );
+
+    if(isRoutingDecision){
+      // Caso normale: il server ci dice "fai full sync". Lo facciamo subito,
+      // mantenendo il badge in stato "in corso" (no errore visibile).
+      console.info('[drive] delta → routing a full sync (server: ' + e.message + ')');
+      DRIVE_STATE.syncing = false;  // libera il lock per consentire al full sync di partire
+      // V2.10.92: avvia timer ETA con stima da storico (o euristica)
+      // Stima la dimensione del payload corrente dal numero di prodotti+edits
+      const estimatedSizeKB = Math.max(80000, DATA.length * 10 + Object.keys(EDITS).length * 2);
+      const etaMs = _driveEstimateSyncDuration(estimatedSizeKB);
+      _driveStartEtaTimer(etaMs, estimatedSizeKB);
+      // Toast informativo SOLO al primo routing della sessione (evita spam)
+      if(!window._driveFullSyncToastShown && !silent && typeof toast === 'function'){
+        window._driveFullSyncToastShown = true;
+        toast('Salvataggio completo in background (~' + _driveFormatEta(etaMs) + ')', 'info', 5000);
+      }
+      try {
+        const fullSyncT0 = Date.now();
+        await driveSaveFullSync(silent);
+        // Successo: registra durata reale per ETA futuri
+        const realMs = Date.now() - fullSyncT0;
+        _driveRecordSyncDuration(realMs, estimatedSizeKB);
+        _driveStopEtaTimer();
+        // Badge ritorna verde via _driveUpdateBadge interno
+        return true;
+      } catch(fullErr){
+        _driveStopEtaTimer();
+        // Anche il full sync è fallito: ORA sì che è un errore vero
+        DRIVE_STATE.lastSyncError = fullErr.message;
+        _driveUpdateBadge('red', 'Errore sincronizzazione');
+        console.warn('[drive] full sync (post-routing) failed:', fullErr);
+        return false;
+      }
+    }
+
+    // Caso "errore vero" (network, server crash, payload corrotto, ecc.):
+    // segnala all'utente con badge rosso e tenta recovery dopo 10s.
     DRIVE_STATE.lastSyncError = e.message;
     _driveUpdateBadge('red', 'Errore delta');
     console.warn('[drive] delta failed', e);
@@ -14006,6 +14152,19 @@ async function driveSyncNow(){
 
 // ─── Aggiorna badge UI ───
 function _driveUpdateBadge(forceColor, forceLabel){
+  // V2.10.92: quando è attivo il countdown ETA, è LUI la fonte di verità per
+  // il badge in stato sync. Le altre chiamate di update vengono ignorate per
+  // non sovrascrivere il countdown con messaggi parziali come "Compressione…".
+  // Eccezioni: stato finale (verde/rosso) che il chiamante esplicitamente vuole
+  // settare DOPO aver fermato il timer (vedi _driveStopEtaTimer).
+  if(DRIVE_STATE.syncEtaTimer){
+    // Se la chiamata viene dal timer stesso, lasciala passare (riconosciamo dal label che contiene "resta " o "trascorsi")
+    const fromTimer = typeof forceLabel === 'string' && (forceLabel.indexOf('(resta ') >= 0 || forceLabel.indexOf('trascorsi)') >= 0);
+    if(!fromTimer){
+      // Ignora — il timer ETA mantiene il controllo del badge
+      return;
+    }
+  }
   const dotEls = document.querySelectorAll('.drive-status-dot');
   const lblEls = document.querySelectorAll('.drive-status-label');
   const sidebarBadge = document.getElementById('app-drive-status');
