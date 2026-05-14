@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.98</title>
+<title>Gestione Prodotti V2.10.99</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7686,7 +7686,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.98</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.10.99</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8168,7 +8168,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.98');
+console.info('[bootstrap] script avvio — V2.10.99');
 
 window.openStatsDashboard = function(){
   try {
@@ -9598,7 +9598,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.98';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.99';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -14569,22 +14569,16 @@ async function driveCheckRemoteAndDecide(){
   // Confronta timestamp
   const lastKnownTs = DRIVE_STATE.lastRemoteTs;
   if(!lastKnownTs){
-    // V2.10.93: PRIMA APERTURA SU QUESTO BROWSER — non sappiamo se il locale è più
-    // vecchio o più recente di Drive. Per sicurezza assumiamo che Drive contenga
-    // dati validi e scarichiamo. Questo evita di lavorare su dati locali stantii
-    // e poi sovrascrivere Drive (bug multi-device).
-    // Eccezione: se il locale è in uno stato "intoccato" (nessuna modifica pending,
-    // backup recente), confrontiamo i timestamp con l'ultimo backup locale.
-    const localLastBackup = localStorage.getItem('gp_last_backup_at') || null;
-    if(localLastBackup){
-      const remoteIsNewer = new Date(remote.ts).getTime() > new Date(localLastBackup).getTime();
-      if(remoteIsNewer){
-        return { action: 'remote-newer', remote, reason: 'lastRemoteTs vuoto, remote più recente di backup locale' };
-      }
-      return { action: 'in-sync', remote, reason: 'lastRemoteTs vuoto, backup locale più recente di remote' };
-    }
-    // Niente backup locale: fidiamoci di Drive (è il pattern standard cross-device)
-    return { action: 'remote-newer', remote, reason: 'prima apertura, nessun riferimento locale' };
+    // V2.10.99: PRIMA APERTURA SU QUESTO BROWSER — lastRemoteTs è null.
+    // In V2.10.93 c'era un branch che confrontava remote.ts con gp_last_backup_at
+    // (timestamp del backup locale JSON). Quel confronto è semanticamente errato:
+    // il backup locale è un evento totalmente scorrelato dal file Drive (puoi fare
+    // un backup locale anche quando Drive è dietro). Risultato del bug: se l'utente
+    // aveva fatto un backup locale recente, l'app diceva "in-sync" e NON scaricava
+    // mai i dati nuovi da Drive, lasciando il browser disallineato.
+    // Fix: in caso di lastRemoteTs vuoto, ci fidiamo di Drive (pattern standard
+    // multi-device). Drive è la sorgente di verità per la sincronizzazione cross-device.
+    return { action: 'remote-newer', remote, reason: 'lastRemoteTs vuoto: fidati di Drive (multi-device)' };
   }
 
   const remoteIsNewer = new Date(remote.ts).getTime() > new Date(lastKnownTs).getTime();
@@ -14896,14 +14890,54 @@ async function driveForcePullAll(btn){
   }
   let errors = [];
   try {
-    // 1) Forza il pull del master: azzero lastRemoteTs così driveAutoLoadIfNewer scarica sicuro.
-    // Salvo il valore precedente per non perdere lo stato in caso di errore.
-    const prevRemoteTs = DRIVE_STATE.lastRemoteTs;
+    // 1) Forza il pull del master: bypassa COMPLETAMENTE driveCheckRemoteAndDecide
+    // (che ha il bug del confronto con gp_last_backup_at quando lastRemoteTs è null).
+    // Chiamiamo direttamente driveLoadRaw + driveApplyRemoteData, esattamente come
+    // farebbe un sync "fidati e scarica" senza condizioni.
     try {
-      DRIVE_STATE.lastRemoteTs = null;  // forza ramo "lastRemoteTs vuoto" in driveCheckRemoteAndDecide
-      await driveAutoLoadIfNewer();
+      const remoteData = await driveLoadRaw();
+      if(remoteData && remoteData.data){
+        const localCount = DATA.length;
+        const remoteCount = (remoteData.data.data || []).length;
+        // Soglia di sicurezza: se remote ha MOLTO meno del locale, chiedi conferma.
+        // (preserva il safety check anti-data-loss originario)
+        if(remoteCount < localCount * (1 - DRIVE_CONFLICT_THRESHOLD) && localCount > 0){
+          const skipped = await driveShowConflictDialog({
+            localCount, remoteCount,
+            remoteTs:    remoteData.ts,
+            localEdits:  Object.keys(EDITS).length,
+            remoteEdits: Object.keys(remoteData.data.edits || {}).length
+          });
+          if(!skipped){
+            console.info('[drive] force-pull: utente ha annullato per safety threshold');
+          } else {
+            await driveApplyRemoteData(remoteData.data);
+          }
+        } else {
+          await driveApplyRemoteData(remoteData.data);
+        }
+        DRIVE_STATE.lastRemoteTs  = remoteData.ts;
+        DRIVE_STATE.lastSyncAt    = new Date().toISOString();
+        localStorage.setItem(DRIVE_LAST_DRIVE_TS_KEY, remoteData.ts);
+        localStorage.setItem(DRIVE_LAST_SYNC_KEY,     DRIVE_STATE.lastSyncAt);
+        // Aggiorna cache stats con i valori che ora abbiamo applicato (per evitare
+        // discrepanze "Drive: 7604" / "locale: 7603" in card B4)
+        if(typeof driveSetCachedStats === 'function'){
+          try {
+            driveSetCachedStats({
+              productsCount: DATA.length,
+              editsCount:    Object.keys(EDITS).length,
+              ts:            remoteData.ts,
+              source:        'manual',
+            });
+          } catch(_){}
+        }
+        _driveUpdateBadge();
+        console.info('[drive] force-pull master: applicati ' + DATA.length + ' prodotti (Drive ts=' + remoteData.ts + ')');
+      } else {
+        errors.push('master: payload remoto vuoto');
+      }
     } catch(eM){
-      DRIVE_STATE.lastRemoteTs = prevRemoteTs;  // restore on error
       errors.push('master: ' + (eM && eM.message ? eM.message : eM));
     }
 
