@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.101</title>
+<title>Gestione Prodotti V2.10.102</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -656,6 +656,45 @@ body{flex-direction:row;min-height:100vh;height:100vh;overflow:hidden}
   padding:2px 7px;border-radius:3px;letter-spacing:0.5px;
   align-self:flex-start;line-height:1.4;
   font-variant-numeric:tabular-nums;
+}
+/* V2.10.102: riga flex orizzontale per affiancare versione + orologio.
+   Mantiene align-self:flex-start del blocco-padre (column) e mette i 2 figli su una riga. */
+.sb-title-ver-row{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  align-self:flex-start;
+  flex-wrap:nowrap;
+}
+.sb-title-ver-row .sb-title-ver{
+  align-self:auto;  /* dentro alla row il flex-start verticale lo gestisce la row stessa */
+}
+/* V2.10.102: pillola orologio live. Stile gemello di .sb-title-ver ma palette
+   ciano scura coerente col tema (background semi-trasparente, accent ciano #06b6d4
+   già usato per il pulsante Refresh in topbar, font-variant tabular per evitare
+   sfarfallio dei numeri durante l'aggiornamento al secondo). */
+.sb-title-clock{
+  font-size:10px;font-weight:500;
+  color:#06b6d4;
+  background:rgba(6,182,212,0.10);
+  border:1px solid rgba(6,182,212,0.35);
+  padding:1px 7px;border-radius:3px;letter-spacing:0.5px;
+  line-height:1.4;
+  font-variant-numeric:tabular-nums;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  white-space:nowrap;
+  user-select:none;
+}
+.sb-title-clock svg{
+  width:11px;height:11px;
+  flex-shrink:0;
+  opacity:0.85;
+}
+.sb-title-clock .sb-title-clock-time{
+  font-variant-numeric:tabular-nums;
+  letter-spacing:0.3px;
 }
 /* V2.2.35: badge "Ultimo Backup" sotto alla versione. Stile discreto, simile
    alla versione ma con colore neutro per non competere visivamente. Nascosto
@@ -7686,7 +7725,16 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.101</span>
+    <span class="sb-title-ver-row">
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.102</span>
+      <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <polyline points="12 7 12 12 15.5 14"/>
+        </svg>
+        <span class="sb-title-clock-time" id="app-clock-time">--:--:--</span>
+      </span>
+    </span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8168,7 +8216,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.101');
+console.info('[bootstrap] script avvio — V2.10.102');
 
 window.openStatsDashboard = function(){
   try {
@@ -9598,7 +9646,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.101';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.102';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -42770,6 +42818,34 @@ if(document.readyState === 'loading'){
 } else {
   bindUIListeners();
 }
+
+// V2.10.102: orologio live HH:MM:SS in sidebar (pillola ciano accanto a versione).
+// Pad a 2 cifre, formato 24h, aggiornamento al secondo. Allineamento al wall-clock
+// con setTimeout iniziale per evitare drift cumulativo e mantenere il "tick" allineato
+// ai bordi di secondo del sistema (estetica più pulita).
+(function startAppClock(){
+  const pad = function(n){ return n < 10 ? '0' + n : String(n); };
+  function tick(){
+    const el = document.getElementById('app-clock-time');
+    if(!el) return;
+    const d = new Date();
+    el.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+  function start(){
+    tick();
+    // Allineo il primo "tick a un secondo intero" del clock di sistema
+    const msToNextSec = 1000 - (Date.now() % 1000);
+    setTimeout(function(){
+      tick();
+      setInterval(tick, 1000);
+    }, msToNextSec);
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+})();
 
 init();
 </script>
