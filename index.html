@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.85</title>
+<title>Gestione Prodotti V2.10.88</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8139,7 +8139,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.85');
+console.info('[bootstrap] script avvio — V2.10.88');
 
 window.openStatsDashboard = function(){
   try {
@@ -9569,7 +9569,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.85';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.88';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -11466,6 +11466,21 @@ const DRIVE_STATE = {
   initialized: false,           // true dopo upload iniziale confermato
 };
 
+// V2.10.86: Targeted Sync — file Drive separati per dati write-frequent
+// (preventivi, clienti, servizi). Evita full sync da 70 MB ogni cambio stato.
+// Architettura: ogni target ha un suo file Drive separato, debounce indipendente,
+// payload piccolo (50-200 KB), no chunking necessario.
+const DRIVE_TARGETED_DEBOUNCE_MS = 1500;   // più aggressivo del master (era 3000): tanto payload piccolo
+const DRIVE_TARGETED_TIMEOUT_MS  = 30000;  // 30s timeout (più che sufficiente per <500 KB)
+const DRIVE_TARGETED_TARGETS = ['quotesArchive', 'clients', 'services'];
+
+// Stato runtime per ogni target (timer di debounce, flag di sync in corso, ultimo errore)
+const DRIVE_TARGETED_STATE = {
+  quotesArchive: { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null },
+  clients:       { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null },
+  services:      { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null },
+};
+
 // Delta buffer: accumula le modifiche fra un sync e l'altro
 // V2.2.38 (proposta A): persistito su localStorage per sopravvivere a chiusure browser.
 // Se chiudi il browser durante la finestra di debounce (3s) o durante un retry,
@@ -12256,42 +12271,13 @@ function _driveBuildFullPayload(){
     console.warn('[drive] errore lettura sconti aggiuntivi:', e);
   }
 
-  // V2.10.51: includo anche clienti e archivio preventivi nel payload.
-  // Questi dati vivono in IndexedDB (window._CLIENTS_STATE / window._QUOTES_ARCHIVE)
-  // e prima non erano sincronizzati: aprendo l'app su un nuovo dispositivo si trovavano
-  // i prodotti ma non i clienti/preventivi (perdita dati nel passaggio Mac1->Mac2).
-  let clientsPayload = null;
-  try {
-    if(window._CLIENTS_STATE && Array.isArray(window._CLIENTS_STATE.clients) && window._CLIENTS_STATE.clients.length > 0){
-      clientsPayload = {
-        clients: window._CLIENTS_STATE.clients,
-        version: 1,
-      };
-    }
-  } catch(e){ console.warn('[drive] errore lettura clienti:', e); }
-
-  let quotesPayload = null;
-  try {
-    if(window._QUOTES_ARCHIVE && Array.isArray(window._QUOTES_ARCHIVE.quotes) && window._QUOTES_ARCHIVE.quotes.length > 0){
-      quotesPayload = {
-        quotes: window._QUOTES_ARCHIVE.quotes,
-        stati: window._QUOTES_ARCHIVE.stati || [],
-        counters: window._QUOTES_ARCHIVE.counters || {},
-        version: 1,
-      };
-    }
-  } catch(e){ console.warn('[drive] errore lettura preventivi:', e); }
-
-  // V2.10.59: archivio servizi
-  let servicesPayload = null;
-  try {
-    if(window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services) && window._SERVICES_STATE.services.length > 0){
-      servicesPayload = {
-        services: window._SERVICES_STATE.services,
-        version: 1,
-      };
-    }
-  } catch(e){ console.warn('[drive] errore lettura servizi:', e); }
+  // V2.10.86: clients/quotesArchive/servicesArchive NON sono più inclusi nel master.
+  // Hanno file Drive dedicati (vedi DRIVE_TARGETED_*). Manteniamo i campi nulli
+  // per backward-compatibility con vecchi backup / device non ancora migrati:
+  // il GAS scarta i null durante il save, ma li accetta nei vecchi master in load.
+  const clientsPayload = null;
+  const quotesPayload = null;
+  const servicesPayload = null;
 
   return {
     data: DATA,
@@ -13601,6 +13587,326 @@ function _driveScheduleSave(){
 
 // ─── Hook chiamato dopo ogni mutazione (DATA/EDITS/SETTINGS) ───
 // Aggiunge le modifiche al delta buffer e schedula l'invio.
+// ─── V2.10.86: Targeted Sync per dati write-frequent ───
+// Sostituisce il vecchio meccanismo che promuoveva tutto a full sync (70 MB)
+// per ogni cambio stato preventivo / modifica cliente / servizio.
+
+// Costruisce il payload per un target dato. Restituisce { data, ts }.
+function _driveBuildTargetedPayload(target){
+  const ts = new Date().toISOString();
+  if(target === 'quotesArchive'){
+    const qa = window._QUOTES_ARCHIVE || {};
+    return {
+      ts: ts,
+      version: 1,
+      quotes:   Array.isArray(qa.quotes)   ? qa.quotes   : [],
+      stati:    Array.isArray(qa.stati)    ? qa.stati    : [],
+      counters: (qa.counters && typeof qa.counters === 'object') ? qa.counters : {},
+    };
+  }
+  if(target === 'clients'){
+    const cs = window._CLIENTS_STATE || {};
+    return {
+      ts: ts,
+      version: 1,
+      clients: Array.isArray(cs.clients) ? cs.clients : [],
+    };
+  }
+  if(target === 'services'){
+    const ss = window._SERVICES_STATE || {};
+    return {
+      ts: ts,
+      version: 1,
+      services: Array.isArray(ss.services) ? ss.services : [],
+    };
+  }
+  throw new Error('Unknown targeted sync: ' + target);
+}
+
+// Schedula un save targeted con debounce. Idempotente: se già pending,
+// resetta il timer (così rapid-fire mutations → 1 sola scrittura).
+function driveScheduleTargetedSave(target){
+  if(!DRIVE_TARGETED_TARGETS.includes(target)){
+    console.warn('[drive-targeted] target sconosciuto:', target);
+    return;
+  }
+  if(!DRIVE_STATE.url) return;
+  if(!DRIVE_STATE.enabled) return;
+  if(DRIVE_STATE.mode !== 'auto') return;
+
+  const state = DRIVE_TARGETED_STATE[target];
+  state.pending = true;
+
+  if(state.scheduledTimer){
+    clearTimeout(state.scheduledTimer);
+  }
+  state.scheduledTimer = setTimeout(() => {
+    state.scheduledTimer = null;
+    _driveSendTargeted(target).catch(e => {
+      console.warn('[drive-targeted] sync ' + target + ' fallito:', e.message);
+    });
+  }, DRIVE_TARGETED_DEBOUNCE_MS);
+
+  // Aggiorna badge per riflettere che c'è un sync in coda
+  if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+}
+
+// Esegue effettivamente il send targeted. Costruisce payload + invia.
+// Atomic: se altri save dello stesso target sono in coda durante il send,
+// viene riprogrammato un altro send a fine corrente.
+async function _driveSendTargeted(target){
+  if(!DRIVE_STATE.url) return false;
+  if(!DRIVE_STATE.enabled) return false;
+
+  const state = DRIVE_TARGETED_STATE[target];
+  if(state.syncing){
+    // Già in corso: marca pending, il finally riprogramma
+    state.pending = true;
+    return false;
+  }
+
+  state.syncing = true;
+  state.pending = false;
+  const t0 = Date.now();
+  if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+
+  try {
+    // V2.10.86: build payload solo al momento del send.
+    // Su payload <500 KB il JSON.stringify è quasi istantaneo (decine di ms).
+    const payload = _driveBuildTargetedPayload(target);
+    const requestBody = JSON.stringify({
+      action: 'saveTargeted',
+      target: target,
+      data: payload
+    });
+    const sizeKB = Math.round(requestBody.length / 1024);
+    console.info('[drive-targeted] ' + target + ' send: ' + sizeKB + ' KB');
+
+    const r = await _driveFetch(DRIVE_STATE.url, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: requestBody
+    }, DRIVE_TARGETED_TIMEOUT_MS);
+
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || 'saveTargeted fallito');
+
+    const elapsed = Date.now() - t0;
+    state.lastSyncAt = new Date().toISOString();
+    state.lastSyncedTs = j.ts || payload.ts;
+    state.lastError = null;
+    console.info('[drive-targeted] ' + target + ' OK in ' + elapsed + 'ms (server: ' + (j.processingMs||'?') + 'ms)');
+
+    // Salva su localStorage l'ultimo ts noto (per la migrazione/check al boot)
+    try { localStorage.setItem('gp_drive_targeted_ts_' + target, state.lastSyncedTs); } catch(_){}
+
+    return true;
+  } catch(e){
+    state.lastError = e.message;
+    console.warn('[drive-targeted] ' + target + ' ERROR:', e.message);
+
+    // Recovery: ritento dopo 5s con backoff. Il pending=true farà riprovare automaticamente.
+    state.pending = true;
+    setTimeout(() => {
+      if(state.pending && !state.syncing){
+        _driveSendTargeted(target).catch(()=>{});
+      }
+    }, 5000);
+    return false;
+  } finally {
+    state.syncing = false;
+    if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+
+    // Se sono arrivate altre mutazioni durante il send, riprogramma
+    if(state.pending){
+      driveScheduleTargetedSave(target);
+    }
+  }
+}
+
+// V2.10.86: Carica un targeted file dal Drive (al bootstrap).
+// Restituisce { ok, data, ts } oppure { ok:false, notFound:true } se mai creato.
+async function driveLoadTargeted(target){
+  if(!DRIVE_STATE.url) return { ok: false, error: 'URL non configurato' };
+  if(!DRIVE_TARGETED_TARGETS.includes(target)) return { ok: false, error: 'target sconosciuto' };
+
+  try {
+    const requestBody = JSON.stringify({
+      action: 'loadTargeted',
+      target: target
+    });
+    const r = await _driveFetch(DRIVE_STATE.url, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: requestBody
+    }, DRIVE_TARGETED_TIMEOUT_MS);
+
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if(!j.ok){
+      if(j.notFound) return { ok: false, notFound: true };
+      throw new Error(j.error || 'loadTargeted fallito');
+    }
+    return { ok: true, data: j.data || null, ts: j.ts || null };
+  } catch(e){
+    return { ok: false, error: e.message };
+  }
+}
+
+// V2.10.86: Bootstrap sync — al boot, scarica i file targeted dal Drive
+// e merge intelligente con i dati locali.
+// Strategia:
+//   - se remote.ts > local.ts → override locale + re-render UI
+//   - se remote NON esiste → first time setup: scrivi subito i locali sul Drive
+//     (auto-migrazione transparente)
+//   - non blocca mai l'init: in caso di errore di rete, l'app funziona con dati locali
+async function _driveSyncTargetedBootstrap(){
+  console.info('[drive-targeted] bootstrap sync inizio');
+  const results = await Promise.allSettled([
+    _driveSyncTargetedOne('quotesArchive'),
+    _driveSyncTargetedOne('clients'),
+    _driveSyncTargetedOne('services'),
+  ]);
+  let updated = 0;
+  results.forEach((r, i) => {
+    const target = ['quotesArchive','clients','services'][i];
+    if(r.status === 'fulfilled' && r.value && r.value.updated) updated++;
+    if(r.status === 'rejected'){
+      console.warn('[drive-targeted] bootstrap ' + target + ' rejected:', r.reason && r.reason.message);
+    }
+  });
+  if(updated > 0){
+    console.info('[drive-targeted] bootstrap: ' + updated + ' target aggiornati da Drive');
+    // Trigger re-render leggero di eventuali UI aperte
+    if(typeof updateTopbarShortcuts === 'function') updateTopbarShortcuts();
+  }
+}
+
+// V2.10.86: sync di un singolo target al bootstrap. Restituisce {updated:true/false}.
+async function _driveSyncTargetedOne(target){
+  const result = await driveLoadTargeted(target);
+  if(!result.ok){
+    if(result.notFound){
+      // FIRST TIME: il file non esiste su Drive. Auto-migrazione: scrivilo ora con i dati locali
+      // così la prossima volta il bootstrap lo troverà.
+      // Solo se ho effettivamente dati locali da migrare.
+      const hasLocalData = (target === 'quotesArchive' && window._QUOTES_ARCHIVE && Array.isArray(window._QUOTES_ARCHIVE.quotes) && window._QUOTES_ARCHIVE.quotes.length > 0) ||
+                           (target === 'clients' && window._CLIENTS_STATE && Array.isArray(window._CLIENTS_STATE.clients) && window._CLIENTS_STATE.clients.length > 0) ||
+                           (target === 'services' && window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services) && window._SERVICES_STATE.services.length > 0);
+      if(hasLocalData){
+        console.info('[drive-targeted] ' + target + ' non esiste su Drive → auto-migrazione: invio dati locali');
+        driveScheduleTargetedSave(target);
+      } else {
+        console.info('[drive-targeted] ' + target + ' non esiste su Drive e locale vuoto → nulla da fare');
+      }
+      return { updated: false };
+    }
+    console.warn('[drive-targeted] ' + target + ' load fallito:', result.error);
+    return { updated: false };
+  }
+
+  // Remote ok. Confronta ts.
+  const remoteTs = result.ts || (result.data && result.data.ts);
+  const localTsKey = 'gp_drive_targeted_ts_' + target;
+  let localTs = null;
+  try { localTs = localStorage.getItem(localTsKey); } catch(_){}
+
+  // Strategia conservativa: se remoteTs > localTs, applichiamo il remoto.
+  // Se mancano ts (file molto vecchio o salvato senza ts), applichiamo solo se NON
+  // abbiamo dati locali (caso "primo bootstrap su nuovo device").
+  const remoteIsNewer = remoteTs && (!localTs || remoteTs > localTs);
+  if(!remoteIsNewer){
+    console.info('[drive-targeted] ' + target + ' locale aggiornato (no override)');
+    return { updated: false };
+  }
+
+  // Applica remoto al locale + IDB
+  const data = result.data || {};
+  if(target === 'quotesArchive'){
+    window._QUOTES_ARCHIVE.quotes   = Array.isArray(data.quotes)   ? data.quotes   : [];
+    window._QUOTES_ARCHIVE.stati    = Array.isArray(data.stati) && data.stati.length > 0 ? data.stati : (window._QUOTES_ARCHIVE.stati || []);
+    window._QUOTES_ARCHIVE.counters = (data.counters && typeof data.counters === 'object') ? data.counters : {};
+    // Persisti su IDB per future sessioni offline
+    if(typeof idbSet === 'function'){
+      try {
+        await idbSet('meta', QUOTES_KEY, {
+          quotes:   window._QUOTES_ARCHIVE.quotes,
+          stati:    window._QUOTES_ARCHIVE.stati,
+          counters: window._QUOTES_ARCHIVE.counters,
+          version:  1,
+        });
+      } catch(e){ console.warn('[drive-targeted] idb persist quotes fallito:', e); }
+    }
+  } else if(target === 'clients'){
+    if(!window._CLIENTS_STATE) window._CLIENTS_STATE = { clients: [], loaded: true };
+    window._CLIENTS_STATE.clients = Array.isArray(data.clients) ? data.clients : [];
+    if(typeof idbSet === 'function' && typeof CLIENTS_KEY !== 'undefined'){
+      try { await idbSet('meta', CLIENTS_KEY, { clients: window._CLIENTS_STATE.clients, version: 1 }); }
+      catch(e){ console.warn('[drive-targeted] idb persist clients fallito:', e); }
+    }
+  } else if(target === 'services'){
+    if(!window._SERVICES_STATE) window._SERVICES_STATE = { services: [], loaded: true };
+    window._SERVICES_STATE.services = Array.isArray(data.services) ? data.services : [];
+    if(typeof idbSet === 'function' && typeof SERVICES_KEY !== 'undefined'){
+      try { await idbSet('meta', SERVICES_KEY, { services: window._SERVICES_STATE.services, version: 1 }); }
+      catch(e){ console.warn('[drive-targeted] idb persist services fallito:', e); }
+    }
+  }
+
+  // Aggiorna ts locale
+  try { localStorage.setItem(localTsKey, remoteTs); } catch(_){}
+  console.info('[drive-targeted] ' + target + ' applicato da Drive (remoteTs=' + remoteTs + ')');
+  return { updated: true };
+}
+
+// V2.10.86: Force-flush sincrono di tutti i targeted pending (per beforeunload).
+// Best-effort: usa fetch keepalive così il browser non interrompe la chiusura.
+function _driveFlushTargetedPending(){
+  if(!DRIVE_STATE.url || !DRIVE_STATE.enabled) return;
+  for(const target of DRIVE_TARGETED_TARGETS){
+    const state = DRIVE_TARGETED_STATE[target];
+    if(state.pending && !state.syncing){
+      // Cancella il timer e flush immediato con keepalive
+      if(state.scheduledTimer){
+        clearTimeout(state.scheduledTimer);
+        state.scheduledTimer = null;
+      }
+      try {
+        const payload = _driveBuildTargetedPayload(target);
+        const body = JSON.stringify({ action: 'saveTargeted', target: target, data: payload });
+        fetch(DRIVE_STATE.url, {
+          method: 'POST',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain' },
+          body: body,
+          keepalive: true  // CRITICO: permette al browser di completare durante unload
+        });
+        console.info('[drive-targeted] beforeunload flush: ' + target);
+      } catch(e){
+        console.warn('[drive-targeted] flush fallito:', e.message);
+      }
+    }
+  }
+}
+
+// V2.10.86: registra il beforeunload una sola volta
+if(typeof window !== 'undefined' && !window.__driveTargetedUnloadRegistered){
+  window.__driveTargetedUnloadRegistered = true;
+  window.addEventListener('beforeunload', _driveFlushTargetedPending);
+}
+
+// V2.10.86: ha pending targeted in corso? (per badge/UI feedback)
+function driveTargetedHasPending(){
+  for(const target of DRIVE_TARGETED_TARGETS){
+    const state = DRIVE_TARGETED_STATE[target];
+    if(state.pending || state.syncing) return true;
+  }
+  return false;
+}
+
 function driveNotifyChange(kind, key, record){
   if(!DRIVE_STATE.url) return;
   // kind: 'data' | 'edits' | 'settings'
@@ -13608,26 +13914,20 @@ function driveNotifyChange(kind, key, record){
   // record: oggetto/valore o null per delete
   try {
     if(kind === 'settings'){
-      // V2.10.51: per le chiavi clienti e archivio preventivi, registro una collection
-      // separata cosi' che il delta processor lato server le tratta come full-replace
-      // della relativa entita'.
+      // V2.10.86: i 3 target write-frequent ora vanno al sistema TARGETED
+      // (file Drive separati). Niente più promozione a full sync del master da 70 MB.
       if(key === '__clients__'){
-        const clientsArr = (window._CLIENTS_STATE && Array.isArray(window._CLIENTS_STATE.clients))
-          ? window._CLIENTS_STATE.clients : [];
-        DRIVE_DELTA.push('clients', '__all__', { clients: clientsArr, version: 1 }, 'replace');
+        driveScheduleTargetedSave('clients');
+        if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+        return;  // SHORT-CIRCUIT: no scheduleSave del master
       } else if(key === '__services__'){
-        // V2.10.59: archivio servizi
-        const svcArr = (window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services))
-          ? window._SERVICES_STATE.services : [];
-        DRIVE_DELTA.push('servicesArchive', '__all__', { services: svcArr, version: 1 }, 'replace');
+        driveScheduleTargetedSave('services');
+        if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+        return;  // SHORT-CIRCUIT
       } else if(key === '__quotes_archive__'){
-        const qa = window._QUOTES_ARCHIVE || {};
-        DRIVE_DELTA.push('quotesArchive', '__all__', {
-          quotes: Array.isArray(qa.quotes) ? qa.quotes : [],
-          stati: Array.isArray(qa.stati) ? qa.stati : [],
-          counters: (qa.counters && typeof qa.counters === 'object') ? qa.counters : {},
-          version: 1,
-        }, 'replace');
+        driveScheduleTargetedSave('quotesArchive');
+        if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+        return;  // SHORT-CIRCUIT
       } else {
         // Settings vere: replace totale (ricostruisce tutto l'oggetto)
         const settingsObj = {};
@@ -13673,6 +13973,24 @@ async function driveSyncNow(){
     return driveShowFirstUploadDialog();
   }
 
+  // V2.10.86: prima di tutto, forza il flush dei targeted file con sync pending.
+  // Questo garantisce che premendo "Sync ora" anche i cambi recenti di
+  // preventivi/clienti/servizi finiscano subito su Drive (no attesa debounce).
+  const targetedPromises = [];
+  for(const target of DRIVE_TARGETED_TARGETS){
+    const state = DRIVE_TARGETED_STATE[target];
+    if(state.pending && !state.syncing){
+      if(state.scheduledTimer){ clearTimeout(state.scheduledTimer); state.scheduledTimer = null; }
+      targetedPromises.push(_driveSendTargeted(target).catch(e => {
+        console.warn('[drive-targeted] manual flush ' + target + ' fallito:', e.message);
+      }));
+    }
+  }
+  if(targetedPromises.length > 0){
+    console.info('[drive-targeted] manual flush: ' + targetedPromises.length + ' target');
+    await Promise.allSettled(targetedPromises);
+  }
+
   // Se ci sono delta pending, invia quelli; altrimenti fai full sync
   try {
     if(DRIVE_DELTA.size() > 0){
@@ -13693,6 +14011,15 @@ function _driveUpdateBadge(forceColor, forceLabel){
   const sidebarBadge = document.getElementById('app-drive-status');
 
   let color, label;
+  // V2.10.86: anche i targeted file in pending devono mostrare lo stato di sync
+  const hasTargetedPending = (typeof driveTargetedHasPending === 'function') && driveTargetedHasPending();
+  let anyTargetedSyncing = false;
+  if(typeof DRIVE_TARGETED_STATE !== 'undefined'){
+    for(const t of DRIVE_TARGETED_TARGETS){
+      if(DRIVE_TARGETED_STATE[t] && DRIVE_TARGETED_STATE[t].syncing){ anyTargetedSyncing = true; break; }
+    }
+  }
+
   if(forceColor){
     color = forceColor;
     label = forceLabel || '';
@@ -13711,27 +14038,33 @@ function _driveUpdateBadge(forceColor, forceLabel){
   } else if(DRIVE_STATE.lastSyncError){
     color = 'red';
     label = 'Errore: ' + DRIVE_STATE.lastSyncError;
-  } else if(DRIVE_STATE.syncing){
+  } else if(DRIVE_STATE.syncing || anyTargetedSyncing){
     // V2.2.38: durante sync attivo mostro la clessidra rotante invece del pallino
+    // V2.10.86: estendo per coprire anche i targeted in fase di sync (preventivi/clienti/servizi)
     color = 'syncing';
     const pending = DRIVE_DELTA.size();
-    if(pending > 0){
+    if(anyTargetedSyncing && !DRIVE_STATE.syncing){
+      label = 'Drive: salvataggio in corso…';
+    } else if(pending > 0){
       label = `Drive: sincronizzazione di ${pending} modific${pending===1?'a':'he'}…`;
     } else {
       label = 'Drive: sincronizzazione in corso…';
     }
-  } else if(DRIVE_DELTA.size() > 0){
+  } else if(DRIVE_DELTA.size() > 0 || hasTargetedPending){
     // Modifiche pending nel buffer ma sync non ancora partito (debounce in attesa)
+    // V2.10.86: anche targeted pending → giallo
     color = 'yellow';
     const pending = DRIVE_DELTA.size();
     // V2.2.43 FIX: caso "non inizializzato" è prioritario — l'utente deve sapere
     // che serve un full sync iniziale, altrimenti pensa che la sync sia rotta.
-    if(!DRIVE_STATE.initialized){
+    if(!DRIVE_STATE.initialized && pending > 0){
       label = `Drive: full sync iniziale necessario (${pending} modific${pending===1?'a in':'he in'} attesa)`;
-    } else if(DRIVE_STATE.scheduledTimer){
+    } else if(pending > 0 && DRIVE_STATE.scheduledTimer){
       label = `Drive: ${pending} modific${pending===1?'a':'he'} in attesa di sincronizzazione…`;
-    } else if(DRIVE_STATE.mode === 'manual'){
+    } else if(pending > 0 && DRIVE_STATE.mode === 'manual'){
       label = `Drive: ${pending} modific${pending===1?'a':'he'} non sincronizzat${pending===1?'a':'e'} (manuale)`;
+    } else if(hasTargetedPending && pending === 0){
+      label = 'Drive: salvataggio in attesa…';
     } else {
       // Pending ma niente timer → in attesa onboarding o altro
       label = `Drive: ${pending} modific${pending===1?'a':'he'} pendent${pending===1?'e':'i'}`;
@@ -31324,6 +31657,44 @@ async function loadQuotesArchiveFromIdb(){
           }
         } catch(_){}
       }
+
+      // V2.10.88: migrazione retroattiva — rimuove campo `image` (base64 pesante)
+      // dalle righe di tutte le versioni di tutti i preventivi esistenti.
+      // Ogni preventivo passava da MB a KB. Niente perdita dati: l'immagine viene
+      // ricostruita al volo da _qResolveImg via DATA[idx]/code.
+      let stripCount = 0;
+      let bytesSaved = 0;
+      window._QUOTES_ARCHIVE.quotes.forEach(q => {
+        if(!q || !Array.isArray(q.versions)) return;
+        q.versions.forEach(v => {
+          if(!v || !Array.isArray(v.items)) return;
+          v.items.forEach(it => {
+            if(it && typeof it === 'object' && typeof it.image === 'string' && it.image.length > 200){
+              // Considero "image base64 pesante" solo se >200 caratteri.
+              // URL ordinari (http://.../img.jpg) sono brevi e li lascio per retro-compat.
+              bytesSaved += it.image.length;
+              delete it.image;
+              stripCount++;
+            }
+          });
+        });
+      });
+      if(stripCount > 0){
+        console.info('[preventivi] migrazione V2.10.88: rimosse ' + stripCount + ' immagini base64 (~' + Math.round(bytesSaved/1024) + ' KB liberati). Le immagini saranno ricostruite al volo dal catalogo.');
+        try {
+          if(typeof idbSet === 'function'){
+            idbSet('meta', QUOTES_KEY, {
+              quotes: window._QUOTES_ARCHIVE.quotes,
+              stati: window._QUOTES_ARCHIVE.stati,
+              counters: window._QUOTES_ARCHIVE.counters,
+            });
+          }
+          // Trigger sync targeted per pushare la versione "pulita" su Drive
+          if(typeof driveScheduleTargetedSave === 'function'){
+            setTimeout(() => driveScheduleTargetedSave('quotesArchive'), 2000);
+          }
+        } catch(_){}
+      }
     } else {
       window._QUOTES_ARCHIVE.quotes = [];
       window._QUOTES_ARCHIVE.stati = QUOTES_STATI_DEFAULT.slice();
@@ -31471,10 +31842,20 @@ function _computeSnapshotTotals(items){
 }
 
 /* Costruisce uno "snapshot version" a partire dallo state attuale del carrello.
-   Helper interno usato da quoteCreate e quoteAddVersion. */
+   Helper interno usato da quoteCreate e quoteAddVersion.
+   V2.10.88: striping del campo `image` dalle righe — sono base64 pesanti (~180 KB cad).
+   L'immagine viene ricostruita al volo da _qResolveImg via DATA[idx] o code lookup. */
 function _buildVersionSnapshot(noteVersione){
   // Deep clone profondo via JSON per disaccoppiare totalmente dal state runtime
   const items = JSON.parse(JSON.stringify(window._QUOTE_STATE.items || []));
+  // V2.10.88: rimuovo il campo `image` dalle righe per ridurre drasticamente la
+  // dimensione del preventivo salvato. Tipicamente ogni image era una stringa
+  // base64 da 100-200 KB; con 7 righe × 15 versioni si arrivava a 3+ MB per
+  // preventivo. Ora _qResolveImg ricostruisce l'immagine al volo dal catalogo
+  // sia in anteprima sia nell'export Word/PDF.
+  items.forEach(it => {
+    if(it && typeof it === 'object') delete it.image;
+  });
   const settings = JSON.parse(JSON.stringify(window._QUOTE_STATE.settings || {}));
   const totals = _computeSnapshotTotals(items);
   return {
@@ -33795,10 +34176,33 @@ function _qFmtPct(n, decimals){
      baseURL implicito sul dominio dell'app).
    Costo: O(1), una sola chiamata a startsWith. */
 function _qResolveImg(item){
-  if(!item || !item.image) return '';
-  const raw = String(item.image);
-  if(raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-  return (typeof imgUrl === 'function') ? imgUrl(raw) : raw;
+  if(!item) return '';
+  // V2.10.88: prima usa item.image se popolato (legacy o ad-hoc)
+  if(item.image){
+    const raw = String(item.image);
+    if(raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw;
+    return (typeof imgUrl === 'function') ? imgUrl(raw) : raw;
+  }
+  // V2.10.88: fallback — ricostruisci da DATA[idx] o da code. Questo permette ai
+  // preventivi salvati senza image (riduzione dimensioni storage) di mostrare
+  // comunque l'immagine sia in anteprima che in export Word/PDF.
+  if(Array.isArray(window.DATA)){
+    let p = null;
+    if(item.idx != null && window.DATA[item.idx]){
+      p = window.DATA[item.idx];
+    } else if(item.code){
+      // Lookup per codice (più lento ma robusto a re-import del catalogo)
+      p = window.DATA.find(x => x && (getField(x, 'reference') === item.code || x.reference === item.code));
+    }
+    if(p){
+      const raw = (typeof getField === 'function') ? (getField(p, 'image_path') || '') : (p.image_path || '');
+      if(raw){
+        if(raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw;
+        return (typeof imgUrl === 'function') ? imgUrl(raw) : raw;
+      }
+    }
+  }
+  return '';
 }
 
 /* ─── Helper: testo pulito del nome articolo nel carrello ───
@@ -41208,6 +41612,15 @@ async function init(){
   // V2.10.59: carica l'archivio servizi
   if(typeof loadServicesFromIdb === 'function'){
     try { await loadServicesFromIdb(); } catch(e){ console.warn('[servizi] load fallito:', e); }
+  }
+  // V2.10.86: dopo i load IDB, sincronizza in background dai targeted file Drive.
+  // NON bloccante: l'app è già usabile con i dati locali, se i remoti sono più
+  // recenti faranno override silenzioso e re-render.
+  // Saltato se Drive non configurato o disabilitato (nessun cost).
+  if(DRIVE_STATE.url && DRIVE_STATE.enabled && typeof _driveSyncTargetedBootstrap === 'function'){
+    setTimeout(() => {
+      _driveSyncTargetedBootstrap().catch(e => console.warn('[drive-targeted] bootstrap sync fallito:', e));
+    }, 1500);  // 1.5s dopo init per non competere con altre op di boot
   }
   // V2.10.65: dopo aver caricato DATA E servizi, sincronizzo gli shadow.
   // Garantisce che ogni servizio in archivio abbia il suo shadow in galleria,
