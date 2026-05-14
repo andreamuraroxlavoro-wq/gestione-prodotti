@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.89</title>
+<title>Gestione Prodotti V2.10.90</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7667,7 +7667,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.29</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.10.90</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8139,7 +8139,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.89');
+console.info('[bootstrap] script avvio — V2.10.90');
 
 window.openStatsDashboard = function(){
   try {
@@ -9569,7 +9569,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.89';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.90';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -41653,6 +41653,19 @@ async function confirmDeleteSelected(){
 
 async function init(){
   await openDB();
+
+  // V2.10.90: sync il badge versione nella sidebar dalla costante APP_VERSION
+  // Prima la label era hardcoded nell'HTML statico (es. "Ver. 2.10.29") e si
+  // disallineava ad ogni bump versione. Ora viene aggiornata runtime, una volta
+  // sola, dal valore canonico.
+  try {
+    const verEl = document.getElementById('app-version');
+    if(verEl && typeof APP_VERSION === 'string'){
+      // APP_VERSION è tipo "V2.10.89", la label vuole "Ver. 2.10.89"
+      const display = APP_VERSION.replace(/^V/, 'Ver. ');
+      verEl.textContent = display;
+    }
+  } catch(_){}
 
   // V2.10.0: carica l'archivio clienti subito dopo l'apertura DB.
   // Non blocco l'init se questa operazione fallisce (state default vuoto).
