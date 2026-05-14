@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.113</title>
+<title>Gestione Prodotti V2.10.116</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -2111,7 +2111,7 @@ body.theme-light .topbar-pills-bar{
 
 /* V2.10.103: pulsanti topbar Modalità Locale.
    ☁️⬇ pull manuale e ☁️⬆ push manuale. Visibili solo quando localMode è attivo. */
-.tb-drive-push{ color:#9ca3af; }            /* neutro idle */
+.tb-drive-push{ color:#9ca3af; position:relative; }            /* neutro idle */
 .tb-drive-push:hover{
   color:#d1d5db;
   border-color:rgba(209,213,219,0.35);
@@ -2120,6 +2120,35 @@ body.theme-light .topbar-pills-bar{
 .tb-drive-pull:hover{
   color:#d1d5db;
   border-color:rgba(209,213,219,0.35);
+}
+
+/* V2.10.114: badge numerico rosso sul ☁️⬆ Push.
+   Mostra il numero di modifiche pending. Stile coerente con .tb-special-badge
+   (riga ~2034) ma colorato di rosso (#ef4444) per indicare urgenza.
+   Visibile sempre quando ci sono pending, anche se Modalità Locale è OFF
+   (Andrea può vederlo anche in mode='auto' o 'manual'). */
+.tb-drive-push-badge{
+  position:absolute;
+  top:-5px; right:-5px;
+  min-width:18px; height:18px;
+  padding:0 5px;
+  border-radius:9px;
+  font-size:10px;
+  font-weight:700;
+  font-family:monospace;
+  color:#fff;
+  background:#ef4444;
+  line-height:18px;
+  text-align:center;
+  letter-spacing:0.2px;
+  pointer-events:none;
+  box-shadow:0 0 0 2px var(--bg2, #151b24);
+  z-index:2;
+}
+/* Quando il pulsante è in stato has-pending (giallo acido), il badge rosso
+   ha leggermente più contrasto via shadow scura. */
+.btn.tb-drive-push.has-pending .tb-drive-push-badge{
+  box-shadow:0 0 0 2px #1a1a00;
 }
 
 /* V2.10.106: ☁️⬆ Push si tinge di giallo acido (#CCFF00, lo stesso dei filtri attivi)
@@ -7917,7 +7946,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.113</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.116</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8218,6 +8247,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
         </svg>
       </button>
       <!-- V2.10.103: bottoni Push (☁️⬆) e Pull (☁️⬇) per Modalità Locale.
+           V2.10.114: Push ha sempre badge numerico rosso con count pending (anche fuori da localMode).
            Visibili SOLO quando localMode è ON. Push si tinge di giallo se ci sono pending. -->
       <button class="btn icon-btn tb-drive-push" id="btnDriveManualPush" onclick="driveManualPush(this)" title="Invia modifiche a Drive (☁️⬆)" aria-label="Invia modifiche a Drive" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -8225,6 +8255,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
           <polyline points="12 19 12 12"/>
           <polyline points="9 15 12 12 15 15"/>
         </svg>
+        <span class="tb-drive-push-badge" id="btnDriveManualPushBadge" style="display:none">0</span>
       </button>
       <button class="btn icon-btn tb-drive-pull" id="btnDriveManualPull" onclick="driveManualPull(this)" title="Scarica modifiche da Drive (☁️⬇)" aria-label="Scarica modifiche da Drive" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -8424,7 +8455,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.113');
+console.info('[bootstrap] script avvio — V2.10.116');
 
 window.openStatsDashboard = function(){
   try {
@@ -9854,7 +9885,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.113';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.116';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -11268,6 +11299,8 @@ function loadSettings(){
 function saveSettings(){
   try {
     localStorage.setItem('vt_settings', JSON.stringify(SETTINGS));
+    // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+    if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
   } catch(e){
     console.warn('[settings] save fallito:', e);
     toast('Impossibile salvare impostazioni', 'err');
@@ -11564,6 +11597,8 @@ async function importConfig(file){
       // Preservo il lastImport corrente (è un dato di sessione, non impostazione)
       merged.lastImport = SETTINGS.lastImport;
       localStorage.setItem('vt_settings', JSON.stringify(merged));
+      // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+      if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
       loadSettings();  // ricarica con validazione completa
     }
 
@@ -11584,6 +11619,8 @@ async function importConfig(file){
       });
       PRESETS = valid;
       localStorage.setItem('vt_presets', JSON.stringify(PRESETS));
+      // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+      if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
       ACTIVE_PRESET_IDX = null;  // nessun preset attivo dopo import
     }
 
@@ -11591,6 +11628,8 @@ async function importConfig(file){
     if(parsed.dictionary && typeof parsed.dictionary === 'object'){
       DICT = Object.assign({}, parsed.dictionary);
       localStorage.setItem('vt_dict', JSON.stringify(DICT));
+      // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+      if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
     }
 
     // V1.7: Applico il Dizionario Testi (frasi + parole ES→IT).
@@ -11600,10 +11639,14 @@ async function importConfig(file){
     let textDictChanged = false;
     if(parsed.textPhrases && typeof parsed.textPhrases === 'object'){
       localStorage.setItem('vt_text_phrases', JSON.stringify(parsed.textPhrases));
+      // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+      if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
       textDictChanged = true;
     }
     if(parsed.textWords && typeof parsed.textWords === 'object'){
       localStorage.setItem('vt_text_words', JSON.stringify(parsed.textWords));
+      // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+      if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
       textDictChanged = true;
     }
     // Rebuild in-memory dei dizionari testi + regex + lookup maps,
@@ -12813,10 +12856,12 @@ async function driveReadVersion(n){
 // ─── Costruisce payload completo per full sync ───
 function _driveBuildFullPayload(){
   // Estraiamo solo le settings rilevanti (no DOM handles, no oggetti complessi)
+  // V2.10.115: vt_sidebar_width esclusa volutamente — è per-device (ogni Mac
+  // mantiene la sua larghezza preferita per il suo schermo).
   const settingsObj = {};
   const SETTINGS_KEYS = [
     'vt_settings', 'vt_presets', 'vt_dict',
-    'vt_text_phrases', 'vt_text_words', 'vt_sidebar_width'
+    'vt_text_phrases', 'vt_text_words'
   ];
   SETTINGS_KEYS.forEach(k => {
     const v = localStorage.getItem(k);
@@ -14137,6 +14182,9 @@ async function _driveSendDelta(silent){
     // (es. routing fallback), lo fermo subito così il badge passa a verde.
     if(typeof _driveStopEtaTimer === 'function') _driveStopEtaTimer();
     _driveUpdateBadge();
+    // V2.10.114: aggiorna anche il badge numerico rosso sul ☁️⬆ (le modifiche
+    // pendenti sono diminuite, il badge potrebbe dover scomparire)
+    if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
     if(!silent && typeof toast === 'function'){
       const seconds = Math.round(elapsed / 1000);
       toast(`✓ Drive: ${j.applied} modifich${j.applied===1?'a':'e'} sincronizzat${j.applied===1?'a':'e'} (${seconds}s)`, 'ok', 3000);
@@ -14228,8 +14276,10 @@ function _driveScheduleSave(){
   // (auto o manual). Senza questo fix, se l'utente ha mode='manual' impostata
   // PRIMA di attivare Modalità Locale, il return anticipato impediva all'UI
   // di mostrare "1 modifica in coda" e il giallo sul pulsante.
+  // V2.10.114: chiamo _driveUpdateLocalModeUI in TUTTI i flow per aggiornare
+  // il badge numerico rosso sull'icona ☁️⬆ (visibile sempre se pending > 0).
+  if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
   if(DRIVE_STATE.localMode){
-    if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
     return;
   }
   if(DRIVE_STATE.mode !== 'auto') return;        // solo in modalità automatica
@@ -14651,6 +14701,35 @@ function driveTargetedHasPending(){
   return false;
 }
 
+// V2.10.115: helper centralizzata per notificare un cambio nelle settings app.
+// Chiamata dopo ogni localStorage.setItem('vt_settings'|'vt_presets'|'vt_dict'|
+// 'vt_text_phrases'|'vt_text_words') per scatenare un delta sync.
+// Esclude vt_sidebar_width che resta per-device.
+//
+// Funzionamento: costruisce uno snapshot completo delle 5 settings sincronizzate
+// e lo manda al delta buffer come singola entry. Sul server il GAS sostituisce
+// il campo "settings" del master con questo snapshot. Costo: 5-50 KB per push.
+function _driveNotifyAppSettingsChange(){
+  if(typeof driveNotifyChange !== 'function') return;
+  if(!DRIVE_STATE.url) return;
+  try {
+    // Costruisce snapshot delle settings sincronizzate (le 5 chiavi vt_*)
+    var snapshot = {};
+    var keys = ['vt_settings', 'vt_presets', 'vt_dict', 'vt_text_phrases', 'vt_text_words'];
+    keys.forEach(function(k){
+      var v = localStorage.getItem(k);
+      if(v !== null) snapshot[k] = v;
+    });
+    // V2.10.115: uso un kind 'settings' con key '__all__' che già esiste
+    // in driveNotifyChange (riga 14722). Riusa il replace totale.
+    DRIVE_DELTA.push('settings', '__all__', snapshot, 'replace');
+    _driveScheduleSave();
+    if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+  } catch(e){
+    console.warn('[drive] notifyAppSettingsChange error', e && e.message);
+  }
+}
+
 function driveNotifyChange(kind, key, record){
   if(!DRIVE_STATE.url) return;
   // kind: 'data' | 'edits' | 'settings'
@@ -14674,10 +14753,11 @@ function driveNotifyChange(kind, key, record){
         return;  // SHORT-CIRCUIT
       } else {
         // Settings vere: replace totale (ricostruisce tutto l'oggetto)
+        // V2.10.115: vt_sidebar_width esclusa volutamente (per-device).
         const settingsObj = {};
         const SETTINGS_KEYS = [
           'vt_settings', 'vt_presets', 'vt_dict',
-          'vt_text_phrases', 'vt_text_words', 'vt_sidebar_width'
+          'vt_text_phrases', 'vt_text_words'
         ];
         SETTINGS_KEYS.forEach(k => {
           const v = localStorage.getItem(k);
@@ -15233,8 +15313,9 @@ function _driveSetAllBtnsState(state){
   });
 }
 
-// Aggiorna badge "MODALITÀ LOCALE • N modifiche in coda" in sidebar
-// e visibilità/stato dei pulsanti topbar ☁️⬆ ☁️⬇.
+// Aggiorna badge "MODALITÀ LOCALE" in sidebar e visibilità/stato dei pulsanti
+// topbar ☁️⬆ ☁️⬇. V2.10.114: rimosso il count "N modifiche in coda" dal banner
+// sidebar — il count è ora visibile come badge numerico rosso sull'icona ☁️⬆.
 function _driveUpdateLocalModeUI(){
   var on = !!DRIVE_STATE.localMode;
   // Badge sidebar
@@ -15242,10 +15323,8 @@ function _driveUpdateLocalModeUI(){
   if(badge){
     if(on){
       var pending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
-      var label = pending > 0
-        ? 'MODALITÀ LOCALE • ' + pending + ' modifiche in coda'
-        : 'MODALITÀ LOCALE • allineato';
-      badge.textContent = label;
+      // V2.10.114: solo "MODALITÀ LOCALE" senza testo aggiuntivo
+      badge.textContent = 'MODALITÀ LOCALE';
       badge.classList.toggle('has-pending', pending > 0);
       // V2.10.104 fix: il CSS della classe ha display:none; per mostrare devo
       // imporre un valore inline esplicito, non '' che lascia il CSS a vincere.
@@ -15255,11 +15334,16 @@ function _driveUpdateLocalModeUI(){
     }
   }
   // Pulsanti topbar
+  // V2.10.114: il ☁️⬆ Push è visibile in 2 casi:
+  //   1. Modalità Locale ON (sempre visibile, indipendentemente dai pending)
+  //   2. ci sono modifiche pending in coda (anche in mode='auto' o 'manual')
+  // Il badge numerico rosso mostra il count pending. Il pulsante è sempre
+  // cliccabile per push manuale immediato.
   var btnPush = document.getElementById('btnDriveManualPush');
   var btnPull = document.getElementById('btnDriveManualPull');
+  var pending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
   if(btnPush){
-    btnPush.style.display = on ? '' : 'none';
-    var pending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+    btnPush.style.display = (on || pending > 0) ? '' : 'none';
     // V2.10.106: la classe has-pending tinge il push di giallo acido (#CCFF00)
     // quando ci sono modifiche in coda. Lo stato 'busy' (operazione in corso)
     // prende comunque la precedenza via specificità delle classi btn-state-*.
@@ -15270,6 +15354,17 @@ function _driveUpdateLocalModeUI(){
         : 'Invia modifiche a Drive — nessuna modifica in coda'
     );
     btnPush.title = btnPush.getAttribute('aria-label');
+    // V2.10.114: aggiorna badge numerico rosso
+    var pushBadge = document.getElementById('btnDriveManualPushBadge');
+    if(pushBadge){
+      if(pending > 0){
+        // Mostra "99+" se più di 99 (evita overflow su badge stretto)
+        pushBadge.textContent = pending > 99 ? '99+' : String(pending);
+        pushBadge.style.display = '';
+      } else {
+        pushBadge.style.display = 'none';
+      }
+    }
   }
   if(btnPull){
     btnPull.style.display = on ? '' : 'none';
@@ -15802,10 +15897,12 @@ async function driveApplyRemoteData(payload){
   }
 
   // 3. SETTINGS
+  // V2.10.115: vt_sidebar_width esclusa volutamente — è per-device (ogni Mac
+  // mantiene la sua larghezza preferita per il suo schermo).
   if(payload.settings && typeof payload.settings === 'object'){
     const SETTINGS_KEYS = [
       'vt_settings', 'vt_presets', 'vt_dict',
-      'vt_text_phrases', 'vt_text_words', 'vt_sidebar_width'
+      'vt_text_phrases', 'vt_text_words'
     ];
     Object.keys(payload.settings).forEach(k => {
       if(SETTINGS_KEYS.includes(k) && typeof payload.settings[k] === 'string'){
@@ -17135,7 +17232,10 @@ function doPost(e) {
    in IndexedDB perché localStorage non può salvare oggetti DOM.
    ========================================================================== */
 
-const BACKUP_VERSION = 1;  // schema di versione del JSON di backup
+// V2.10.116: schema v2 — backup ora include anche clienti, preventivi archiviati,
+// servizi e cascade discounts (parità completa con sync Drive). Restore retro-compatibile
+// con schema v1 (i campi nuovi sono assenti, vengono ignorati silenziosamente).
+const BACKUP_VERSION = 2;  // schema di versione del JSON di backup
 const BACKUP_TRIGGER_HOURS = 2;        // backup automatico se ultimo > N ore fa
 const BACKUP_TRIGGER_EDITS = 30;       // o ogni N modifiche
 const BACKUP_RETENTION_DAYS = 90;      // pulizia file > N giorni
@@ -17256,6 +17356,53 @@ function bkBuildPayload(includeData, includeSettings){
     };
     payload.data = DATA;
     payload.edits = EDITS;
+
+    // V2.10.116: includo i 3 archivi targeted + cascade discounts per parità con Drive.
+    // Backward-compat: vecchi backup (schema v1) non hanno questi campi, restore li
+    // gestisce con un check di esistenza prima di applicare.
+
+    // 1. Archivio clienti
+    if(window._CLIENTS_STATE && Array.isArray(window._CLIENTS_STATE.clients)){
+      payload.clients = {
+        version: 1,
+        clients: window._CLIENTS_STATE.clients,
+      };
+      payload.stats.totalClients = window._CLIENTS_STATE.clients.length;
+    }
+
+    // 2. Archivio preventivi (con stati custom e contatori)
+    if(window._QUOTES_ARCHIVE && Array.isArray(window._QUOTES_ARCHIVE.quotes)){
+      payload.quotesArchive = {
+        version: 1,
+        quotes:   window._QUOTES_ARCHIVE.quotes,
+        stati:    Array.isArray(window._QUOTES_ARCHIVE.stati)    ? window._QUOTES_ARCHIVE.stati    : [],
+        counters: (window._QUOTES_ARCHIVE.counters && typeof window._QUOTES_ARCHIVE.counters === 'object') ? window._QUOTES_ARCHIVE.counters : {},
+      };
+      payload.stats.totalQuotes = window._QUOTES_ARCHIVE.quotes.length;
+    }
+
+    // 3. Archivio servizi
+    if(window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services)){
+      payload.servicesArchive = {
+        version: 1,
+        services: window._SERVICES_STATE.services,
+      };
+      payload.stats.totalServices = window._SERVICES_STATE.services.length;
+    }
+
+    // 4. Sconti aggiuntivi a cascata (Sc.1...Sc.6 per nodo marca/macrocat/cat)
+    try {
+      const cascadeRaw = localStorage.getItem('discountTreeAdjustments_v1');
+      if(cascadeRaw){
+        const cascadeParsed = JSON.parse(cascadeRaw);
+        if(cascadeParsed && typeof cascadeParsed === 'object' && Object.keys(cascadeParsed).length > 0){
+          payload.cascadeDiscounts = cascadeParsed;
+          payload.stats.totalCascadeAdj = Object.keys(cascadeParsed).length;
+        }
+      }
+    } catch(e){
+      console.warn('[backup] errore lettura sconti cascata:', e);
+    }
   }
   if(includeSettings){
     const s = _bkBuildSettingsPayload();
@@ -17732,6 +17879,78 @@ async function bkRestoreFromPayload(payload, opts){
     await idbSet('edits', 'main', EDITS);
     stats.restored.push(`${DATA.length} prodotti`);
     if(Object.keys(EDITS).length > 0) stats.restored.push(`${Object.keys(EDITS).length} modifiche`);
+
+    // V2.10.116: ripristino archivi targeted + cascade discounts (schema v2+).
+    // Backward-compat: schema v1 non ha questi campi, blocchi semplicemente skippati.
+
+    // 1. Archivio clienti
+    if(payload.clients && Array.isArray(payload.clients.clients)){
+      if(!window._CLIENTS_STATE) window._CLIENTS_STATE = { clients: [], loaded: true };
+      window._CLIENTS_STATE.clients = payload.clients.clients;
+      window._CLIENTS_STATE.loaded = true;
+      if(typeof CLIENTS_KEY !== 'undefined'){
+        try {
+          await idbSet('meta', CLIENTS_KEY, { clients: payload.clients.clients, version: 1 });
+          stats.restored.push(`${payload.clients.clients.length} clienti`);
+        } catch(e){
+          console.error('[restore] errore salvataggio clienti:', e);
+        }
+      }
+    }
+
+    // 2. Archivio preventivi
+    if(payload.quotesArchive && Array.isArray(payload.quotesArchive.quotes)){
+      if(!window._QUOTES_ARCHIVE) window._QUOTES_ARCHIVE = { quotes: [], stati: [], counters: {}, loaded: true };
+      window._QUOTES_ARCHIVE.quotes   = payload.quotesArchive.quotes;
+      window._QUOTES_ARCHIVE.stati    = Array.isArray(payload.quotesArchive.stati) && payload.quotesArchive.stati.length > 0
+        ? payload.quotesArchive.stati
+        : (typeof QUOTES_STATI_DEFAULT !== 'undefined' ? QUOTES_STATI_DEFAULT.slice() : []);
+      window._QUOTES_ARCHIVE.counters = (payload.quotesArchive.counters && typeof payload.quotesArchive.counters === 'object') ? payload.quotesArchive.counters : {};
+      window._QUOTES_ARCHIVE.loaded   = true;
+      if(typeof QUOTES_KEY !== 'undefined'){
+        try {
+          await idbSet('meta', QUOTES_KEY, {
+            quotes:   window._QUOTES_ARCHIVE.quotes,
+            stati:    window._QUOTES_ARCHIVE.stati,
+            counters: window._QUOTES_ARCHIVE.counters,
+            version:  1,
+          });
+          stats.restored.push(`${payload.quotesArchive.quotes.length} preventivi`);
+        } catch(e){
+          console.error('[restore] errore salvataggio preventivi:', e);
+        }
+      }
+      if(typeof updateTopbarShortcuts === 'function') updateTopbarShortcuts();
+    }
+
+    // 3. Archivio servizi
+    if(payload.servicesArchive && Array.isArray(payload.servicesArchive.services)){
+      if(!window._SERVICES_STATE) window._SERVICES_STATE = { services: [], loaded: true };
+      window._SERVICES_STATE.services = payload.servicesArchive.services;
+      window._SERVICES_STATE.loaded = true;
+      if(typeof SERVICES_KEY !== 'undefined'){
+        try {
+          await idbSet('meta', SERVICES_KEY, { services: payload.servicesArchive.services, version: 1 });
+          stats.restored.push(`${payload.servicesArchive.services.length} servizi`);
+        } catch(e){
+          console.error('[restore] errore salvataggio servizi:', e);
+        }
+      }
+    }
+
+    // 4. Sconti aggiuntivi a cascata
+    if(payload.cascadeDiscounts && typeof payload.cascadeDiscounts === 'object'){
+      try {
+        localStorage.setItem('discountTreeAdjustments_v1', JSON.stringify(payload.cascadeDiscounts));
+        // Aggiorno anche la cache se esiste
+        if(window._DISCOUNT_TREE_ADJ_CACHE !== undefined){
+          window._DISCOUNT_TREE_ADJ_CACHE = payload.cascadeDiscounts;
+        }
+        stats.restored.push(`${Object.keys(payload.cascadeDiscounts).length} sconti cascata`);
+      } catch(e){
+        console.error('[restore] errore salvataggio cascade discounts:', e);
+      }
+    }
   }
   if(opts.settings && payload.settings){
     Object.entries(payload.settings).forEach(([k, v]) => {
@@ -19339,6 +19558,27 @@ async function bkUiRestore(){
   if(hasData){
     backupLines.push(`• <b>${backupProducts.toLocaleString('it-IT')}</b> prodotti`);
     backupLines.push(`• <b>${backupEdits.toLocaleString('it-IT')}</b> modifiche manuali`);
+    // V2.10.116: nuove sezioni del backup (schema v2). Solo se presenti.
+    if(stats.totalClients !== undefined && stats.totalClients > 0){
+      backupLines.push(`• <b>${stats.totalClients.toLocaleString('it-IT')}</b> clienti`);
+    } else if(payload.clients && Array.isArray(payload.clients.clients) && payload.clients.clients.length > 0){
+      backupLines.push(`• <b>${payload.clients.clients.length.toLocaleString('it-IT')}</b> clienti`);
+    }
+    if(stats.totalQuotes !== undefined && stats.totalQuotes > 0){
+      backupLines.push(`• <b>${stats.totalQuotes.toLocaleString('it-IT')}</b> preventivi archiviati`);
+    } else if(payload.quotesArchive && Array.isArray(payload.quotesArchive.quotes) && payload.quotesArchive.quotes.length > 0){
+      backupLines.push(`• <b>${payload.quotesArchive.quotes.length.toLocaleString('it-IT')}</b> preventivi archiviati`);
+    }
+    if(stats.totalServices !== undefined && stats.totalServices > 0){
+      backupLines.push(`• <b>${stats.totalServices.toLocaleString('it-IT')}</b> servizi`);
+    } else if(payload.servicesArchive && Array.isArray(payload.servicesArchive.services) && payload.servicesArchive.services.length > 0){
+      backupLines.push(`• <b>${payload.servicesArchive.services.length.toLocaleString('it-IT')}</b> servizi`);
+    }
+    if(stats.totalCascadeAdj !== undefined && stats.totalCascadeAdj > 0){
+      backupLines.push(`• <b>${stats.totalCascadeAdj}</b> sconti a cascata`);
+    } else if(payload.cascadeDiscounts && typeof payload.cascadeDiscounts === 'object' && Object.keys(payload.cascadeDiscounts).length > 0){
+      backupLines.push(`• <b>${Object.keys(payload.cascadeDiscounts).length}</b> sconti a cascata`);
+    }
   }
   if(hasSettings){
     if(stats.totalPresets !== undefined) backupLines.push(`• <b>${stats.totalPresets}</b> preset export`);
@@ -19350,6 +19590,7 @@ async function bkUiRestore(){
 
   // Stato corrente (lato destro del confronto).
   // V2.2.35: il numero di modifiche è cliccabile → apre il dialog lista modifiche
+  // V2.10.116: aggiunti clienti, preventivi, servizi nel confronto attuale
   const editsBadgeHtml = currentEdits > 0
     ? `<a href="javascript:void(0)" class="bk-edits-link" onclick="bkOpenEditsList()" title="Click per vedere la lista dettagliata e poterle esportare">${currentEdits.toLocaleString('it-IT')}</a>`
     : `${currentEdits.toLocaleString('it-IT')}`;
@@ -19357,6 +19598,23 @@ async function bkUiRestore(){
     `• <b>${currentProducts.toLocaleString('it-IT')}</b> prodotti`,
     `• <b>${editsBadgeHtml}</b> modifiche manuali${currentEdits > 0 ? ' <span style="font-size:10px;color:var(--fg3);font-style:italic">(click per dettagli)</span>' : ''}`,
   ];
+  // V2.10.116: clienti, preventivi, servizi attuali
+  const currentClients = (window._CLIENTS_STATE && Array.isArray(window._CLIENTS_STATE.clients)) ? window._CLIENTS_STATE.clients.length : 0;
+  const currentQuotes  = (window._QUOTES_ARCHIVE && Array.isArray(window._QUOTES_ARCHIVE.quotes)) ? window._QUOTES_ARCHIVE.quotes.length : 0;
+  const currentServices = (window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services)) ? window._SERVICES_STATE.services.length : 0;
+  if(currentClients > 0) currentLines.push(`• <b>${currentClients.toLocaleString('it-IT')}</b> clienti`);
+  if(currentQuotes > 0) currentLines.push(`• <b>${currentQuotes.toLocaleString('it-IT')}</b> preventivi archiviati`);
+  if(currentServices > 0) currentLines.push(`• <b>${currentServices.toLocaleString('it-IT')}</b> servizi`);
+  // Sconti cascata attuali
+  try {
+    const cascadeRaw = localStorage.getItem('discountTreeAdjustments_v1');
+    if(cascadeRaw){
+      const cascadeP = JSON.parse(cascadeRaw);
+      if(cascadeP && typeof cascadeP === 'object' && Object.keys(cascadeP).length > 0){
+        currentLines.push(`• <b>${Object.keys(cascadeP).length}</b> sconti a cascata`);
+      }
+    }
+  } catch(_){}
 
   // Riquadro di avviso dinamico
   let warningHtml = '';
@@ -24525,6 +24783,8 @@ async function saveDict(){
     else delete DICT[k];
   });
   localStorage.setItem('vt_dict', JSON.stringify(DICT));
+  // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+  if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
   document.querySelector('.modal-bg').remove();
   toast('Dizionario salvato');
 }
@@ -24903,6 +25163,8 @@ function loadPreset(i){
     p.order = order.slice();
     delete p.cols;
     localStorage.setItem('vt_presets', JSON.stringify(PRESETS));
+    // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+    if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
   }
   renderColList();
   renderPresetRow();  // rirender per aggiornare .active
@@ -24923,6 +25185,8 @@ async function savePreset(){
   PRESETS.push({name, order: window._EXPORT_ORDER.slice()});
   ACTIVE_PRESET_IDX = PRESETS.length - 1;  // il nuovo preset è attivo
   localStorage.setItem('vt_presets', JSON.stringify(PRESETS));
+  // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+  if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
   document.getElementById('newPresetName').value='';
   renderPresetRow();
   toast('Preset salvato ('+window._EXPORT_ORDER.length+' colonne)');
@@ -24948,6 +25212,8 @@ async function delPreset(i){
   // Se era dopo quello attivo, l'indice non cambia; se prima, decrementa
   else if(ACTIVE_PRESET_IDX != null && ACTIVE_PRESET_IDX > i) ACTIVE_PRESET_IDX--;
   localStorage.setItem('vt_presets', JSON.stringify(PRESETS));
+  // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+  if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
   renderPresetRow();
   toast('Preset "'+p.name+'" eliminato');
 }
@@ -24972,6 +25238,8 @@ async function renamePreset(i){
   }
   p.name = trimmed;
   localStorage.setItem('vt_presets', JSON.stringify(PRESETS));
+  // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+  if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
   renderPresetRow();
   toast('Preset rinominato in "'+trimmed+'"');
 }
@@ -24990,6 +25258,8 @@ function duplicatePreset(i){
   const order = _presetOrder(p);
   PRESETS.push({ name: newName, order: order.slice() });
   localStorage.setItem('vt_presets', JSON.stringify(PRESETS));
+  // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+  if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
   renderPresetRow();
   toast('Preset duplicato come "'+newName+'"');
 }
@@ -25953,6 +26223,8 @@ async function saveTextDict(){
   });
   localStorage.setItem('vt_text_phrases', JSON.stringify(userPh));
   localStorage.setItem('vt_text_words', JSON.stringify(userW));
+  // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+  if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
 
   // Ricompila regex
   compileTextRegex();
@@ -26268,11 +26540,15 @@ function showScannerResults(results){
         const userPh = JSON.parse(localStorage.getItem('vt_text_phrases') || '{}');
         userPh[key] = translation;
         localStorage.setItem('vt_text_phrases', JSON.stringify(userPh));
+        // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+        if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
       } else {
         TEXT_WORDS[key] = translation;
         const userW = JSON.parse(localStorage.getItem('vt_text_words') || '{}');
         userW[key] = translation;
         localStorage.setItem('vt_text_words', JSON.stringify(userW));
+        // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+        if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
       }
       compileTextRegex();
       buildLookupMaps();
@@ -43357,6 +43633,8 @@ async function init(){
   });
   if(_legacyMigrated > 0){
     localStorage.setItem('vt_presets', JSON.stringify(PRESETS));
+    // V2.10.115: notify Drive del cambio settings (delta sync automatico)
+    if(typeof _driveNotifyAppSettingsChange === "function") _driveNotifyAppSettingsChange();
     // Migrazione silenziosa come richiesto: nessun toast
   }
 
