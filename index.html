@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.102</title>
+<title>Gestione Prodotti V2.10.113</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -2079,7 +2079,9 @@ body.theme-light .topbar-pills-bar{
 .tb-special-service:hover{ color:#10b981; }
 
 /* V2.10.96: pulsante "Refresh da Drive" — accento ciano per distinguersi
-   dagli altri pulsanti vista/tema. Animazione spin durante il pull. */
+   dagli altri pulsanti vista/tema. Animazione spin durante il pull.
+   V2.10.105: il colore di base si appoggia ora al sistema di stati centralizzato
+   (.btn-state-busy/success/error) che vince sui colori della classe. */
 .tb-drive-refresh{ color:#06b6d4; }
 .tb-drive-refresh:hover{
   color:#22d3ee;
@@ -2092,9 +2094,119 @@ body.theme-light .topbar-pills-bar{
   opacity:0.6;
   cursor:wait;
 }
+/* V2.10.105: stato "disabilitato visivamente" — Refresh in Modalità Locale.
+   Il pulsante resta cliccabile dal DOM ma è grigio e mostra cursor not-allowed.
+   Diverso da :disabled (HTML disabled attribute) per evitare ripercussioni su
+   focus/tabindex e per poter cambiare lo stato senza rimuovere event handler. */
+.tb-drive-refresh.is-locked-localmode{
+  color:#6b7280;
+  opacity:0.40;
+  cursor:not-allowed;
+  pointer-events:none;
+}
 @keyframes tb-drive-spin{
   from{ transform:rotate(0deg) }
   to  { transform:rotate(360deg) }
+}
+
+/* V2.10.103: pulsanti topbar Modalità Locale.
+   ☁️⬇ pull manuale e ☁️⬆ push manuale. Visibili solo quando localMode è attivo. */
+.tb-drive-push{ color:#9ca3af; }            /* neutro idle */
+.tb-drive-push:hover{
+  color:#d1d5db;
+  border-color:rgba(209,213,219,0.35);
+}
+.tb-drive-pull{ color:#9ca3af; }            /* V2.10.105: idle neutro coerente con push */
+.tb-drive-pull:hover{
+  color:#d1d5db;
+  border-color:rgba(209,213,219,0.35);
+}
+
+/* V2.10.106: ☁️⬆ Push si tinge di giallo acido (#CCFF00, lo stesso dei filtri attivi)
+   quando ci sono modifiche in coda. Stato persistente, niente animazione: serve a
+   essere visibile a colpo d'occhio. Lo stato 'busy' (operazione in corso) prende
+   comunque la precedenza via specificità maggiore della classe .btn-state-busy.
+   V2.10.109: aggiunto .btn nel selettore per superare la specificità di
+   .btn.icon-btn (riga 3850) che setta background:var(--bg3) e vinceva. */
+.btn.tb-drive-push.has-pending{
+  color:#1a1a00 !important;          /* testo scuro per contrasto sul giallo acceso */
+  background:rgba(204,255,0,0.30) !important;
+  border-color:#CCFF00 !important;
+}
+.btn.tb-drive-push.has-pending svg{
+  stroke:#1a1a00 !important;
+}
+.btn.tb-drive-push.has-pending:hover{
+  background:rgba(204,255,0,0.45) !important;
+  border-color:#DFFF5C !important;
+}
+
+/* ─── V2.10.105: Sistema di stati visivi unificato per i 3 pulsanti sync ───
+   Schema "Telegram-style": neutro idle → giallo lampeggiante in operazione →
+   verde flash 2s dopo successo → rosso fisso in errore (resettato dal prossimo OK).
+   Le classi .btn-state-* vincono sui colori delle classi base (tb-drive-*)
+   grazie alla specificità + colore importante negli sfondi.
+   V2.10.106: il giallo dell'operazione in corso usa #CCFF00 (giallo acido coerente
+   con i filtri attivi) per massima visibilità periferica. */
+.btn.btn-state-busy{
+  background:rgba(204,255,0,0.30) !important;
+  border-color:#CCFF00 !important;
+  color:#1a1a00 !important;
+  animation: tb-drive-busy-pulse 1.0s ease-in-out infinite;
+}
+.btn.btn-state-busy svg{
+  stroke:#1a1a00 !important;
+}
+@keyframes tb-drive-busy-pulse{
+  0%, 100% {
+    background:rgba(204,255,0,0.22);
+    border-color:#CCFF00;
+    box-shadow:0 0 0 0 rgba(204,255,0,0.45), 0 0 6px rgba(204,255,0,0.35);
+  }
+  50% {
+    background:rgba(204,255,0,0.55);
+    border-color:#DFFF5C;
+    box-shadow:0 0 0 5px rgba(204,255,0,0), 0 0 18px rgba(204,255,0,0.85);
+  }
+}
+
+.btn.btn-state-success{
+  background:rgba(34,197,94,0.20) !important;
+  border-color:rgba(34,197,94,0.65) !important;
+  color:#22c55e !important;
+  /* Transizione morbida quando lo stato torna a idle dopo 2s */
+  transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
+}
+
+.btn.btn-state-error{
+  background:rgba(239,68,68,0.20) !important;
+  border-color:rgba(239,68,68,0.65) !important;
+  color:#ef4444 !important;
+  /* Pulse rosso più lento per richiamare attenzione senza essere fastidioso */
+  animation: tb-drive-error-pulse 2.2s ease-in-out infinite;
+}
+@keyframes tb-drive-error-pulse{
+  0%, 100% { background:rgba(239,68,68,0.20); border-color:rgba(239,68,68,0.65); }
+  50%      { background:rgba(239,68,68,0.35); border-color:rgba(239,68,68,0.95); box-shadow:0 0 12px rgba(239,68,68,0.5); }
+}
+
+/* V2.10.103: badge "MODALITÀ LOCALE • N modifiche in coda" sotto la pillola
+   orologio. Stile pillola gialla coerente con la palette di avviso. */
+.sb-title-localmode{
+  font-size:10px;font-weight:600;
+  color:#eab308;
+  background:rgba(234,179,8,0.10);
+  border:1px solid rgba(234,179,8,0.40);
+  padding:2px 7px;border-radius:3px;letter-spacing:0.4px;
+  align-self:flex-start;line-height:1.4;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+  display:none;  /* mostrato via JS solo se localMode ON */
+}
+.sb-title-localmode.has-pending{
+  color:#fde047;
+  background:rgba(234,179,8,0.18);
+  border-color:rgba(234,179,8,0.55);
 }
 
 /* V2.2.36: Stato attivo dei pulsanti filtri speciali in topbar.
@@ -6921,6 +7033,11 @@ body.theme-light .tree-adj-badge.tree-adj-badge-downstream{
 
 /* Mode picker (radio cards) — versione raffinata */
 .bks-mode-grid{display:flex;gap:10px;flex-wrap:wrap}
+/* V2.10.112: layout 3 colonne per le 3 modalità (manual/auto/local).
+   Su schermi stretti torna a wrap automatico. */
+.bks-mode-grid-3 .bks-mode-card{
+  min-width:200px;
+}
 .bks-mode-card{
   flex:1;min-width:240px;
   display:flex;align-items:flex-start;gap:10px;
@@ -6935,7 +7052,17 @@ body.theme-light .tree-adj-badge.tree-adj-badge-downstream{
   border-color:var(--accent3);
   background:rgba(0,217,163,.06);
 }
+/* V2.10.112: stato "pending" — utente ha cliccato un radio ma non ha ancora confermato */
+.bks-mode-card.pending{
+  border-color:#3B82F6;
+  background:rgba(59,130,246,.08);
+  box-shadow:0 0 0 1px rgba(59,130,246,.20);
+}
+.bks-mode-card.pending .bks-mode-card-title{
+  color:#3B82F6;
+}
 .bks-mode-card input[type="radio"]{margin-top:3px;flex-shrink:0;accent-color:var(--accent3)}
+.bks-mode-card.pending input[type="radio"]{accent-color:#3B82F6}
 .bks-mode-card-text{flex:1;min-width:0}
 .bks-mode-card-title{
   font-size:12.5px;font-weight:700;color:var(--fg);
@@ -6945,6 +7072,70 @@ body.theme-light .tree-adj-badge.tree-adj-badge-downstream{
   font-size:11px;color:var(--fg3);margin-top:4px;line-height:1.55;
 }
 .bks-mode-card-desc b{color:var(--fg2);font-weight:600}
+
+/* V2.10.112: barretta di conferma inline per il cambio modalità sincronizzazione. */
+.bks-mode-confirm-bar{
+  margin-top:12px;
+  padding:12px 14px;
+  background:linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.04));
+  border:1px solid rgba(59,130,246,0.35);
+  border-radius:8px;
+  animation: bksConfirmBarSlideIn 0.18s ease-out;
+}
+@keyframes bksConfirmBarSlideIn{
+  from{ opacity:0; transform:translateY(-4px) }
+  to  { opacity:1; transform:translateY(0) }
+}
+.bks-mode-confirm-actions{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+}
+.bks-mode-confirm-msg{
+  font-size:12px;color:var(--fg);flex:1;min-width:200px;
+}
+.bks-mode-confirm-msg b{color:#3B82F6;font-weight:700}
+.bks-mode-confirm-btns{
+  display:flex;gap:8px;flex-shrink:0;
+}
+.bks-mode-confirm-btns .btn-pill{
+  font-size:12px;
+  padding:6px 14px;
+  border-radius:6px;
+  font-weight:600;
+  border:1px solid transparent;
+  cursor:pointer;
+  transition:all .15s;
+}
+.bks-mode-confirm-btns .btn-pill.subtle{
+  background:transparent;
+  color:var(--fg2);
+  border-color:var(--border2);
+}
+.bks-mode-confirm-btns .btn-pill.subtle:hover{
+  background:rgba(255,255,255,0.04);
+  color:var(--fg);
+  border-color:var(--border);
+}
+.bks-mode-confirm-btns .btn-pill.primary{
+  background:#3B82F6;
+  color:#fff;
+  border-color:#3B82F6;
+}
+.bks-mode-confirm-btns .btn-pill.primary:hover{
+  background:#2563EB;
+  border-color:#2563EB;
+}
+/* Warning sopra la confirm bar (visibile solo se ci sono delta pending al cambio da Locale) */
+.bks-mode-warning{
+  margin-bottom:10px;
+  padding:10px 12px;
+  background:rgba(234,179,8,0.10);
+  border:1px solid rgba(234,179,8,0.40);
+  border-radius:6px;
+  font-size:11.5px;
+  color:#eab308;
+  line-height:1.5;
+}
+.bks-mode-warning b{color:#fde047;font-weight:700}
 
 /* Recovery zone: collapsable, danger-themed */
 .bks-recovery{
@@ -7726,7 +7917,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.102</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.113</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -7735,6 +7926,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
         <span class="sb-title-clock-time" id="app-clock-time">--:--:--</span>
       </span>
     </span>
+    <span class="sb-title-localmode" id="sb-localmode-badge" title="Modalità Locale attiva — sincronizza prima di chiudere"></span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8025,6 +8217,22 @@ body.theme-light .dlg-input{background:var(--bg3)}
           <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
         </svg>
       </button>
+      <!-- V2.10.103: bottoni Push (☁️⬆) e Pull (☁️⬇) per Modalità Locale.
+           Visibili SOLO quando localMode è ON. Push si tinge di giallo se ci sono pending. -->
+      <button class="btn icon-btn tb-drive-push" id="btnDriveManualPush" onclick="driveManualPush(this)" title="Invia modifiche a Drive (☁️⬆)" aria-label="Invia modifiche a Drive" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+          <polyline points="12 19 12 12"/>
+          <polyline points="9 15 12 12 15 15"/>
+        </svg>
+      </button>
+      <button class="btn icon-btn tb-drive-pull" id="btnDriveManualPull" onclick="driveManualPull(this)" title="Scarica modifiche da Drive (☁️⬇)" aria-label="Scarica modifiche da Drive" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+          <polyline points="12 12 12 19"/>
+          <polyline points="9 16 12 19 15 16"/>
+        </svg>
+      </button>
       <button class="btn icon-btn" id="btnTheme" onclick="toggleTheme()" title="Cambia tema chiaro/scuro" aria-label="Cambia tema"></button>
     </div>
 
@@ -8216,7 +8424,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.102');
+console.info('[bootstrap] script avvio — V2.10.113');
 
 window.openStatsDashboard = function(){
   try {
@@ -9646,7 +9854,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.102';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.113';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -11534,6 +11742,12 @@ const DRIVE_ENABLED_KEY          = 'gp_drive_enabled';     // V2.2.40: master sw
 const DRIVE_POLL_INTERVAL_KEY    = 'gp_drive_poll_interval'; // intervallo polling in minuti (0=off)
 const DRIVE_POLL_DEFAULT_MIN     = 3;                        // default 3 minuti
 const DRIVE_POLL_VALID_VALUES    = [0, 1, 3, 5, 10];         // opzioni ammesse (minuti)
+// V2.10.103: modalità locale (offline-first work mode).
+// Quando ON: niente push automatico (DRIVE_DELTA accumula senza schedulare),
+// niente polling automatico, ma un singolo "safety pull" all'apertura della pagina
+// per scaricare modifiche di altri device durante la sessione precedente.
+// L'utente sincronizza esplicitamente via i 2 pulsanti topbar ☁️⬆ e ☁️⬇.
+const DRIVE_LOCAL_MODE_KEY       = 'gp_drive_local_mode';    // '1' = ON, altrimenti OFF
 // V2.2.42: cache delle statistiche remote — aggiornata ad ogni save riuscito.
 // Permette di mostrare conteggio prodotti e dimensione senza scaricare tutto il file.
 const DRIVE_REMOTE_STATS_KEY     = 'gp_drive_remote_stats';
@@ -11654,6 +11868,9 @@ const DRIVE_STATE = {
   pollTimer: null,              // setInterval pending del polling
   pollLastCheckAt: null,        // ISO ts ultimo check polling riuscito
   pollLastResult: null,         // 'in-sync' | 'remote-newer' | 'error' | null
+  // V2.10.103: modalità locale (offline-first work mode)
+  localMode: false,             // true = niente push/pull automatici, sync esplicito via pulsanti
+  safetyPullDone: false,        // true dopo il safety pull all'apertura (1 volta sola per sessione)
 };
 
 // V2.10.86: Targeted Sync — file Drive separati per dati write-frequent
@@ -11790,6 +12007,21 @@ function driveInit(){
     // Solo il valore esplicito "false" disabilita il servizio.
     DRIVE_STATE.enabled       = localStorage.getItem(DRIVE_ENABLED_KEY) !== 'false';
 
+    // V2.10.113: auto-heal della init guard.
+    // Se la guard è false MA tutti gli indicatori dicono che l'app È inizializzata
+    // (url configurato, sync recente avvenuto), allora il flag è stato perso per
+    // qualche ragione (interazione manuale DevTools, race condition, ecc.).
+    // Lo ripristino automaticamente per evitare il messaggio "full sync iniziale necessario"
+    // su un database che è palesemente inizializzato.
+    // Differito al prossimo tick perché DATA non è ancora caricato qui (driveInit
+    // viene chiamato in init() PRIMA che DATA sia popolato da idbGet).
+    if(!DRIVE_STATE.initialized && DRIVE_STATE.url && DRIVE_STATE.lastSyncAt){
+      // Indicatori: c'è URL Drive E c'è stato almeno un sync in passato → era inizializzato
+      console.info('[drive] auto-heal init guard: url+lastSyncAt presenti ma guard=false → ripristino');
+      DRIVE_STATE.initialized = true;
+      try { localStorage.setItem(DRIVE_INIT_GUARD_KEY, 'true'); } catch(_){}
+    }
+
     // V2.10.94: intervallo polling (minuti). Default DRIVE_POLL_DEFAULT_MIN, 0 = disabilitato.
     var _pollRaw = localStorage.getItem(DRIVE_POLL_INTERVAL_KEY);
     if(_pollRaw === null || _pollRaw === ''){
@@ -11802,6 +12034,11 @@ function driveInit(){
         DRIVE_STATE.pollIntervalMin = _pollN;
       }
     }
+
+    // V2.10.103: modalità locale (offline-first work mode).
+    // Default OFF. Solo il valore esplicito '1' la attiva.
+    DRIVE_STATE.localMode = localStorage.getItem(DRIVE_LOCAL_MODE_KEY) === '1';
+    DRIVE_STATE.safetyPullDone = false;  // reset ad ogni init
 
     // V2.2.38 (A): carica buffer modifiche pending da localStorage
     // Se ci sono modifiche da una sessione precedente, le riprenderemo dopo l'init dell'app.
@@ -11826,9 +12063,10 @@ function driveInit(){
         if(DRIVE_STATE.url && !DRIVE_STATE.syncing){
           _driveUpdateBadge();
           // Se ci sono delta pending dopo il ritorno online, invialli
-          if(DRIVE_DELTA && DRIVE_DELTA.size && DRIVE_DELTA.size() > 0 && DRIVE_STATE.initialized){
+          // V2.10.111: ma NON in modalità locale (l'utente fa push manuale via ☁️⬆)
+          if(DRIVE_DELTA && DRIVE_DELTA.size && DRIVE_DELTA.size() > 0 && DRIVE_STATE.initialized && !DRIVE_STATE.localMode){
             setTimeout(() => {
-              if(DRIVE_DELTA.size() > 0 && !DRIVE_STATE.syncing){
+              if(DRIVE_DELTA.size() > 0 && !DRIVE_STATE.syncing && !DRIVE_STATE.localMode){
                 _driveSendDelta(true).catch(e => console.warn('[drive] online retry failed', e));
               }
             }, 2000);
@@ -11846,7 +12084,11 @@ function driveInit(){
     // V2.2.38 (A): se ci sono modifiche pending E l'app è in modalità auto E inizializzata,
     // schedula il sync. Aspetta 5 secondi dopo init per dare tempo all'app di stabilizzarsi.
     // V2.2.40: NON resumare se il master switch è OFF.
-    if(restoredCount > 0 && DRIVE_STATE.url && DRIVE_STATE.initialized && DRIVE_STATE.enabled){
+    // V2.10.111: NON resumare automaticamente se Modalità Locale è ON — l'utente
+    // farà push esplicito col pulsante ☁️⬆. Senza questo check, le modifiche pending
+    // dalla sessione precedente venivano pushate automaticamente al reload (silent=true),
+    // bypassando completamente la promessa di "offline-first" della Modalità Locale.
+    if(restoredCount > 0 && DRIVE_STATE.url && DRIVE_STATE.initialized && DRIVE_STATE.enabled && !DRIVE_STATE.localMode){
       console.info(`[drive] auto-resuming sync of ${restoredCount} pending changes from previous session`);
       if(typeof toast === 'function'){
         setTimeout(() => {
@@ -11854,7 +12096,7 @@ function driveInit(){
         }, 1500);
       }
       setTimeout(() => {
-        if(DRIVE_DELTA.size() > 0 && !DRIVE_STATE.syncing && DRIVE_STATE.enabled){
+        if(DRIVE_DELTA.size() > 0 && !DRIVE_STATE.syncing && DRIVE_STATE.enabled && !DRIVE_STATE.localMode){
           _driveSendDelta(true).catch(e => {
             console.warn('[drive] resume sync failed, will retry on next change:', e.message);
           });
@@ -11862,6 +12104,9 @@ function driveInit(){
       }, 5000);
     } else if(restoredCount > 0 && !DRIVE_STATE.enabled){
       console.info(`[drive] ${restoredCount} pending changes restored but sync is DISABLED, will resume when user re-enables`);
+    } else if(restoredCount > 0 && DRIVE_STATE.localMode){
+      // V2.10.111: feedback esplicito che le modifiche restano in attesa di push manuale
+      console.info(`[drive] ${restoredCount} pending changes restored — Modalità Locale ON, push manuale via ☁️⬆`);
     }
   } catch(e){
     console.warn('[drive] init error', e);
@@ -11965,6 +12210,82 @@ function driveSetEnabled(enabled){
   _driveUpdateBadge();
   // V2.10.96: aggiorna visibilità bottone Refresh in topbar
   if(typeof _driveUpdateTopbarRefreshBtn === 'function') _driveUpdateTopbarRefreshBtn();
+}
+
+// V2.10.112: modalità unificata. Astrae i 3 stati possibili in un singolo selettore
+// per evitare combinazioni incoerenti (es: "Automatica + Modalità Locale" che era ambigua).
+// Stati:
+//   'manual' → DRIVE_STATE.mode='manual', localMode=false
+//   'auto'   → DRIVE_STATE.mode='auto',   localMode=false
+//   'local'  → DRIVE_STATE.mode='manual', localMode=true (locale forza manual come safety)
+function driveGetUnifiedMode(){
+  if(DRIVE_STATE.localMode) return 'local';
+  return DRIVE_STATE.mode === 'auto' ? 'auto' : 'manual';
+}
+
+// Applica una modalità unificata. Chiamata dal bottone "Applica" della Card B3
+// dopo conferma utente. Internamente chiama driveSetMode + driveSetLocalMode
+// nell'ordine corretto per evitare side-effect indesiderati.
+function driveApplyUnifiedMode(newMode){
+  if(newMode !== 'manual' && newMode !== 'auto' && newMode !== 'local'){
+    console.warn('[drive] applyUnifiedMode: valore non valido', newMode);
+    return;
+  }
+  const oldMode = driveGetUnifiedMode();
+  if(oldMode === newMode) return;
+
+  console.info('[drive] applyUnifiedMode: ' + oldMode + ' → ' + newMode);
+
+  if(newMode === 'local'){
+    // Attivo Modalità Locale. Forza mode='manual' come safety per evitare che,
+    // se l'utente disattivasse Locale in futuro, ritorni accidentalmente in auto.
+    if(DRIVE_STATE.mode !== 'manual'){
+      DRIVE_STATE.mode = 'manual';
+      try { localStorage.setItem(DRIVE_MODE_KEY, 'manual'); } catch(_){}
+    }
+    if(typeof driveSetLocalMode === 'function') driveSetLocalMode(true);
+  } else {
+    // Disattivo Modalità Locale (se attiva) e poi setto la nuova modalità sync.
+    if(DRIVE_STATE.localMode && typeof driveSetLocalMode === 'function'){
+      driveSetLocalMode(false);
+    }
+    if(typeof driveSetMode === 'function') driveSetMode(newMode);
+  }
+  // UI refresh dopo cambio
+  if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
+}
+
+// V2.10.112: tiene traccia del "pending unified mode" — la modalità che l'utente
+// ha cliccato nei radio ma non ha ancora confermato. null = nessun cambio pending.
+window._drivePendingUnifiedMode = null;
+
+// Handler chiamato dai radio button quando l'utente clicca un'opzione diversa
+// dalla modalità attualmente attiva. Memorizza la scelta e mostra la barretta
+// di conferma "Applica/Annulla".
+function driveStageUnifiedMode(newMode){
+  const current = driveGetUnifiedMode();
+  if(newMode === current){
+    // Cliccato il radio già attivo: cancello pending (se c'era)
+    window._drivePendingUnifiedMode = null;
+  } else {
+    window._drivePendingUnifiedMode = newMode;
+  }
+  if(typeof driveRenderSettingsPanel === 'function') driveRenderSettingsPanel();
+}
+
+// Conferma il cambio modalità: applica e azzera pending
+function driveConfirmUnifiedMode(){
+  const pending = window._drivePendingUnifiedMode;
+  if(!pending) return;
+  window._drivePendingUnifiedMode = null;
+  driveApplyUnifiedMode(pending);
+  if(typeof driveRenderSettingsPanel === 'function') driveRenderSettingsPanel();
+}
+
+// Annulla il cambio modalità pending: torna allo stato corrente
+function driveCancelUnifiedMode(){
+  window._drivePendingUnifiedMode = null;
+  if(typeof driveRenderSettingsPanel === 'function') driveRenderSettingsPanel();
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -13494,6 +13815,13 @@ async function driveSaveChunked(silent){
     });
 
     _driveUpdateBadge();
+    // V2.10.107: PRIMA fermo il timer ETA così il badge sidebar passa a verde
+    // con l'orario di sincronizzazione corrente, POI mostro la spunta verde
+    // nel dialog progress. Questo garantisce che quando l'utente vede "✓ Salvataggio
+    // completato" nel dialog, il badge in sidebar è già verde — niente più ritardo
+    // di 10-15s tra le 2 indicazioni.
+    if(typeof _driveStopEtaTimer === 'function') _driveStopEtaTimer();
+    _driveUpdateBadge();  // Re-render esplicito ora che il timer è fermo
     // V2.2.43: card finale professionale (solo in modo non-silent)
     if(progressOverlay){
       if(silent){
@@ -13661,6 +13989,10 @@ async function driveSaveFullSync(silent){
       source:        'save',
     });
 
+    // V2.10.107: fermo subito il timer ETA così il badge passa a verde con
+    // l'orario corrente, esattamente come fa driveSaveChunked. Sicuro: la
+    // chiamata duplicata da _driveSendDelta è idempotente.
+    if(typeof _driveStopEtaTimer === 'function') _driveStopEtaTimer();
     _driveUpdateBadge();
     if(!silent && typeof toast === 'function'){
       toast(`✓ Sync completo: ${j.size}`, 'ok', 3500);
@@ -13772,6 +14104,17 @@ async function _driveSendDelta(silent){
     DRIVE_STATE.lastRemoteTs = j.ts;
     localStorage.setItem(DRIVE_LAST_SYNC_KEY, DRIVE_STATE.lastSyncAt);
     localStorage.setItem(DRIVE_LAST_DRIVE_TS_KEY, j.ts);
+    // V2.10.113: riscrivo la init guard ad ogni delta SUCCESS.
+    // Se un delta è andato a buon fine, per definizione il file Drive esiste e
+    // contiene dati validi → l'app è "inizializzata". Se per qualsiasi ragione
+    // gp_drive_initialized era stato perso (es. interazione manuale DevTools,
+    // wipe parziale, race condition non identificata), questo lo ripristina.
+    // Costo: 1 setItem su chiave di 4 byte. Beneficio: auto-heal continuo.
+    if(!DRIVE_STATE.initialized){
+      DRIVE_STATE.initialized = true;
+      console.info('[drive] init guard auto-ripristinata dopo delta success');
+    }
+    try { localStorage.setItem(DRIVE_INIT_GUARD_KEY, 'true'); } catch(_){}
 
     // V2.10.97: rimuovo solo i delta effettivamente inviati (per reference).
     // Le modifiche fatte DURANTE il sync hanno sostituito le entry originali nel buffer
@@ -13790,6 +14133,9 @@ async function _driveSendDelta(silent){
       ts:            j.ts,
       source:        'save',
     });
+    // V2.10.107: defensive — se per qualche motivo c'era un timer ETA attivo
+    // (es. routing fallback), lo fermo subito così il badge passa a verde.
+    if(typeof _driveStopEtaTimer === 'function') _driveStopEtaTimer();
     _driveUpdateBadge();
     if(!silent && typeof toast === 'function'){
       const seconds = Math.round(elapsed / 1000);
@@ -13876,6 +14222,16 @@ async function _driveSendDelta(silent){
 function _driveScheduleSave(){
   if(!DRIVE_STATE.url) return;
   if(!DRIVE_STATE.enabled) return;                 // V2.2.40: master switch OFF
+  // V2.10.108 FIX: il check su localMode DEVE precedere il check su mode!=auto.
+  // In modalità locale aggiorno comunque il badge "modifiche in coda" e i pulsanti
+  // topbar (☁️⬆ giallo acido), indipendentemente da quale sia la modalità di sync
+  // (auto o manual). Senza questo fix, se l'utente ha mode='manual' impostata
+  // PRIMA di attivare Modalità Locale, il return anticipato impediva all'UI
+  // di mostrare "1 modifica in coda" e il giallo sul pulsante.
+  if(DRIVE_STATE.localMode){
+    if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
+    return;
+  }
   if(DRIVE_STATE.mode !== 'auto') return;        // solo in modalità automatica
 
   // V2.2.43 FIX: se non inizializzato, schedula un FULL SYNC invece di delta.
@@ -14704,6 +15060,13 @@ async function driveAutoLoadIfNewer(){
     localStorage.setItem(DRIVE_LAST_DRIVE_TS_KEY, remoteData.ts);
     DRIVE_STATE.lastSyncAt = new Date().toISOString();
     localStorage.setItem(DRIVE_LAST_SYNC_KEY, DRIVE_STATE.lastSyncAt);
+    // V2.10.113: riscrivo init guard dopo pull riuscito (auto-heal). Un pull
+    // riuscito significa che l'app è allineata con Drive → è inizializzata.
+    if(!DRIVE_STATE.initialized){
+      DRIVE_STATE.initialized = true;
+      console.info('[drive] init guard auto-ripristinata dopo auto-load success');
+    }
+    try { localStorage.setItem(DRIVE_INIT_GUARD_KEY, 'true'); } catch(_){}
     _driveUpdateBadge();
 
     if(typeof toast === 'function'){
@@ -14772,6 +15135,267 @@ function _driveFormatRelativeTime(isoTs){
 // Se sì, scarica automaticamente i nuovi dati (riusa driveAutoLoadIfNewer).
 // Il check è leggero (~100 bytes via ?action=ts), può essere acceso ogni 1-10 min senza problemi.
 
+// ─── V2.10.103: Modalità Locale (offline-first work mode) ───
+// Quando attiva: disattiva push automatici (DRIVE_DELTA accumula ma non viene
+// schedulato), disattiva polling, ma fa UN safety pull all'apertura per
+// scaricare modifiche da altri device. L'utente push/pull esplicitamente
+// con i 2 pulsanti topbar ☁️⬆ e ☁️⬇.
+
+function driveSetLocalMode(enabled){
+  var was = !!DRIVE_STATE.localMode;
+  DRIVE_STATE.localMode = !!enabled;
+  try {
+    if(DRIVE_STATE.localMode){
+      localStorage.setItem(DRIVE_LOCAL_MODE_KEY, '1');
+    } else {
+      localStorage.removeItem(DRIVE_LOCAL_MODE_KEY);
+    }
+  } catch(e){
+    console.warn('[drive] cannot persist localMode', e && e.message);
+  }
+  if(DRIVE_STATE.localMode && !was){
+    // Appena attivato: fermo il polling automatico
+    drivePollingStop();
+    // Cancello eventuale debounced push pending
+    if(DRIVE_STATE.scheduledTimer){
+      clearTimeout(DRIVE_STATE.scheduledTimer);
+      DRIVE_STATE.scheduledTimer = null;
+    }
+    console.info('[drive] Modalità Locale ATTIVATA — push/pull manuali');
+  } else if(!DRIVE_STATE.localMode && was){
+    // Appena disattivato: riavvio il polling se l'utente lo aveva configurato > 0
+    if(DRIVE_STATE.pollIntervalMin > 0){
+      drivePollingStart();
+    }
+    // Se DRIVE_DELTA ha modifiche pending, schedula un push
+    if(typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size && DRIVE_DELTA.size() > 0){
+      if(typeof _driveScheduleSave === 'function') _driveScheduleSave();
+    }
+    console.info('[drive] Modalità Locale DISATTIVATA — push/pull automatici ripresi');
+  }
+  // Aggiorna UI: badge, pulsanti topbar, banner sidebar
+  if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+  if(typeof _driveUpdateTopbarRefreshBtn === 'function') _driveUpdateTopbarRefreshBtn();
+  if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
+}
+
+function driveGetLocalMode(){
+  return !!DRIVE_STATE.localMode;
+}
+
+// V2.10.105: Sistema di stati visivi per i 3 pulsanti sync in topbar
+// (btnDriveRefresh, btnDriveManualPush, btnDriveManualPull).
+// Schema:
+//  - 'idle'    → neutro (rimuove tutte le classi state)
+//  - 'busy'    → giallo lampeggiante (operazione in corso)
+//  - 'success' → verde fisso per 2s, poi auto-reset a idle
+//  - 'error'   → rosso fisso (lampeggio lento), resetato al prossimo 'success'/'idle'
+// Ogni pulsante ha il proprio timer di auto-reset gestito su window._driveBtnStateTimers.
+function _driveSetBtnState(btnId, state){
+  var btn = document.getElementById(btnId);
+  if(!btn) return;
+
+  // Cleanup eventuale timer di auto-reset precedente per questo pulsante.
+  // Senza questo, un success → success rapido lascerebbe il primo timer attivo
+  // che resetterebbe il pulsante mentre è ancora in success.
+  if(!window._driveBtnStateTimers) window._driveBtnStateTimers = {};
+  if(window._driveBtnStateTimers[btnId]){
+    clearTimeout(window._driveBtnStateTimers[btnId]);
+    window._driveBtnStateTimers[btnId] = null;
+  }
+
+  // Rimuovo tutte le classi state precedenti
+  btn.classList.remove('btn-state-busy', 'btn-state-success', 'btn-state-error');
+
+  if(state === 'busy'){
+    btn.classList.add('btn-state-busy');
+  } else if(state === 'success'){
+    btn.classList.add('btn-state-success');
+    // Auto-reset a idle dopo 2s. clearTimeout sopra evita race.
+    window._driveBtnStateTimers[btnId] = setTimeout(function(){
+      var b = document.getElementById(btnId);
+      if(b) b.classList.remove('btn-state-success');
+      window._driveBtnStateTimers[btnId] = null;
+    }, 2000);
+  } else if(state === 'error'){
+    btn.classList.add('btn-state-error');
+    // L'error NON ha auto-reset: resta finché un'operazione successiva non chiama
+    // setBtnState('success') o setBtnState('idle') esplicitamente.
+  }
+  // 'idle' = nessuna classe state (già rimosse sopra)
+}
+
+// Helper di convenienza: cicla tutti e 3 i pulsanti per cambiare stato a "tutti"
+// (es. quando si vuole resettare lo stato error globalmente al successo).
+function _driveSetAllBtnsState(state){
+  ['btnDriveRefresh', 'btnDriveManualPush', 'btnDriveManualPull'].forEach(function(id){
+    _driveSetBtnState(id, state);
+  });
+}
+
+// Aggiorna badge "MODALITÀ LOCALE • N modifiche in coda" in sidebar
+// e visibilità/stato dei pulsanti topbar ☁️⬆ ☁️⬇.
+function _driveUpdateLocalModeUI(){
+  var on = !!DRIVE_STATE.localMode;
+  // Badge sidebar
+  var badge = document.getElementById('sb-localmode-badge');
+  if(badge){
+    if(on){
+      var pending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+      var label = pending > 0
+        ? 'MODALITÀ LOCALE • ' + pending + ' modifiche in coda'
+        : 'MODALITÀ LOCALE • allineato';
+      badge.textContent = label;
+      badge.classList.toggle('has-pending', pending > 0);
+      // V2.10.104 fix: il CSS della classe ha display:none; per mostrare devo
+      // imporre un valore inline esplicito, non '' che lascia il CSS a vincere.
+      badge.style.display = 'inline-flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+  // Pulsanti topbar
+  var btnPush = document.getElementById('btnDriveManualPush');
+  var btnPull = document.getElementById('btnDriveManualPull');
+  if(btnPush){
+    btnPush.style.display = on ? '' : 'none';
+    var pending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+    // V2.10.106: la classe has-pending tinge il push di giallo acido (#CCFF00)
+    // quando ci sono modifiche in coda. Lo stato 'busy' (operazione in corso)
+    // prende comunque la precedenza via specificità delle classi btn-state-*.
+    btnPush.classList.toggle('has-pending', pending > 0);
+    btnPush.setAttribute('aria-label',
+      pending > 0
+        ? 'Invia ' + pending + ' modifiche a Drive (☁️⬆)'
+        : 'Invia modifiche a Drive — nessuna modifica in coda'
+    );
+    btnPush.title = btnPush.getAttribute('aria-label');
+  }
+  if(btnPull){
+    btnPull.style.display = on ? '' : 'none';
+    btnPull.title = 'Scarica modifiche da Drive (☁️⬇)';
+    btnPull.setAttribute('aria-label', btnPull.title);
+  }
+  // V2.10.105: in Modalità Locale il pulsante Refresh resta visibile ma è
+  // disabilitato visivamente (grigio + cursor not-allowed + pointer-events:none).
+  // Il pull manuale ora si fa via ☁️⬇.
+  var btnRefresh = document.getElementById('btnDriveRefresh');
+  if(btnRefresh){
+    btnRefresh.classList.toggle('is-locked-localmode', on);
+    if(on){
+      btnRefresh.title = 'Disabilitato in Modalità Locale — usa ☁️⬇ per scaricare da Drive';
+      btnRefresh.setAttribute('aria-disabled', 'true');
+    } else {
+      btnRefresh.title = 'Sincronizza ora con Google Drive (scarica prodotti, preventivi, clienti, servizi più aggiornati)';
+      btnRefresh.removeAttribute('aria-disabled');
+    }
+  }
+}
+
+// Azione utente: pulsante ☁️⬆ "Push to Drive Now"
+async function driveManualPush(btn){
+  if(!DRIVE_STATE.url){
+    alert('Drive non configurato.');
+    return;
+  }
+  if(DRIVE_STATE.syncing){
+    console.info('[drive] manual push: sync già in corso, ignoro');
+    return;
+  }
+  var pending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+  if(pending === 0){
+    if(typeof toast === 'function'){
+      toast('Nessuna modifica in coda da inviare', 'info');
+    }
+    return;
+  }
+  // V2.10.105: stato visivo busy (giallo lampeggiante)
+  _driveSetBtnState('btnDriveManualPush', 'busy');
+  try {
+    if(typeof _driveSendDelta === 'function'){
+      await _driveSendDelta();
+    } else if(typeof driveSaveFullSync === 'function'){
+      await driveSaveFullSync();
+    }
+    // Success: verde flash 2s
+    _driveSetBtnState('btnDriveManualPush', 'success');
+    if(typeof toast === 'function'){
+      toast('Modifiche inviate a Drive', 'success');
+    }
+  } catch(e){
+    console.warn('[drive] manual push failed:', e && e.message);
+    // Error: rosso fisso (resta finché prossima op success)
+    _driveSetBtnState('btnDriveManualPush', 'error');
+    if(typeof toast === 'function'){
+      toast('Push fallito: ' + (e && e.message ? e.message : 'errore'), 'error');
+    }
+  } finally {
+    if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
+  }
+}
+
+// Azione utente: pulsante ☁️⬇ "Pull from Drive Now"
+async function driveManualPull(btn){
+  if(!DRIVE_STATE.url){
+    alert('Drive non configurato.');
+    return;
+  }
+  if(DRIVE_STATE.syncing){
+    console.info('[drive] manual pull: sync già in corso, ignoro');
+    return;
+  }
+  // V2.10.105: stato visivo busy (giallo lampeggiante)
+  _driveSetBtnState('btnDriveManualPull', 'busy');
+  try {
+    if(typeof driveForcePullAll === 'function'){
+      // V2.10.110: passo showProgressDialog=true così l'utente vede la stessa UI
+      // del pulsante "Scarica da Drive" della Card B3.
+      await driveForcePullAll(null, { showProgressDialog: true });
+    } else if(typeof driveAutoLoadIfNewer === 'function'){
+      await driveAutoLoadIfNewer();
+    }
+    _driveSetBtnState('btnDriveManualPull', 'success');
+    if(typeof toast === 'function'){
+      toast('Pull da Drive completato', 'success');
+    }
+  } catch(e){
+    console.warn('[drive] manual pull failed:', e && e.message);
+    _driveSetBtnState('btnDriveManualPull', 'error');
+    if(typeof toast === 'function'){
+      toast('Pull fallito: ' + (e && e.message ? e.message : 'errore'), 'error');
+    }
+  } finally {
+    if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
+  }
+}
+
+// Safety pull all'apertura (1 volta per sessione). Chiamato da init() quando
+// localMode è attivo, per evitare di lavorare su DATA stantio rispetto a Drive.
+// V2.10.111: usa driveForcePullAll con ProgressDialog visibile, così l'utente
+// sa che sta partendo un sync e cosa sta facendo l'app (richiesta esplicita Andrea).
+async function _driveSafetyPullOnOpen(){
+  if(DRIVE_STATE.safetyPullDone) return;
+  if(!DRIVE_STATE.url) return;
+  DRIVE_STATE.safetyPullDone = true;
+  console.info('[drive] safety pull all\'apertura (modalità locale)');
+  try {
+    if(typeof driveForcePullAll === 'function'){
+      // Riusa la stessa UX del pulsante ☁️⬇ con dialog di avanzamento
+      await driveForcePullAll(null, { showProgressDialog: true });
+    } else {
+      // Fallback: senza driveForcePullAll, usa le funzioni dirette
+      if(typeof _driveSyncTargetedBootstrap === 'function'){
+        await _driveSyncTargetedBootstrap();
+      }
+      if(typeof driveAutoLoadIfNewer === 'function'){
+        await driveAutoLoadIfNewer();
+      }
+    }
+  } catch(e){
+    console.warn('[drive] safety pull fallito (non bloccante):', e && e.message);
+  }
+}
+
 // Salva l'intervallo polling in localStorage e (re)avvia il timer.
 // Valori ammessi: 0 (off), 1, 3, 5, 10 minuti.
 function driveSetPollInterval(minutes){
@@ -14804,6 +15428,12 @@ function driveGetPollInterval(){
 function drivePollingStart(){
   // Cleanup eventuale timer precedente
   drivePollingStop();
+  // V2.10.103: in modalità locale il polling automatico è disattivato.
+  // L'utente fa pull esplicito col pulsante ☁️⬇.
+  if(DRIVE_STATE.localMode){
+    console.info('[drive] polling skip: modalità locale attiva');
+    return;
+  }
   var min = DRIVE_STATE.pollIntervalMin || 0;
   if(min <= 0) return;             // polling disabilitato
   if(!DRIVE_STATE.url) return;     // Drive non configurato
@@ -14852,10 +15482,16 @@ async function drivePollingTick(){
   if(DRIVE_DELTA && typeof DRIVE_DELTA.size === 'function' && DRIVE_DELTA.size() > 0) return;
 
   DRIVE_STATE.pollLastCheckAt = new Date().toISOString();
+  // V2.10.105: stato visivo busy (lampeggio giallo) durante il tick
+  if(typeof _driveSetBtnState === 'function'){
+    _driveSetBtnState('btnDriveRefresh', 'busy');
+  }
+  var _tickHadError = false;
   try {
     var decision = await driveCheckRemoteAndDecide();
     if(!decision){
       DRIVE_STATE.pollLastResult = 'error';
+      _tickHadError = true;
       return;
     }
     if(decision.action === 'in-sync'){
@@ -14886,7 +15522,15 @@ async function drivePollingTick(){
     return;
   } catch(e){
     DRIVE_STATE.pollLastResult = 'error';
+    _tickHadError = true;
     console.warn('[drive] polling tick failed:', e && e.message ? e.message : e);
+  } finally {
+    // V2.10.105: stato finale del Refresh dopo il tick.
+    // Success (verde flash 2s) anche per 'in-sync' (significa: check eseguito ok).
+    // Error (rosso fisso) se c'è stato qualsiasi errore.
+    if(typeof _driveSetBtnState === 'function'){
+      _driveSetBtnState('btnDriveRefresh', _tickHadError ? 'error' : 'success');
+    }
   }
 }
 
@@ -14920,7 +15564,11 @@ function _driveAttachVisibilityListener(){
 // Usato dal pulsante "Forza pull da Drive" nelle impostazioni E dal pulsante Refresh in topbar.
 // Salta il check timestamp e usa un flag "force" che reset localmente i ts targeted
 // così la condizione "fresh device" scatta sicuramente.
-async function driveForcePullAll(btn){
+// V2.10.110: aggiunto parametro opzionale `options.showProgressDialog` per mostrare
+// la stessa UI ProgressDialog di "Carica da Google Drive" della Card B3 anche dal
+// pulsante topbar ☁️⬇.
+async function driveForcePullAll(btn, options){
+  options = options || {};
   if(!DRIVE_STATE.url){
     if(typeof toast === 'function') toast('Drive non configurato', 'warn', 3000);
     return;
@@ -14944,17 +15592,46 @@ async function driveForcePullAll(btn){
       btn.innerHTML = '⏳ Scarico...';
     }
   }
+  // V2.10.105: stato visivo busy (giallo lampeggiante) sul Refresh topbar.
+  // Anche se il chiamante non passa il btn, evidenzio il pulsante topbar.
+  if(typeof _driveSetBtnState === 'function'){
+    _driveSetBtnState('btnDriveRefresh', 'busy');
+  }
+  // V2.10.110: ProgressDialog opzionale (usato dal pulsante topbar ☁️⬇ in Modalità Locale).
+  // Riusa la stessa UI di driveUiDownloadFromDrive (Card B3 → "Scarica da Drive").
+  let dlg = null;
+  if(options.showProgressDialog && typeof ProgressDialog !== 'undefined'){
+    dlg = ProgressDialog.open({
+      title: 'Carica da Google Drive',
+      subtitle: 'Recupero del database remoto',
+      icon: '☁️⬇️',
+      accent: 'green',
+      phases: ['master', 'targeted', 'finalize'],
+      phaseLabels: {
+        master:   'Master DB',
+        targeted: 'Preventivi/Clienti/Servizi',
+        finalize: 'Applicazione'
+      },
+      showStats: true,
+      initialPhaseText: 'Connessione a Google Drive…',
+      warning: 'Non chiudere questa finestra durante il trasferimento.'
+    });
+    dlg.setIndeterminate && dlg.setIndeterminate();
+  }
+  const _dlgT0 = Date.now();
   let errors = [];
   try {
     // 1) Forza il pull del master: bypassa COMPLETAMENTE driveCheckRemoteAndDecide
     // (che ha il bug del confronto con gp_last_backup_at quando lastRemoteTs è null).
     // Chiamiamo direttamente driveLoadRaw + driveApplyRemoteData, esattamente come
     // farebbe un sync "fidati e scarica" senza condizioni.
+    if(dlg){ dlg.setPhase('master', 'Download del database principale…'); dlg.log && dlg.log('Connessione a Google Apps Script', 'info'); }
     try {
       const remoteData = await driveLoadRaw();
       if(remoteData && remoteData.data){
         const localCount = DATA.length;
         const remoteCount = (remoteData.data.data || []).length;
+        if(dlg && dlg.log) dlg.log('Ricevuti ' + remoteCount.toLocaleString('it-IT') + ' prodotti da Drive', 'ok');
         // Soglia di sicurezza: se remote ha MOLTO meno del locale, chiedi conferma.
         // (preserva il safety check anti-data-loss originario)
         if(remoteCount < localCount * (1 - DRIVE_CONFLICT_THRESHOLD) && localCount > 0){
@@ -15004,6 +15681,7 @@ async function driveForcePullAll(btn){
     //    era vuoto, perdevamo definitivamente i dati locali. Adesso lascio gli array
     //    in-memory intatti: _driveSyncTargetedOne deciderà internamente cosa
     //    sovrascrivere in base al confronto ts + count remoto.
+    if(dlg){ dlg.setPhase('targeted', 'Download preventivi, clienti, servizi…'); dlg.log && dlg.log('Pull dei 3 file targeted', 'info'); }
     try {
       for(const t of ['quotesArchive','clients','services']){
         try { localStorage.removeItem('gp_drive_targeted_ts_' + t); } catch(_){}
@@ -15013,6 +15691,8 @@ async function driveForcePullAll(btn){
       errors.push('targeted: ' + (eT && eT.message ? eT.message : eT));
     }
 
+    // 3) Finalizzazione UI
+    if(dlg){ dlg.setPhase('finalize', 'Applicazione dei dati e refresh interfaccia…'); }
     // Re-render UI rilevanti dopo i nuovi dati
     if(typeof updateTopbarShortcuts === 'function') updateTopbarShortcuts();
     // V2.10.98: aggiorna anche icona Servizi (dipende da _SERVICES_STATE)
@@ -15034,6 +15714,48 @@ async function driveForcePullAll(btn){
         toast('⚠ Refresh completato con errori: ' + errors.join(' · '), 'warn', 6000);
       }
     }
+    // V2.10.110: card finale di successo (solo se dialog era aperto)
+    if(dlg){
+      const elapsedSec = (Date.now() - _dlgT0) / 1000;
+      if(errors.length === 0){
+        dlg.complete({
+          icon: '✓',
+          title: 'Caricamento completato',
+          summary: 'I dati di Google Drive sono stati caricati nell\'applicazione.',
+          stats: [
+            ['Prodotti caricati', DATA.length.toLocaleString('it-IT')],
+            ['Modifiche', Object.keys(EDITS).length.toLocaleString('it-IT')],
+            ['Tempo totale', _driveFormatDuration(elapsedSec)]
+          ]
+        });
+      } else {
+        dlg.fail({
+          title: 'Caricamento completato con avvisi',
+          message: 'Alcune fonti non sono state aggiornate correttamente.',
+          detail: errors.join('\n')
+        });
+      }
+    }
+    // V2.10.105: stato visivo finale del Refresh topbar
+    if(typeof _driveSetBtnState === 'function'){
+      _driveSetBtnState('btnDriveRefresh', errors.length === 0 ? 'success' : 'error');
+    }
+  } catch(eMain){
+    // V2.10.105: errore fatale → stato rosso
+    if(typeof _driveSetBtnState === 'function'){
+      _driveSetBtnState('btnDriveRefresh', 'error');
+    }
+    // V2.10.110: chiudo il ProgressDialog (se aperto) con stato di errore
+    if(dlg){
+      try {
+        dlg.fail({
+          title: 'Caricamento fallito',
+          message: 'Errore durante il pull da Drive.',
+          detail: (eMain && eMain.message) ? eMain.message : String(eMain)
+        });
+      } catch(_){}
+    }
+    throw eMain;
   } finally {
     if(btn){
       btn.disabled = false;
@@ -17745,6 +18467,47 @@ async function driveRenderSettingsPanel(){
     '</div>';
 
   // ───────── CARD B3: MODALITÀ DI SINCRONIZZAZIONE ─────────
+  // V2.10.112: 3 radio mutuamente esclusivi (Manuale, Automatica, Locale)
+  // con conferma esplicita via pulsante "Applica". Se la scelta non è ancora
+  // confermata, _drivePendingUnifiedMode contiene il valore selezionato.
+  const _unifiedCurrent = (typeof driveGetUnifiedMode === 'function')
+    ? driveGetUnifiedMode()
+    : (DRIVE_STATE.localMode ? 'local' : (mode === 'auto' ? 'auto' : 'manual'));
+  const _unifiedPending = window._drivePendingUnifiedMode || null;
+  const _unifiedSelected = _unifiedPending || _unifiedCurrent;
+  const _hasPending = _unifiedPending !== null && _unifiedPending !== _unifiedCurrent;
+  const _pendingDelta = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+  // Warning solo se siamo in 'local' e stiamo passando a manual/auto con modifiche in coda
+  const _showPendingWarning = _hasPending && _unifiedCurrent === 'local' && _pendingDelta > 0;
+
+  // Pillola di stato (top-right della card)
+  let _pillLabel, _pillClass;
+  if(_unifiedCurrent === 'auto'){ _pillLabel = 'Automatica'; _pillClass = 'ok'; }
+  else if(_unifiedCurrent === 'local'){ _pillLabel = 'Modalità Locale'; _pillClass = 'warn'; }
+  else { _pillLabel = 'Manuale'; _pillClass = 'muted'; }
+
+  // Helper per costruire una "card radio"
+  function _renderUnifiedRadio(val, emoji, title, desc){
+    const isSelected = _unifiedSelected === val;
+    const isApplied = _unifiedCurrent === val;
+    const isPending = _hasPending && _unifiedPending === val;
+    let classes = 'bks-mode-card';
+    if(isApplied && !_hasPending) classes += ' active';
+    if(isPending) classes += ' pending';
+    return '<label class="' + classes + '">' +
+      '<input type="radio" name="driveUnifiedMode" value="' + val + '" ' +
+        (isSelected ? 'checked' : '') + ' ' +
+        'onchange="driveStageUnifiedMode(\'' + val + '\')">' +
+      '<div class="bks-mode-card-text">' +
+        '<div class="bks-mode-card-title">' + emoji + ' ' + title +
+          (isApplied && !_hasPending ? ' <span style="font-size:10px;color:#22c55e;margin-left:6px">● ATTIVA</span>' : '') +
+          (isPending ? ' <span style="font-size:10px;color:#3B82F6;margin-left:6px">◉ IN ATTESA</span>' : '') +
+        '</div>' +
+        '<div class="bks-mode-card-desc">' + desc + '</div>' +
+      '</div>' +
+    '</label>';
+  }
+
   html +=
     '<div class="bks-card ' + (!enabled ? 'disabled' : '') + '">' +
       '<div class="bks-card-head">' +
@@ -17752,38 +18515,57 @@ async function driveRenderSettingsPanel(){
         '<div class="bks-card-title">Modalità di sincronizzazione' +
           '<small>Scegli quando i dati vengono inviati a Drive</small>' +
         '</div>' +
-        '<span class="bks-pill ' + (mode === 'auto' ? 'ok' : 'muted') + '">' +
+        '<span class="bks-pill ' + _pillClass + '">' +
           '<span class="bks-pill-dot"></span>' +
-          (mode === 'auto' ? 'Automatica' : 'Manuale') +
+          _pillLabel +
         '</span>' +
       '</div>' +
       '<div class="bks-card-body">' +
-        '<div class="bks-mode-grid">' +
-          '<label class="bks-mode-card ' + (mode==='manual'?'active':'') + '">' +
-            '<input type="radio" name="driveMode" value="manual" ' +
-              (mode==='manual'?'checked':'') + ' ' +
-              'onchange="driveSetMode(\'manual\'); driveRenderSettingsPanel()">' +
-            '<div class="bks-mode-card-text">' +
-              '<div class="bks-mode-card-title">🟡 Manuale</div>' +
-              '<div class="bks-mode-card-desc">' +
-                'Nessun sync automatico. Sincronizzi quando vuoi cliccando "Sincronizza ora". ' +
-                '<b>Ottimale per evitare consumo dati</b> su mobile o connessioni lente.' +
-              '</div>' +
-            '</div>' +
-          '</label>' +
-          '<label class="bks-mode-card ' + (mode==='auto'?'active':'') + '">' +
-            '<input type="radio" name="driveMode" value="auto" ' +
-              (mode==='auto'?'checked':'') + ' ' +
-              'onchange="driveSetMode(\'auto\'); driveRenderSettingsPanel()">' +
-            '<div class="bks-mode-card-text">' +
-              '<div class="bks-mode-card-title">🟢 Automatica</div>' +
-              '<div class="bks-mode-card-desc">' +
-                'Sync delta (~3 KB) ogni 3s dopo modifiche. Full sync (~1.5 MB) ogni 100+ modifiche. ' +
-                '<b>Rete sempre attiva.</b>' +
-              '</div>' +
-            '</div>' +
-          '</label>' +
+        '<div class="bks-mode-grid bks-mode-grid-3">' +
+          _renderUnifiedRadio('manual', '🟡', 'Manuale',
+            'Nessun sync automatico. Sincronizzi quando vuoi cliccando "Sincronizza ora". ' +
+            '<b>Ottimale per evitare consumo dati</b> su mobile o connessioni lente.') +
+          _renderUnifiedRadio('auto', '🟢', 'Automatica',
+            'Sync delta (~3 KB) ogni 3s dopo modifiche. Full sync (~1.5 MB) ogni 100+ modifiche. ' +
+            '<b>Rete sempre attiva.</b>') +
+          _renderUnifiedRadio('local', '🟠', 'Locale (offline-first)',
+            'Lavora <b>solo in locale</b> per massima velocità. Push e pull automatici disattivati. ' +
+            'Le modifiche restano nel buffer finché clicchi <b>☁️⬆ Invia a Drive</b> in topbar.') +
         '</div>' +
+        // V2.10.112: barretta di conferma inline (visibile solo se c'è pending)
+        (_hasPending
+          ? '<div class="bks-mode-confirm-bar">' +
+              (_showPendingWarning
+                ? '<div class="bks-mode-warning">' +
+                    '⚠ Hai <b>' + _pendingDelta + ' modific' + (_pendingDelta===1?'a':'he') + ' in coda</b>. ' +
+                    'Cambiando modalità ' +
+                    (_unifiedPending === 'auto'
+                      ? 'verranno inviate <b>automaticamente</b> a Drive entro pochi secondi.'
+                      : 'resteranno nel buffer e potrai sincronizzarle col pulsante "Sincronizza ora".') +
+                  '</div>'
+                : ''
+              ) +
+              '<div class="bks-mode-confirm-actions">' +
+                '<div class="bks-mode-confirm-msg">' +
+                  '⏳ Cambio modalità in attesa di conferma: <b>' +
+                  (_unifiedPending === 'auto' ? 'Automatica' : _unifiedPending === 'local' ? 'Locale' : 'Manuale') +
+                  '</b>' +
+                '</div>' +
+                '<div class="bks-mode-confirm-btns">' +
+                  '<button type="button" class="btn-pill subtle" onclick="driveCancelUnifiedMode()">Annulla</button>' +
+                  '<button type="button" class="btn-pill primary" onclick="driveConfirmUnifiedMode()">Applica</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>'
+          : ''
+        ) +
+        // V2.10.112: hint informativo permanente sulla modalità Locale attiva
+        (_unifiedCurrent === 'local' && !_hasPending
+          ? '<div style="margin-top:12px;padding:10px 12px;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,.30);border-radius:7px;font-size:11px;color:#eab308;font-weight:500">' +
+              '⚠ Modalità Locale attiva — ricordati di sincronizzare prima di chiudere il browser.' +
+            '</div>'
+          : ''
+        ) +
         // V2.10.94: sezione "Pull automatico" — controllo separato dal push.
         // Risolve il bug multi-device: ogni N minuti il client controlla se altri device
         // hanno aggiornato Drive e in caso scarica automaticamente.
@@ -17798,7 +18580,9 @@ async function driveRenderSettingsPanel(){
               '</div>' +
             '</div>' +
             '<select id="drive-poll-interval" onchange="driveSetPollInterval(this.value); driveRenderSettingsPanel()" ' +
-              'style="background:var(--bg2);color:var(--fg);border:1px solid var(--bd);padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;min-width:130px">' +
+              (DRIVE_STATE.localMode ? 'disabled ' : '') +
+              'style="background:var(--bg2);color:var(--fg);border:1px solid var(--bd);padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;min-width:130px' +
+              (DRIVE_STATE.localMode ? ';opacity:0.45;cursor:not-allowed' : '') + '">' +
               '<option value="0"'  + (DRIVE_STATE.pollIntervalMin === 0  ? ' selected' : '') + '>🔴 Disattivato</option>' +
               '<option value="1"'  + (DRIVE_STATE.pollIntervalMin === 1  ? ' selected' : '') + '>Ogni 1 minuto</option>' +
               '<option value="3"'  + (DRIVE_STATE.pollIntervalMin === 3  ? ' selected' : '') + '>Ogni 3 minuti</option>' +
@@ -42652,17 +43436,44 @@ async function init(){
   // V2.2.38: inizializza Drive Sync (legge URL/modalità da localStorage, aggiorna badge)
   try {
     driveInit();
-    // Auto-load: se Drive è configurato, inizializzato e online → controlla se ha modifiche più recenti
-    if(DRIVE_STATE.url && DRIVE_STATE.initialized){
-      // Asincrono, non bloccante: l'app si avvia con dati locali, poi Drive fa l'update se serve
-      driveAutoLoadIfNewer().catch(e => console.warn('[drive] auto-load failed', e));
-    }
-    // V2.10.94: avvia il polling automatico multi-device (se configurato e abilitato)
-    if(DRIVE_STATE.url && DRIVE_STATE.initialized && DRIVE_STATE.enabled && DRIVE_STATE.pollIntervalMin > 0){
-      drivePollingStart();
+    // V2.10.103: se modalità locale ON, fa UN safety pull (asincrono) e NON avvia polling.
+    // Altrimenti: comportamento auto storico.
+    if(DRIVE_STATE.localMode){
+      if(DRIVE_STATE.url && DRIVE_STATE.initialized){
+        // Asincrono, non bloccante. Singolo pull all'apertura.
+        if(typeof _driveSafetyPullOnOpen === 'function'){
+          _driveSafetyPullOnOpen().catch(e => console.warn('[drive] safety pull failed', e));
+        }
+      }
+      console.info('[drive] init: modalità locale, no polling automatico');
+    } else {
+      // Auto-load: se Drive è configurato, inizializzato e online → controlla se ha modifiche più recenti
+      if(DRIVE_STATE.url && DRIVE_STATE.initialized){
+        // Asincrono, non bloccante: l'app si avvia con dati locali, poi Drive fa l'update se serve
+        driveAutoLoadIfNewer().catch(e => console.warn('[drive] auto-load failed', e));
+      }
+      // V2.10.94: avvia il polling automatico multi-device (se configurato e abilitato)
+      if(DRIVE_STATE.url && DRIVE_STATE.initialized && DRIVE_STATE.enabled && DRIVE_STATE.pollIntervalMin > 0){
+        drivePollingStart();
+      }
     }
     // Listener visibilitychange per check immediato al ritorno dal background
     _driveAttachVisibilityListener();
+    // V2.10.103: aggiorna UI Modalità Locale (badge sidebar + pulsanti topbar)
+    if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
+    // V2.10.103: warning beforeunload se modalità locale ON e ci sono modifiche pending.
+    // Evita perdite di lavoro accidentali chiudendo il tab senza pushare.
+    window.addEventListener('beforeunload', function(e){
+      if(!DRIVE_STATE.localMode) return;
+      var pending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+      if(pending > 0){
+        // Standard browser confirm dialog. Il browser ignora il testo custom
+        // dal 2018+ ma serve restituire una stringa non vuota per attivare il prompt.
+        e.preventDefault();
+        e.returnValue = 'Hai ' + pending + ' modifiche non inviate a Drive. Vuoi davvero uscire?';
+        return e.returnValue;
+      }
+    });
   } catch(e){
     console.warn('[drive] init failed', e);
   }
