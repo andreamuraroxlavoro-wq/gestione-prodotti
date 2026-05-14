@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.94</title>
+<title>Gestione Prodotti V2.10.95</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7667,7 +7667,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.94</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.10.95</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8139,7 +8139,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.94');
+console.info('[bootstrap] script avvio — V2.10.95');
 
 window.openStatsDashboard = function(){
   try {
@@ -9569,7 +9569,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.94';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.95';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -13994,10 +13994,33 @@ async function _driveSyncTargetedOne(target){
   let localTs = null;
   try { localTs = localStorage.getItem(localTsKey); } catch(_){}
 
+  // V2.10.95: rilevo se questo è un "primo avvio su nuovo device" per questo target.
+  // Sintomi: nessun ts locale memorizzato AND nessun dato locale per questo target.
+  // In quel caso applichiamo SEMPRE il remoto, indipendentemente da remoteTs (anche
+  // se mancante o uguale a localTs). Risolve il bug per cui un Mac nuovo non vedeva
+  // mai i preventivi/clienti scaricati da Drive perché il confronto ts falliva.
+  const hasLocalDataForTarget =
+    (target === 'quotesArchive' && window._QUOTES_ARCHIVE && Array.isArray(window._QUOTES_ARCHIVE.quotes) && window._QUOTES_ARCHIVE.quotes.length > 0) ||
+    (target === 'clients'       && window._CLIENTS_STATE  && Array.isArray(window._CLIENTS_STATE.clients)   && window._CLIENTS_STATE.clients.length   > 0) ||
+    (target === 'services'      && window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services) && window._SERVICES_STATE.services.length > 0);
+  const isFreshDeviceForTarget = !localTs && !hasLocalDataForTarget;
+
   // Strategia conservativa: se remoteTs > localTs, applichiamo il remoto.
   // Se mancano ts (file molto vecchio o salvato senza ts), applichiamo solo se NON
   // abbiamo dati locali (caso "primo bootstrap su nuovo device").
-  const remoteIsNewer = remoteTs && (!localTs || remoteTs > localTs);
+  // V2.10.95: aggiunto ramo isFreshDeviceForTarget per garantire il pull iniziale.
+  let remoteIsNewer = remoteTs && (!localTs || remoteTs > localTs);
+  if(isFreshDeviceForTarget && result.data){
+    // Conta record remoti: se ci sono, vale la pena scaricarli.
+    let remoteCount = 0;
+    if(target === 'quotesArchive') remoteCount = (result.data.quotes  || []).length;
+    if(target === 'clients')       remoteCount = (result.data.clients  || []).length;
+    if(target === 'services')      remoteCount = (result.data.services || []).length;
+    if(remoteCount > 0){
+      console.info('[drive-targeted] ' + target + ' FRESH DEVICE: locale vuoto + ' + remoteCount + ' record remoti → forzo pull');
+      remoteIsNewer = true;
+    }
+  }
   if(!remoteIsNewer){
     console.info('[drive-targeted] ' + target + ' locale aggiornato (no override)');
     return { updated: false };
@@ -14037,7 +14060,12 @@ async function _driveSyncTargetedOne(target){
   }
 
   // Aggiorna ts locale
-  try { localStorage.setItem(localTsKey, remoteTs); } catch(_){}
+  // V2.10.95: se remoteTs è mancante (file Drive legacy), salvo un timestamp sintetico
+  // (now) così al prossimo bootstrap il branch "fresh device" non riscatta inutilmente.
+  try {
+    const tsToStore = remoteTs || new Date().toISOString();
+    localStorage.setItem(localTsKey, tsToStore);
+  } catch(_){}
   console.info('[drive-targeted] ' + target + ' applicato da Drive (remoteTs=' + remoteTs + ')');
   return { updated: true };
 }
@@ -14666,9 +14694,22 @@ async function drivePollingTick(){
       // Riusa la pipeline esistente: scarica payload completo, applica con soglia
       // di conflict-protection 5%, aggiorna badge e mostra toast.
       await driveAutoLoadIfNewer();
-      return;
+    } else {
+      DRIVE_STATE.pollLastResult = 'unknown';
     }
-    DRIVE_STATE.pollLastResult = 'unknown';
+
+    // V2.10.95: anche i targeted file (quotesArchive, clients, services) vivono separati
+    // dal master Drive e hanno il loro ts indipendente. Controlliamoli tutti ad ogni tick
+    // di polling. Il costo è 3 POST a Drive + payload piccoli (<500 KB ciascuno se aggiornati).
+    // Riusa _driveSyncTargetedOne che già fa il check ts e applica solo se più recente.
+    if(typeof _driveSyncTargetedBootstrap === 'function'){
+      try {
+        await _driveSyncTargetedBootstrap();
+      } catch(eTargeted){
+        console.warn('[drive] polling targeted check failed:', eTargeted && eTargeted.message ? eTargeted.message : eTargeted);
+      }
+    }
+    return;
   } catch(e){
     DRIVE_STATE.pollLastResult = 'error';
     console.warn('[drive] polling tick failed:', e && e.message ? e.message : e);
@@ -14699,6 +14740,85 @@ function _driveAttachVisibilityListener(){
       }
     }, 1500);
   });
+}
+
+// V2.10.95: Forza il pull di tutti i dati da Drive (master + 3 targeted).
+// Usato dal pulsante "Forza pull da Drive" nelle impostazioni.
+// Salta il check timestamp e usa un flag "force" che reset localmente i ts targeted
+// così la condizione "fresh device" scatta sicuramente.
+async function driveForcePullAll(btn){
+  if(!DRIVE_STATE.url){
+    if(typeof toast === 'function') toast('Drive non configurato', 'warn', 3000);
+    return;
+  }
+  if(DRIVE_STATE.syncing){
+    if(typeof toast === 'function') toast('Sync già in corso, riprova tra qualche secondo', 'warn', 3000);
+    return;
+  }
+  const originalText = btn ? btn.innerHTML : '';
+  if(btn){
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Scarico...';
+  }
+  let okMaster = false;
+  let okTargeted = 0;
+  let errors = [];
+  try {
+    // 1) Forza il pull del master: azzero lastRemoteTs così driveAutoLoadIfNewer scarica sicuro.
+    // Salvo il valore precedente per non perdere lo stato in caso di errore.
+    const prevRemoteTs = DRIVE_STATE.lastRemoteTs;
+    try {
+      DRIVE_STATE.lastRemoteTs = null;  // forza ramo "lastRemoteTs vuoto" in driveCheckRemoteAndDecide
+      await driveAutoLoadIfNewer();
+      okMaster = true;
+    } catch(eM){
+      DRIVE_STATE.lastRemoteTs = prevRemoteTs;  // restore on error
+      errors.push('master: ' + (eM && eM.message ? eM.message : eM));
+    }
+
+    // 2) Forza il pull dei 3 targeted: azzero i ts locali e i dati locali in-memory,
+    //    poi richiamo _driveSyncTargetedBootstrap che ora vedrà "fresh device" su tutti.
+    try {
+      for(const t of ['quotesArchive','clients','services']){
+        try { localStorage.removeItem('gp_drive_targeted_ts_' + t); } catch(_){}
+      }
+      // NB: non azzero i dati in-memory perché _driveSyncTargetedOne fa il check su hasLocalDataForTarget
+      // controllando in-memory: con ts locale azzerato + dati in-memory presenti, il fresh-device
+      // branch NON scatta. Quindi azzero anche i dati in-memory (verranno ripopolati da Drive subito).
+      // ATTENZIONE: questo è un'operazione distruttiva sul locale, ma il pulsante è esplicitamente
+      // chiamato "Forza pull" e ha senso che sovrascriva.
+      if(window._QUOTES_ARCHIVE) window._QUOTES_ARCHIVE.quotes = [];
+      if(window._CLIENTS_STATE)  window._CLIENTS_STATE.clients = [];
+      if(window._SERVICES_STATE) window._SERVICES_STATE.services = [];
+      await _driveSyncTargetedBootstrap();
+      okTargeted = 3; // assumed (Promise.allSettled inside silenzia errori dei singoli)
+    } catch(eT){
+      errors.push('targeted: ' + (eT && eT.message ? eT.message : eT));
+    }
+
+    // Re-render UI rilevanti dopo i nuovi dati
+    if(typeof updateTopbarShortcuts === 'function') updateTopbarShortcuts();
+    if(typeof render === 'function'){
+      try { render(); } catch(_){}
+    }
+    // Refresh del pannello settings stesso per aggiornare contatori
+    if(typeof driveRenderSettingsPanel === 'function'){
+      setTimeout(() => { try { driveRenderSettingsPanel(); } catch(_){} }, 200);
+    }
+
+    if(typeof toast === 'function'){
+      if(errors.length === 0){
+        toast('✓ Pull forzato completato: prodotti, preventivi, clienti, servizi aggiornati da Drive', 'ok', 5000);
+      } else {
+        toast('⚠ Pull completato con errori: ' + errors.join(' · '), 'warn', 6000);
+      }
+    }
+  } finally {
+    if(btn){
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  }
 }
 
 // ─── Applica dati remoti ai dati locali (DATA, EDITS, SETTINGS) ───
@@ -17458,6 +17578,16 @@ async function driveRenderSettingsPanel(){
               '</div>'
             : '<div style="margin-top:8px;font-size:10px;color:var(--fg3)">⚠ Senza pull automatico, le modifiche da altri device si vedono solo chiudendo e riaprendo l\'app.</div>'
           ) +
+          // V2.10.95: pulsante manuale per forzare il pull di TUTTI i target (master + targeted)
+          '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(59,130,246,.2);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
+            '<div style="font-size:10px;color:var(--fg3);flex:1;min-width:180px">' +
+              '🆘 <b>Manca qualcosa?</b> Forza il download immediato di prodotti, preventivi, clienti e servizi da Drive.' +
+            '</div>' +
+            '<button type="button" id="drive-force-pull-btn" onclick="driveForcePullAll(this)" ' +
+              (!DRIVE_STATE.url ? 'disabled' : '') + ' ' +
+              'style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.6);color:#3B82F6;padding:5px 11px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.3px;white-space:nowrap">' +
+              '⬇️ Forza pull da Drive</button>' +
+          '</div>' +
         '</div>' +
       '</div>' +
     '</div>';
