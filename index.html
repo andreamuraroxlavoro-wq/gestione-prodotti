@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.99</title>
+<title>Gestione Prodotti V2.10.100</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7686,7 +7686,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.99</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.10.100</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8168,7 +8168,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.99');
+console.info('[bootstrap] script avvio — V2.10.100');
 
 window.openStatsDashboard = function(){
   try {
@@ -9598,7 +9598,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.99';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.100';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -14077,6 +14077,14 @@ async function _driveSyncTargetedBootstrap(){
   });
   if(updated > 0){
     console.info('[drive-targeted] bootstrap: ' + updated + ' target aggiornati da Drive');
+    // V2.10.99: dopo aver caricato i servizi dal file targeted, sincronizzo gli shadow
+    // products in DATA. Senza questo, un device che riceve un servizio nuovo via Drive
+    // non vedrebbe lo shadow corrispondente nella galleria.
+    if(typeof _syncAllShadowsFromArchive === 'function'){
+      try { await _syncAllShadowsFromArchive(); } catch(e){
+        console.warn('[drive-targeted] _syncAllShadowsFromArchive failed:', e && e.message ? e.message : e);
+      }
+    }
     // Trigger re-render leggero di eventuali UI aperte
     if(typeof updateTopbarShortcuts === 'function') updateTopbarShortcuts();
     // V2.10.98: aggiorno anche i badge filtri speciali — l'icona Servizi
@@ -30392,18 +30400,40 @@ async function _syncShadowForService(svcOrId){
   const shadowCode = 'SVC-' + id;
   const idx = DATA.findIndex(p => p && p.name === shadowCode);
 
+  // V2.10.99: prima di mutare DATA, registriamo la modifica per il sync Drive.
+  // Senza questo, lo shadow product viene salvato solo localmente in IDB ma mai
+  // pushato a Drive, causando disallineamento permanente tra device.
+  let driveOp = null;       // 'upsert' | 'delete' | null
+  let driveRecord = null;
   if(svc){
     if(idx < 0){
-      DATA.push(_serviceToShadowProduct(svc));
+      const newShadow = _serviceToShadowProduct(svc);
+      DATA.push(newShadow);
+      driveOp = 'upsert';
+      driveRecord = newShadow;
     } else {
       // Preservo _idx originale, aggiorno tutto il resto
       DATA[idx] = _serviceToShadowProduct(svc, DATA[idx]._idx);
+      driveOp = 'upsert';
+      driveRecord = DATA[idx];
     }
   } else {
     // Servizio cancellato: rimuovo lo shadow
-    if(idx >= 0) DATA.splice(idx, 1);
+    if(idx >= 0){
+      DATA.splice(idx, 1);
+      driveOp = 'delete';
+      driveRecord = null;
+    }
   }
   await _persistData();
+  // V2.10.99: notifica Drive dello shadow product modificato
+  if(driveOp && typeof driveNotifyChange === 'function'){
+    try {
+      driveNotifyChange('data', shadowCode, driveRecord);
+    } catch(e){
+      console.warn('[servizi] driveNotifyChange shadow failed:', e && e.message ? e.message : e);
+    }
+  }
 }
 
 /* V2.10.65: sincronizza TUTTI gli shadow al bootstrap (e dopo sync Drive).
@@ -30416,6 +30446,8 @@ async function _syncAllShadowsFromArchive(){
   const services = window._SERVICES_STATE.services;
   const serviceIds = new Set(services.map(s => s && s.id).filter(Boolean));
   let added = 0, updated = 0, removed = 0;
+  // V2.10.99: lista delle modifiche da notificare a Drive dopo il sync
+  const driveChanges = [];
 
   // 1. Per ogni servizio in archivio, garantisco lo shadow aggiornato
   services.forEach(svc => {
@@ -30423,8 +30455,10 @@ async function _syncAllShadowsFromArchive(){
     const shadowCode = 'SVC-' + svc.id;
     const idx = DATA.findIndex(p => p && p.name === shadowCode);
     if(idx < 0){
-      DATA.push(_serviceToShadowProduct(svc));
+      const newShadow = _serviceToShadowProduct(svc);
+      DATA.push(newShadow);
       added++;
+      driveChanges.push({ code: shadowCode, record: newShadow, op: 'upsert' });
     } else {
       // Aggiorno solo se differiscono i campi chiave (evito write inutili)
       const cur = DATA[idx];
@@ -30434,6 +30468,7 @@ async function _syncAllShadowsFromArchive(){
       if(changed){
         DATA[idx] = fresh;
         updated++;
+        driveChanges.push({ code: shadowCode, record: fresh, op: 'upsert' });
       }
     }
   });
@@ -30442,14 +30477,28 @@ async function _syncAllShadowsFromArchive(){
   for(let i = DATA.length - 1; i >= 0; i--){
     const p = DATA[i];
     if(p && p.isService === true && p.serviceId && !serviceIds.has(p.serviceId)){
+      const orphanCode = p.name;
       DATA.splice(i, 1);
       removed++;
+      driveChanges.push({ code: orphanCode, record: null, op: 'delete' });
     }
   }
 
   if(added > 0 || updated > 0 || removed > 0){
     console.info(`[servizi] sync shadow: +${added} aggiunti, ~${updated} aggiornati, -${removed} rimossi`);
     await _persistData();
+    // V2.10.99: notifico Drive di tutte le modifiche shadow.
+    // Questo garantisce che gli shadow products vengano sincronizzati col master Drive,
+    // evitando il disallineamento dove un device ha lo shadow e gli altri no.
+    if(typeof driveNotifyChange === 'function'){
+      for(const ch of driveChanges){
+        try {
+          driveNotifyChange('data', ch.code, ch.record);
+        } catch(e){
+          console.warn('[servizi] driveNotifyChange ' + ch.code + ' failed:', e && e.message ? e.message : e);
+        }
+      }
+    }
   }
 }
 
