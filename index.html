@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.92</title>
+<title>Gestione Prodotti V2.10.93</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7667,7 +7667,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <div class="sb-title-block">
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver" id="app-version">Ver. 2.10.92</span>
+    <span class="sb-title-ver" id="app-version">Ver. 2.10.93</span>
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
@@ -8139,7 +8139,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.92');
+console.info('[bootstrap] script avvio — V2.10.93');
 
 window.openStatsDashboard = function(){
   try {
@@ -9569,7 +9569,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.92';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.93';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -14382,7 +14382,24 @@ async function driveCheckRemoteAndDecide(){
 
   // Confronta timestamp
   const lastKnownTs = DRIVE_STATE.lastRemoteTs;
-  if(!lastKnownTs) return { action: 'unknown', remote };
+  if(!lastKnownTs){
+    // V2.10.93: PRIMA APERTURA SU QUESTO BROWSER — non sappiamo se il locale è più
+    // vecchio o più recente di Drive. Per sicurezza assumiamo che Drive contenga
+    // dati validi e scarichiamo. Questo evita di lavorare su dati locali stantii
+    // e poi sovrascrivere Drive (bug multi-device).
+    // Eccezione: se il locale è in uno stato "intoccato" (nessuna modifica pending,
+    // backup recente), confrontiamo i timestamp con l'ultimo backup locale.
+    const localLastBackup = localStorage.getItem('gp_last_backup_at') || null;
+    if(localLastBackup){
+      const remoteIsNewer = new Date(remote.ts).getTime() > new Date(localLastBackup).getTime();
+      if(remoteIsNewer){
+        return { action: 'remote-newer', remote, reason: 'lastRemoteTs vuoto, remote più recente di backup locale' };
+      }
+      return { action: 'in-sync', remote, reason: 'lastRemoteTs vuoto, backup locale più recente di remote' };
+    }
+    // Niente backup locale: fidiamoci di Drive (è il pattern standard cross-device)
+    return { action: 'remote-newer', remote, reason: 'prima apertura, nessun riferimento locale' };
+  }
 
   const remoteIsNewer = new Date(remote.ts).getTime() > new Date(lastKnownTs).getTime();
   if(!remoteIsNewer){
