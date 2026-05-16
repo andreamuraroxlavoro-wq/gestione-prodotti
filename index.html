@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.117</title>
+<title>Gestione Prodotti V2.10.139</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -1944,6 +1944,290 @@ body.theme-light .topbar-pills-bar{
 .special-views-group{
   margin-bottom:14px;
 }
+
+/* V2.10.118 — Sezione "Ricerca per parametri tecnici" nella sidebar.
+   V2.10.125: redesign con colori ESPLICITI (no var dipendenti dalla sidebar)
+   per garantire leggibilità in ogni contesto. Identità: viola #a78bfa per
+   accenti, bianco/grigio chiaro per il testo principale. */
+.prm-filters-group{
+  margin-bottom:14px;
+  margin-top:8px;
+  padding-top:14px;
+  border-top:1px dashed rgba(255,255,255,0.10);
+}
+body.theme-light .prm-filters-group{
+  border-top-color:rgba(0,0,0,0.10);
+}
+.prm-filters-container{
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+}
+
+/* === V2.10.127: REGOLE OVERRIDE ULTRA-SPECIFICHE ===
+   Necessarie perché la sidebar ha regole come `.sb-filter-group label`
+   (riga 1024) che hanno specificità maggiore delle mie `.prm-*`. Uso il
+   prefisso `.app-sidebar` per garantire vittoria nella cascade. */
+.app-sidebar .prm-group-header,
+.app-sidebar .prm-group-header .prm-group-label{
+  color:#ffffff !important;
+  font-size:13px !important;
+  text-transform:capitalize !important;
+  letter-spacing:0.2px !important;
+  font-weight:600 !important;
+}
+.app-sidebar .prm-group.open .prm-group-header,
+.app-sidebar .prm-group.open .prm-group-header .prm-group-label{
+  color:#c4b5fd !important;
+}
+.app-sidebar .prm-value,
+.app-sidebar .prm-value .prm-value-label{
+  color:#ffffff !important;
+  font-size:12px !important;
+  text-transform:none !important;
+  letter-spacing:0.1px !important;
+  font-weight:500 !important;
+}
+.app-sidebar .prm-value-count{
+  color:#a78bfa !important;
+  font-size:11px !important;
+  font-weight:700 !important;
+  text-transform:none !important;
+}
+body.theme-light .app-sidebar .prm-group-header,
+body.theme-light .app-sidebar .prm-group-header .prm-group-label{
+  color:#1a2332 !important;
+}
+body.theme-light .app-sidebar .prm-value,
+body.theme-light .app-sidebar .prm-value .prm-value-label{
+  color:#1a2332 !important;
+}
+
+/* === HEADER SEZIONE — Pillola viola === */
+.prm-section-header{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 14px 7px 12px;
+  cursor:pointer;
+  user-select:none;
+  font-family:-apple-system, 'SF Pro Text', 'Segoe UI', 'Inter', Roboto, sans-serif;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:1px;
+  color:#ffffff;
+  background:linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  text-transform:uppercase;
+  border-radius:20px;
+  box-shadow:0 2px 8px rgba(139,92,246,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+  transition:transform .14s, box-shadow .14s;
+  margin-bottom:4px;
+  align-self:flex-start;
+}
+.prm-section-header:hover{
+  transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(139,92,246,0.50), inset 0 1px 0 rgba(255,255,255,0.20);
+}
+.prm-section-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:16px;
+  height:16px;
+  font-size:14px;
+  font-weight:700;
+  line-height:1;
+  color:#ffffff;
+  background:rgba(255,255,255,0.20);
+  border-radius:50%;
+}
+.prm-section-title{ flex:1; }
+.prm-section-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:20px;
+  height:18px;
+  padding:0 7px;
+  margin-left:2px;
+  border-radius:9px;
+  background:#ffffff;
+  color:#7c3aed;
+  font-size:10px;
+  font-weight:800;
+}
+
+/* === PULSANTE CLEAR === */
+.prm-clear-row{ padding:2px 0 8px; }
+.prm-clear-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  width:100%;
+  padding:7px 10px;
+  border-radius:6px;
+  background:rgba(239,68,68,0.10);
+  border:1px solid rgba(239,68,68,0.30);
+  color:#fca5a5;
+  font-size:11px;
+  font-weight:600;
+  cursor:pointer;
+  letter-spacing:.2px;
+  transition:all .14s;
+  font-family:inherit;
+}
+body.theme-light .prm-clear-btn{ color:#dc2626; }
+.prm-clear-btn:hover{
+  background:rgba(239,68,68,0.18);
+  border-color:rgba(239,68,68,0.55);
+  color:#fff;
+}
+body.theme-light .prm-clear-btn:hover{ color:#b91c1c; }
+
+/* === GRUPPO (Alimentazione, Colore, ecc.) === */
+.prm-group{
+  display:flex;
+  flex-direction:column;
+  border-radius:6px;
+  margin-top:1px;
+}
+.prm-group.open{
+  background:rgba(139,92,246,0.20);
+  outline:1px solid rgba(139,92,246,0.45);
+}
+body.theme-light .prm-group.open{
+  background:rgba(124,58,237,0.18);
+  outline-color:rgba(124,58,237,0.45);
+}
+.prm-group-header{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 9px;
+  cursor:pointer;
+  user-select:none;
+  font-family:-apple-system, 'SF Pro Text', 'Segoe UI', 'Inter', Roboto, sans-serif;
+  font-size:12px;
+  font-weight:600;
+  /* BIANCO PURO con !important per battere la cascade della sidebar */
+  color:#ffffff !important;
+  border-radius:6px;
+  transition:background .12s;
+  letter-spacing:.1px;
+}
+body.theme-light .prm-group-header{ color:#1a2332 !important; }
+.prm-group-header:hover{
+  background:rgba(139,92,246,0.10);
+}
+.prm-group.open .prm-group-header{
+  color:#c4b5fd !important;
+}
+body.theme-light .prm-group.open .prm-group-header{ color:#7c3aed !important; }
+.prm-group-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:14px;
+  height:14px;
+  font-size:14px;
+  font-weight:700;
+  line-height:1;
+  color:#a78bfa !important;
+  flex-shrink:0;
+}
+.prm-group-label{
+  flex:1;
+  text-transform:capitalize;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:inherit !important;
+}
+.prm-group-selected{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:18px;
+  height:17px;
+  padding:0 6px;
+  border-radius:9px;
+  background:#8b5cf6;
+  color:#fff;
+  font-size:10px;
+  font-weight:700;
+  flex-shrink:0;
+}
+
+/* === LISTA VALORI === */
+.prm-group-values{
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  padding:2px 8px 8px 14px;
+  margin-left:14px;
+  border-left:1.5px solid rgba(139,92,246,0.30);
+}
+body.theme-light .prm-group-values{
+  border-left-color:rgba(124,58,237,0.35);
+}
+.prm-value{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:5px 7px;
+  border-radius:4px;
+  cursor:pointer;
+  font-family:-apple-system, 'SF Pro Text', 'Segoe UI', 'Inter', Roboto, sans-serif;
+  font-size:11.5px;
+  font-weight:500;
+  color:#ffffff !important;
+  transition:background .10s;
+  user-select:none;
+}
+body.theme-light .prm-value{ color:#1a2332 !important; }
+.prm-value:hover{
+  background:rgba(139,92,246,0.12);
+}
+.prm-value.selected{
+  background:rgba(139,92,246,0.22);
+  font-weight:600;
+}
+.prm-value.disabled{
+  opacity:.40;
+  pointer-events:none;
+}
+.prm-value input[type="checkbox"]{
+  flex-shrink:0;
+  width:14px;
+  height:14px;
+  cursor:pointer;
+  accent-color:#8b5cf6;
+  margin:0;
+}
+.prm-value-label{
+  flex:1;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:inherit !important;
+}
+.prm-value-count{
+  flex-shrink:0;
+  font-size:10.5px;
+  color:#a78bfa !important;
+  font-weight:600;
+  font-variant-numeric:tabular-nums;
+  font-family:'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+body.theme-light .prm-value-count{ color:#7c3aed !important; }
+.prm-empty{
+  padding:10px 12px;
+  font-size:11.5px;
+  color:#7a8694;
+  font-style:italic;
+  text-align:center;
+}
 .special-view-btn{
   display:flex;
   align-items:center;
@@ -2645,6 +2929,56 @@ td[style*="monospace"] .search-hl,
   background:#B8E600 !important;
   border-color:#B8E600 !important;
   animation: none;  /* al hover stop anim per permettere interazione calma */
+}
+/* V2.10.136: badge numerico con conteggio risultati filtrati.
+   - Nascosto di default (display:none + opacity 0 per safety)
+   - Visibile solo quando il pulsante ha .has-active-filters
+   - Posizionato in alto-destra, sovrapposto al pulsante
+   - Stile coerente con altri badge dell'app (es. card-state-badge):
+     pillola scura su fondo verde acido invertito → blu scuro per leggibilità */
+#btnResetFilters{
+  position:relative;  /* ancoraggio per il badge assoluto */
+}
+#btnResetFilters .reset-badge{
+  display:none;
+  position:absolute;
+  top:-6px;
+  right:-6px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:9px;
+  background:#1e293b;  /* slate-800: contrasto netto col fondo lime quando attivo */
+  color:#CCFF00;
+  font-size:10px;
+  font-weight:800;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-variant-numeric:tabular-nums;
+  line-height:18px;
+  text-align:center;
+  letter-spacing:0;
+  box-shadow:0 1px 3px rgba(0,0,0,0.4), 0 0 0 2px #CCFF00;
+  pointer-events:none;  /* il click passa al pulsante sottostante */
+  white-space:nowrap;
+}
+#btnResetFilters.has-active-filters .reset-badge{
+  display:inline-block;
+  animation: resetBadgePop 0.25s ease-out;
+}
+@keyframes resetBadgePop {
+  from { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  to   { transform: scale(1); opacity: 1; }
+}
+/* Stato "nessun risultato": badge rosso per attirare attenzione */
+#btnResetFilters.has-active-filters .reset-badge.zero{
+  background:#dc2626;  /* red-600 */
+  color:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,0.4), 0 0 0 2px #dc2626;
+}
+/* Larghezza maggiore quando il numero è >= 4 cifre (1000+) o quando è "1k+" */
+#btnResetFilters .reset-badge.wide{
+  min-width:26px;
 }
 /* Legacy classe .active-filters preservata come alias (retrocompat) */
 #btnResetFilters.active-filters{
@@ -7946,7 +8280,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.117</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.139</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8016,6 +8350,14 @@ body.theme-light .dlg-input{background:var(--bg3)}
           <span class="ms-trigger-caret">▾</span>
         </div>
         <div class="ms-inline-tags" id="msCatTags" data-filter="cat"></div>
+      </div>
+
+      <!-- V2.10.118 (riposizionato in V2.10.119): "Ricerca per parametri tecnici" subito
+           sotto i 3 filtri principali (Marca/Macrocategoria/Categoria), perché è
+           concettualmente un filtro normale e va trattato insieme agli altri.
+           Container vuoto, popolato runtime da paramRenderSidebar(). -->
+      <div class="sb-filter-group prm-filters-group" id="sbParamFiltersGroup" style="display:none">
+        <div id="sbParamFilters" class="prm-filters-container"></div>
       </div>
       <div class="sb-filter-group">
         <label>🇮🇹 IT (24h)</label>
@@ -8127,6 +8469,9 @@ body.theme-light .dlg-input{background:var(--bg3)}
         <line x1="15" y1="14" x2="21" y2="20"/>
         <line x1="21" y1="14" x2="15" y2="20"/>
       </svg>
+      <!-- V2.10.136: badge numerico con count dei risultati filtrati.
+           Mostrato solo se il pulsante ha .has-active-filters (gestito da CSS). -->
+      <span class="reset-badge" id="resetBadge" aria-hidden="true"></span>
     </button>
 
     <!-- V2.1.12: Ricerca avanzata spostata qui, subito dopo Reset filtri.
@@ -8455,7 +8800,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.117');
+console.info('[bootstrap] script avvio — V2.10.139');
 
 window.openStatsDashboard = function(){
   try {
@@ -9885,7 +10230,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.117';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.139';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -21337,6 +21682,10 @@ async function importCsvViaWorker(file){
   FILTERED = DATA.slice();
   // V2.2.26: pre-computa cache ricerca (specifications/content/params + tutti)
   rebuildAllSearchHay();
+  // V2.10.118: ricostruisco indice parametri tecnici dopo import
+  if(typeof paramRebuildIndex === 'function'){
+    try { paramRebuildIndex(); } catch(e){ console.warn('[params] rebuild after import error', e); }
+  }
   updateLoaderAdvanced(-1, 0, 'Salvataggio nel database locale…', '💾');
   await new Promise(r=>setTimeout(r,30));  // dai tempo al browser di ridisegnare
 
@@ -21458,23 +21807,32 @@ function msUpdateTrigger(key){
     // V2.2.35: se c'è una ricerca veloce attiva, mostra "N trovate" invece di
     // "Tutte" per TUTTI e 3 i filtri (marca, macrocategoria, categoria).
     // Il conteggio riflette quante voci hanno almeno un prodotto compatibile.
+    // V2.10.133: ESTESO anche alla search globale topbar (#search) e alla
+    // ricerca avanzata (window.ADV_SEARCH.active) — qualsiasi ricerca testuale
+    // attiva fa scattare il conteggio "N trovate" sui 3 trigger.
     const quickSearchEl = document.getElementById('fltQuickSearch');
     const qs = quickSearchEl ? quickSearchEl.value.trim().toLowerCase() : '';
-    if(qs){
+    const globalSearchEl = document.getElementById('search');
+    const gs = globalSearchEl ? globalSearchEl.value.trim().toLowerCase() : '';
+    const advActive = !!(window.ADV_SEARCH && window.ADV_SEARCH.active);
+    const hasAnySearch = !!(qs || gs || advActive);
+    if(hasAnySearch){
       const counts = msComputeCounts(key);
       let matched = 0;
       counts.forEach((cnt) => { if(cnt > 0) matched++; });
       const singNoun = key === 'brand' ? 'marca' : key === 'cat' ? 'categoria' : 'macrocategoria';
       const plurNoun = key === 'brand' ? 'marche' : key === 'cat' ? 'categorie' : 'macrocategorie';
+      // Termine "umano" da mostrare nel tooltip: priorità topbar > quick > avanzata.
+      const searchTerm = gs || qs || (advActive ? 'ricerca avanzata' : '');
       if(matched === 0){
         label.textContent = 'Nessuna trovata';
-        label.title = `Nessuna ${singNoun} ha prodotti corrispondenti a "${qs}"`;
+        label.title = `Nessuna ${singNoun} ha prodotti corrispondenti a "${searchTerm}"`;
         trigger.classList.remove('has-selection');
         trigger.classList.add('quick-search-no-match');
         trigger.classList.remove('quick-search-match');
       } else {
         label.textContent = matched + (matched === 1 ? ' trovata' : ' trovate');
-        label.title = `${matched} ${plurNoun} con prodotti corrispondenti a "${qs}"`;
+        label.title = `${matched} ${plurNoun} con prodotti corrispondenti a "${searchTerm}"`;
         trigger.classList.remove('has-selection');
         trigger.classList.add('quick-search-match');
         trigger.classList.remove('quick-search-no-match');
@@ -21522,6 +21880,9 @@ function refreshFilterOptions(){
 // "Contestuale" significa: rispettando tutti gli ALTRI filtri attivi (ma non
 // quello che stiamo ricalcolando, altrimenti non vedresti mai i valori alternativi).
 // Ritorna una Map: value → count (solo valori con count > 0 oppure già selezionati).
+// V2.10.132: i conteggi rispettano ANCHE la search globale topbar (#search),
+// così che i dropdown Marca/Macrocat/Categoria mostrino solo i valori coerenti
+// con il testo cercato. Prima rispettava solo la ricerca veloce sidebar.
 function msComputeCounts(key){
   const f = MS_FILTERS[key];
   const counts = new Map();
@@ -21530,6 +21891,10 @@ function msComputeCounts(key){
   // quando la ricerca veloce è attiva.
   const qsEl = document.getElementById('fltQuickSearch');
   const qs = qsEl ? qsEl.value.trim().toLowerCase() : '';
+  // V2.10.132: ricerca globale topbar (#search) — un prodotto è compatibile solo
+  // se _searchHay matcha il termine. Si applica a tutti e 3 i filtri.
+  const gsEl = document.getElementById('search');
+  const gs = gsEl ? gsEl.value.trim().toLowerCase() : '';
   // Prodotto compatibile con tutti i filtri ESCLUSO quello in esame
   const matchExcept = (p) => {
     for(const [k, ff] of Object.entries(MS_FILTERS)){
@@ -21545,6 +21910,20 @@ function msComputeCounts(key){
       const cpLower = String(p.category_parent || '').toLowerCase();
       const cLower = String(p.category || '').toLowerCase();
       if(!cpLower.includes(qs) && !cLower.includes(qs)) return false;
+    }
+    // V2.10.132: ricerca globale topbar — usa _searchHay (pre-computata,
+    // include name/brand/description/category/ecc.). Fallback al rebuild on-demand.
+    if(gs){
+      let hay = p._searchHay;
+      if(typeof hay !== 'string'){
+        try { if(typeof buildSearchHay === 'function'){ buildSearchHay(p); hay = p._searchHay; } } catch(_){}
+      }
+      if(typeof hay !== 'string' || !hay.includes(gs)) return false;
+    }
+    // V2.10.133: ricerca avanzata — se attiva, il prodotto deve matchare
+    // tutte le condizioni avanzate (engine advSearchMatches).
+    if(window.ADV_SEARCH && window.ADV_SEARCH.active && typeof advSearchMatches === 'function'){
+      if(!advSearchMatches(p)) return false;
     }
     return true;
   };
@@ -22184,6 +22563,494 @@ function rebuildAllSearchHay(){
    Difensiva: usa getElementById che può restituire null se gli elementi
    non esistono ancora (edge case dopo reset DB).
    ========== */
+// ════════════════════════════════════════════════════════════════════════
+// V2.10.118 — Ricerca per parametri tecnici (sidebar "Viste speciali")
+// ════════════════════════════════════════════════════════════════════════
+// Struttura:
+//   PARAM_FILTERS.selected = { 'gama': Set<string>, 'categoria': Set<string>, ... }
+//   PARAM_INDEX            = { 'gama': { values: { 'Termica': 9, 'B economica': 18, ... }, label: 'Gamma' }, ... }
+//
+// L'indice viene costruito una sola volta al caricamento dati (o ricostruito
+// quando i prodotti cambiano), iterando DATA e raccogliendo per ogni chiave
+// di p.params tutti i valori unici con le loro occorrenze. Costoso (~150K
+// coppie su 7604 prodotti) ma fatto solo una volta.
+//
+// I conteggi mostrati nei checkbox vengono ricalcolati dinamicamente in base
+// agli altri filtri attivi (vedi paramComputeDynamicCounts).
+const PARAM_FILTERS = {
+  selected: {},   // chiave param → Set di valori selezionati
+  expanded: {},   // chiave param → true/false (collapse state)
+  sectionOpen: true, // sezione "Ricerca per parametri" è aperta/chiusa
+};
+let PARAM_INDEX = null;  // { key: { values: { val: count }, label: string } }
+
+// Estrae i parametri tecnici di un prodotto in forma normalizzata:
+// ritorna { key: [val1, val2, ...] } dove key è una chiave normalizzata
+// e val è la stringa pulita del valore. Gestisce vari formati:
+//   - p.params come oggetto {chiave: valore}
+//   - p.parametri come oggetto
+//   - p.parametriTecnici come oggetto
+//   - Stringhe JSON in uno qualunque dei suddetti
+function _paramExtractFromProduct(p){
+  if(!p || typeof p !== 'object') return null;
+  let raw = p.params || p.parametri || p.parametriTecnici;
+  if(!raw) return null;
+  // Se è una stringa, prova a parsare come JSON
+  if(typeof raw === 'string'){
+    try { raw = JSON.parse(raw); }
+    catch(_){ return null; }
+  }
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  // Output normalizzato
+  const out = {};
+  Object.keys(raw).forEach(k => {
+    if(!k) return;
+    const v = raw[k];
+    if(v === null || v === undefined || v === '') return;
+    // Valore può essere stringa, numero, o array
+    let values;
+    if(Array.isArray(v)){
+      values = v.map(x => String(x).trim()).filter(x => x.length > 0);
+    } else if(typeof v === 'object'){
+      // Oggetti nested: skippo (sono troppo complessi per filtraggio diretto)
+      return;
+    } else {
+      const s = String(v).trim();
+      if(!s) return;
+      values = [s];
+    }
+    if(values.length === 0) return;
+    // Chiave normalizzata: lowercase trimmed
+    const nk = String(k).trim().toLowerCase();
+    if(!nk) return;
+    if(!out[nk]) out[nk] = [];
+    values.forEach(vv => out[nk].push(vv));
+  });
+  return out;
+}
+
+// Ricostruisce PARAM_INDEX iterando tutto DATA.
+// Chiamato al boot (dopo caricamento dati) e quando DATA cambia significativamente.
+function paramRebuildIndex(){
+  console.time('[params] rebuild index');
+  const index = {};
+  for(let i = 0; i < DATA.length; i++){
+    const p = DATA[i];
+    const params = _paramExtractFromProduct(p);
+    if(!params) continue;
+    Object.keys(params).forEach(k => {
+      if(!index[k]){
+        index[k] = { values: Object.create(null), totalProducts: 0 };
+      }
+      // Conto questo prodotto come "ha questa chiave"
+      index[k].totalProducts++;
+      // Per ogni valore distinto del prodotto su questa chiave, conto +1
+      const distinctVals = new Set(params[k]);
+      distinctVals.forEach(v => {
+        index[k].values[v] = (index[k].values[v] || 0) + 1;
+      });
+    });
+  }
+  // Aggiungo label tradotte dal DICT
+  Object.keys(index).forEach(k => {
+    index[k].label = (typeof DICT !== 'undefined' && DICT[k])
+      ? DICT[k]
+      : (typeof DICT_DEFAULT !== 'undefined' && DICT_DEFAULT[k])
+        ? DICT_DEFAULT[k]
+        : k.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  });
+  PARAM_INDEX = index;
+  console.timeEnd('[params] rebuild index');
+  const keysCount = Object.keys(index).length;
+  let valuesTotal = 0;
+  Object.keys(index).forEach(k => { valuesTotal += Object.keys(index[k].values).length; });
+  console.info(`[params] indice costruito: ${keysCount} parametri, ${valuesTotal} valori distinti`);
+}
+
+// Calcola i conteggi DINAMICI per ciascun (param, valore) considerando i prodotti
+// che passerebbero TUTTI gli altri filtri (non quello del param stesso, per il
+// pattern "se selezioni X, ti dico ancora quante combinazioni hai con altri valori").
+// Ritorna { paramKey: { value: count } }
+function paramComputeDynamicCounts(filteredSet){
+  // filteredSet è un array di prodotti che passano tutti i filtri ECCETTO i parametri
+  // del param key che stiamo conteggiando. Per ora, semplificazione: uso FILTERED
+  // come base (prodotti che passano TUTTI i filtri compresi quelli sui parametri),
+  // ma per ciascun param-key, ricalcolo senza il suo filtro attivo.
+  const counts = {};
+  if(!PARAM_INDEX) return counts;
+
+  // Per ogni param key, devo calcolare i conteggi sul set di prodotti che passa
+  // tutti gli altri filtri tranne il filtro su questo specifico param key.
+  // Ottimizzazione: se non c'è nessun filtro param attivo, basta usare il set passato.
+  const activeParamKeys = Object.keys(PARAM_FILTERS.selected).filter(k =>
+    PARAM_FILTERS.selected[k] && PARAM_FILTERS.selected[k].size > 0
+  );
+
+  if(activeParamKeys.length === 0){
+    // Caso semplice: itera il set filtrato 1 volta, conta tutti i parametri
+    Object.keys(PARAM_INDEX).forEach(k => { counts[k] = Object.create(null); });
+    filteredSet.forEach(p => {
+      const params = _paramExtractFromProduct(p);
+      if(!params) return;
+      Object.keys(params).forEach(k => {
+        if(!counts[k]) return;
+        const distinctVals = new Set(params[k]);
+        distinctVals.forEach(v => {
+          counts[k][v] = (counts[k][v] || 0) + 1;
+        });
+      });
+    });
+    return counts;
+  }
+
+  // Caso complesso: per ogni param-key K, conteggio i prodotti che passano tutti
+  // gli altri filtri-param tranne K. Per ottimizzare, pre-calcolo per ogni
+  // prodotto in DATA un bitmap di "passa i filtri non-param" (già FILTERED include
+  // i param-filter, quindi devo ricostruire).
+  // Algoritmo: per ogni param-key K che ho da conteggiare, scorro DATA e applico
+  // a mano gli ALTRI filtri-param + il check non-param tramite FILTERED+selezione corrente.
+  // Per semplicità, in fase 1 ricomputo conteggi su DATA filtrando manualmente.
+  // OK uso FILTERED come base e per ogni K mostro i conteggi rilassando K:
+  // 1. Costruisco la base "non-K" applicando solo gli altri filtri param a FILTERED.
+  //    Ma FILTERED già ha K applicato, quindi devo ripartire da DATA.
+
+  // Approccio pragmatico: pre-calcolo per ogni prodotto in DATA un "passes_no_params"
+  // = passa tutti i filtri NON-PARAMETRI. Ma per evitare di riapplicare tutta la
+  // logica di applyFilters, accetto un'approssimazione: itero su FILTERED + sui
+  // prodotti che K esclude da FILTERED. Per ciascun K, calcolo "candidati per K" =
+  // {prodotti che passano gli altri param e i non-param}. Per fare questo, salvo
+  // in window._PARAM_NONPARAM_PASS l'array dei prodotti che passano i filtri non-param
+  // (popolato dall'applyFilters all'inizio del filtraggio).
+
+  const nonParamPassed = window._PARAM_NONPARAM_PASS || filteredSet;
+
+  Object.keys(PARAM_INDEX).forEach(K => {
+    counts[K] = Object.create(null);
+    // Base per K: prodotti che passano i non-param E gli altri param (tranne K)
+    nonParamPassed.forEach(p => {
+      // Verifica filtri-param attivi escluso K
+      for(const otherK of activeParamKeys){
+        if(otherK === K) continue;
+        const selectedVals = PARAM_FILTERS.selected[otherK];
+        if(!selectedVals || selectedVals.size === 0) continue;
+        const params = _paramExtractFromProduct(p);
+        if(!params || !params[otherK]) return;
+        // OR all'interno: passa se almeno un valore del prodotto è selezionato
+        let match = false;
+        for(const v of params[otherK]){
+          if(selectedVals.has(v)){ match = true; break; }
+        }
+        if(!match) return;
+      }
+      // Passa, conto il prodotto per ciascun valore di K che possiede
+      const params = _paramExtractFromProduct(p);
+      if(!params || !params[K]) return;
+      const distinctVals = new Set(params[K]);
+      distinctVals.forEach(v => {
+        counts[K][v] = (counts[K][v] || 0) + 1;
+      });
+    });
+  });
+  return counts;
+}
+
+// Test se un prodotto passa i filtri parametri attivi.
+// Logica: AND tra gruppi di parametri diversi, OR all'interno dello stesso gruppo.
+function paramProductPasses(p){
+  const activeKeys = Object.keys(PARAM_FILTERS.selected).filter(k =>
+    PARAM_FILTERS.selected[k] && PARAM_FILTERS.selected[k].size > 0
+  );
+  if(activeKeys.length === 0) return true;
+  const params = _paramExtractFromProduct(p);
+  if(!params) return false;
+  // AND tra chiavi diverse
+  for(const k of activeKeys){
+    const selectedVals = PARAM_FILTERS.selected[k];
+    const productVals = params[k];
+    if(!productVals || productVals.length === 0) return false;
+    // OR all'interno
+    let matched = false;
+    for(const v of productVals){
+      if(selectedVals.has(v)){ matched = true; break; }
+    }
+    if(!matched) return false;
+  }
+  return true;
+}
+
+// Pulisce tutti i filtri parametri attivi (esclude lo stato expanded)
+function paramClearAll(){
+  PARAM_FILTERS.selected = {};
+  // V2.10.135: dopo aver pulito i filtri, collassa la sezione "Ricerca per parametri"
+  // e chiudi tutti i gruppi aperti, così l'utente riparte da uno stato pulito.
+  PARAM_FILTERS.sectionOpen = false;
+  PARAM_FILTERS.expanded = {};
+  if(typeof applyFilters === 'function') applyFilters();
+  paramRenderSidebar();
+}
+
+// Toggle valore per una chiave: aggiunge/rimuove dal Set selected
+function paramToggleValue(key, value){
+  if(!PARAM_FILTERS.selected[key]){
+    PARAM_FILTERS.selected[key] = new Set();
+  }
+  const s = PARAM_FILTERS.selected[key];
+  if(s.has(value)){
+    s.delete(value);
+    if(s.size === 0) delete PARAM_FILTERS.selected[key];
+  } else {
+    s.add(value);
+  }
+  if(typeof applyFilters === 'function') applyFilters();
+}
+
+// Toggle apertura/chiusura di un gruppo
+function paramToggleGroup(key){
+  PARAM_FILTERS.expanded[key] = !PARAM_FILTERS.expanded[key];
+  paramRenderSidebar();
+}
+
+// Toggle apertura/chiusura intera sezione "Ricerca per parametri"
+function paramToggleSection(){
+  PARAM_FILTERS.sectionOpen = !PARAM_FILTERS.sectionOpen;
+  paramRenderSidebar();
+}
+
+// Rendering della sezione sidebar
+function paramRenderSidebar(){
+  const container = document.getElementById('sbParamFilters');
+  if(!container) return;
+  if(!PARAM_INDEX){
+    container.innerHTML = '<div class="prm-empty">Nessun parametro disponibile</div>';
+    return;
+  }
+
+  // V2.10.131: la ricerca per parametri funziona come "filtro di secondo livello":
+  // deve essere disabilitata quando nessuno dei filtri "primari" (search globale,
+  // ricerca veloce, marca, macrocategoria, categoria) è attivo. Senza un set
+  // ristretto di partenza, mostrare migliaia di parametri non avrebbe senso
+  // operativo e degraderebbe l'UX.
+  // V2.10.137: aggiunta la ricerca avanzata (window.ADV_SEARCH.active) come
+  // filtro primario valido — anche da sola restringe sufficientemente i prodotti
+  // per rendere utile la ricerca per parametri.
+  let hasPrimaryFilter = false;
+  try {
+    // 1. Search globale topbar
+    const searchEl = document.getElementById('search');
+    if(searchEl && searchEl.value && searchEl.value.trim().length > 0) hasPrimaryFilter = true;
+    // 2. Ricerca veloce sidebar
+    if(!hasPrimaryFilter){
+      const qsEl = document.getElementById('fltQuickSearch');
+      if(qsEl && qsEl.value && qsEl.value.trim().length > 0) hasPrimaryFilter = true;
+    }
+    // 3. Multi-select Marca / Macrocategoria / Categoria
+    if(!hasPrimaryFilter && typeof MS_FILTERS !== 'undefined'){
+      if(MS_FILTERS.brand && MS_FILTERS.brand.selected && MS_FILTERS.brand.selected.size > 0) hasPrimaryFilter = true;
+      else if(MS_FILTERS.catParent && MS_FILTERS.catParent.selected && MS_FILTERS.catParent.selected.size > 0) hasPrimaryFilter = true;
+      else if(MS_FILTERS.cat && MS_FILTERS.cat.selected && MS_FILTERS.cat.selected.size > 0) hasPrimaryFilter = true;
+    }
+    // 4. V2.10.137: Ricerca avanzata
+    if(!hasPrimaryFilter && window.ADV_SEARCH && window.ADV_SEARCH.active){
+      hasPrimaryFilter = true;
+    }
+  } catch(_){}
+
+  // V2.10.129: STILI INLINE con !important per battere DEFINITIVAMENTE la cascade.
+  // Lo style inline ha specificità massima; con !important batte anche regole
+  // CSS esterne con !important. Questo è il livello più alto in CSS.
+  // V2.10.130: rimosso grassetto dai label gruppi (font-weight 400 invece di 600).
+  const S = {
+    groupHeader: 'display:flex !important;align-items:center !important;gap:8px !important;padding:7px 9px !important;cursor:pointer !important;user-select:none !important;font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif !important;font-size:13px !important;font-weight:400 !important;color:#ffffff !important;border-radius:6px !important;letter-spacing:0.2px !important;text-transform:none !important;',
+    groupIcon: 'display:inline-flex !important;align-items:center !important;justify-content:center !important;width:14px !important;height:14px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;color:#a78bfa !important;flex-shrink:0 !important;',
+    groupLabel: 'flex:1 !important;text-transform:capitalize !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:#ffffff !important;font-size:13px !important;font-weight:400 !important;letter-spacing:0.2px !important;',
+    groupLabelOpen: 'flex:1 !important;text-transform:capitalize !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:#c4b5fd !important;font-size:13px !important;font-weight:500 !important;letter-spacing:0.2px !important;',
+    groupSelected: 'display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:18px !important;height:17px !important;padding:0 6px !important;border-radius:9px !important;background:#8b5cf6 !important;color:#ffffff !important;font-size:10px !important;font-weight:700 !important;flex-shrink:0 !important;',
+    value: 'display:flex !important;align-items:center !important;gap:9px !important;padding:5px 7px !important;border-radius:4px !important;cursor:pointer !important;font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif !important;font-size:12px !important;font-weight:500 !important;color:#ffffff !important;user-select:none !important;text-transform:none !important;letter-spacing:0.1px !important;',
+    valueLabel: 'flex:1 !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:#ffffff !important;font-size:12px !important;font-weight:500 !important;text-transform:none !important;letter-spacing:0.1px !important;',
+    valueCount: 'flex-shrink:0 !important;font-size:11px !important;color:#a78bfa !important;font-weight:700 !important;font-variant-numeric:tabular-nums !important;font-family:SF Mono,JetBrains Mono,Menlo,Consolas,monospace !important;text-transform:none !important;letter-spacing:0 !important;',
+  };
+  // V2.10.120: nascondo i gruppi parametri che duplicherebbero filtri "anagrafici"
+  // già attivi nei 3 multi-select sopra (Marca, Macrocategoria, Categoria).
+  // Se l'utente ha selezionato AJAX nel filtro Marca, mostrare anche il gruppo
+  // "Marca" nei parametri sarebbe ridondante e fuorviante.
+  // Le chiavi-param che mappano sui 3 filtri principali sono:
+  //   marca           → filtro Marca
+  //   categoria       → filtro Categoria
+  //   macrocategoria  → filtro Macrocategoria (raro, ma per sicurezza)
+  //   macro-categoria → idem (variante naming)
+  //
+  // V2.10.122: aggiunte chiavi escluse a priori (sempre nascoste):
+  //   stock           → "Disponibilità": è stato logistico variabile, non
+  //                     una specifica tecnica del prodotto. Va filtrato
+  //                     con i filtri IT/ES dedicati.
+  const _hiddenParamKeys = new Set([
+    'stock', // V2.10.122: disponibilità non è un parametro tecnico
+  ]);
+  try {
+    if(typeof MS_FILTERS !== 'undefined'){
+      if(MS_FILTERS.brand && MS_FILTERS.brand.selected && MS_FILTERS.brand.selected.size > 0){
+        _hiddenParamKeys.add('marca');
+        _hiddenParamKeys.add('marcas');
+        _hiddenParamKeys.add('fabricante');
+      }
+      if(MS_FILTERS.cat && MS_FILTERS.cat.selected && MS_FILTERS.cat.selected.size > 0){
+        _hiddenParamKeys.add('categoria');
+      }
+      if(MS_FILTERS.catParent && MS_FILTERS.catParent.selected && MS_FILTERS.catParent.selected.size > 0){
+        _hiddenParamKeys.add('macrocategoria');
+        _hiddenParamKeys.add('macro-categoria');
+        _hiddenParamKeys.add('macro_categoria');
+      }
+    }
+  } catch(_){}
+  // V2.10.120: se ho nascosto un gruppo MA ci sono ancora filtri parametri attivi
+  // su quella chiave (es: avevi selezionato Centrali nei parametri, poi hai
+  // attivato il filtro Categoria-anagrafica), li pulisco silenziosamente per
+  // evitare filtri "fantasma" non visibili nella UI.
+  let didCleanup = false;
+  _hiddenParamKeys.forEach(hk => {
+    if(PARAM_FILTERS.selected[hk] && PARAM_FILTERS.selected[hk].size > 0){
+      delete PARAM_FILTERS.selected[hk];
+      didCleanup = true;
+    }
+  });
+  if(didCleanup){
+    // Re-applico i filtri perché ho rimosso un filtro-param attivo.
+    // Uso setTimeout per evitare ricorsione infinita applyFilters → render → cleanup.
+    setTimeout(() => { if(typeof applyFilters === 'function') applyFilters(); }, 0);
+  }
+  // Conteggi dinamici basati sui prodotti correnti
+  const dynamicCounts = paramComputeDynamicCounts(window._PARAM_NONPARAM_PASS || FILTERED);
+  // Calcola totale filtri attivi (per badge)
+  let totalActive = 0;
+  Object.keys(PARAM_FILTERS.selected).forEach(k => {
+    if(PARAM_FILTERS.selected[k]) totalActive += PARAM_FILTERS.selected[k].size;
+  });
+  // Ordinamento chiavi: alfabetico per label, escludendo quelle nascoste
+  const sortedKeys = Object.keys(PARAM_INDEX)
+    .filter(k => !_hiddenParamKeys.has(k))
+    .sort((a, b) => {
+      const la = (PARAM_INDEX[a].label || a).toLowerCase();
+      const lb = (PARAM_INDEX[b].label || b).toLowerCase();
+      return la.localeCompare(lb);
+    });
+  let html = '';
+  // V2.10.131: Header sezione. Se nessun filtro primario è attivo, la sezione
+  // è in stato "disabled": pillola attenuata, no onclick, no gruppi sotto,
+  // messaggio esplicativo.
+  if(!hasPrimaryFilter){
+    // Pillola attenuata (opacity ridotta, cursor not-allowed, niente onclick)
+    html += '<div class="prm-section-header" ';
+    html += 'style="opacity:0.45 !important;cursor:not-allowed !important;" ';
+    html += 'title="Applica prima un filtro primario per usare la ricerca per parametri">';
+    html += '<span class="prm-section-icon">⊘</span>';
+    html += '<span class="prm-section-title">Ricerca per parametri</span>';
+    html += '</div>';
+    // Messaggio esplicativo
+    html += '<div class="prm-disabled-hint" ';
+    html += 'style="margin-top:8px;padding:10px 12px;border-radius:6px;';
+    html += 'background:rgba(139,92,246,0.06);';
+    html += 'border:1px dashed rgba(139,92,246,0.30);';
+    html += 'font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif;';
+    html += 'font-size:11px;line-height:1.45;color:#a8b2bd;text-align:center;">';
+    html += '<div style="color:#c4b5fd;font-weight:600;margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Filtro disponibile su selezione</div>';
+    html += 'Applica almeno un filtro tra <b style="color:#22d3ee;">Marca</b>, ';
+    html += '<b style="color:#3b9ee0;">Macrocategoria</b>, <b style="color:#84cc16;">Categoria</b>, ';
+    html += 'una ricerca testuale o una <b style="color:#60a5fa;">Ricerca avanzata</b> ';
+    html += 'per restringere il catalogo e poter filtrare per parametri tecnici.';
+    html += '</div>';
+    container.innerHTML = html;
+    return;
+  }
+  // Header sezione attiva (toggle apertura/chiusura)
+  html += '<div class="prm-section-header" onclick="paramToggleSection()">';
+  html += '<span class="prm-section-icon">' + (PARAM_FILTERS.sectionOpen ? '−' : '+') + '</span>';
+  html += '<span class="prm-section-title">Ricerca per parametri</span>';
+  if(totalActive > 0){
+    html += '<span class="prm-section-badge">' + totalActive + '</span>';
+  }
+  html += '</div>';
+  if(!PARAM_FILTERS.sectionOpen){
+    container.innerHTML = html;
+    return;
+  }
+  if(totalActive > 0){
+    html += '<div class="prm-clear-row">';
+    html += '<button type="button" class="prm-clear-btn" onclick="paramClearAll()" title="Rimuovi tutti i filtri parametri">';
+    html += '✕ Pulisci ' + totalActive + ' filtr' + (totalActive === 1 ? 'o' : 'i');
+    html += '</button>';
+    html += '</div>';
+  }
+  // Per ogni gruppo
+  sortedKeys.forEach(k => {
+    const group = PARAM_INDEX[k];
+    const groupDynCounts = dynamicCounts[k] || {};
+    const isOpen = !!PARAM_FILTERS.expanded[k];
+    const selectedVals = PARAM_FILTERS.selected[k] || new Set();
+    const valuesArr = Object.keys(group.values);
+    // Conteggio visibile dei valori (dinamico)
+    let groupTotal = 0;
+    valuesArr.forEach(v => { groupTotal += (groupDynCounts[v] || 0); });
+    if(groupTotal === 0 && selectedVals.size === 0) return; // nascondi gruppi vuoti che non hai selezionato
+    // V2.10.121: nascondo gruppi con UN SOLO valore disponibile (count > 0).
+    // Non hanno senso come filtro perché tutti i prodotti già visibili lo hanno.
+    // Eccezione: se l'utente ha già selezionato qualcosa qui, mostro comunque
+    // (così può deselezionarlo).
+    if(selectedVals.size === 0){
+      const valuesWithCount = valuesArr.filter(v => (groupDynCounts[v] || 0) > 0);
+      if(valuesWithCount.length <= 1) return;
+    }
+    html += '<div class="prm-group ' + (isOpen ? 'open' : '') + '">';
+    html += '<div class="prm-group-header" style="' + S.groupHeader + '" onclick="paramToggleGroup(\'' + k.replace(/'/g, "\\'") + '\')">';
+    html += '<span class="prm-group-icon" style="' + S.groupIcon + '">' + (isOpen ? '−' : '+') + '</span>';
+    const labelStyleEff = isOpen ? S.groupLabelOpen : S.groupLabel;
+    html += '<span class="prm-group-label" style="' + labelStyleEff + '">' + escapeHtml(group.label) + '</span>';
+    if(selectedVals.size > 0){
+      html += '<span class="prm-group-selected" style="' + S.groupSelected + '">' + selectedVals.size + '</span>';
+    }
+    html += '</div>';
+    if(isOpen){
+      // Ordina valori: selezionati prima, poi per conteggio dinamico discendente, poi alfabetico
+      const sortedVals = valuesArr.slice().sort((a, b) => {
+        const aSel = selectedVals.has(a) ? 1 : 0;
+        const bSel = selectedVals.has(b) ? 1 : 0;
+        if(aSel !== bSel) return bSel - aSel;
+        const aCount = groupDynCounts[a] || 0;
+        const bCount = groupDynCounts[b] || 0;
+        if(aCount !== bCount) return bCount - aCount;
+        return a.localeCompare(b);
+      });
+      html += '<div class="prm-group-values">';
+      sortedVals.forEach(v => {
+        const count = groupDynCounts[v] || 0;
+        const isSel = selectedVals.has(v);
+        // Mostra anche con count=0 se è selezionato (così l'utente può deselezionarlo)
+        if(count === 0 && !isSel) return;
+        const escapedKey = k.replace(/'/g, "\\'");
+        const escapedVal = v.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        // V2.10.127: <div> invece di <label>. La regola .sb-filter-group label
+        // (riga 1024) applica color:--sidebar-fg-dim + text-transform:uppercase
+        // + font-size:10px e SOVRASCRIVEVA le mie regole .prm-value per
+        // specificità più alta. Usando <div> evito completamente la cascade.
+        // V2.10.128: stili inline (max specificità) per garantire leggibilità.
+        html += '<div class="prm-value ' + (isSel ? 'selected' : '') + (count === 0 ? ' disabled' : '') + '" ';
+        html += 'style="' + S.value + (isSel ? 'background:rgba(139,92,246,0.22) !important;font-weight:600 !important;' : '') + (count === 0 ? 'opacity:0.40 !important;pointer-events:none !important;' : '') + '" ';
+        html += 'onclick="paramToggleValue(\'' + escapedKey + '\', \'' + escapedVal + '\')">';
+        html += '<input type="checkbox" ' + (isSel ? 'checked' : '') + ' ';
+        html += 'style="flex-shrink:0 !important;width:14px !important;height:14px !important;cursor:pointer !important;accent-color:#8b5cf6 !important;margin:0 !important;" ';
+        html += 'onclick="event.stopPropagation();" ';
+        html += 'onchange="paramToggleValue(\'' + escapedKey + '\', \'' + escapedVal + '\')">';
+        html += '<span class="prm-value-label" style="' + S.valueLabel + '">' + escapeHtml(v) + '</span>';
+        html += '<span class="prm-value-count" style="' + S.valueCount + '">' + count + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  container.innerHTML = html;
+}
+
 function applyFilters(options){
   options = options || {};
   const refreshCascade = options.refreshCascade !== false;
@@ -22309,6 +23176,20 @@ function applyFilters(options){
     return true;
   });
 
+  // V2.10.118: salvo il set "non-parametri" (passa tutti i filtri tranne i param tecnici)
+  // per il calcolo dei conteggi dinamici della sidebar parametri.
+  window._PARAM_NONPARAM_PASS = FILTERED;
+
+  // Ora applico il filtro parametri tecnici sopra al set già filtrato.
+  if(typeof paramProductPasses === 'function'){
+    const activeParamKeys = Object.keys(PARAM_FILTERS.selected).filter(k =>
+      PARAM_FILTERS.selected[k] && PARAM_FILTERS.selected[k].size > 0
+    );
+    if(activeParamKeys.length > 0){
+      FILTERED = FILTERED.filter(p => paramProductPasses(p));
+    }
+  }
+
   // Ordinamento automatico quando c'è un filtro data attivo: più recenti prima.
   // Se entrambi sono attivi, prioritizza il filtro "modificati" (più significativo)
   if(modifiedRange){
@@ -22336,6 +23217,9 @@ function applyFilters(options){
 
   // Aggiorna stato visivo del pulsante "Reset filtri"
   updateResetBtnState();
+
+  // V2.10.118: aggiorna sidebar parametri (conteggi dinamici)
+  if(typeof paramRenderSidebar === 'function') paramRenderSidebar();
 
   PAGE = 0;
   render();
@@ -22521,6 +23405,9 @@ function resetAllFilters(){
   // V2.1.9: ricerca avanzata attiva?
   if(window.ADV_SEARCH && window.ADV_SEARCH.active) active.push('ricerca avanzata');
 
+  // V2.10.118: conteggio filtri parametri tecnici attivi (riportato sotto)
+  // [il reset effettivo + push in active è in fondo alla funzione]
+
   // V2.2.36: filtri speciali (Nuovi prodotti / Prodotti scatalogati)
   if(typeof SPECIAL_FILTERS !== 'undefined' && SPECIAL_FILTERS.size > 0){
     const names = [];
@@ -22576,6 +23463,15 @@ function resetAllFilters(){
     }
     if(typeof _updateSpecialViewsActive === 'function') _updateSpecialViewsActive();
     if(typeof _renderSpecialBanner === 'function') _renderSpecialBanner();
+  }
+
+  // V2.10.118: svuota anche i filtri parametri tecnici
+  if(typeof PARAM_FILTERS !== 'undefined'){
+    const hadParams = Object.keys(PARAM_FILTERS.selected).some(k =>
+      PARAM_FILTERS.selected[k] && PARAM_FILTERS.selected[k].size > 0
+    );
+    PARAM_FILTERS.selected = {};
+    if(hadParams) active.push('parametri tecnici');
   }
 
   // Ri-applica (equivale a "nessun filtro")
@@ -23008,6 +23904,30 @@ function renderGallery(main, list){
     // - Click sulla card "neutra" non fa più nulla (prima apriva l'editor)
     const cardImgEl = card.querySelector('.card-img');
     if(cardImgEl){
+      // V2.10.134: handler click+dblclick con disambiguazione tramite timer.
+      // - Click singolo: apre lightbox immagine fullscreen (con eventuali extra)
+      // - Doppio click: apre editor di modifica
+      // Pattern timer-based: parte un timer sul click; se arriva dblclick prima
+      // della scadenza, il timer viene cancellato e parte solo openEditor.
+      let _imgClickTimer = null;
+      cardImgEl.addEventListener('click', (e) => {
+        // Se il click avviene su elementi interattivi sovrapposti, ignora
+        if(e.target && e.target.closest && (
+            e.target.closest('.eye-trigger') ||
+            e.target.closest('.card-desc-icon') ||
+            e.target.closest('.quote-trigger') ||
+            e.target.closest('.card-sel-checkbox')
+        )) return;
+        // Se l'immagine non c'è (placeholder NO IMG), non aprire il lightbox
+        const imgEl = cardImgEl.querySelector('img');
+        if(!imgEl) return;
+        // Se c'è già un timer (doppio click veloce ripetuto), cancellalo
+        if(_imgClickTimer){ clearTimeout(_imgClickTimer); _imgClickTimer = null; }
+        _imgClickTimer = setTimeout(() => {
+          _imgClickTimer = null;
+          openProductImageLightbox(imgEl.src, extras);
+        }, 250);
+      });
       cardImgEl.addEventListener('dblclick', (e) => {
         // Se il dblclick avviene sopra un elemento interattivo della foto
         // (es. icona fumetto), il dblclick viene ignorato
@@ -23015,12 +23935,14 @@ function renderGallery(main, list){
             e.target.closest('.eye-trigger') ||
             e.target.closest('.card-desc-icon')
         )) return;
+        // Cancella il timer del click singolo: deve partire SOLO openEditor
+        if(_imgClickTimer){ clearTimeout(_imgClickTimer); _imgClickTimer = null; }
         e.preventDefault();
         openEditor(p._idx);
       });
       // V2.2.42: cursore "zoom" sulla foto per suggerire l'azione doppio-click
       cardImgEl.style.cursor = 'zoom-in';
-      cardImgEl.title = 'Doppio click per aprire la scheda di modifica';
+      cardImgEl.title = 'Click: ingrandisci immagine — Doppio click: apri scheda di modifica';
     }
     const eyeTriggerEl = card.querySelector('.eye-trigger');
     if(eyeTriggerEl){
@@ -23173,13 +24095,26 @@ function renderTable(main, list){
     // L'handler sull'immagine viene mantenuto (con cursor zoom-in dedicato).
     const rowImgEl = tr.querySelector('.tbl-img');
     if(rowImgEl){
+      // V2.10.134: stesso pattern della galleria — click=lightbox, dblclick=editor.
+      // Per la tabella servono anche extra_images del prodotto corrente.
+      const rowExtras = p.extra_images || parseExtraImages(p.extra_images_paths);
+      let _rowImgClickTimer = null;
+      rowImgEl.addEventListener('click', (e) => {
+        e.stopPropagation();  // evita di triggerare handler sulla riga
+        if(_rowImgClickTimer){ clearTimeout(_rowImgClickTimer); _rowImgClickTimer = null; }
+        _rowImgClickTimer = setTimeout(() => {
+          _rowImgClickTimer = null;
+          openProductImageLightbox(rowImgEl.src, rowExtras);
+        }, 250);
+      });
       rowImgEl.addEventListener('dblclick', (e) => {
+        if(_rowImgClickTimer){ clearTimeout(_rowImgClickTimer); _rowImgClickTimer = null; }
         e.preventDefault();
         e.stopPropagation();  // evita che il dblclick venga gestito anche dalla riga
         openEditor(p._idx);
       });
       rowImgEl.style.cursor = 'zoom-in';
-      rowImgEl.title = 'Doppio click per aprire la scheda di modifica';
+      rowImgEl.title = 'Click: ingrandisci immagine — Doppio click: apri scheda di modifica';
     }
     // V2.2.43: dblclick sulla riga intera
     tr.addEventListener('dblclick', (e) => {
@@ -23406,10 +24341,15 @@ function buildHoverPreviewHtml(p, mode){
     if(key === 'params'){
       const paramsObj = _hpGetParams(p, mode);
       const params = paramsObj && typeof paramsObj === 'object' ? paramsObj : null;
+      // V2.10.123: chiavi mai mostrate nella scheda parametri (non sono specifiche
+      // tecniche del prodotto). 'stock' = Disponibilità (stato logistico variabile,
+      // visibile altrove tramite i filtri IT/ES e le pillole stock).
+      const _hiddenParamKeysInCard = new Set(['stock']);
       let inner;
       if(params && Object.keys(params).length > 0){
         const rows = Object.keys(params)
           .filter(k => {
+            if(_hiddenParamKeysInCard.has(String(k).toLowerCase())) return false;
             const v = params[k];
             return v != null && String(v).trim() !== '';
           })
@@ -24524,6 +25464,20 @@ function renderExtraGallery(extra){
   </div>`;
 }
 
+// V2.10.134: helper per aprire il lightbox da galleria/tabella catalogo.
+// Imposta _LIGHTBOX_URLS = [immagine_principale, ...extra] così che, se il
+// prodotto ha extra, l'utente possa navigarle con frecce/tasti.
+function openProductImageLightbox(mainImg, extras){
+  if(!mainImg) return;
+  const urls = [mainImg];
+  if(extras && extras.full && Array.isArray(extras.full)){
+    // Aggiungo solo gli URL extra che non siano duplicati dell'immagine principale
+    extras.full.forEach(u => { if(u && u !== mainImg && !urls.includes(u)) urls.push(u); });
+  }
+  window._LIGHTBOX_URLS = urls;
+  openLightbox(urls[0], 0);
+}
+
 function openLightbox(url, idx){
   window._LIGHTBOX_IDX = idx || 0;
   const urls = window._LIGHTBOX_URLS || [url];
@@ -24578,7 +25532,10 @@ function openRelatedPanel(){
 
   const bg = document.createElement('div');
   bg.className = 'modal-bg';
-  bg.style.zIndex = 150; // sopra all'editor
+  // V2.10.138: bug fix — il pannello deve essere SOPRA all'editor (z-index 550
+  // dal V2.10.57). Il valore precedente di 150 lo metteva sotto, rendendolo
+  // invisibile. Uso 600 con margine per eventuali futuri dialog.
+  bg.style.zIndex = 600;
   bg.onclick = e=>{ if(e.target===bg) bg.remove(); };
 
   bg.innerHTML = `
@@ -24688,8 +25645,28 @@ function addRelated(code){
   toast('Aggiunto: '+code);
 }
 
-function removeRelated(code){
+async function removeRelated(code){
   if(!CURRENT_EDIT) return;
+  // V2.10.139: chiedi conferma prima di rimuovere il collegamento.
+  // Cerco il prodotto correlato per mostrare il nome nel dialog (se disponibile).
+  let productLabel = code;
+  try {
+    const prod = (typeof findProductByName === 'function') ? findProductByName(code) : null;
+    if(prod){
+      const name = getField(prod, 'name') || '';
+      const brand = getField(prod, 'brand') || '';
+      productLabel = brand ? `${code} — ${brand}` : code;
+      if(name && name !== code) productLabel = `${code} (${name})`;
+    }
+  } catch(_){}
+  const ok = await showConfirmDialog({
+    level: 'warn',
+    title: 'Rimuovere il prodotto correlato?',
+    subtitle: productLabel,
+    body: 'Il collegamento verrà rimosso dalla lista. Le modifiche saranno salvate quando premi "Salva modifiche" nell\'editor del prodotto principale.',
+    confirmLabel: 'Rimuovi',
+  });
+  if(!ok) return;
   const data = CURRENT_EDIT.data;
   const list = parseRelatedList(data.related_products).filter(c=>c!==code);
   data.related_products = list.join(',');
@@ -26787,6 +27764,32 @@ function updateResetBtnState(){
   btn.title = hasActive
     ? 'Filtri attivi — click per azzerarli tutti'
     : 'Nessun filtro attivo';
+
+  // V2.10.136: aggiorna il badge numerico con il count dei risultati filtrati.
+  // Mostrato solo quando ci sono filtri attivi (CSS gestisce la visibility).
+  // Stato "zero": badge rosso per evidenziare che la combinazione di filtri
+  // non produce risultati e l'utente potrebbe voler resettare.
+  const badge = document.getElementById('resetBadge');
+  if(badge){
+    const n = (typeof FILTERED !== 'undefined' && Array.isArray(FILTERED)) ? FILTERED.length : 0;
+    // Formatto numeri grandi: 1.234 → "1.2k" per non occupare troppo spazio
+    let label;
+    if(n >= 10000){
+      label = Math.floor(n / 1000) + 'k';
+    } else if(n >= 1000){
+      label = (n / 1000).toFixed(1).replace('.0', '') + 'k';
+    } else {
+      label = String(n);
+    }
+    badge.textContent = label;
+    badge.classList.toggle('zero', n === 0);
+    badge.classList.toggle('wide', label.length >= 4);
+    // Tooltip dettagliato sul pulsante quando ci sono filtri attivi
+    if(hasActive){
+      const plural = n === 1 ? 'prodotto trovato' : 'prodotti trovati';
+      btn.title = `${n.toLocaleString('it-IT')} ${plural} — click per azzerare i filtri`;
+    }
+  }
 }
 
 /* ==========
@@ -43239,6 +44242,15 @@ function updateSpecialViewsBadges(){
   if(groupEl){
     groupEl.style.display = (newCount > 0 || obsCount > 0 || personalCount > 0 || serviceCount > 0) ? '' : 'none';
   }
+  // V2.10.118: mostra sezione "Ricerca per parametri" se l'indice ha almeno 1 parametro
+  const paramGroupEl = document.getElementById('sbParamFiltersGroup');
+  if(paramGroupEl){
+    const hasIndex = (typeof PARAM_INDEX !== 'undefined' && PARAM_INDEX && Object.keys(PARAM_INDEX).length > 0);
+    paramGroupEl.style.display = hasIndex ? '' : 'none';
+    if(hasIndex && typeof paramRenderSidebar === 'function'){
+      try { paramRenderSidebar(); } catch(e){ console.warn('[params] render error', e); }
+    }
+  }
   // Pulsante "Prodotti personali" mostrato solo se ci sono effettivamente prodotti personali
   const personalBtn = document.getElementById('sbSpecialPersonal');
   if(personalBtn){
@@ -43819,6 +44831,10 @@ async function init(){
     FILTERED = DATA.slice();
     // V2.2.26: pre-computa cache ricerca allo startup (una volta, ~3s)
     rebuildAllSearchHay();
+    // V2.10.118: costruisco l'indice parametri tecnici per la nuova sezione sidebar
+    if(typeof paramRebuildIndex === 'function'){
+      try { paramRebuildIndex(); } catch(e){ console.warn('[params] rebuild index error', e); }
+    }
     showUI();
     populateFilters();
     render();
@@ -43959,8 +44975,15 @@ function bindUIListeners(){
     ? applyFilters()
     : null;
 
+  // V2.10.132: la search topbar ora aggiorna anche i conteggi/label dei
+  // dropdown Marca/Macrocat/Categoria così che mostrino solo valori coerenti
+  // con il testo cercato. Stesso pattern usato per fltQuickSearch.
+  const searchHandler = () => {
+    if(typeof applyFilters === 'function') applyFilters({refreshCascade: false});
+    if(typeof refreshFilterOptions === 'function') refreshFilterOptions();
+  };
   // Search: debounce 200ms (evita reflow per ogni carattere digitato)
-  safe('search', 'input', debounce(noCascade, 200));
+  safe('search', 'input', debounce(searchHandler, 200));
 
   // V2.2.35: Ricerca veloce in macrocategorie/categorie. Debounce 250ms.
   // Al cambio: applyFilters rifiltra + refreshFilterOptions aggiorna i label dei trigger.
