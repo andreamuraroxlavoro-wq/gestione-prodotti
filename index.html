@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.167</title>
+<title>Gestione Prodotti V2.10.168</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.167</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.168</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.167');
+console.info('[bootstrap] script avvio — V2.10.168');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.167';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.168';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -12373,6 +12373,84 @@ const DRIVE_TARGETED_STATE = {
   services:      { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null },
 };
 
+// V2.10.168: tracciamento "file Drive targeted da pushare" indipendente dalla modalità.
+// Diversamente da DRIVE_TARGETED_STATE[t].pending — che esiste solo dopo
+// driveScheduleTargetedSave e che in modalità manual/locale non viene mai
+// settato a true perché la funzione esce subito — DRIVE_TARGETED_DIRTY traccia
+// SEMPRE le modifiche, in qualsiasi modalità. È un Set (max 3 elementi:
+// 'clients', 'quotesArchive', 'services') persistito su localStorage per
+// sopravvivere al reload del browser. È la "verità semantica" per il badge
+// numerico rosso sull'icona ☁️⬆ in modalità locale/manual: il count è il
+// numero di FILE DRIVE da aggiornare, non il numero di modifiche utente.
+const DRIVE_TARGETED_DIRTY_KEY = 'gp_drive_targeted_dirty';
+const DRIVE_TARGETED_DIRTY = {
+  set: new Set(),
+
+  // Marca un target come dirty. Idempotente.
+  add(target){
+    if(!DRIVE_TARGETED_TARGETS.includes(target)){
+      console.warn('[drive-dirty] target sconosciuto:', target);
+      return;
+    }
+    if(this.set.has(target)) return;  // già dirty, evito _persist inutile
+    this.set.add(target);
+    this._persist();
+  },
+
+  // Rimuove un target dal dirty set (chiamato dopo push riuscito).
+  clear(target){
+    if(!this.set.has(target)) return;
+    this.set.delete(target);
+    this._persist();
+  },
+
+  // Svuota tutti i target dirty (chiamato dopo push completo riuscito).
+  clearAll(){
+    if(this.set.size === 0) return;
+    this.set.clear();
+    this._persist();
+  },
+
+  // Numero di target dirty (0..3). Usato dal badge ☁️⬆.
+  size(){ return this.set.size; },
+  has(target){ return this.set.has(target); },
+  list(){ return Array.from(this.set); },
+
+  // Persiste su localStorage. Tollerante agli errori.
+  _persist(){
+    try {
+      if(this.set.size === 0){
+        localStorage.removeItem(DRIVE_TARGETED_DIRTY_KEY);
+      } else {
+        localStorage.setItem(DRIVE_TARGETED_DIRTY_KEY, JSON.stringify(Array.from(this.set)));
+      }
+    } catch(e){
+      console.warn('[drive-dirty] persistence failed:', e && e.message);
+    }
+  },
+
+  // Ripristina lo stato da localStorage all'avvio. Validazione: ignora elementi
+  // che non sono target validi (difensivo contro localStorage corrotto).
+  _restore(){
+    try {
+      const json = localStorage.getItem(DRIVE_TARGETED_DIRTY_KEY);
+      if(!json) return 0;
+      const arr = JSON.parse(json);
+      if(!Array.isArray(arr)) return 0;
+      const valid = arr.filter(t => DRIVE_TARGETED_TARGETS.includes(t));
+      this.set = new Set(valid);
+      if(valid.length > 0){
+        console.info('[drive-dirty] restored ' + valid.length + ' target(s) dirty: ' + valid.join(', '));
+      }
+      return valid.length;
+    } catch(e){
+      console.warn('[drive-dirty] restore failed:', e && e.message);
+      try { localStorage.removeItem(DRIVE_TARGETED_DIRTY_KEY); } catch(_){}
+      return 0;
+    }
+  },
+};
+
 // Delta buffer: accumula le modifiche fra un sync e l'altro
 // V2.2.38 (proposta A): persistito su localStorage per sopravvivere a chiusure browser.
 // Se chiudi il browser durante la finestra di debounce (3s) o durante un retry,
@@ -12528,6 +12606,12 @@ function driveInit(){
     // V2.2.38 (A): carica buffer modifiche pending da localStorage
     // Se ci sono modifiche da una sessione precedente, le riprenderemo dopo l'init dell'app.
     const restoredCount = DRIVE_DELTA._restore();
+    // V2.10.168: ripristina anche il dirty set dei file targeted (clients/
+    // quotesArchive/services) — sopravvive alla chiusura del browser così
+    // l'utente in modalità locale ritrova il badge ☁️⬆ con il count corretto.
+    if(typeof DRIVE_TARGETED_DIRTY !== 'undefined' && DRIVE_TARGETED_DIRTY._restore){
+      DRIVE_TARGETED_DIRTY._restore();
+    }
 
     _driveUpdateBadge();
     // V2.10.96: aggiorna visibilità bottone Refresh in topbar
@@ -14910,6 +14994,14 @@ async function _driveSendTargeted(target){
     // Salva su localStorage l'ultimo ts noto (per la migrazione/check al boot)
     try { localStorage.setItem('gp_drive_targeted_ts_' + target, state.lastSyncedTs); } catch(_){}
 
+    // V2.10.168: send riuscito → pulisco il flag dirty per questo target.
+    // Idempotente: clear() non fa nulla se il target non è già dirty (es.
+    // chiamato dal flow auto quando il file non era mai stato segnato dirty
+    // dal nuovo tracking).
+    if(typeof DRIVE_TARGETED_DIRTY !== 'undefined' && DRIVE_TARGETED_DIRTY.clear){
+      DRIVE_TARGETED_DIRTY.clear(target);
+    }
+
     return true;
   } catch(e){
     state.lastError = e.message;
@@ -14926,6 +15018,9 @@ async function _driveSendTargeted(target){
   } finally {
     state.syncing = false;
     if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+    // V2.10.168: aggiorno anche il badge ☁️⬆ (la classe has-pending e il
+    // count numerico dipendono da DRIVE_TARGETED_DIRTY.size()).
+    if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
 
     // Se sono arrivate altre mutazioni durante il send, riprogramma
     if(state.pending){
@@ -15214,17 +15309,28 @@ function driveNotifyChange(kind, key, record){
     if(kind === 'settings'){
       // V2.10.86: i 3 target write-frequent ora vanno al sistema TARGETED
       // (file Drive separati). Niente più promozione a full sync del master da 70 MB.
+      // V2.10.168: aggiunto tracking dirty indipendente dalla modalità (vedi
+      // DRIVE_TARGETED_DIRTY) + aggiornamento immediato del badge ☁️⬆.
+      // Prima della 168, in modalità locale/manual il badge non si aggiornava
+      // mai per modifiche a clienti/preventivi/servizi perché
+      // driveScheduleTargetedSave esce subito se mode!=='auto' (riga 14843).
       if(key === '__clients__'){
+        DRIVE_TARGETED_DIRTY.add('clients');
         driveScheduleTargetedSave('clients');
         if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+        if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
         return;  // SHORT-CIRCUIT: no scheduleSave del master
       } else if(key === '__services__'){
+        DRIVE_TARGETED_DIRTY.add('services');
         driveScheduleTargetedSave('services');
         if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+        if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
         return;  // SHORT-CIRCUIT
       } else if(key === '__quotes_archive__'){
+        DRIVE_TARGETED_DIRTY.add('quotesArchive');
         driveScheduleTargetedSave('quotesArchive');
         if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
+        if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
         return;  // SHORT-CIRCUIT
       } else {
         // Settings vere: replace totale (ricostruisce tutto l'oggetto)
@@ -15811,7 +15917,15 @@ function _driveUpdateLocalModeUI(){
   var badge = document.getElementById('sb-localmode-badge');
   if(badge){
     if(on){
-      var pending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+      // V2.10.168: il count "modifiche pending" considera SIA il buffer delta
+      // generico (DRIVE_DELTA) SIA il dirty set dei file targeted
+      // (DRIVE_TARGETED_DIRTY). Prima della 168, solo DRIVE_DELTA contava: i
+      // file targeted (clients/quotesArchive/services) non comparivano mai
+      // nel badge in modalità locale perché venivano gestiti da un percorso
+      // separato (driveScheduleTargetedSave) che esce subito se mode!='auto'.
+      var deltaPending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+      var targetedPending = (typeof DRIVE_TARGETED_DIRTY !== 'undefined' && DRIVE_TARGETED_DIRTY.size) ? DRIVE_TARGETED_DIRTY.size() : 0;
+      var pending = deltaPending + targetedPending;
       // V2.10.114: solo "MODALITÀ LOCALE" senza testo aggiuntivo
       badge.textContent = 'MODALITÀ LOCALE';
       badge.classList.toggle('has-pending', pending > 0);
@@ -15830,7 +15944,11 @@ function _driveUpdateLocalModeUI(){
   // cliccabile per push manuale immediato.
   var btnPush = document.getElementById('btnDriveManualPush');
   var btnPull = document.getElementById('btnDriveManualPull');
-  var pending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+  // V2.10.168: pending = DRIVE_DELTA.size() + DRIVE_TARGETED_DIRTY.size().
+  // Vedi commento più sopra sul perché del calcolo combinato.
+  var deltaPending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+  var targetedPending = (typeof DRIVE_TARGETED_DIRTY !== 'undefined' && DRIVE_TARGETED_DIRTY.size) ? DRIVE_TARGETED_DIRTY.size() : 0;
+  var pending = deltaPending + targetedPending;
   if(btnPush){
     btnPush.style.display = (on || pending > 0) ? '' : 'none';
     // V2.10.106: la classe has-pending tinge il push di giallo acido (#CCFF00)
@@ -15877,6 +15995,11 @@ function _driveUpdateLocalModeUI(){
 }
 
 // Azione utente: pulsante ☁️⬆ "Push to Drive Now"
+// V2.10.168: ora gestisce anche il push dei file TARGETED dirty
+// (clients/quotesArchive/services) registrati in DRIVE_TARGETED_DIRTY. Prima
+// della 168, il push manuale considerava solo DRIVE_DELTA, quindi un utente in
+// modalità locale/manual con solo modifiche a clienti/preventivi/servizi
+// vedeva il messaggio "Nessuna modifica in coda" e il badge restava bloccato.
 async function driveManualPush(btn){
   if(!DRIVE_STATE.url){
     alert('Drive non configurato.');
@@ -15886,8 +16009,10 @@ async function driveManualPush(btn){
     console.info('[drive] manual push: sync già in corso, ignoro');
     return;
   }
-  var pending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
-  if(pending === 0){
+  var deltaPending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+  var targetedDirtyList = (typeof DRIVE_TARGETED_DIRTY !== 'undefined' && DRIVE_TARGETED_DIRTY.list) ? DRIVE_TARGETED_DIRTY.list() : [];
+  var totalPending = deltaPending + targetedDirtyList.length;
+  if(totalPending === 0){
     if(typeof toast === 'function'){
       toast('Nessuna modifica in coda da inviare', 'info');
     }
@@ -15895,20 +16020,57 @@ async function driveManualPush(btn){
   }
   // V2.10.105: stato visivo busy (giallo lampeggiante)
   _driveSetBtnState('btnDriveManualPush', 'busy');
+  // V2.10.168: traccio errori per i singoli step. Se almeno uno fallisce
+  // resto in stato 'error', ma comunque pulisco lo stato dei target che
+  // sono stati pushati con successo (così il badge riflette la verità).
+  var errors = [];
   try {
-    if(typeof _driveSendDelta === 'function'){
-      await _driveSendDelta();
-    } else if(typeof driveSaveFullSync === 'function'){
-      await driveSaveFullSync();
+    // === STEP 1: invio buffer delta (settings + data + edits) ===
+    if(deltaPending > 0){
+      try {
+        if(typeof _driveSendDelta === 'function'){
+          await _driveSendDelta();
+        } else if(typeof driveSaveFullSync === 'function'){
+          await driveSaveFullSync();
+        }
+      } catch(e){
+        errors.push('delta: ' + (e && e.message ? e.message : 'errore'));
+      }
     }
-    // Success: verde flash 2s
-    _driveSetBtnState('btnDriveManualPush', 'success');
-    if(typeof toast === 'function'){
-      toast('Modifiche inviate a Drive', 'success');
+    // === STEP 2: invio file TARGETED dirty (clients/quotesArchive/services) ===
+    // Itero sui target dirty e li invio uno alla volta. _driveSendTargeted
+    // ritorna true se il send è andato a buon fine; in quel caso pulisco il
+    // dirty flag. In caso contrario lo lascio dirty per il prossimo tentativo.
+    if(targetedDirtyList.length > 0 && typeof _driveSendTargeted === 'function'){
+      for(var i = 0; i < targetedDirtyList.length; i++){
+        var t = targetedDirtyList[i];
+        try {
+          var ok = await _driveSendTargeted(t);
+          if(ok){
+            DRIVE_TARGETED_DIRTY.clear(t);
+          } else {
+            errors.push(t + ': send fallito');
+          }
+        } catch(e){
+          errors.push(t + ': ' + (e && e.message ? e.message : 'errore'));
+        }
+      }
+    }
+    // === Risultato finale ===
+    if(errors.length === 0){
+      _driveSetBtnState('btnDriveManualPush', 'success');
+      if(typeof toast === 'function'){
+        toast('Modifiche inviate a Drive', 'success');
+      }
+    } else {
+      console.warn('[drive] manual push errori parziali:', errors.join(' · '));
+      _driveSetBtnState('btnDriveManualPush', 'error');
+      if(typeof toast === 'function'){
+        toast('Push parziale: ' + errors.length + ' errore/i. Riprova.', 'error');
+      }
     }
   } catch(e){
     console.warn('[drive] manual push failed:', e && e.message);
-    // Error: rosso fisso (resta finché prossima op success)
     _driveSetBtnState('btnDriveManualPush', 'error');
     if(typeof toast === 'function'){
       toast('Push fallito: ' + (e && e.message ? e.message : 'errore'), 'error');
