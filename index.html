@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.177</title>
+<title>Gestione Prodotti V2.10.178</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.177</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.178</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.177');
+console.info('[bootstrap] script avvio — V2.10.178');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.177';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.178';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -19621,6 +19621,12 @@ async function driveRenderSettingsPanel(){
           '<button type="button" class="btn-pill" onclick="cleanupLegacyServiceRecords()" ' +
             'style="background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.5);color:#f59e0b;font-weight:700">' +
             '🧹 Rimuovi shadow servizi duplicati' +
+          '</button>' +
+          // V2.10.178: ripristina personali/servizi marcati come scatalogati per errore
+          // (bug pre-V2.10.178: l'import CSV marcava anche personali e servizi come obsoleti).
+          '<button type="button" class="btn-pill" onclick="cleanupObsoleteFlagsOnPersonalAndServices()" ' +
+            'style="background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.5);color:#22c55e;font-weight:700">' +
+            '🔄 Ripristina personali/servizi scatalogati' +
           '</button>' +
         '</div>' +
       '</div>' +
@@ -34043,6 +34049,61 @@ async function cleanupLegacyServiceRecords(){
 }
 window.cleanupLegacyServiceRecords = cleanupLegacyServiceRecords;
 
+/* V2.10.178: ripristina i prodotti personali e i servizi che sono stati marcati come
+   scatalogati (_obsoleteSince) durante un import CSV precedente alla V2.10.178.
+   Da V2.10.178 in poi, l'import esclude automaticamente personali e servizi dalla
+   marcatura, ma chi ha gia' subito il bug deve usare questo bottone una tantum
+   per pulire i flag stantii. */
+async function cleanupObsoleteFlagsOnPersonalAndServices(){
+  if(!Array.isArray(DATA)){
+    if(typeof toast === 'function') toast('DATA non caricato', 'err');
+    return;
+  }
+  const targets = [];
+  for(let i = 0; i < DATA.length; i++){
+    const p = DATA[i];
+    if(!p) continue;
+    if((p.isPersonal === true || p.isService === true) && p._obsoleteSince){
+      targets.push(i);
+    }
+  }
+  if(targets.length === 0){
+    if(typeof toast === 'function') toast('Nessun personale/servizio con flag scatalogato da rimuovere', 'ok');
+    return;
+  }
+  const sample = targets.slice(0, 8).map(i => DATA[i].name).join(', ') + (targets.length > 8 ? ', …' : '');
+  const msg = 'Ripristinare ' + targets.length + ' prodotti personali/servizi erroneamente marcati come scatalogati?\n\n' +
+              'Esempi: ' + sample + '\n\n' +
+              'Verra\' rimosso il flag _obsoleteSince da questi record. Operazione sicura: ' +
+              'non tocca il catalogo Visiotech ne\' modifica i prezzi.';
+  if(!confirm(msg)) return;
+  let cleaned = 0;
+  for(const idx of targets){
+    delete DATA[idx]._obsoleteSince;
+    cleaned++;
+  }
+  if(typeof applyFilters === 'function'){
+    try { applyFilters(); } catch(_){}
+  }
+  if(typeof persistData === 'function'){
+    try { await persistData(); } catch(_){}
+  } else if(typeof idbSet === 'function'){
+    try { await idbSet('meta', 'data', { data: DATA, ts: Date.now() }); } catch(_){}
+  }
+  if(typeof driveNotifyChange === 'function'){
+    for(const idx of targets){
+      try { driveNotifyChange('data', 'obsolete-flag-cleanup-' + idx, null); } catch(_){}
+    }
+  }
+  if(typeof toast === 'function'){
+    toast('Ripristinati ' + cleaned + ' record. Esegui Upload per propagare a Drive.', 'ok', 6000);
+  }
+  if(typeof renderProducts === 'function'){
+    try { renderProducts(); } catch(_){}
+  }
+}
+window.cleanupObsoleteFlagsOnPersonalAndServices = cleanupObsoleteFlagsOnPersonalAndServices;
+
 /* ============================================================================
    V2.10.59: Aggiunta servizio al carrello preventivo.
    ----------------------------------------------------------------------------
@@ -46177,9 +46238,16 @@ async function mergeCatalogImport(newDataArr, diagnosis){
   });
 
   // 2. Marca scatalogati i prodotti esistenti non più presenti nel nuovo file
+  // V2.10.178: prodotti personali e servizi NON vengono mai marcati come scatalogati.
+  // Questi non provengono dal CSV ufficiale del fornitore (Visiotech), sono creati
+  // dall'utente o dal sistema servizi. Marcarli come scatalogati ad ogni import sarebbe
+  // un errore che ne nasconderebbe la visibilita' nella galleria. Esclusi:
+  //  - p.isPersonal === true (prodotti personali manuali, es. ST-TOWER-V2)
+  //  - p.isService === true (servizi del catalogo e shadow product SVC-)
   DATA.forEach(p => {
     const k = normCode(p.name);
     if(!k) return;
+    if(p && (p.isPersonal === true || p.isService === true)) return; // skip
     if(!newByCode.has(k)){
       if(!p._obsoleteSince){
         p._obsoleteSince = now;
