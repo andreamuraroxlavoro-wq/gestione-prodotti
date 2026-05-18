@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.168</title>
+<title>Gestione Prodotti V2.10.169</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.168</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.169</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.168');
+console.info('[bootstrap] script avvio — V2.10.169');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.168';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.169';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -35368,6 +35368,21 @@ function quoteRefreshBoundSnapshot(){
   return true;
 }
 
+/* V2.10.169: helper centrale per risolvere i dati cliente di un preventivo.
+   Regola: cerca SEMPRE il cliente per id nell'anagrafica corrente. Se trovato
+   ritorna i dati live (aggiornati). Se non trovato (cliente eliminato dall'anagrafica
+   o cliente ad-hoc senza id) fa fallback sullo snapshot congelato al momento del save.
+   Garantisce che export PDF/Word/Excel e tutte le UI mostrino sempre i dati piu' recenti.
+   Ritorna un oggetto plain (mai null): {} se non c'e' proprio nulla. */
+function _resolveQuoteCliente(quote){
+  if(!quote) return {};
+  const snap = quote.clienteSnapshot || {};
+  const cid = snap && snap.id;
+  if(!cid) return snap;  // cliente ad-hoc senza id → uso snapshot (non c'e' niente da rinfrescare)
+  const live = (typeof clientGetById === 'function') ? clientGetById(cid) : null;
+  return live ? live : snap;  // cliente eliminato dall'anagrafica → fallback snapshot
+}
+
 /* Ritorna l'oggetto bound info "arricchito" con dati del preventivo (per UI).
    Restituisce null se non bound o preventivo eliminato dall'archivio. */
 function quoteGetBoundInfo(){
@@ -35391,7 +35406,8 @@ function quoteGetBoundInfo(){
     quote: quote,
     quoteId: quote.id,
     nome: quote.nome || '',
-    cliente: quote.clienteSnapshot || {},
+    // V2.10.169: live lookup dell'anagrafica (snapshot solo come fallback)
+    cliente: _resolveQuoteCliente(quote),
     statoId: quote.statoId,
     versionNumber: effectiveVersion,
     boundAt: bq.boundAt,
@@ -35608,7 +35624,8 @@ function quotesSearch(query){
   if(!q) return window._QUOTES_ARCHIVE.quotes.slice();
   return window._QUOTES_ARCHIVE.quotes.filter(quote => {
     if(!quote) return false;
-    const c = quote.clienteSnapshot || {};
+    // V2.10.169: ricerca anche sui dati cliente live (aggiornati)
+    const c = _resolveQuoteCliente(quote);
     const blob = [quote.id, quote.nome, c.ragioneSociale, c.partitaIva, c.persRiferimento, c.indirizzo, c.capCitta].join(' ').toLowerCase();
     return blob.indexOf(q) !== -1;
   });
@@ -36886,7 +36903,8 @@ function renderQuotesArchiveTable(){
     const stato = quotesStatoGetById(q.statoId);
     const statoLabel = stato ? stato.label : '?';
     const statoColor = stato ? stato.color : '#9ca3af';
-    const c = q.clienteSnapshot || {};
+    // V2.10.169: dati cliente live dall'anagrafica (snapshot solo come fallback)
+    const c = _resolveQuoteCliente(q);
     const venditaBase = (lastV.totals && lastV.totals.totalSellPrice > 0)
       ? lastV.totals.totalSellPrice
       : (lastV.totals ? lastV.totals.totalPvp : 0);
@@ -36958,7 +36976,7 @@ function renderQuotesArchiveTable(){
       const id = btn.dataset.id;
       const q = quoteGetById(id);
       if(!q) return;
-      const cliente = (q.clienteSnapshot && q.clienteSnapshot.ragioneSociale) || '?';
+      const cliente = (_resolveQuoteCliente(q).ragioneSociale) || '?';
       if(!confirm('Eliminare definitivamente questo preventivo?\n\nID: ' + id + '\nCliente: ' + cliente + '\nVersioni: ' + q.versions.length + '\n\nL\u0027azione non puo\u0027 essere annullata.')) return;
       try {
         quoteDelete(id);
@@ -36989,7 +37007,8 @@ function openQuoteDetailDialog(quoteId){
   const ex = document.getElementById('quoteDetailModal');
   if(ex) ex.remove();
 
-  const c = quote.clienteSnapshot || {};
+  // V2.10.169: dati cliente live dall'anagrafica (snapshot solo come fallback)
+  const c = _resolveQuoteCliente(quote);
   const stato = quotesStatoGetById(quote.statoId);
 
   const bg = document.createElement('div');
@@ -42204,8 +42223,10 @@ async function exportQuoteWord(){
         'table.items th.col-desc{text-align:left}' +
         'table.items td.col-desc{text-align:left;color:#374151;font-size:9.5pt;line-height:1.45;padding:8pt 10pt;vertical-align:middle}' +
         'table.items td.col-desc .desc-code{font-weight:700;font-size:10.5pt;color:#1f2937;letter-spacing:.2pt;margin-bottom:3pt}' +
-        // V2.10.75: PDF resta left (jsPDF non gestisce bene il justify su colonne strette)
-        'table.items td.col-desc .desc-body{text-align:left;white-space:pre-line;overflow-wrap:break-word;color:#374151}' +
+        // V2.10.169: ripristinato justify allineato al rendering Word (V2.10.75 aveva
+        // forzato left per problemi di spaziatura jsPDF su colonne strette; con text-align-last:left
+        // e hyphens:auto il rendering migliora abbastanza da essere coerente con il Word).
+        'table.items td.col-desc .desc-body{text-align:justify;text-align-last:left;white-space:pre-line;overflow-wrap:break-word;hyphens:auto;color:#374151}' +
         'table.items td.col-desc .desc-brand{font-size:8.5pt;color:#6b7280;font-weight:500;letter-spacing:.3pt;text-transform:uppercase;margin-top:4pt}' +
         // V2.4.0: colonne numeriche compatte (padding ridotto)
         'table.items th.col-qty,table.items td.col-qty{text-align:center;font-weight:600;vertical-align:middle;padding-left:3pt;padding-right:3pt}' +
