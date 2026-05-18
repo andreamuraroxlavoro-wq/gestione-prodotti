@@ -37542,18 +37542,63 @@ function _qResolveImg(item){
 function getCleanItemName(item){
   if(!item) return '';
   const mode = (window._QUOTE_STATE && window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.descMode) || 'short';
+  // V2.10.169: helper per normalizzare \n nelle descrizioni dei prodotti personali.
+  // Applicato anche al volo per item gia' nel carrello prima della V2.10.169 (i nuovi
+  // item sono gia' normalizzati al momento dell'add). I doppi \n\n diventano paragrafi.
+  // V2.10.169 fix #3: usa personalProductsList() come fonte di verita' invece di
+  // window.DATA (che puo' essere undefined quando si esporta da fuori la sezione Prodotti).
+  const _isPersonalItem = (() => {
+    // 1) Flag direttamente sull'item del carrello (V2.10.169+)
+    if(item.isPersonal === true) return true;
+    // 2) personalProductsList(): fonte di verita' affidabile in qualsiasi contesto
+    if(typeof personalProductsList === 'function' && item.code){
+      try {
+        const list = personalProductsList();
+        if(Array.isArray(list)){
+          const found = list.find(p => p && (
+            (typeof getField === 'function' && getField(p, 'name') === item.code) ||
+            p.name === item.code
+          ));
+          if(found) return true;
+        }
+      } catch(_){}
+    }
+    // 3) Fallback su window.DATA (se disponibile e sincronizzato)
+    if(Array.isArray(window.DATA)){
+      if(item.idx != null && window.DATA[item.idx] && window.DATA[item.idx].isPersonal === true){
+        return true;
+      }
+      if(item.code){
+        const found = window.DATA.find(p => p && p.isPersonal === true &&
+                                            ((typeof getField === 'function' && getField(p, 'name') === item.code) ||
+                                             p.name === item.code));
+        if(found) return true;
+      }
+    }
+    return false;
+  })();
+  const _maybeNorm = (s) => {
+    if(!_isPersonalItem) return s;
+    return String(s || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{2,}/g, '\u0001')
+      .replace(/\n/g, ' ')
+      .replace(/\u0001/g, '\n\n')
+      .replace(/[ \t]+/g, ' ')
+      .trim();
+  };
   // Path moderno: i campi nuovi sono presenti
   const hasNewFields = (typeof item.nameShort === 'string') || (typeof item.nameFull === 'string');
   if(hasNewFields){
     const primary = (mode === 'short') ? (item.nameShort || '') : (item.nameFull || '');
-    if(primary) return primary;
+    if(primary) return _maybeNorm(primary);
     // Fallback all'altra descrizione se quella richiesta è vuota
     const fallback = (mode === 'short') ? (item.nameFull || '') : (item.nameShort || '');
-    if(fallback) return fallback;
+    if(fallback) return _maybeNorm(fallback);
     // Ultimo tentativo: vecchio campo `name` (per item creati nel breve range
     // di tempo in cui esisteva già nameShort ma name era ancora popolato)
     const legacy = String(item.name || '');
-    return _stripIfHtml(legacy);
+    return _maybeNorm(_stripIfHtml(legacy));
   }
   // Path legacy (item salvati con V2.3.1/V2.3.2/V2.3.3, hanno solo `name`)
   if(mode === 'short'){
@@ -37562,13 +37607,14 @@ function getCleanItemName(item){
       const p = window.DATA[item.idx];
       const rawShort = getField(p, 'short_description') || getField(p, 'short_description_html') || '';
       if(rawShort){
-        return (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(String(rawShort)) : String(rawShort);
+        const stripped = (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(String(rawShort)) : String(rawShort);
+        return _maybeNorm(stripped);
       }
     }
   }
   // Fallback finale: vecchio `name` (descrizione completa salvata nelle V2.3.1-3),
   // strippato se contiene HTML (V2.3.1 lo salvava grezzo).
-  return _stripIfHtml(String(item.name || ''));
+  return _maybeNorm(_stripIfHtml(String(item.name || '')));
 }
 
 function _stripIfHtml(s){
@@ -37618,11 +37664,31 @@ function addToQuoteCart(productIdx, qty){
     // più, ad esempio se il prodotto è stato cancellato dal DB dopo l'aggiunta).
     const rawShort = String(getField(p, 'short_description') || getField(p, 'short_description_html') || '');
     const rawFull  = String(getField(p, 'description') || '');
-    const cleanShort = (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawShort) : rawShort;
-    const cleanFull  = (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawFull)  : rawFull;
+    let cleanShort = (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawShort) : rawShort;
+    let cleanFull  = (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawFull)  : rawFull;
+    // V2.10.169: per i prodotti PERSONALI i \n della textarea (rows=3) sono soft-wrap
+    // accidentali del compilatore, non a-capo strutturali. Vanno collassati in spazi per
+    // permettere al text-align:justify del PDF/Word di funzionare. Per i prodotti di catalogo
+    // invece i \n sono strutturali (sezioni, righe di specifiche) e vanno preservati.
+    // Conservo i doppi \n\n come separatori di paragrafo intenzionali.
+    if(p && p.isPersonal === true){
+      const _normPersonal = (s) => String(s || '')
+        .replace(/\r\n/g, '\n')              // CRLF → LF
+        .replace(/\n{2,}/g, '\u0001')         // marker temporaneo per i doppi-newline (paragrafi intenzionali)
+        .replace(/\n/g, ' ')                  // singoli newline → spazio
+        .replace(/\u0001/g, '\n\n')           // ripristino i paragrafi
+        .replace(/[ \t]+/g, ' ')              // collasso spazi multipli
+        .trim();
+      cleanShort = _normPersonal(cleanShort);
+      cleanFull  = _normPersonal(cleanFull);
+    }
     window._QUOTE_STATE.items.push({
       idx: productIdx,
       code,
+      // V2.10.169: salvo isPersonal sull'item del carrello (oltre che su DATA[idx])
+      // così la normalizzazione \n in getCleanItemName funziona anche se il prodotto
+      // viene cancellato dall'anagrafica o se gli idx cambiano dopo una resincronizzazione.
+      isPersonal: (p && p.isPersonal === true) ? true : undefined,
       // `name` resta per retrocompatibilità con render legacy ma da V2.3.4
       // viene popolato in coerenza con la descMode corrente. La fonte di verità
       // sono nameShort/nameFull, getCleanItemName sceglie quale usare.
@@ -38103,8 +38169,21 @@ function openQuoteAddDialog(productIdx){
   const descMode = (window._QUOTE_STATE && window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.descMode) || 'short';
   const rawShort = String(getField(p, 'short_description') || getField(p, 'short_description_html') || '').trim();
   const rawFull  = String(getField(p, 'description') || '').trim();
-  const cleanShort = rawShort && (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawShort) : rawShort;
-  const cleanFull  = rawFull  && (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawFull)  : rawFull;
+  let cleanShort = rawShort && (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawShort) : rawShort;
+  let cleanFull  = rawFull  && (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(rawFull)  : rawFull;
+  // V2.10.169: per i prodotti personali collasso i \n singoli in spazi (vedi commento
+  // dettagliato sotto in addToQuoteCart). Garantisce coerenza tra anteprima dialog e PDF/Word.
+  if(p && p.isPersonal === true){
+    const _normPersonal = (s) => String(s || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{2,}/g, '\u0001')
+      .replace(/\n/g, ' ')
+      .replace(/\u0001/g, '\n\n')
+      .replace(/[ \t]+/g, ' ')
+      .trim();
+    cleanShort = _normPersonal(cleanShort);
+    cleanFull  = _normPersonal(cleanFull);
+  }
   const desc = (descMode === 'short') ? (cleanShort || cleanFull) : (cleanFull || cleanShort);
   const brand = String(getField(p, 'brand') || '').trim();
   const pvp = priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
@@ -42210,29 +42289,34 @@ async function exportQuoteWord(){
         '.meta{font-size:10pt;line-height:1.7}' +
         '.content{padding:24pt 32pt}' +
         'h2{font-size:14pt;color:#1f2937;border-bottom:2pt solid #0178d4;padding-bottom:4pt;margin-top:18pt;margin-bottom:10pt}' +
-        'table.items{width:100%;border-collapse:collapse;margin-top:10pt;font-size:10pt}' +
+        'table.items{width:100%;border-collapse:collapse;margin-top:10pt;font-size:10pt;table-layout:fixed}' +
         'table.items th{background:#1f2937;color:#fff;padding:8pt 8pt;text-align:left;font-weight:600;font-size:9.5pt;letter-spacing:0;vertical-align:middle}' +
         'table.items td{padding:8pt 8pt;border-bottom:1pt solid #e5e7eb;vertical-align:middle;line-height:1.45;font-variant-numeric:tabular-nums}' +
         // V2.10.71: zebra rimossa (richiesta utente: tutte le righe bianche per
         // evitare contorni visibili attorno alle immagini su sfondo grigio).
         // 'table.items tbody tr:nth-child(even) td{background:#f9fafb}' +
+        // V2.10.169: !important sugli override critici per garantire la precedenza
+        // su html2canvas (che a volte applica le shorthand della regola generica anche
+        // quando ci sono override piu' specifici, causando disallineamenti dell\u0027header).
         // Img: cella quadrata centrata
-        'table.items th.col-img,table.items td.col-img{text-align:center;padding:6pt 4pt;width:50pt;vertical-align:middle}' +
+        'table.items th.col-img,table.items td.col-img{text-align:center !important;padding:6pt 4pt !important;width:50pt;vertical-align:middle}' +
         'table.items td.col-img img{max-width:50pt;max-height:50pt}' +
         // Descrizione strutturata: codice in alto bold, corpo descrizione, marca in fondo small-caps
-        'table.items th.col-desc{text-align:left}' +
-        'table.items td.col-desc{text-align:left;color:#374151;font-size:9.5pt;line-height:1.45;padding:8pt 10pt;vertical-align:middle}' +
+        'table.items th.col-desc{text-align:left !important;padding:8pt 10pt !important;vertical-align:middle}' +
+        'table.items td.col-desc{text-align:left !important;color:#374151;font-size:9.5pt;line-height:1.45;padding:8pt 10pt !important;vertical-align:middle}' +
         'table.items td.col-desc .desc-code{font-weight:700;font-size:10.5pt;color:#1f2937;letter-spacing:.2pt;margin-bottom:3pt}' +
-        // V2.10.169: ripristinato justify allineato al rendering Word (V2.10.75 aveva
-        // forzato left per problemi di spaziatura jsPDF su colonne strette; con text-align-last:left
-        // e hyphens:auto il rendering migliora abbastanza da essere coerente con il Word).
+        // V2.10.169: justify allineato al rendering Word. white-space:pre-line preserva
+        // i \n strutturali nelle descrizioni complete dei prodotti di catalogo (sezioni,
+        // righe di specifiche tecniche). Per i prodotti PERSONALI invece i \n della textarea
+        // vengono collassati a monte (vedi normalizePersonalDescription) per non spezzare il flusso.
         'table.items td.col-desc .desc-body{text-align:justify;text-align-last:left;white-space:pre-line;overflow-wrap:break-word;hyphens:auto;color:#374151}' +
         'table.items td.col-desc .desc-brand{font-size:8.5pt;color:#6b7280;font-weight:500;letter-spacing:.3pt;text-transform:uppercase;margin-top:4pt}' +
         // V2.4.0: colonne numeriche compatte (padding ridotto)
-        'table.items th.col-qty,table.items td.col-qty{text-align:center;font-weight:600;vertical-align:middle;padding-left:3pt;padding-right:3pt}' +
-        'table.items th.col-money,table.items td.col-money{text-align:right;padding-left:4pt;padding-right:6pt;white-space:nowrap;vertical-align:middle}' +
-        'table.items th.col-discount{text-align:right;padding-left:3pt;padding-right:6pt}' +
-        'table.items td.col-discount{text-align:right;padding-left:3pt;padding-right:6pt;white-space:nowrap;font-weight:600;color:#dc2626;vertical-align:middle}' +
+        // V2.10.169: !important + tabular-nums anche su th per allineamento perfetto
+        'table.items th.col-qty,table.items td.col-qty{text-align:center !important;font-weight:600;vertical-align:middle;padding:8pt 3pt !important;font-variant-numeric:tabular-nums}' +
+        'table.items th.col-money,table.items td.col-money{text-align:right !important;padding:8pt 6pt 8pt 4pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
+        'table.items th.col-discount,table.items td.col-discount{text-align:right !important;padding:8pt 6pt 8pt 3pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
+        'table.items td.col-discount{font-weight:600;color:#dc2626}' +
         'table.items td.col-tot{font-weight:700;color:#1f2937}' +
         '.totals{margin-top:18pt;display:table;width:100%}' +
         '.totals-table{margin-left:auto;width:55%;border-collapse:collapse;font-size:11pt}' +
@@ -42880,6 +42964,16 @@ async function exportQuotePdfNative(options){
       // alternateRowStyles: { fillColor: COL.zebra },
       columnStyles: columnStyles,
       didParseCell: function(data){
+        // V2.10.169: forzo l'halign dell'header in modo identico alle celle body.
+        // jspdf-autotable applica columnStyles.halign al body, ma in alcuni casi
+        // l'header eredita 'left' di default — fissiamo esplicitamente.
+        if(data.section === 'head'){
+          const colDef = cols[data.column.index];
+          if(colDef && colDef.align){
+            data.cell.styles.halign = colDef.align;
+          }
+          data.cell.styles.valign = 'middle';
+        }
         // Styling celle specifiche
         if(data.section === 'body'){
           if(data.column.index === idxDiscount){
@@ -43596,25 +43690,26 @@ async function exportQuotePdf(){
         '.meta{font-size:9.5pt;line-height:1.7;text-align:right}' +
         '.content{padding:18pt 24pt}' +
         'h2{font-size:13pt;color:#1f2937;border-bottom:2pt solid #0178d4;padding-bottom:3pt;margin:18pt 0 8pt}' +
-        'table.items{width:100%;border-collapse:collapse;font-size:9.5pt}' +
+        'table.items{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}' +
         'table.items th{background:#1f2937;color:#fff;padding:7pt 7pt;text-align:left;font-weight:600;font-size:9pt;letter-spacing:0;vertical-align:middle}' +
         'table.items td{padding:7pt 7pt;border-bottom:1pt solid #e5e7eb;vertical-align:middle;line-height:1.45;font-variant-numeric:tabular-nums}' +
         // V2.10.71: zebra rimossa (vedi V2.10.71 nota nel PDF)
         // 'table.items tbody tr:nth-child(even) td{background:#f9fafb}' +
+        // V2.10.169: !important sugli override critici per coerenza con il rendering PDF.
         // Img: cella quadrata centrata
-        'table.items th.col-img,table.items td.col-img{text-align:center;padding:5pt 3pt;width:42pt;vertical-align:middle}' +
+        'table.items th.col-img,table.items td.col-img{text-align:center !important;padding:5pt 3pt !important;width:42pt;vertical-align:middle}' +
         'table.items td.col-img img{max-width:42pt;max-height:42pt;display:block;margin:0 auto}' +
         // Descrizione strutturata: codice in alto bold, corpo descrizione, marca in fondo
-        'table.items th.col-desc{text-align:left}' +
-        'table.items td.col-desc{text-align:left;color:#374151;font-size:9pt;line-height:1.45;padding:7pt 8pt;vertical-align:middle}' +
+        'table.items th.col-desc{text-align:left !important;padding:7pt 8pt !important;vertical-align:middle}' +
+        'table.items td.col-desc{text-align:left !important;color:#374151;font-size:9pt;line-height:1.45;padding:7pt 8pt !important;vertical-align:middle}' +
         'table.items td.col-desc .desc-code{font-weight:700;font-size:9.5pt;color:#1f2937;letter-spacing:.2pt;margin-bottom:2pt}' +
         'table.items td.col-desc .desc-body{text-align:justify;text-align-last:left;white-space:pre-line;hyphens:auto;color:#374151}' +
         'table.items td.col-desc .desc-brand{font-size:7.5pt;color:#6b7280;font-weight:500;letter-spacing:.3pt;text-transform:uppercase;margin-top:3pt}' +
-        // Colonne numeriche compatte
-        'table.items th.col-qty,table.items td.col-qty{text-align:center;font-weight:600;vertical-align:middle;padding-left:2pt;padding-right:2pt}' +
-        'table.items th.col-money,table.items td.col-money{text-align:right;padding-left:3pt;padding-right:5pt;white-space:nowrap;vertical-align:middle}' +
-        'table.items th.col-discount{text-align:right;padding-left:2pt;padding-right:5pt}' +
-        'table.items td.col-discount{text-align:right;padding-left:2pt;padding-right:5pt;white-space:nowrap;font-weight:600;color:#dc2626;vertical-align:middle}' +
+        // Colonne numeriche compatte — padding 4-lati esplicito, tabular-nums anche su th
+        'table.items th.col-qty,table.items td.col-qty{text-align:center !important;font-weight:600;vertical-align:middle;padding:7pt 2pt !important;font-variant-numeric:tabular-nums}' +
+        'table.items th.col-money,table.items td.col-money{text-align:right !important;padding:7pt 5pt 7pt 3pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
+        'table.items th.col-discount,table.items td.col-discount{text-align:right !important;padding:7pt 5pt 7pt 2pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
+        'table.items td.col-discount{font-weight:600;color:#dc2626}' +
         'table.items td.col-tot{font-weight:700;color:#1f2937}' +
         '.num{text-align:right;font-variant-numeric:tabular-nums}' +
         '.muted{color:#9ca3af;font-size:8.5pt}' +
