@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.175</title>
+<title>Gestione Prodotti V2.10.177</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.175</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.177</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.175');
+console.info('[bootstrap] script avvio — V2.10.177');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.175';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.177';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -19614,6 +19614,14 @@ async function driveRenderSettingsPanel(){
             'style="background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.5);color:#ef4444;font-weight:700">' +
             '🔧 Forza Full Sync (sovrascrivi Drive)' +
           '</button>' +
+          // V2.10.177: cleanup degli SHADOW PRODUCT in DATA (record name="SVC-XXX",
+          // duplicati interni dei servizi principali SE-XXX). Vengono ricreati al
+          // primo uso del servizio nel carrello, ma se sono dei doppioni residui
+          // dopo migrazione di architettura, e' utile rimuoverli per pulizia.
+          '<button type="button" class="btn-pill" onclick="cleanupLegacyServiceRecords()" ' +
+            'style="background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.5);color:#f59e0b;font-weight:700">' +
+            '🧹 Rimuovi shadow servizi duplicati' +
+          '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -23336,6 +23344,11 @@ function applyFilters(options){
       const isNew = !!p._isNew;
       const isObs = !!p._obsoleteSince;
       const isService = p.isService === true;
+      // V2.10.176: gli shadow product (name="SVC-XXX") sono record interni creati
+      // automaticamente al primo uso di un servizio nel carrello. Servono al pipeline
+      // di add-to-cart ma NON devono apparire nella galleria filtrata (sarebbero
+      // duplicati dei record legacy SE-XXX o dei servizi veri in _SERVICES_STATE).
+      const isShadowService = isService && p.name && p.name.indexOf('SVC-') === 0;
       // V2.10.61: "personale puro" = isPersonal ma NON isService (i servizi sono filtrati separatamente)
       const isPersonalOnly = p.isPersonal === true && !isService;
       const matchNew = SPECIAL_FILTERS.has('new') && isNew;
@@ -23343,7 +23356,8 @@ function applyFilters(options){
       // V2.9.12: terzo filtro speciale "Prodotti personali" (escludendo servizi - V2.10.61)
       const matchPersonal = SPECIAL_FILTERS.has('personal') && isPersonalOnly;
       // V2.10.61: quarto filtro speciale "Servizi"
-      const matchService = SPECIAL_FILTERS.has('service') && isService;
+      // V2.10.176: esclude shadow product dal filtro
+      const matchService = SPECIAL_FILTERS.has('service') && isService && !isShadowService;
       if(!matchNew && !matchObs && !matchPersonal && !matchService) return false;
     }
 
@@ -33960,6 +33974,74 @@ function _syncServiceShadow(serviceId){
     _syncShadowForService(serviceId);
   }
 }
+
+/* V2.10.177: cleanup retroattivo degli SHADOW PRODUCT in DATA.
+   Gli shadow product (name="SVC-XXX") sono record creati automaticamente al primo
+   uso di un servizio nel carrello, dalla logica _syncShadowForService.
+   Sono duplicati dei record principali del servizio (es. SE-AST, SE-TRASPORTO),
+   che sono la fonte di verita' visiva per l'utente nella galleria.
+   Questa funzione elimina gli shadow dopo conferma dell'utente.
+   ATTENZIONE: i preventivi esistenti che referenziano uno shadow via it.idx perderanno
+   il riferimento diretto (DATA[idx] diventera' null), pero' continueranno a funzionare
+   grazie ai fallback di V2.10.169+ (item.isService, it.code, personalProductsList).
+   I preventivi futuri ricreeranno automaticamente lo shadow al primo add al carrello. */
+async function cleanupLegacyServiceRecords(){
+  if(!Array.isArray(DATA)){
+    if(typeof toast === 'function') toast('DATA non caricato', 'err');
+    return;
+  }
+  // V2.10.177: ora identifico gli SHADOW (name="SVC-..."), non piu' i record SE-XXX
+  const shadowIndices = [];
+  for(let i = 0; i < DATA.length; i++){
+    const p = DATA[i];
+    if(p && p.isService === true && p.name && p.name.indexOf('SVC-') === 0){
+      shadowIndices.push(i);
+    }
+  }
+  if(shadowIndices.length === 0){
+    if(typeof toast === 'function') toast('Nessuno shadow service da pulire', 'ok');
+    return;
+  }
+  const shadowNames = shadowIndices.map(i => DATA[i].name).join(', ');
+  const msg = 'Eliminare ' + shadowIndices.length + ' shadow product duplicati da DATA?\n\n' +
+              'Records: ' + shadowNames + '\n\n' +
+              'I tuoi servizi principali (SE-XXX) e i servizi veri nel catalogo NON verranno toccati. ' +
+              'Gli shadow sono record interni duplicati, creati automaticamente al primo uso nel carrello. ' +
+              'Verranno ricreati la prossima volta che usi un servizio in un preventivo.\n\n' +
+              'NB: i preventivi esistenti che gia\' usano un servizio continueranno a funzionare ' +
+              '(grazie ai fallback). L\'operazione e\' irreversibile fino al prossimo download da Drive.';
+  if(!confirm(msg)) return;
+  // Elimino in ordine inverso per non invalidare gli indici
+  shadowIndices.sort((a,b) => b - a);
+  let removed = 0;
+  for(const idx of shadowIndices){
+    DATA.splice(idx, 1);
+    removed++;
+  }
+  // Aggiorno FILTERED se esiste
+  if(typeof applyFilters === 'function'){
+    try { applyFilters(); } catch(_){}
+  }
+  // Persistenza
+  if(typeof persistData === 'function'){
+    try { await persistData(); } catch(_){}
+  } else if(typeof idbSet === 'function'){
+    try { await idbSet('meta', 'data', { data: DATA, ts: Date.now() }); } catch(_){}
+  }
+  // Notifica Drive
+  if(typeof driveNotifyChange === 'function'){
+    for(const idx of shadowIndices){
+      try { driveNotifyChange('data', 'shadow-cleanup-' + idx, null); } catch(_){}
+    }
+  }
+  if(typeof toast === 'function'){
+    toast('Eliminati ' + removed + ' shadow product duplicati. Esegui Upload per propagare a Drive.', 'ok', 6000);
+  }
+  if(typeof renderProducts === 'function'){
+    try { renderProducts(); } catch(_){}
+  }
+}
+window.cleanupLegacyServiceRecords = cleanupLegacyServiceRecords;
 
 /* ============================================================================
    V2.10.59: Aggiunta servizio al carrello preventivo.
