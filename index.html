@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.139</title>
+<title>Gestione Prodotti V2.10.167</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6697,6 +6697,17 @@ body.theme-light .qcart-mode-seg.qcart-mode-active.qcart-mode-client{
   background:var(--bg);color:var(--fg);
   font-weight:700;font-family:inherit;font-size:14px;
   font-variant-numeric:tabular-nums;
+  /* V2.10.143: nascondo gli spinner nativi del browser sull'input sconto.
+     L'utente edita digitando direttamente la percentuale e le frecce
+     incrementali sono superflue (e visivamente rumorose). */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+/* V2.10.143: rimuovo i pulsantini spinner su Chrome/Safari/Edge (WebKit) */
+.qcart-discount-css::-webkit-outer-spin-button,
+.qcart-discount-css::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
 }
 .qcart-discount-css:focus{
   border-color:#ef4444;outline:0;
@@ -6704,6 +6715,41 @@ body.theme-light .qcart-mode-seg.qcart-mode-active.qcart-mode-client{
 }
 .qcart-discount-css:disabled{
   opacity:.4;cursor:not-allowed;
+}
+
+/* V2.10.144: input prezzo editabile (Modalità Cliente: .qcart-cli-prezzo;
+   Modalità Analisi: .qcart-pvend-cell). Inverso dello sconto: edit del prezzo
+   calcola lo sconto risultante. Stessa filosofia dello sconto: bordo discreto,
+   focus rosso brand, font numerico tabulare. Larghezza leggermente maggiore
+   per ospitare valori come "12.345,67". */
+.qcart-price-input{
+  width:96px;
+  text-align:right;
+  padding:5px 8px;
+  border:1px solid var(--border);
+  border-radius:5px;
+  background:var(--bg);
+  color:var(--fg);
+  font-weight:600;
+  font-family:inherit;
+  font-size:14px;
+  font-variant-numeric:tabular-nums;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.qcart-price-input::-webkit-outer-spin-button,
+.qcart-price-input::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+.qcart-price-input:focus{
+  border-color:#ef4444;
+  outline:0;
+  box-shadow:0 0 0 2px rgba(239,68,68,0.15);
+}
+.qcart-price-input:disabled{
+  opacity:.4;
+  cursor:not-allowed;
 }
 
 /* Switch toggle nel menu Modalità Preventivo */
@@ -8280,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.139</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.167</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8800,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.139');
+console.info('[bootstrap] script avvio — V2.10.167');
 
 window.openStatsDashboard = function(){
   try {
@@ -10230,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.139';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.167';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -22497,6 +22543,32 @@ function renderSidebarFilterPills(){
  * Chiamata sia in build bulk che in invalidazione selettiva dopo edit.
  * Pura: non muta altro che p._searchHay.
  */
+// V2.10.140: helper per estrarre il TESTO VISIBILE da un campo HTML (description,
+// short_description, specifications, content). Senza questo, l'indicizzazione
+// _searchHay catturava artefatti CSS come 'rgb' in style="color: rgb(51,51,51)",
+// portando a falsi positivi visivamente confondenti (il prodotto matcha ma
+// l'highlight non riesce a evidenziare il match perché è dentro un tag).
+// Rimuove:
+//   - blocchi style/script con tutto il loro contenuto interno (rari ma possibili)
+//   - tutti i tag HTML (incluse le loro attributi style="...", class="...", ecc.)
+//   - decodifica entità HTML basilari (&amp; &lt; &gt; &quot; &nbsp;)
+// Costo: ~1µs per chiamata su descrizioni di lunghezza tipica.
+function _stripHtmlForSearch(s){
+  if(!s) return '';
+  const str = String(s);
+  if(!str.includes('<') && !str.includes('&')) return str;  // fast path: niente da fare
+  return str
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')  // contenuto script/style
+    .replace(/<[^>]*>/g, ' ')                                   // tutti i tag
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ');  // collassa whitespace multipli
+}
+
 function buildSearchHay(p){
   if(!p) return;
   // Valori dei params (solo values, non keys, perché keys sono tecniche
@@ -22524,16 +22596,19 @@ function buildSearchHay(p){
 
   // Concateno TUTTI i campi rilevanti. Il toLowerCase finale è fatto una volta
   // sola, non ad ogni keystroke. getField() garantisce lettura via EDITS override.
+  // V2.10.140: i campi HTML (description, short_description, specifications,
+  // content) vengono prima ripuliti via _stripHtmlForSearch per evitare match
+  // su artefatti come style="color: rgb(51,51,51)" che non sono testo semantico.
   p._searchHay = (
     (getField(p,'name')||'') + ' ' +
     (getField(p,'brand')||'') + ' ' +
-    (getField(p,'description')||'') + ' ' +
-    (getField(p,'short_description')||'') + ' ' +
+    _stripHtmlForSearch(getField(p,'description')||'') + ' ' +
+    _stripHtmlForSearch(getField(p,'short_description')||'') + ' ' +
     (getField(p,'category')||'') + ' ' +
     (getField(p,'category_parent')||'') + ' ' +
     (getField(p,'ean')||'') + ' ' +
-    (getField(p,'specifications')||'') + ' ' +
-    (getField(p,'content')||'') + ' ' +
+    _stripHtmlForSearch(getField(p,'specifications')||'') + ' ' +
+    _stripHtmlForSearch(getField(p,'content')||'') + ' ' +
     paramsText
   ).toLowerCase();
 }
@@ -32456,6 +32531,40 @@ window._QUOTE_STATE = {
     // I set sono inizializzati da QUOTE_SETTINGS_DEFAULT al primo accesso.
     printAnalysis: null,  // popolato da QUOTE_PRINT_DEFAULT_ANALYSIS
     printClient: null,    // popolato da QUOTE_PRINT_DEFAULT_CLIENT
+
+    // V2.10.149: IVA — toggle on/off + percentuale.
+    // - vatEnabled=false (default): preventivo SENZA righe IVA, comportamento V2.10.148
+    // - vatEnabled=true: aggiunge righe "IVA NN%" e "TOTALE IVATO" sotto al totale
+    //   in PDF, Word, anteprima HTML. La preferenza è persistita in IDB con
+    //   il resto di settings (saveQuoteState la salva automaticamente).
+    vatEnabled: false,
+    vatRate: 22,  // percentuale standard IT
+
+    // V2.10.156: Mesi di ammortamento aziendale — usato come target nascosto
+    // per il KPI "Ammortamento OK/KO" nella formula di pagamento.
+    // L'azienda vuole rientrare del costo netto entro N mesi. Il KPI verifica
+    // se anticipo + (rata_capitale × N) >= totalNetto.
+    amortMonths: 12,
+
+    // V2.10.156: Formula di pagamento al cliente finale — persistita.
+    // Ogni flag controlla l'inclusione della relativa voce nel calcolo
+    // (il cliente vede solo le voci abilitate; le altre sono ignorate).
+    paymentFormula: {
+      includeAdvance: false,        // checkbox "Includi anticipo"
+      advance: 0,                   // importo €
+      includeInstallments: true,    // checkbox "Includi rate"
+      installmentsCount: 36,        // numero rate (mesi)
+      includeVigilance: false,      // checkbox "Includi vigilanza"
+      vigilancePerMonth: 0,         // €/mese
+      includeMaintenance: false,    // checkbox "Includi manutenzione"
+      maintenancePerYear: 0,        // €/anno
+      printInQuote: false,          // se true, la formula appare in PDF/Word
+      // V2.10.161: flag globale "i valori digitati sono già IVATI"
+      // null = non ancora settato (usa default = stato IVA del preventivo)
+      // true = anticipo/vigilanza/manutenzione sono lordi (IVA inclusa)
+      // false = anticipo/vigilanza/manutenzione sono netti (imponibili)
+      inputsVatInclusive: null,
+    },
   },
   loaded: false,      // true dopo caricamento IDB iniziale
 };
@@ -37472,6 +37581,295 @@ function _normDiscountPct(v){
   return n;
 }
 
+// V2.10.149: helper IVA — accesso unificato alle impostazioni IVA del preventivo.
+// Restituisce un oggetto con:
+//   - enabled: true se l'IVA va inclusa nei documenti
+//   - rate:    percentuale (es. 22)
+//   - amount:  importo IVA su un imponibile dato
+//   - total:   imponibile + IVA
+// Tutti i valori sono normalizzati e clampati a [0,100].
+function _getVatSettings(){
+  const s = (window._QUOTE_STATE && window._QUOTE_STATE.settings) || {};
+  const enabled = !!s.vatEnabled;
+  let rate = parseFloat(s.vatRate);
+  if(!isFinite(rate) || rate < 0) rate = 22;
+  if(rate > 100) rate = 100;
+  return { enabled, rate };
+}
+function _calcVat(imponibile){
+  const { enabled, rate } = _getVatSettings();
+  if(!enabled || imponibile == null || isNaN(imponibile)) return { rate, amount: 0, total: imponibile || 0 };
+  const amount = imponibile * rate / 100;
+  return { rate, amount, total: imponibile + amount };
+}
+
+// V2.10.156: helper formula di pagamento al cliente.
+// Calcola la rata mensile durante il periodo di finanziamento e il canone
+// post-finanziamento (solo servizi). Restituisce anche un KPI nascosto di
+// ammortamento aziendale: dice se l'azienda rientra del costo netto entro
+// i mesi target (amortMonths in settings).
+function _calcPaymentFormula(totals){
+  const s = (window._QUOTE_STATE && window._QUOTE_STATE.settings) || {};
+  const pf = s.paymentFormula || {};
+
+  // V2.10.160-161: gestione IVA coerente con il preventivo.
+  // - vat.enabled = stato IVA del preventivo
+  // - vatMul = moltiplicatore (1 + rate/100) se IVA attiva, altrimenti 1
+  // - inputsVatInclusive = flag globale: dice se i valori digitati
+  //   nel dialog (anticipo, vigilanza, manutenzione) sono già IVATI
+  //   oppure netti (imponibili).
+  // Default di inputsVatInclusive: segue lo stato IVA del preventivo.
+  const vat = _getVatSettings();
+  const vatMul = vat.enabled ? (1 + vat.rate / 100) : 1;
+  const inputsAreVatInclusive = (pf.inputsVatInclusive === null || pf.inputsVatInclusive === undefined)
+    ? !!vat.enabled
+    : !!pf.inputsVatInclusive;
+
+  const totalSellNet = (totals && totals.totalSellPrice) || 0;
+  const totalNetto = (totals && totals.totalNetto) || 0;
+  // T_vendita lordo: se IVA attiva, applica vatMul; altrimenti uguale al netto.
+  const totalSell = totalSellNet * vatMul;
+
+  // Valori digitati dall'utente (raw, senza alcuna conversione)
+  const advanceRaw = pf.includeAdvance ? (parseFloat(pf.advance) || 0) : 0;
+  const installments = pf.includeInstallments ? (parseInt(pf.installmentsCount, 10) || 0) : 0;
+  const vigilanceRaw = pf.includeVigilance ? (parseFloat(pf.vigilancePerMonth) || 0) : 0;
+  const maintenanceRaw = pf.includeMaintenance ? (parseFloat(pf.maintenancePerYear) || 0) : 0;
+
+  // Conversione raw → (net, lordo) in base a vat.enabled + inputsAreVatInclusive
+  let advanceNet, advance, vigilanceNet, vigilance, maintenanceNet, maintenance;
+  if(!vat.enabled){
+    // Nessuna IVA: net e lordo coincidono, indipendentemente dal flag
+    advanceNet = advance = advanceRaw;
+    vigilanceNet = vigilance = vigilanceRaw;
+    maintenanceNet = maintenance = maintenanceRaw;
+  } else if(inputsAreVatInclusive){
+    // L'utente ha digitato valori IVATI: il raw è già lordo, scorporo per il netto
+    advance = advanceRaw;
+    advanceNet = advanceRaw / vatMul;
+    vigilance = vigilanceRaw;
+    vigilanceNet = vigilanceRaw / vatMul;
+    maintenance = maintenanceRaw;
+    maintenanceNet = maintenanceRaw / vatMul;
+  } else {
+    // L'utente ha digitato valori NETTI: il raw è imponibile, lo gonfio per il lordo
+    advanceNet = advanceRaw;
+    advance = advanceRaw * vatMul;
+    vigilanceNet = vigilanceRaw;
+    vigilance = vigilanceRaw * vatMul;
+    maintenanceNet = maintenanceRaw;
+    maintenance = maintenanceRaw * vatMul;
+  }
+  const maintenanceMonthly = maintenance / 12;
+
+  const capitale = Math.max(0, totalSell - advance);
+  const rataCapitale = (installments > 0) ? (capitale / installments) : 0;
+  const rataServizi = vigilance + maintenanceMonthly;
+  const rataTotale = rataCapitale + rataServizi;
+  const canonePost = rataServizi;
+
+  // KPI nascosto di ammortamento aziendale (sempre su valori NETTI)
+  const targetMonths = parseInt(s.amortMonths, 10) || 12;
+  const capitaleNet = Math.max(0, totalSellNet - advanceNet);
+  const rataCapitaleNet = (installments > 0) ? (capitaleNet / installments) : 0;
+  const monthsConsidered = Math.min(installments || targetMonths, targetMonths);
+  const incassatoInTarget = advanceNet + (rataCapitaleNet * monthsConsidered);
+  const margine = incassatoInTarget - totalNetto;
+  const ok = margine >= 0;
+
+  return {
+    formula: pf,
+    vatEnabled: vat.enabled,
+    vatRate: vat.rate,
+    inputsAreVatInclusive,
+    totalSell, totalSellNet, totalNetto,
+    advance, advanceNet,
+    installments,
+    vigilance, vigilanceNet,
+    maintenance, maintenanceNet, maintenanceMonthly,
+    capitale, rataCapitale, rataServizi, rataTotale, canonePost,
+    ammort: { targetMonths, incassatoInTarget, margine, ok, monthsConsidered },
+  };
+}
+
+// V2.10.156: helper "deve essere stampata la formula nei documenti?"
+// Ritorna true solo se printInQuote è on E almeno una voce è attiva con valore > 0
+// (oppure il numero di rate è > 0 e l'inclusione è on).
+function _shouldPrintPaymentFormula(){
+  const s = (window._QUOTE_STATE && window._QUOTE_STATE.settings) || {};
+  const pf = s.paymentFormula || {};
+  if(!pf.printInQuote) return false;
+  const hasAdvance = pf.includeAdvance && (parseFloat(pf.advance) || 0) > 0;
+  const hasRate = pf.includeInstallments && (parseInt(pf.installmentsCount, 10) || 0) > 0;
+  const hasVig = pf.includeVigilance && (parseFloat(pf.vigilancePerMonth) || 0) > 0;
+  const hasMnt = pf.includeMaintenance && (parseFloat(pf.maintenancePerYear) || 0) > 0;
+  return hasAdvance || hasRate || hasVig || hasMnt;
+}
+
+// V2.10.156: genera HTML (autonomo, inline CSS) della formula di pagamento
+// destinato all'anteprima preventivo (template HTML che viene poi convertito
+// in PDF nativo browser). Box stile "card" con titolo e voci ben strutturate.
+// Restituisce stringa vuota se non deve essere stampata.
+function _renderPaymentFormulaHtml(totals){
+  if(!_shouldPrintPaymentFormula()) return '';
+  const calc = _calcPaymentFormula(totals);
+  const pf = calc.formula;
+
+  // V2.10.160: suffisso IVA per il valore principale di ogni riga.
+  // - IVA ON: importi già lordi → "(IVA NN% inclusa)"
+  // - IVA OFF: importi netti → "+ IVA"
+  const vatSuffix = calc.vatEnabled
+    ? '<span style="font-size:9pt;font-weight:600;color:#9ca3af;margin-left:5pt">(IVA ' + calc.vatRate + '% inclusa)</span>'
+    : '<span style="font-size:9pt;font-weight:700;color:#0178d4;margin-left:5pt">+ IVA</span>';
+
+  // V2.10.163: suffisso IVA "inline" usato dentro i sub-text (composizione rata,
+  // dettaglio servizi). Se IVA OFF inserisce "+ IVA" subito dopo ogni importo.
+  // Se IVA ON nessun suffisso (l'utente vede gli importi già lordi).
+  const vatInline = calc.vatEnabled ? '' : ' + IVA';
+
+  const rows = [];
+  if(pf.includeAdvance && calc.advance > 0){
+    rows.push({ label: 'Anticipo alla firma', value: _qFmtEur(calc.advance), bold: false });
+  }
+  if(pf.includeInstallments && calc.installments > 0){
+    rows.push({
+      label: 'Rata mensile per ' + calc.installments + ' mesi',
+      value: _qFmtEur(calc.rataTotale) + '/mese',
+      bold: true,
+      // V2.10.163: con IVA OFF, "+ IVA" inline dopo ogni importo
+      sub: calc.rataServizi > 0
+        ? _qFmtEur(calc.rataCapitale) + vatInline + ' di impiantistica + ' + _qFmtEur(calc.rataServizi) + vatInline + ' di servizi'
+        : null,
+    });
+  }
+  if((pf.includeVigilance && calc.vigilance > 0) || (pf.includeMaintenance && calc.maintenance > 0)){
+    const hasInst = pf.includeInstallments && calc.installments > 0;
+    const lbl = hasInst
+      ? 'Canone dei servizi al termine del finanziamento'
+      : 'Canone mensile servizi';
+    const subParts = [];
+    // V2.10.163: con IVA OFF, "+ IVA al mese / all'anno"; con IVA ON, "/mese · /anno"
+    if(pf.includeVigilance && calc.vigilance > 0){
+      subParts.push(calc.vatEnabled
+        ? 'Servizio di Vigilanza ' + _qFmtEur(calc.vigilance) + '/mese'
+        : 'Servizio di Vigilanza ' + _qFmtEur(calc.vigilance) + ' + IVA al mese');
+    }
+    if(pf.includeMaintenance && calc.maintenance > 0){
+      subParts.push(calc.vatEnabled
+        ? 'Servizio di Manutenzione ' + _qFmtEur(calc.maintenance) + '/anno'
+        : 'Servizio di Manutenzione ' + _qFmtEur(calc.maintenance) + " + IVA all'anno");
+    }
+    rows.push({
+      label: lbl,
+      value: _qFmtEur(calc.canonePost) + '/mese',
+      bold: true,
+      sub: subParts.length ? subParts.join(' · ') : null,
+    });
+  }
+  if(rows.length === 0) return '';
+
+  const rowsHtml = rows.map(r => {
+    // V2.10.164: importo IVATO → verde (#16a34a, coerente con TOTALE IVATO);
+    // importo netto (con suffisso "+ IVA") resta blu o nero per le righe normali.
+    const valColor = calc.vatEnabled ? '#16a34a' : (r.bold ? '#0178d4' : '#1f2937');
+    const valFontSize = r.bold ? '13pt' : '11pt';
+    const valStyle = 'font-size:' + valFontSize + ';font-weight:700;color:' + valColor;
+    // V2.10.166: rimossi i border-bottom (#e5e7eb) dalle <td> label e value.
+    // Erano separatori che attraversavano per intero la larghezza del box
+    // (fino al bordo blu di sinistra) e spezzavano la lettura della formula
+    // come blocco unitario. La separazione tra righe ora è garantita solo
+    // dal padding verticale (7pt sopra+sotto = 14pt totali tra le righe),
+    // più che sufficiente per la leggibilità.
+    return '<tr>' +
+      '<td style="padding:7pt 12pt;font-size:10.5pt;color:#374151;font-weight:600">' +
+        r.label +
+        (r.sub ? '<div style="font-size:9pt;color:#9ca3af;font-weight:500;margin-top:2pt;font-style:italic">' + r.sub + '</div>' : '') +
+      '</td>' +
+      '<td style="padding:7pt 12pt;text-align:right;' + valStyle + ';white-space:nowrap">' +
+        r.value + vatSuffix +
+      '</td>' +
+    '</tr>';
+  }).join('');
+
+  // V2.10.165: border-collapse:separate (era collapse) per impedire che i
+  // border-bottom delle <td> si estendano fino al margine della table e
+  // interrompano visivamente il border-left blu (3pt #0178d4) del div
+  // contenitore. Con "collapse" i border delle celle vengono "fusi" con
+  // quelli del contenitore e si sovrappongono al bordo verticale, dando
+  // l'effetto di linee blu spezzate a sinistra del box di anteprima.
+  // border-spacing:0 mantiene il layout compatto identico al precedente.
+  return '' +
+    '<div style="margin-top:18pt;padding:14pt 16pt;background:#f0f9ff;border:1pt solid #bae6fd;border-left:3pt solid #0178d4;border-radius:6pt">' +
+      '<div style="font-size:9.5pt;font-weight:700;color:#0178d4;text-transform:uppercase;letter-spacing:.8pt;margin-bottom:8pt">💳 Formula di pagamento proposta</div>' +
+      '<table style="width:100%;border-collapse:separate;border-spacing:0">' + rowsHtml + '</table>' +
+    '</div>';
+}
+
+// V2.10.144: parsing del valore prezzo digitato dall'utente nel campo
+// editabile "Prezzo" del carrello. Accetta sia "1234,56" sia "1234.56",
+// rimuove eventuali simboli € e spazi. Ritorna null se non parsabile.
+function _parsePriceInput(v){
+  if(v == null || v === '') return null;
+  if(typeof v === 'number') return isNaN(v) ? null : v;
+  // Rimuovo €, spazi e ogni char non numerico tranne . , - (es. utente incolla "€ 1.234,56")
+  let s = String(v).trim().replace(/[€\s]/g, '');
+  // Se contiene SIA punto SIA virgola, assumo formato IT (1.234,56): tolgo i .
+  // Altrimenti, sostituisco una sola virgola con punto
+  if(s.includes('.') && s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else s = s.replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+
+// V2.10.144: calcola lo sconto percentuale che produce il prezzo target,
+// dato un listino di partenza. Es. listino=100, prezzo=60 → sconto=40%.
+// Clampa a [0,100] per evitare casi anomali (prezzo > listino, negativi).
+// V2.10.146: precisione aumentata da 2 a 4 decimali per evitare drift di
+// round-trip prezzo→sconto→prezzo. Es. listino 14000, prezzo 6000:
+//   con 2 decimali: 57.14 → re-calc 6000.40 (drift di +0.40€!)
+//   con 4 decimali: 57.1429 → re-calc 5999.99... → arrotondato 6000.00
+// La visualizzazione del 5°/6° decimale è gestita altrove (input formattato).
+// V2.10.146: formatta il valore dello sconto per l'attributo `value` di un
+// <input type="number">. DEVE usare il punto come separatore decimale
+// (la virgola viene rifiutata da type="number" → il campo apparirebbe vuoto).
+// Mostra massimo 2 decimali per UX, ma il valore interno (item.discountPct)
+// resta a 4 decimali per evitare drift al round-trip prezzo↔sconto.
+function _fmtDiscountForInput(pct){
+  if(pct == null || isNaN(pct)) return '0';
+  // Sconto intero: ometto i decimali (es. "50" invece di "50.00")
+  if(pct % 1 === 0) return String(pct);
+  // Arrotondo a 2 decimali per la visualizzazione, ma SENZA replace virgola
+  // (type="number" richiede formato US: 57.14, non 57,14)
+  const rounded = Math.round(pct * 100) / 100;
+  // Se l'arrotondamento produce un intero, ometto i decimali
+  if(rounded % 1 === 0) return String(rounded);
+  // Altrimenti rimuovo eventuali zero finali (57.10 → 57.1)
+  return String(rounded);
+}
+
+function _priceToDiscountPct(listino, prezzo){
+  if(listino == null || listino <= 0 || prezzo == null) return 0;
+  const pct = (1 - prezzo / listino) * 100;
+  if(pct < 0) return 0;
+  if(pct > 100) return 100;
+  // V2.10.147: arrotondo a 6 decimali (precisione interna). Caso peggiore:
+  // prezzo 6000 su listino 14000 → sconto 57.142857% → re-calc 5999.9999998
+  // → arrotondato a 2 decimali per visualizzazione → 6000.00 ✓
+  return Math.round(pct * 1000000) / 1000000;
+}
+
+// V2.10.147: arrotonda un valore in euro al centesimo (2 decimali).
+// Da usare per il VALORE mostrato negli input prezzo editabili — altrimenti
+// uno sconto 57.142857% applicato a 14000 produce 5999.9999998, che pur
+// venendo formattato come "6.000,00" diventa "5999.99" in formato decimale
+// puro al focus. L'arrotondamento elimina ogni traccia di drift visuale.
+// Le KPI aggregate (totali, sconti medi) non vengono arrotondate per
+// mantenere la massima precisione nelle somme su molte righe.
+function _roundCents(n){
+  if(n == null || isNaN(n)) return n;
+  return Math.round(n * 100) / 100;
+}
+
 /* ─── Pulsante fluttuante carrello ─── */
 
 function renderQuoteFloatingButton(animateBump){
@@ -37712,6 +38110,8 @@ function openQuoteCart(){
         '<button class="btn ghost" id="quoteCartCloseBtn">Chiudi</button>' +
         '<button class="btn ghost" id="quoteCartClearBtn" style="color:#ef4444">🗑️ Svuota carrello</button>' +
         '<span style="flex:1"></span>' +
+        // V2.10.156: Pulsante Formula di Pagamento (calcolatore rate cliente)
+        '<button class="btn small" id="quoteCartPaymentBtn" style="margin-right:8px">💳 Formula di pagamento</button>' +
         '<button class="btn small" id="quoteCartExportBtn">📥 Genera preventivo</button>' +
       '</div>' +
     '</div>';
@@ -37791,6 +38191,13 @@ function openQuoteCart(){
     toast({ type:'ok', title:'Carrello svuotato', duration:2500 });
   });
   document.getElementById('quoteCartExportBtn').addEventListener('click', () => openQuoteExportDialog());
+  // V2.10.156: pulsante Formula di pagamento → apre il calcolatore rate cliente
+  var _pmtBtn = document.getElementById('quoteCartPaymentBtn');
+  if(_pmtBtn){
+    _pmtBtn.addEventListener('click', () => {
+      if(typeof openPaymentFormulaDialog === 'function') openPaymentFormulaDialog();
+    });
+  }
 
   const esc = (e) => { if(e.key === 'Escape'){ bg.remove(); document.removeEventListener('keydown', esc); } };
   document.addEventListener('keydown', esc);
@@ -37944,6 +38351,21 @@ function openQuoteSettingsDialog(){
           '</div>' +
         '</section>' +
 
+        // V2.10.156: Sezione Ammortamento aziendale (target nascosto al cliente)
+        sectionSep +
+        '<section>' +
+          sectionTitle('Ammortamento aziendale (interno)') +
+          sectionIntro('Numero di mesi entro cui la tua azienda vuole rientrare del costo netto di acquisto del materiale. Dato <b>riservato all\'azienda</b>, non viene mostrato al cliente. Usato dal calcolatore "Formula di pagamento" per indicare un KPI di margine cash flow.') +
+          '<label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer">' +
+            '<div style="flex:1">' +
+              '<div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:2px">Mesi di ammortamento target</div>' +
+              '<div style="font-size:11.5px;color:var(--fg3);line-height:1.5">Es. 12 = ho 1 anno per recuperare il costo netto. Se le rate cliente superano questo target, il KPI diventa rosso (cash flow non rispettato).</div>' +
+            '</div>' +
+            '<input type="number" id="qsAmortMonths" min="1" max="120" step="1" value="' + (parseInt(s.amortMonths, 10) || 12) + '" style="width:90px;text-align:right;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:14px;font-weight:700;font-variant-numeric:tabular-nums">' +
+            '<span style="font-size:11px;color:var(--fg3);font-weight:600">mesi</span>' +
+          '</label>' +
+        '</section>' +
+
       '</div>' +
       '<div class="modal-foot">' +
         '<button class="btn ghost" id="qsCancelBtn">Annulla</button>' +
@@ -38006,6 +38428,14 @@ function openQuoteSettingsDialog(){
       if(before !== after) kpiChanged = true;
       window._QUOTE_STATE.settings[inp.dataset.flag] = inp.checked;
     });
+    // V2.10.156: persisto il valore dei mesi ammortamento aziendale
+    var amortInp = document.getElementById('qsAmortMonths');
+    if(amortInp){
+      var amortVal = parseInt(amortInp.value, 10);
+      if(isFinite(amortVal) && amortVal >= 1 && amortVal <= 120){
+        window._QUOTE_STATE.settings.amortMonths = amortVal;
+      }
+    }
     saveQuoteState();
     bg.remove();
 
@@ -38447,14 +38877,24 @@ function renderQuoteCartContent(){
             // Rimosso l'importo in euro sotto (era ridondante: il prezzo finale è
             // già visibile nelle colonne "Vendita unit." e "Tot. Vendita" accanto).
             '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
-              '<input type="number" class="qcart-discount-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + (dPct % 1 === 0 ? dPct : dPct.toFixed(1).replace('.',',')) + '" min="0" max="100" step="0.1" ' +
+              '<input type="number" class="qcart-discount-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + _fmtDiscountForInput(dPct) + '" min="0" max="100" step="0.01" ' +
                 'style="width:54px;padding:3px 6px;font-size:12px" ' +
                 (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>' +
               '<span style="font-size:11px;color:var(--fg3);font-weight:600">%</span>' +
             '</div>' +
           '</td>' +
           // V2.8.4: classi qcart-cli-prezzo / qcart-cli-totprezzo per fast-update live
-          '<td class="num qcart-cli-prezzo" style="font-weight:600">' + (sellUnit != null ? _qFmtEur(sellUnit) : '—') + '</td>' +
+          // V2.10.144: cella prezzo trasformata in input editabile. Edit del prezzo
+          // → ricalcolo dello sconto inverso (sincronizzazione bidirezionale).
+          // V2.10.145: type="text" + inputmode="decimal" per consentire la
+          // visualizzazione formattata italiana (1.234,56) — type="number" non
+          // accetta separatori migliaia né virgole. Parsing flessibile al blur.
+          '<td class="num qcart-cli-prezzo">' +
+            (sellUnit != null
+              ? '<input type="text" inputmode="decimal" class="qcart-price-input qcart-cli-prezzo-input" data-code="' + escapeAttr(it.code) + '" value="' + _qFmtNum(_roundCents(sellUnit), 2) + '" ' +
+                  (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>'
+              : '<span style="color:var(--fg3)">—</span>') +
+          '</td>' +
           '<td class="num qcart-cli-totprezzo" style="font-weight:700;color:#16a34a">' + (subSell != null ? _qFmtEur(subSell) : '—') + '</td>' +
           '<td style="text-align:center">' +
             '<button class="btn small ghost qcart-remove qcart-remove-btn" data-code="' + escapeAttr(it.code) + '" title="Rimuovi dal carrello">✕</button>' +
@@ -38565,7 +39005,7 @@ function renderQuoteCartContent(){
             '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
               // V2.6.3: rimosso il segno meno davanti all'input — il contesto della
               // colonna "Sc. Cliente" e l'unita' "%" rendono il significato chiaro.
-              '<input type="number" class="qcart-discount-input qcart-sccli-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + (scCliente % 1 === 0 ? scCliente : scCliente.toFixed(1).replace('.',',')) + '" min="0" max="100" step="0.1" ' +
+              '<input type="number" class="qcart-discount-input qcart-sccli-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + _fmtDiscountForInput(scCliente) + '" min="0" max="100" step="0.01" ' +
                 'style="width:54px;padding:3px 6px;font-size:12px" ' +
                 (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>' +
               '<span style="font-size:11px;color:var(--fg3);font-weight:600">%</span>' +
@@ -38574,8 +39014,14 @@ function renderQuoteCartContent(){
           // V2.7.0: nuova colonna "Prezzo Vendita" tra Sc. Cliente e Margine.
           // = PVP × (1 − sc.cliente/100). Classe qcart-pvend-cell per fast-update
           // sincrono al cambio dello sconto cliente (live, senza re-render tabella).
-          '<td class="num qcart-pvend-cell" title="Prezzo unitario di vendita al cliente: PVP × (1 − sc.cliente/100)" style="font-weight:600">' +
-            (prezzoVendita != null ? _qFmtEur(prezzoVendita) : '—') +
+          // V2.10.144: trasformata in input editabile. Edit del prezzo →
+          // ricalcolo automatico dello sconto cliente (sincronizzazione bidirezionale).
+          // V2.10.145: type="text" + formattazione italiana con separatore migliaia.
+          '<td class="num qcart-pvend-cell" title="Prezzo unitario di vendita al cliente: PVP × (1 − sc.cliente/100). Editabile.">' +
+            (prezzoVendita != null
+              ? '<input type="text" inputmode="decimal" class="qcart-price-input qcart-pvend-input" data-code="' + escapeAttr(it.code) + '" value="' + _qFmtNum(_roundCents(prezzoVendita), 2) + '" ' +
+                  (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>'
+              : '<span style="color:var(--fg3)">—</span>') +
           '</td>' +
           // V2.5.9 / V2.6.2: cella Margine con classe specifica per fast-update
           // dopo modifica di Sc. Cliente. Il colore e il valore sono ricalcolati
@@ -38675,6 +39121,76 @@ function renderQuoteCartContent(){
     });
     // Seleziona tutto al focus per facilitare la sostituzione del valore
     inp.addEventListener('focus', () => {
+      try { inp.select(); } catch(e){ /* ignore */ }
+    });
+  });
+
+  // V2.10.144: input PREZZO editabile (Modalità Cliente: .qcart-cli-prezzo-input;
+  // Modalità Analisi: .qcart-pvend-input). Sincronizzazione bidirezionale:
+  // editing prezzo → calcolo sconto inverso → aggiorno discountPct dell'item
+  // → re-render della riga per riflettere il nuovo sconto.
+  container.querySelectorAll('.qcart-cli-prezzo-input, .qcart-pvend-input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const code = inp.dataset.code;
+      const item = window._QUOTE_STATE.items.find(it => it.code === code);
+      if(!item) return;
+      const newPrice = _parsePriceInput(inp.value);
+      // Se input invalido o listino mancante, ripristino il valore precedente
+      if(newPrice == null || item.pvp == null || item.pvp <= 0){
+        renderQuoteCartContent();
+        return;
+      }
+      // Calcolo sconto inverso clampato a [0,100]
+      const newDiscount = _priceToDiscountPct(item.pvp, newPrice);
+      updateCartItemDiscount(code, newDiscount);
+      renderQuoteCartContent();
+    });
+    // Aggiornamento "live" mentre l'utente digita: aggiorno solo lo sconto
+    // dell'item e i KPI/margine, senza re-render della tabella per UX fluida.
+    inp.addEventListener('input', () => {
+      const code = inp.dataset.code;
+      const item = window._QUOTE_STATE.items.find(it => it.code === code);
+      if(!item || item.pvp == null || item.pvp <= 0) return;
+      const newPrice = _parsePriceInput(inp.value);
+      if(newPrice == null) return;
+      const newDiscount = _priceToDiscountPct(item.pvp, newPrice);
+      updateCartItemDiscount(code, newDiscount);
+      // Aggiorno anche il valore mostrato nell'input sconto della stessa riga
+      const tr = inp.closest('tr');
+      if(tr){
+        const dInp = tr.querySelector('.qcart-discount-input');
+        if(dInp){
+          dInp.value = newDiscount % 1 === 0 ? newDiscount : newDiscount.toFixed(2).replace(/\.?0+$/, '');
+        }
+      }
+      // Trigger lo stesso fast-update degli sconti (riusa la logica esistente)
+      if(inp.classList.contains('qcart-pvend-input')){
+        // Modalità Analisi: aggiorno il margine in modo coerente
+        const dInp = tr ? tr.querySelector('.qcart-discount-input.qcart-sccli-input') : null;
+        if(dInp && typeof updateRowMargineAfterDiscountChange === 'function'){
+          updateRowMargineAfterDiscountChange(dInp);
+        }
+      } else {
+        // Modalità Cliente: aggiorno il totale riga + KPI
+        const dInp = tr ? tr.querySelector('.qcart-discount-input') : null;
+        if(dInp && typeof updateClientRowAfterDiscountChange === 'function'){
+          updateClientRowAfterDiscountChange(dInp);
+        }
+      }
+    });
+    // V2.10.145: al focus mostro il valore "puro" (7000.00) per facilitare
+    // l'editing — l'utente sostituisce un numero, non una stringa formattata.
+    // Al blur (change → renderQuoteCartContent) torna formato italiano "7.000,00".
+    inp.addEventListener('focus', () => {
+      const code = inp.dataset.code;
+      const item = window._QUOTE_STATE.items.find(it => it.code === code);
+      if(item && item.pvp != null && item.pvp > 0){
+        const dPct = _normDiscountPct(item.discountPct);
+        const sellUnit = item.pvp * (1 - dPct / 100);
+        // V2.10.147: arrotondo a 2 decimali per evitare drift visivo
+        // (es. 5999.9999998 → 6000.00) sul valore mostrato al focus.
+        inp.value = _roundCents(sellUnit).toFixed(2);
+      }
       try { inp.select(); } catch(e){ /* ignore */ }
     });
   });
@@ -38939,9 +39455,21 @@ function updateRowMargineAfterDiscountChange(inputEl){
     ? (prezzoVendita - item.netto) / prezzoVendita * 100
     : null;
   // V2.7.0: aggiorno cella Prezzo Vendita
+  // V2.10.144: cella ora contiene un input editabile. Aggiorno .value
+  // solo se l'utente non sta editando quel campo (per evitare di sovrascrivere
+  // ciò che sta digitando mentre interagisce con lo sconto).
+  // V2.10.145: usa _qFmtNum per formattazione italiana con separatore migliaia.
   const pvendCell = tr.querySelector('.qcart-pvend-cell');
   if(pvendCell){
-    pvendCell.textContent = prezzoVendita != null ? _qFmtEur(prezzoVendita) : '—';
+    const pvendInp = pvendCell.querySelector('.qcart-pvend-input');
+    if(pvendInp){
+      if(document.activeElement !== pvendInp){
+        pvendInp.value = prezzoVendita != null ? _qFmtNum(_roundCents(prezzoVendita), 2) : '';
+      }
+    } else {
+      // Fallback (riga senza listino, mostriamo "—")
+      pvendCell.textContent = prezzoVendita != null ? _qFmtEur(prezzoVendita) : '—';
+    }
   }
   // Aggiorno la cella Margine
   const cell = tr.querySelector('.qcart-margin-cell');
@@ -38980,9 +39508,15 @@ function updateClientRowAfterDiscountChange(inputEl){
   const dPct = _normDiscountPct(item.discountPct);
   const sellUnit = (item.pvp != null && item.pvp > 0) ? item.pvp * (1 - dPct / 100) : null;
   const subSell  = (sellUnit != null) ? sellUnit * item.qty : null;
-  const prezzoCell = tr.querySelector('.qcart-cli-prezzo');
+  // V2.10.144: il prezzo ora è dentro un input.value, non più textContent.
+  // V2.10.145: usa _qFmtNum per formattazione italiana con separatore migliaia.
+  // Aggiorno il valore solo se l'utente NON sta digitando in quell'input
+  // (altrimenti gli sovrascriverei il valore mentre digita lo sconto).
+  const prezzoInp = tr.querySelector('.qcart-cli-prezzo-input');
+  if(prezzoInp && document.activeElement !== prezzoInp){
+    prezzoInp.value = sellUnit != null ? _qFmtNum(_roundCents(sellUnit), 2) : '';
+  }
   const totPrezzoCell = tr.querySelector('.qcart-cli-totprezzo');
-  if(prezzoCell)    prezzoCell.textContent    = sellUnit != null ? _qFmtEur(sellUnit) : '—';
   if(totPrezzoCell) totPrezzoCell.textContent = subSell  != null ? _qFmtEur(subSell)  : '—';
 
   // 2. Aggiorno i KPI in cima ricalcolando i totali aggregati
@@ -39084,6 +39618,42 @@ function openQuoteExportDialog(){
           '<div>' + incl.map(x => '<span style="display:inline-block;background:var(--bg3);padding:1px 7px;border-radius:3px;margin:1px 3px 1px 0;font-size:11px">' + escapeHtml(x) + '</span>').join('') + '</div>' +
         '</div>' +
 
+        // V2.10.149: sezione IVA — toggle on/off, preset percentuali, custom, anteprima totale ivato.
+        // Le impostazioni vengono salvate in _QUOTE_STATE.settings (persistite in IDB)
+        // e applicate ai documenti generati (PDF, Word, Excel, anteprima HTML).
+        (function(){
+          const vat = _getVatSettings();
+          const preset = [0, 4, 5, 10, 22];
+          const isPreset = preset.indexOf(vat.rate) >= 0;
+          return '' +
+          '<div id="qexpVatBox" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:16px;font-size:11.5px;color:var(--fg2);line-height:1.5">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">' +
+              '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11.5px;font-weight:700;color:var(--fg);margin:0">' +
+                '<input type="checkbox" id="qexpVatEnabled"' + (vat.enabled ? ' checked' : '') + ' style="margin:0;cursor:pointer">' +
+                '<span style="font-size:10px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.4px">Includi IVA</span>' +
+              '</label>' +
+              '<div id="qexpVatRateGroup" style="display:flex;align-items:center;gap:6px;' + (vat.enabled ? '' : 'opacity:0.4;pointer-events:none') + '">' +
+                preset.map(p =>
+                  '<button type="button" class="qexp-vat-preset" data-rate="' + p + '" style="font-size:11px;padding:3px 7px;border:1px solid ' +
+                    (isPreset && vat.rate === p ? '#0178d4' : 'var(--border)') + ';background:' +
+                    (isPreset && vat.rate === p ? '#0178d4' : 'var(--bg)') + ';color:' +
+                    (isPreset && vat.rate === p ? '#fff' : 'var(--fg)') + ';border-radius:4px;cursor:pointer;font-weight:600">' +
+                    p + '%' +
+                  '</button>'
+                ).join('') +
+                '<input type="number" id="qexpVatCustom" value="' + (isPreset ? '' : vat.rate) + '" min="0" max="100" step="0.1" placeholder="Custom" ' +
+                  'style="width:62px;padding:3px 6px;border:1px solid ' + (!isPreset ? '#0178d4' : 'var(--border)') +
+                  ';border-radius:4px;background:var(--bg);color:var(--fg);font-size:11px;font-weight:600;text-align:right;-moz-appearance:textfield">' +
+                '<span style="font-size:11px;color:var(--fg3);font-weight:600">%</span>' +
+              '</div>' +
+            '</div>' +
+            '<div id="qexpVatPreview" style="display:' + (vat.enabled ? 'flex' : 'none') + ';align-items:center;justify-content:space-between;gap:10px;padding-top:6px;border-top:1px dashed var(--border);font-size:11px;color:var(--fg2)">' +
+              '<span>Imponibile <b style="color:var(--fg)">' + _qFmtEur(totalValue) + '</b> · IVA <b id="qexpVatAmount" style="color:var(--fg)">' + _qFmtEur(totalValue * vat.rate / 100) + '</b></span>' +
+              '<span style="font-weight:700;color:#16a34a">TOTALE IVATO <b id="qexpVatTotal">' + _qFmtEur(totalValue * (1 + vat.rate / 100)) + '</b></span>' +
+            '</div>' +
+          '</div>';
+        })() +
+
         // V2.10.48: bottone primario anteprima + 3 bottoni download diretto
         '<button id="qexpPreview" type="button" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;font-size:14px;font-weight:700;background:#0178d4;color:#fff;border:1px solid #0178d4;border-radius:8px;cursor:pointer;transition:all .15s;margin-bottom:14px">' +
           '<span>👁️ Vedi anteprima PDF</span>' +
@@ -39104,6 +39674,99 @@ function openQuoteExportDialog(){
   document.body.appendChild(bg);
 
   document.getElementById('qexpCancel').addEventListener('click', () => bg.remove());
+
+  // V2.10.149: wiring sezione IVA.
+  // - Toggle on/off → abilita/disabilita preset+custom, mostra/nasconde preview
+  // - Click su preset → setta rate, deseleziona custom, evidenzia bottone
+  // - Input custom → setta rate, deseleziona preset
+  // - Ogni modifica salva su _QUOTE_STATE.settings + aggiorna anteprima
+  // V2.10.152: ogni modifica IVA invalida anche il PDF prefetched (cache obsoleta).
+
+  // V2.10.152: dichiarazione anticipata di pdfBlobPromise + invalidatePdfCache.
+  // Definite prima del blocco listener IVA così i listener possono richiamare
+  // invalidatePdfCache(). La logica di prefetch e' definita più sotto.
+  let pdfBlobPromise = null;
+  const previewStatusEl = document.getElementById('qexpPreviewStatus');
+  function invalidatePdfCache(){
+    pdfBlobPromise = null;
+    if(previewStatusEl) previewStatusEl.textContent = '';
+  }
+
+  (function(){
+    const settings = window._QUOTE_STATE.settings;
+    const enabledEl = document.getElementById('qexpVatEnabled');
+    const groupEl = document.getElementById('qexpVatRateGroup');
+    const customEl = document.getElementById('qexpVatCustom');
+    const previewEl = document.getElementById('qexpVatPreview');
+    const amountEl = document.getElementById('qexpVatAmount');
+    const totalEl = document.getElementById('qexpVatTotal');
+    const presetBtns = bg.querySelectorAll('.qexp-vat-preset');
+    const preset = [0, 4, 5, 10, 22];
+
+    function _refreshPresetUI(){
+      const rate = parseFloat(settings.vatRate);
+      const isPreset = preset.indexOf(rate) >= 0;
+      presetBtns.forEach(btn => {
+        const r = parseFloat(btn.dataset.rate);
+        const active = isPreset && r === rate;
+        btn.style.background = active ? '#0178d4' : 'var(--bg)';
+        btn.style.color = active ? '#fff' : 'var(--fg)';
+        btn.style.borderColor = active ? '#0178d4' : 'var(--border)';
+      });
+      customEl.style.borderColor = !isPreset ? '#0178d4' : 'var(--border)';
+    }
+
+    function _refreshPreview(){
+      const vat = _calcVat(totalValue);
+      if(settings.vatEnabled){
+        previewEl.style.display = 'flex';
+        if(amountEl) amountEl.textContent = _qFmtEur(vat.amount);
+        if(totalEl) totalEl.textContent = _qFmtEur(vat.total);
+      } else {
+        previewEl.style.display = 'none';
+      }
+      groupEl.style.opacity = settings.vatEnabled ? '' : '0.4';
+      groupEl.style.pointerEvents = settings.vatEnabled ? '' : 'none';
+    }
+
+    function _persist(){
+      try { if(typeof saveQuoteState === 'function') saveQuoteState(); } catch(_){}
+    }
+
+    enabledEl.addEventListener('change', () => {
+      settings.vatEnabled = enabledEl.checked;
+      _refreshPreview();
+      _persist();
+      invalidatePdfCache();  // V2.10.152: PDF prefetched non è più valido
+    });
+
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const rate = parseFloat(btn.dataset.rate);
+        if(!isFinite(rate)) return;
+        settings.vatRate = rate;
+        customEl.value = '';
+        _refreshPresetUI();
+        _refreshPreview();
+        _persist();
+        invalidatePdfCache();  // V2.10.152: PDF prefetched non è più valido
+      });
+    });
+
+    customEl.addEventListener('input', () => {
+      const v = parseFloat(customEl.value.replace(',', '.'));
+      if(!isFinite(v) || v < 0) return;
+      settings.vatRate = Math.min(100, v);
+      _refreshPresetUI();
+      _refreshPreview();
+      _persist();
+      invalidatePdfCache();  // V2.10.152: PDF prefetched non è più valido
+    });
+    customEl.addEventListener('change', () => {
+      // Al blur: se vuoto, reimposto al valore corrente (no auto-default)
+      if(customEl.value === '') _refreshPresetUI();
+    });
+  })();
 
   // V2.4.7: il pulsante "Modifica" apre il dialog Impostazioni di stampa.
   // Quando l'utente salva o annulla lì, si torna automaticamente al dialog
@@ -39129,9 +39792,10 @@ function openQuoteExportDialog(){
   // V2.10.48 / V2.10.49: pre-fetching del PDF in background appena si apre il dialog.
   // SOLO in modalita' Cliente: la modalita' Analisi non e' ancora supportata in PDF nativo
   // e mostrerebbe un toast di errore all'apertura del dialog.
+  // V2.10.152: pdfBlobPromise è ora dichiarata sopra (scope esterno) per essere
+  // accessibile a invalidatePdfCache() chiamata dai listener IVA.
   const previewBtn = document.getElementById('qexpPreview');
   const previewStatus = document.getElementById('qexpPreviewStatus');
-  let pdfBlobPromise = null;
   const pdfSupported = (qMode === 'client');
 
   const startPdfPrefetch = () => {
@@ -39358,7 +40022,9 @@ async function exportQuoteExcel(){
         ];
       });
       // Riga totali
-      totalRow = ['', '', '', '', '', 'TOTALE', t.totalQty, '',
+      // V2.10.150: "TOTALE" → "TOTALE IMPONIBILE" se IVA inclusa
+      const _vatOnXlsxCli = _getVatSettings().enabled && t.totalSellPrice > 0;
+      totalRow = ['', '', '', '', '', (_vatOnXlsxCli ? 'TOTALE IMPONIBILE' : 'TOTALE (IVA esclusa)'), t.totalQty, '',
                   t.avgDiscountPct != null ? Number(t.avgDiscountPct.toFixed(1)) : '',
                   '',
                   Number(t.totalPvp.toFixed(2)),
@@ -39391,7 +40057,9 @@ async function exportQuoteExcel(){
           sconto,
         ];
       });
-      totalRow = ['', '', '', '', '', 'TOTALE', t.totalQty, '', '',
+      // V2.10.150: "TOTALE" → "TOTALE IMPONIBILE" se IVA inclusa
+      const _vatOnXlsxAn = _getVatSettings().enabled && t.totalSellPrice > 0;
+      totalRow = ['', '', '', '', '', (_vatOnXlsxAn ? 'TOTALE IMPONIBILE' : 'TOTALE (IVA esclusa)'), t.totalQty, '', '',
                   Number(t.totalPvp.toFixed(2)),
                   Number(t.totalNetto.toFixed(2)),
                   t.marginPct != null ? Number(t.marginPct.toFixed(1)) : ''];
@@ -39400,6 +40068,25 @@ async function exportQuoteExcel(){
 
     rows.push([]);
     rows.push(totalRow);
+
+    // V2.10.149: righe IVA + TOTALE IVATO al fondo dell'export Excel.
+    // Posizionate nell'ultima colonna numerica della modalità corrente.
+    if(_getVatSettings().enabled && t.totalSellPrice > 0){
+      const _vat = _calcVat(t.totalSellPrice);
+      const ivaLabel = 'IVA ' + (Number.isInteger(_vat.rate) ? _vat.rate : _vat.rate.toFixed(1)) + '%';
+      // Calcolo numero colonne header per costruire righe lunghe coerenti
+      const nCols = header.length;
+      const ivaRow = new Array(nCols).fill('');
+      const totIvaRow = new Array(nCols).fill('');
+      // Posiziono la label nella penultima colonna e il valore nell'ultima
+      // (ultima colonna è sempre il totale, sia in Cliente che in Analisi).
+      ivaRow[nCols - 2] = ivaLabel;
+      ivaRow[nCols - 1] = Number(_vat.amount.toFixed(2));
+      totIvaRow[nCols - 2] = 'TOTALE IVATO';
+      totIvaRow[nCols - 1] = Number(_vat.total.toFixed(2));
+      rows.push(ivaRow);
+      rows.push(totIvaRow);
+    }
 
     const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
     ws['!cols'] = cols;
@@ -39416,6 +40103,403 @@ async function exportQuoteExcel(){
     console.error('[quote] excel export error:', err);
     toast('Errore export Excel: ' + (err.message || err), 'err', 5000);
   }
+}
+
+/* ─── V2.10.156: Dialog FORMULA DI PAGAMENTO ─────────────────────────────────
+   Calcolatore di rate mensili da proporre al cliente. Permette di configurare:
+   - Anticipo (€)
+   - Numero rate (mesi)
+   - Servizio Vigilanza (€/mese)
+   - Servizio Manutenzione (€/anno)
+
+   Ogni voce ha un toggle include/escludi. Valori persistiti in
+   _QUOTE_STATE.settings.paymentFormula (IDB). Mostra anche un KPI nascosto
+   "Ammortamento OK/KO" sul margine cash flow target.
+
+   Flag printInQuote: se ON, la formula viene inclusa nei documenti generati. */
+function openPaymentFormulaDialog(){
+  // Sicurezza: deve esserci almeno un articolo nel carrello
+  if(!window._QUOTE_STATE.items || window._QUOTE_STATE.items.length === 0){
+    toast('Aggiungi articoli al carrello per usare la formula di pagamento', 'warn', 4000);
+    return;
+  }
+
+  const ex = document.getElementById('paymentFormulaModal');
+  if(ex) ex.remove();
+
+  // Inizializzo settings.paymentFormula se mancante (state legacy)
+  const s = window._QUOTE_STATE.settings;
+  if(!s.paymentFormula){
+    s.paymentFormula = {
+      includeAdvance: false, advance: 0,
+      includeInstallments: true, installmentsCount: 36,
+      includeVigilance: false, vigilancePerMonth: 0,
+      includeMaintenance: false, maintenancePerYear: 0,
+      printInQuote: false,
+    };
+  }
+  if(!s.amortMonths) s.amortMonths = 12;
+  const pf = s.paymentFormula;
+
+  const t = computeQuoteTotals();
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'paymentFormulaModal';
+  bg.style.zIndex = '510';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  // V2.10.161: stato iniziale toggle "valori IVATI". Se mai impostato dall'utente,
+  // segue lo stato IVA del preventivo come default sensato.
+  const vat = _getVatSettings();
+  const inputsVatChecked = (pf.inputsVatInclusive === null || pf.inputsVatInclusive === undefined)
+    ? !!vat.enabled
+    : !!pf.inputsVatInclusive;
+
+  // Helper per riga "switch + label + input + unità" (UI mobile-app style)
+  // V2.10.157: parametro opzionale `stepper` (bool) — se true, sostituisce
+  // l'input numerico con un controllo − / valore / + (no spinner nativi).
+  // Inoltre, se `valueKey === 'installmentsCount'` mostra a destra un'icona
+  // di stato ammortamento (✓ verde OK / ⊘ rosso KO), aggiornata in live.
+  const fieldRow = (id, label, hint, includeKey, includeChecked, valueKey, valueNum, unit, step, stepper) => {
+    let valueControlHtml;
+    if(stepper){
+      // Controllo a stepper: button[−]  input[valore]  button[+]
+      valueControlHtml = '' +
+        '<button type="button" class="pf-step-btn" data-target="' + id + '" data-dir="-1" ' +
+          'style="width:36px;height:36px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:18px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0">−</button>' +
+        '<input type="text" inputmode="numeric" class="pf-value pf-value-stepper" data-key="' + valueKey + '" id="' + id + '" value="' + valueNum + '" ' +
+          'style="width:90px;padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:15px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums">' +
+        '<button type="button" class="pf-step-btn" data-target="' + id + '" data-dir="1" ' +
+          'style="width:36px;height:36px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:18px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0">+</button>' +
+        '<span style="font-size:12px;color:var(--fg3);font-weight:600;margin-left:4px">' + unit + '</span>';
+    } else {
+      // Controllo standard: input number con CSS hide-spinner inline
+      valueControlHtml = '' +
+        '<input type="text" inputmode="decimal" class="pf-value" data-key="' + valueKey + '" id="' + id + '" value="' + valueNum + '" ' +
+          'data-step="' + step + '" ' +
+          'style="flex:1;max-width:160px;padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:15px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums">' +
+        '<span style="font-size:12px;color:var(--fg3);font-weight:600">' + unit + '</span>';
+    }
+
+    // V2.10.157: badge stato ammortamento (solo sul campo "Numero rate")
+    const ammortBadge = (valueKey === 'installmentsCount')
+      ? '<span id="pfAmmortBadge" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;font-size:20px;font-weight:900;line-height:1;flex-shrink:0"></span>'
+      : '';
+
+    // V2.10.158: solo sulla riga "Numero rate" — importo rata mensile evidente
+    // (etichetta piccola + valore grande, allineato a destra). Inserito a sinistra
+    // del badge ammortamento. Aggiornato live da _refreshPreview.
+    const inlineRataHtml = (valueKey === 'installmentsCount')
+      ? '<div id="pfInlineRata" style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;line-height:1.1;min-width:0">' +
+          '<span style="font-size:9.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.6px">Rata mensile</span>' +
+          '<span id="pfInlineRataValue" style="font-size:20px;font-weight:800;color:#0178d4;font-variant-numeric:tabular-nums;margin-top:2px">—</span>' +
+        '</div>'
+      : '';
+
+    return '' +
+      '<div class="pf-row" data-key="' + valueKey + '" style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:var(--bg);transition:all .15s">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">' +
+          // Switch (checkbox stylizzata)
+          '<label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;cursor:pointer">' +
+            '<input type="checkbox" class="pf-include" data-key="' + includeKey + '" data-target-row="' + valueKey + '" ' + (includeChecked ? 'checked' : '') + ' style="opacity:0;width:0;height:0;position:absolute">' +
+            '<span class="pf-slider" style="position:absolute;inset:0;background:' + (includeChecked ? '#0178d4' : '#cbd5e1') + ';border-radius:24px;transition:.2s">' +
+              '<span style="position:absolute;height:18px;width:18px;left:' + (includeChecked ? '21px' : '3px') + ';top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></span>' +
+            '</span>' +
+          '</label>' +
+          '<div style="flex:1">' +
+            '<div style="font-size:13.5px;font-weight:700;color:var(--fg)">' + label + '</div>' +
+            '<div style="font-size:11.5px;color:var(--fg3);margin-top:2px;line-height:1.4">' + hint + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="pf-value-wrap" style="display:flex;align-items:center;gap:8px;padding-left:54px;' + (includeChecked ? '' : 'opacity:0.35;pointer-events:none') + '">' +
+          valueControlHtml +
+          inlineRataHtml +
+          ammortBadge +
+        '</div>' +
+      '</div>';
+  };
+
+  // Riga preview risultati: rata totale + canone post
+  const previewHTML = '' +
+    '<div id="pfPreview" style="background:linear-gradient(135deg,#0178d4 0%,#0259a3 100%);border-radius:10px;padding:18px 20px;color:#fff;margin-top:6px">' +
+      '<div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.85;margin-bottom:10px">Proposta al cliente</div>' +
+      '<div id="pfSummary" style="display:flex;flex-direction:column;gap:8px"></div>' +
+    '</div>' +
+    // KPI ammortamento (nascosto al cliente)
+    '<div id="pfKpi" style="margin-top:14px;padding:12px 14px;border-radius:8px;border:1px dashed var(--border);background:var(--bg);font-size:11.5px;color:var(--fg2);line-height:1.5"></div>';
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:580px;max-height:92vh;display:flex;flex-direction:column">' +
+      '<div class="modal-head">' +
+        '<h3>💳 Formula di pagamento</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:18px 22px;overflow-y:auto;grid-template-columns:none">' +
+        '<p style="font-size:12.5px;color:var(--fg2);line-height:1.6;margin:0 0 16px 0">' +
+          'Costruisci una proposta di pagamento rateale per il cliente finale. Totale base: <b style="color:#16a34a">' + _qFmtEur(t.totalSellPrice) + '</b>' +
+        '</p>' +
+
+        // V2.10.161: toggle globale "I valori digitati sono già IVATI"
+        // Visibile solo se IVA è attiva nel preventivo (altrimenti è irrilevante:
+        // senza IVA non c'è distinzione tra netto e lordo).
+        (vat.enabled
+          ? '<label id="pfVatInclusiveRow" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:14px;background:rgba(1,120,212,0.06);border:1px solid rgba(1,120,212,0.2);border-radius:8px;cursor:pointer">' +
+              // Switch
+              '<span style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0">' +
+                '<input type="checkbox" id="pfInputsVatInclusive" ' + (inputsVatChecked ? 'checked' : '') + ' style="opacity:0;width:0;height:0;position:absolute">' +
+                '<span class="pf-vat-slider" style="position:absolute;inset:0;background:' + (inputsVatChecked ? '#0178d4' : '#cbd5e1') + ';border-radius:24px;transition:.2s">' +
+                  '<span style="position:absolute;height:18px;width:18px;left:' + (inputsVatChecked ? '21px' : '3px') + ';top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></span>' +
+                '</span>' +
+              '</span>' +
+              '<div style="flex:1">' +
+                '<div style="font-size:12.5px;font-weight:700;color:var(--fg)">Importi digitati IVA inclusa</div>' +
+                '<div id="pfVatInclusiveHint" style="font-size:11px;color:var(--fg3);margin-top:2px;line-height:1.4">Se attivato, anticipo / vigilanza / manutenzione che digiti sono già lordi (IVA ' + vat.rate + '% inclusa). Se disattivato, sono netti e l\'IVA viene aggiunta al calcolo.</div>' +
+              '</div>' +
+            '</label>'
+          : '') +
+
+        fieldRow('pfAdvance', 'Anticipo', 'Importo versato dal cliente alla firma. Riduce il capitale da finanziare.',
+                 'includeAdvance', pf.includeAdvance, 'advance', pf.advance || 0, '€', '0.01') +
+
+        fieldRow('pfInstallments', 'Numero rate', 'Durata del finanziamento in mesi. La rata capitale è (Totale − Anticipo) / N.',
+                 'includeInstallments', pf.includeInstallments, 'installmentsCount', pf.installmentsCount || 36, 'mesi', '1', true) +
+
+        fieldRow('pfVigilance', 'Servizio Vigilanza', 'Canone mensile per servizio di vigilanza. Sommato alla rata durante il finanziamento, prosegue come canone perpetuo dopo.',
+                 'includeVigilance', pf.includeVigilance, 'vigilancePerMonth', pf.vigilancePerMonth || 0, '€/mese', '0.01') +
+
+        fieldRow('pfMaintenance', 'Servizio Manutenzione', 'Costo annuo manutenzione. Viene diviso per 12 e sommato alla rata mensile.',
+                 'includeMaintenance', pf.includeMaintenance, 'maintenancePerYear', pf.maintenancePerYear || 0, '€/anno', '0.01') +
+
+        previewHTML +
+
+        // Flag inclusione nel preventivo
+        '<label style="display:flex;align-items:center;gap:10px;margin-top:16px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer">' +
+          '<input type="checkbox" id="pfPrintInQuote" ' + (pf.printInQuote ? 'checked' : '') + ' style="width:18px;height:18px;cursor:pointer">' +
+          '<div style="flex:1">' +
+            '<div style="font-size:13px;font-weight:700;color:var(--fg)">Includi formula nel preventivo</div>' +
+            '<div style="font-size:11px;color:var(--fg3);margin-top:2px;line-height:1.4">Se attivato, la formula di pagamento apparirà nel PDF, Word e anteprima HTML dei preventivi.</div>' +
+          '</div>' +
+        '</label>' +
+
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="pfCancelBtn">Chiudi</button>' +
+        '<span style="flex:1"></span>' +
+        '<button class="btn primary" id="pfSaveBtn">✓ Salva</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+
+  // ── Funzioni di refresh ──
+  function _readFromUI(){
+    bg.querySelectorAll('.pf-include').forEach(inp => {
+      pf[inp.dataset.key] = inp.checked;
+    });
+    bg.querySelectorAll('.pf-value').forEach(inp => {
+      const v = parseFloat(String(inp.value).replace(',', '.'));
+      pf[inp.dataset.key] = isFinite(v) && v >= 0 ? v : 0;
+    });
+    // V2.10.161: flag IVA inclusiva degli importi digitati
+    const vatInp = document.getElementById('pfInputsVatInclusive');
+    if(vatInp){
+      pf.inputsVatInclusive = !!vatInp.checked;
+    }
+  }
+
+  function _refreshSliders(){
+    bg.querySelectorAll('.pf-include').forEach(inp => {
+      const slider = inp.parentElement.querySelector('.pf-slider');
+      const knob = slider ? slider.querySelector('span') : null;
+      const isOn = inp.checked;
+      if(slider) slider.style.background = isOn ? '#0178d4' : '#cbd5e1';
+      if(knob) knob.style.left = isOn ? '21px' : '3px';
+      // Abilita/disabilita la riga input corrispondente
+      const targetKey = inp.dataset.targetRow;
+      const valRow = bg.querySelector('.pf-row[data-key="' + targetKey + '"] .pf-value-wrap');
+      if(valRow){
+        valRow.style.opacity = isOn ? '' : '0.35';
+        valRow.style.pointerEvents = isOn ? '' : 'none';
+      }
+    });
+  }
+
+  function _refreshPreview(){
+    _readFromUI();
+    const calc = _calcPaymentFormula(t);
+    const sumEl = document.getElementById('pfSummary');
+    const kpiEl = document.getElementById('pfKpi');
+    if(!sumEl || !kpiEl) return;
+
+    // V2.10.160: suffisso IVA. Se IVA off, ogni importo è "+ IVA";
+    // se IVA on, gli importi sono già IVA inclusa (mostro etichetta esplicita).
+    // V2.10.164: importo IVATO → colore verde (coerente con TOTALE IVATO).
+    const vatTag = calc.vatEnabled
+      ? '<span style="opacity:.7;font-size:10.5px;font-weight:600;margin-left:6px">IVA ' + calc.vatRate + '% inclusa</span>'
+      : '<span style="opacity:.85;font-size:10.5px;font-weight:600;color:#fbbf24;margin-left:6px">+ IVA</span>';
+    // Colore importo principale: verde acceso se IVATO, giallo se netto+IVA
+    const amountColor = calc.vatEnabled ? '#4ade80' : '#fbbf24';
+
+    const rows = [];
+    if(pf.includeAdvance && calc.advance > 0){
+      rows.push('<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="opacity:.85;font-size:12.5px">Anticipo alla firma</span><b style="font-size:14.5px;color:' + amountColor + '">' + _qFmtEur(calc.advance) + vatTag + '</b></div>');
+    }
+    if(pf.includeInstallments && calc.installments > 0){
+      rows.push('<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="opacity:.85;font-size:12.5px">Rata mensile × ' + calc.installments + ' mesi</span><b style="font-size:16px;color:' + amountColor + '">' + _qFmtEur(calc.rataTotale) + '/mese' + vatTag + '</b></div>');
+      // Dettaglio composizione rata
+      // V2.10.163: testo "impiantistica + servizi" coerente con i documenti.
+      // Se IVA OFF aggiungo "+ IVA" inline dopo ogni importo.
+      if(calc.rataServizi > 0){
+        const _vatI = calc.vatEnabled ? '' : ' + IVA';
+        rows.push('<div style="font-size:10.5px;opacity:.75;padding-left:0">↳ ' + _qFmtEur(calc.rataCapitale) + _vatI + ' di impiantistica + ' + _qFmtEur(calc.rataServizi) + _vatI + ' di servizi</div>');
+      }
+    } else if(pf.includeInstallments){
+      rows.push('<div style="display:flex;justify-content:space-between"><span style="opacity:.85;font-size:12.5px;color:#fca5a5">⚠ Imposta un numero di rate valido</span><span></span></div>');
+    }
+    if((pf.includeVigilance && calc.vigilance > 0) || (pf.includeMaintenance && calc.maintenance > 0)){
+      const lbl = calc.installments > 0 ? 'Canone post-finanziamento (perpetuo)' : 'Canone servizi mensile';
+      rows.push('<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid rgba(255,255,255,0.2);padding-top:8px;margin-top:4px"><span style="opacity:.85;font-size:12px">' + lbl + '</span><b style="font-size:14px;color:' + amountColor + '">' + _qFmtEur(calc.canonePost) + '/mese' + vatTag + '</b></div>');
+    }
+    if(rows.length === 0){
+      rows.push('<div style="opacity:.75;font-size:12px;font-style:italic">Attiva almeno una voce per generare la proposta</div>');
+    }
+    sumEl.innerHTML = rows.join('');
+
+    // KPI ammortamento aziendale (nascosto al cliente)
+    const ammort = calc.ammort;
+    const okIcon = ammort.ok ? '✅' : '⚠️';
+    const okColor = ammort.ok ? '#16a34a' : '#dc2626';
+    const okLabel = ammort.ok ? 'Ammortamento OK' : 'Ammortamento KO';
+    const margineSign = ammort.margine >= 0 ? '+' : '';
+
+    // V2.10.157: badge prominente a destra del campo "Numero rate"
+    // Verde con ✓ se OK, rosso con ⊘ se KO. Visibile solo se il toggle
+    // "Includi rate" è attivo (altrimenti il campo è disabilitato).
+    const badgeEl = document.getElementById('pfAmmortBadge');
+    if(badgeEl){
+      if(pf.includeInstallments && calc.installments > 0){
+        if(ammort.ok){
+          // V2.10.159: SVG check inline (icona spunta nitida, scala con font)
+          badgeEl.style.background = '#16a34a';
+          badgeEl.style.color = '#fff';
+          badgeEl.style.boxShadow = '0 2px 6px rgba(22,163,74,0.35)';
+          badgeEl.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+          badgeEl.title = 'Ammortamento OK: l\'azienda rientra del costo netto entro ' + ammort.targetMonths + ' mesi.';
+        } else {
+          // V2.10.159: SVG divieto inline (cerchio + barra diagonale).
+          // L'esterno è già il cerchio rosso pieno; il glifo bianco è solo la barra
+          // diagonale (segnale stradale di divieto stilizzato).
+          badgeEl.style.background = '#dc2626';
+          badgeEl.style.color = '#fff';
+          badgeEl.style.boxShadow = '0 2px 6px rgba(220,38,38,0.4)';
+          badgeEl.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"></line></svg>';
+          badgeEl.title = 'Ammortamento KO: l\'azienda NON rientra del costo netto entro ' + ammort.targetMonths + ' mesi (margine ' + _qFmtEur(ammort.margine) + ').';
+        }
+      } else {
+        // Toggle off o rate 0 → nessun badge
+        badgeEl.style.background = 'transparent';
+        badgeEl.style.color = 'transparent';
+        badgeEl.style.boxShadow = 'none';
+        badgeEl.innerHTML = '';
+        badgeEl.title = '';
+      }
+    }
+
+    // V2.10.158: aggiorno l'importo rata mensile mostrato accanto al campo
+    // "Numero rate". Mostra la RATA TOTALE (capitale + servizi), così
+    // l'utente vede subito quanto pagherà il cliente al mese.
+    // V2.10.160: aggiungo suffisso "+ IVA" se IVA off, altrimenti nessun
+    // suffisso (l'importo è già lordo, coerente con TOTALE IVATO del preventivo).
+    // V2.10.164: importo IVATO mostrato in verde (coerente con TOTALE IVATO);
+    // importo netto (con suffisso "+ IVA") resta blu.
+    const rataInlineEl = document.getElementById('pfInlineRataValue');
+    if(rataInlineEl){
+      if(pf.includeInstallments && calc.installments > 0){
+        const suffix = calc.vatEnabled ? '' : ' + IVA';
+        rataInlineEl.textContent = _qFmtEur(calc.rataTotale) + '/m' + suffix;
+        rataInlineEl.style.color = calc.vatEnabled ? '#16a34a' : '#0178d4';
+      } else {
+        rataInlineEl.textContent = '—';
+        rataInlineEl.style.color = 'var(--fg3)';
+      }
+    }
+
+    kpiEl.innerHTML = '' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+        '<span style="font-size:14px">' + okIcon + '</span>' +
+        '<b style="color:' + okColor + ';font-size:12.5px">' + okLabel + '</b>' +
+        '<span style="margin-left:auto;font-size:10.5px;color:var(--fg3);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Riservato all\'azienda</span>' +
+      '</div>' +
+      '<div style="font-size:11.5px;color:var(--fg2);line-height:1.7">' +
+        'Target rientro: <b>' + ammort.targetMonths + ' mesi</b> · ' +
+        'Costo netto: <b>' + _qFmtEur(calc.totalNetto) + '</b><br>' +
+        'Incasso in ' + ammort.monthsConsidered + ' mesi: <b>' + _qFmtEur(ammort.incassatoInTarget) + '</b> (anticipo + ' + ammort.monthsConsidered + ' rate capitale) · ' +
+        'Margine: <b style="color:' + okColor + '">' + margineSign + _qFmtEur(ammort.margine) + '</b>' +
+      '</div>';
+  }
+
+  // ── Wiring listener ──
+  bg.querySelectorAll('.pf-include').forEach(inp => {
+    inp.addEventListener('change', () => {
+      _refreshSliders();
+      _refreshPreview();
+    });
+  });
+  bg.querySelectorAll('.pf-value').forEach(inp => {
+    inp.addEventListener('input', () => _refreshPreview());
+    inp.addEventListener('focus', () => { try { inp.select(); } catch(_){} });
+  });
+
+  // V2.10.157: wiring pulsanti stepper − / + (campo Numero rate)
+  // Click incrementa/decrementa il valore dell'input target di 1 (con clamp a 0).
+  bg.querySelectorAll('.pf-step-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.target;
+      const dir = parseInt(btn.dataset.dir, 10) || 0;
+      const inp = document.getElementById(targetId);
+      if(!inp) return;
+      let v = parseInt(String(inp.value).replace(/[^0-9-]/g, ''), 10);
+      if(!isFinite(v)) v = 0;
+      v = Math.max(0, v + dir);
+      inp.value = v;
+      _refreshPreview();
+    });
+  });
+
+  // V2.10.161: wiring toggle "Importi digitati IVA inclusa"
+  // Aggiorna slider visivo, riassegna flag e ricalcola preview.
+  const _pfVatInp = document.getElementById('pfInputsVatInclusive');
+  if(_pfVatInp){
+    _pfVatInp.addEventListener('change', () => {
+      const isOn = _pfVatInp.checked;
+      const slider = bg.querySelector('.pf-vat-slider');
+      const knob = slider ? slider.querySelector('span') : null;
+      if(slider) slider.style.background = isOn ? '#0178d4' : '#cbd5e1';
+      if(knob) knob.style.left = isOn ? '21px' : '3px';
+      _refreshPreview();
+    });
+  }
+
+  // Prima renderizzazione
+  _refreshSliders();
+  _refreshPreview();
+
+  // ── Pulsanti footer ──
+  document.getElementById('pfCancelBtn').addEventListener('click', () => bg.remove());
+
+  document.getElementById('pfSaveBtn').addEventListener('click', () => {
+    _readFromUI();
+    const printChk = document.getElementById('pfPrintInQuote');
+    pf.printInQuote = !!(printChk && printChk.checked);
+    if(typeof saveQuoteState === 'function') saveQuoteState();
+    bg.remove();
+    // V2.10.156: invalido la cache PDF se la formula influenza l'output
+    if(pf.printInQuote && typeof toast === 'function'){
+      toast({ type:'ok', title:'Formula salvata', message:'Apparirà nel preventivo generato.', duration:3500 });
+    } else if(typeof toast === 'function'){
+      toast({ type:'ok', title:'Formula salvata', duration:2500 });
+    }
+  });
 }
 
 /* ─── V2.10.46: Dialog di anteprima PDF con bottoni di download ─── */
@@ -40251,12 +41335,12 @@ async function exportQuoteDocx(options){
         ],
       }));
     }
-    // Sconto applicato
+    // V2.10.148: rinominato da "Sconto applicato" a "Importo Scontato" (label utente)
     if((showListino || showSconto) && t.totalDiscountValue > 0.005){
       totalRows.push(new TableRow({
         children: [
           new TableCell({
-            children: [para(mk('Sconto applicato', { color: TEXT_MUTED, bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],
+            children: [para(mk('Importo Scontato', { color: TEXT_MUTED, bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],
             margins: { top: 100, bottom: 100, left: 160, right: 240 },
             borders: {
               top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -40279,11 +41363,18 @@ async function exportQuoteDocx(options){
       }));
     }
     // V2.10.42: TOTALE sobrio - no fondo scuro, solo enfasi tipografica + bordo top marcato
+    // V2.10.150: se IVA inclusa, l'etichetta diventa "TOTALE IMPONIBILE" (terminologia contabile corretta)
     const totalTopBorder = { style: BorderStyle.SINGLE, size: 12, color: TEXT_DARK };
+    const _vatOnDoc = _getVatSettings().enabled && t.totalSellPrice > 0;
+    const _totaleLabel = _vatOnDoc ? 'TOTALE IMPONIBILE' : 'TOTALE (IVA esclusa)';
+    // V2.10.155: font size 22 (+10% rispetto al 20 delle altre righe totali come
+    // "Totale Listino" e "Importo Scontato"). Stessa size per IVA on/off e per
+    // TOTALE IVATO sottostante — coerenza visiva tra tutte le righe "totale".
+    const _totaleFontSize = 22;
     totalRows.push(new TableRow({
       children: [
         new TableCell({
-          children: [para(mk('TOTALE', { bold: true, color: TEXT_DARK, size: 26 }), { alignment: AlignmentType.RIGHT })],
+          children: [para(mk(_totaleLabel, { bold: true, color: TEXT_DARK, size: _totaleFontSize }), { alignment: AlignmentType.RIGHT })],
           margins: { top: 200, bottom: 200, left: 160, right: 240 },
           borders: {
             top: totalTopBorder,
@@ -40293,7 +41384,7 @@ async function exportQuoteDocx(options){
           },
         }),
         new TableCell({
-          children: [para(mk(_qFmtEur(t.totalSellPrice), { bold: true, color: BLUE, size: 26 }), { alignment: AlignmentType.RIGHT })],
+          children: [para(mk(_qFmtEur(t.totalSellPrice), { bold: true, color: BLUE, size: _totaleFontSize }), { alignment: AlignmentType.RIGHT })],
           margins: { top: 200, bottom: 200, left: 160, right: 240 },
           borders: {
             top: totalTopBorder,
@@ -40304,6 +41395,61 @@ async function exportQuoteDocx(options){
         }),
       ],
     }));
+
+    // V2.10.149: righe IVA + TOTALE IVATO (solo se vatEnabled e totale > 0).
+    // Mostrate sotto al TOTALE come voci separate, formattazione coerente.
+    const _vat = _calcVat(t.totalSellPrice);
+    if(_vat.enabled !== false && _getVatSettings().enabled && t.totalSellPrice > 0){
+      const ivaLabel = 'IVA ' + (Number.isInteger(_vat.rate) ? _vat.rate : _vat.rate.toFixed(1)) + '%';
+      totalRows.push(new TableRow({
+        children: [
+          new TableCell({
+            children: [para(mk(ivaLabel, { color: TEXT_MUTED, bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],
+            margins: { top: 100, bottom: 100, left: 160, right: 240 },
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              bottom: { style: BorderStyle.SINGLE, size: 4, color: BORDER_LT },
+              left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+            },
+          }),
+          new TableCell({
+            children: [para(mk(_qFmtEur(_vat.amount), { color: TEXT_MID, size: 20 }), { alignment: AlignmentType.RIGHT })],
+            margins: { top: 100, bottom: 100, left: 160, right: 240 },
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              bottom: { style: BorderStyle.SINGLE, size: 4, color: BORDER_LT },
+              left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+            },
+          }),
+        ],
+      }));
+      totalRows.push(new TableRow({
+        children: [
+          new TableCell({
+            children: [para(mk('TOTALE IVATO', { bold: true, color: TEXT_DARK, size: 22 }), { alignment: AlignmentType.RIGHT })],
+            margins: { top: 200, bottom: 200, left: 160, right: 240 },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 8, color: TEXT_DARK },
+              bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+            },
+          }),
+          new TableCell({
+            children: [para(mk(_qFmtEur(_vat.total), { bold: true, color: '16A34A', size: 22 }), { alignment: AlignmentType.RIGHT })],
+            margins: { top: 200, bottom: 200, left: 160, right: 240 },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 8, color: TEXT_DARK },
+              bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+            },
+          }),
+        ],
+      }));
+    }
 
     // Wrapper: la tabella totali è "right-aligned" — uso una tabella esterna 2 colonne
     // (vuota a sinistra, totali a destra) per ottenere allineamento a destra
@@ -40412,6 +41558,137 @@ async function exportQuoteDocx(options){
     docChildren.push(itemsTable);
     docChildren.push(para(mk(''), { spacing: { after: 200 } }));
     docChildren.push(totalsTable);
+
+    // V2.10.156: blocco FORMULA DI PAGAMENTO (Word). Mostrato solo se attivata
+    // e printInQuote=true. Tabella con sfondo azzurro chiaro a piena larghezza.
+    if(_shouldPrintPaymentFormula()){
+      const _pmtCalc = _calcPaymentFormula(t);
+      const _pmtPf = _pmtCalc.formula;
+      const PMT_BG = 'F0F9FF';      // azzurrino chiaro
+      const PMT_BORDER = 'BAE6FD';
+      const PMT_BLUE = '0178D4';
+      const PMT_LABEL_GREY = '4B5563';
+
+      const pmtItems = [];
+      if(_pmtPf.includeAdvance && _pmtCalc.advance > 0){
+        pmtItems.push({ label: 'Anticipo alla firma', value: _qFmtEur(_pmtCalc.advance), bold: false });
+      }
+      if(_pmtPf.includeInstallments && _pmtCalc.installments > 0){
+        pmtItems.push({
+          label: 'Rata mensile per ' + _pmtCalc.installments + ' mesi',
+          value: _qFmtEur(_pmtCalc.rataTotale) + '/mese',
+          bold: true,
+          sub: _pmtCalc.rataServizi > 0
+            ? (function(){
+                // V2.10.163: "+ IVA" inline dopo ogni importo se IVA OFF
+                var _vi = _pmtCalc.vatEnabled ? '' : ' + IVA';
+                return _qFmtEur(_pmtCalc.rataCapitale) + _vi + ' di impiantistica + ' + _qFmtEur(_pmtCalc.rataServizi) + _vi + ' di servizi';
+              })()
+            : null,
+        });
+      }
+      if((_pmtPf.includeVigilance && _pmtCalc.vigilance > 0) || (_pmtPf.includeMaintenance && _pmtCalc.maintenance > 0)){
+        const hasInst = _pmtPf.includeInstallments && _pmtCalc.installments > 0;
+        const lbl = hasInst ? 'Canone dei servizi al termine del finanziamento' : 'Canone mensile servizi';
+        const subParts = [];
+        if(_pmtPf.includeVigilance && _pmtCalc.vigilance > 0) subParts.push(_pmtCalc.vatEnabled ? 'Servizio di Vigilanza ' + _qFmtEur(_pmtCalc.vigilance) + '/mese' : 'Servizio di Vigilanza ' + _qFmtEur(_pmtCalc.vigilance) + ' + IVA al mese');
+        if(_pmtPf.includeMaintenance && _pmtCalc.maintenance > 0) subParts.push(_pmtCalc.vatEnabled ? 'Servizio di Manutenzione ' + _qFmtEur(_pmtCalc.maintenance) + '/anno' : 'Servizio di Manutenzione ' + _qFmtEur(_pmtCalc.maintenance) + " + IVA all'anno");
+        pmtItems.push({ label: lbl, value: _qFmtEur(_pmtCalc.canonePost) + '/mese', bold: true, sub: subParts.join(' · ') });
+      }
+
+      if(pmtItems.length > 0){
+        const pmtCellBorders = {
+          top: { style: BorderStyle.SINGLE, size: 2, color: 'E5E7EB' },
+          bottom: { style: BorderStyle.SINGLE, size: 2, color: 'E5E7EB' },
+          left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+          right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+        };
+        const pmtRows = [];
+
+        // Riga titolo
+        pmtRows.push(new TableRow({
+          children: [
+            new TableCell({
+              children: [para(mk('FORMULA DI PAGAMENTO PROPOSTA', { bold: true, color: PMT_BLUE, size: 18 }))],
+              columnSpan: 2,
+              shading: { type: 'clear', fill: PMT_BG },
+              margins: { top: 140, bottom: 100, left: 200, right: 200 },
+              borders: {
+                top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: PMT_BORDER },
+                left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              },
+            }),
+          ],
+        }));
+
+        // Righe valori
+        // V2.10.160: suffisso IVA per ogni riga valore.
+        // - IVA ON: "(IVA NN% inclusa)" piccolo, grigio chiaro
+        // - IVA OFF: "+ IVA" piccolo, blu marcato
+        const vatSuffixText = _pmtCalc.vatEnabled
+          ? '  (IVA ' + _pmtCalc.vatRate + '% inclusa)'
+          : '  + IVA';
+        const vatSuffixColor = _pmtCalc.vatEnabled ? '9CA3AF' : PMT_BLUE;
+        const vatSuffixSize = 14;
+        const vatSuffixItalics = _pmtCalc.vatEnabled;
+
+        pmtItems.forEach(it => {
+          const labelChildren = [mk(it.label, { color: PMT_LABEL_GREY, bold: true, size: 20 })];
+          const labelChildren2 = it.sub ? [mk(it.sub, { color: '9CA3AF', italics: true, size: 16 })] : null;
+          // V2.10.164: importo IVATO → verde (16A34A, coerente con TOTALE IVATO);
+          // importo netto resta blu (bold) o nero (regular)
+          const valColor = _pmtCalc.vatEnabled ? '16A34A' : (it.bold ? PMT_BLUE : '1F2937');
+          const valSize = it.bold ? 22 : 20;
+
+          const labelPara = [para(labelChildren)];
+          if(labelChildren2) labelPara.push(para(labelChildren2, { spacing: { before: 40 } }));
+
+          // Cella valore: importo principale + suffisso IVA, stessa riga
+          const valueRuns = [
+            mk(it.value, { bold: true, color: valColor, size: valSize }),
+            mk(vatSuffixText, { bold: !vatSuffixItalics, italics: vatSuffixItalics, color: vatSuffixColor, size: vatSuffixSize }),
+          ];
+
+          pmtRows.push(new TableRow({
+            children: [
+              new TableCell({
+                children: labelPara,
+                shading: { type: 'clear', fill: PMT_BG },
+                margins: { top: 100, bottom: 100, left: 200, right: 200 },
+                borders: pmtCellBorders,
+                width: { size: 65, type: WidthType.PERCENTAGE },
+              }),
+              new TableCell({
+                children: [para(valueRuns, { alignment: AlignmentType.RIGHT })],
+                shading: { type: 'clear', fill: PMT_BG },
+                margins: { top: 100, bottom: 100, left: 200, right: 200 },
+                borders: pmtCellBorders,
+                width: { size: 35, type: WidthType.PERCENTAGE },
+              }),
+            ],
+          }));
+        });
+
+        const pmtTable = new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 4, color: PMT_BORDER },
+            bottom: { style: BorderStyle.SINGLE, size: 4, color: PMT_BORDER },
+            left: { style: BorderStyle.SINGLE, size: 24, color: PMT_BLUE },
+            right: { style: BorderStyle.SINGLE, size: 4, color: PMT_BORDER },
+            insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+            insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+          },
+          rows: pmtRows,
+        });
+
+        docChildren.push(para(mk(''), { spacing: { after: 200 } }));
+        docChildren.push(pmtTable);
+      }
+    }
+
     if(footerFreeText){
       docChildren.push(para(mk(''), { spacing: { after: 300 } }));
       footerFreeText.forEach(p => docChildren.push(p));
@@ -40446,7 +41723,34 @@ async function exportQuoteDocx(options){
 
     // V2.10.46: pack + (returnBlobOnly ? return blob : download)
     const blob = await Packer.toBlob(doc);
-    const filename = 'preventivo_' + (qMode === 'client' ? 'cliente_' : '') + new Date().toISOString().slice(0,10).replace(/-/g,'') + '.docx';
+    // V2.10.141: nome file = NomeCliente_NumeroPreventivo_Versione.docx
+    // V2.10.142: se il preventivo non è salvato (no _boundInfo), usa il pattern
+    // NomeCliente_BOZZA_YYYY-MM-DD.docx. Nel caso peggiore (no cliente, no
+    // preventivo) si ottiene Preventivo_BOZZA_YYYY-MM-DD.docx.
+    // Sanitizzazione: rimuovo caratteri non validi per i filesystem
+    // (Windows/macOS/Linux): \ / : * ? " < > | e caratteri di controllo.
+    // Sostituisco gli spazi con _ e collasso _ multipli.
+    const _sanitizeFn = (s) => String(s || '')
+      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_');
+
+    let filename;
+    if(_boundInfo){
+      // Preventivo salvato → NomeCliente_NumeroPreventivo_Versione.docx
+      const _clienteName = _quoteCliente && _quoteCliente.ragioneSociale
+        ? _sanitizeFn(_quoteCliente.ragioneSociale)
+        : 'Cliente';
+      const _quoteId = _sanitizeFn(_boundInfo.quoteId);
+      const _versionN = 'V' + _boundInfo.versionNumber;
+      filename = [_clienteName, _quoteId, _versionN].filter(x => x && x.length).join('_') + '.docx';
+    } else {
+      // Preventivo NON salvato → NomeCliente_BOZZA_YYYY-MM-DD.docx
+      // Nessun cliente in stato → "Preventivo" come fallback generico.
+      const _todayIso = new Date().toISOString().slice(0,10);  // YYYY-MM-DD
+      filename = 'Preventivo_BOZZA_' + _todayIso + '.docx';
+    }
 
     if(options && options.returnBlobOnly){
       if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
@@ -40603,11 +41907,23 @@ async function exportQuoteWord(){
       totalsHtml =
         // V2.6.0: Totale Listino mostrato solo se la colonna Listino è visibile
         (showListino ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.totalPvp) + '</td></tr>' : '') +
-        // Sconto applicato mostrato solo se almeno una colonna tra Listino e Sconto è visibile
+        // V2.10.148: rinominato da "Sconto applicato" a "Importo Scontato"
         ((showListino || showSconto) && t.totalDiscountValue > 0.005
-          ? '<tr><td class="label">Sconto applicato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.totalDiscountValue) + '</td></tr>'
+          ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.totalDiscountValue) + '</td></tr>'
           : '') +
-        '<tr class="grand"><td class="label">TOTALE</td><td class="val">' + _qFmtEur(t.totalSellPrice) + '</td></tr>';
+        // V2.10.150: "TOTALE" → "TOTALE IMPONIBILE" se IVA inclusa
+        // V2.10.153: classe "grand-sm" (font ridotto -30%) quando IVA attiva
+        '<tr class="grand-sm"><td class="label">' +
+          (_getVatSettings().enabled && t.totalSellPrice > 0 ? 'TOTALE IMPONIBILE' : 'TOTALE (IVA esclusa)') +
+        '</td><td class="val">' + _qFmtEur(t.totalSellPrice) + '</td></tr>' +
+        // V2.10.149: righe IVA + TOTALE IVATO
+        (function(){
+          const _vat = _calcVat(t.totalSellPrice);
+          if(!_getVatSettings().enabled || !(t.totalSellPrice > 0)) return '';
+          const lab = 'IVA ' + (Number.isInteger(_vat.rate) ? _vat.rate : _vat.rate.toFixed(1)) + '%';
+          return '<tr><td class="label">' + lab + '</td><td class="val">' + _qFmtEur(_vat.amount) + '</td></tr>' +
+                 '<tr class="grand-sm"><td class="label">TOTALE IVATO</td><td class="val" style="color:#16a34a">' + _qFmtEur(_vat.total) + '</td></tr>';
+        })();
     } else {
       // ── Modalità ANALISI ──
       // V2.6.1: 10 colonne disponibili.
@@ -40742,6 +42058,12 @@ async function exportQuoteWord(){
         '.totals-table td.val{text-align:right;font-weight:700;color:#1f2937;width:40%}' +
         '.totals-table tr.grand td{font-size:14pt;background:#1f2937;color:#fff;padding:10pt 12pt}' +
         '.totals-table tr.grand td.val{color:#0178d4}' +
+        // V2.10.153: variante ridotta per TOTALE IMPONIBILE e TOTALE IVATO
+        // V2.10.155: aggiornato a 12pt = +10% rispetto al font 11pt delle righe
+        // normali della tabella totali. Coerenza visiva con tutti i casi
+        // (TOTALE IMPONIBILE / TOTALE IVATO / TOTALE IVA esclusa).
+        '.totals-table tr.grand-sm td{font-size:12pt;background:#1f2937;color:#fff;padding:8pt 12pt}' +
+        '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:30pt;padding-top:14pt;border-top:1pt solid #e5e7eb;font-size:9pt;color:#9ca3af;line-height:1.6}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:10pt 14pt;margin-top:18pt;font-size:10pt;color:#0c4a6e}' +
       '</style></head><body>' +
@@ -40825,6 +42147,8 @@ async function exportQuoteWord(){
             totalsHtml +
           '</table>' +
         '</div>' +
+        // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
+        _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
           '<div style="margin-top:18pt;padding:0 4pt;font-size:11pt;color:#374151;line-height:1.6;text-align:justify">' +
@@ -40902,6 +42226,7 @@ async function exportQuotePdfNative(options){
     skyBg:     [224, 242, 254],
     skyText:   [12, 74, 110],
     red:       [220, 38, 38],
+    green:     [22, 163, 74],
   };
 
   const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
@@ -41606,7 +42931,7 @@ async function exportQuotePdfNative(options){
     }
     if((showListino || showSconto) && t.totalDiscountValue > 0.005){
       setText(10, 'bold', COL.textMuted);
-      doc.text('Sconto applicato', totalsX + labelW - 5, cursorY + 12, { align: 'right' });
+      doc.text('Importo Scontato', totalsX + labelW - 5, cursorY + 12, { align: 'right' });
       setText(10, 'bold', COL.red);
       doc.text('-' + _qFmtEur(t.totalDiscountValue), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
       cursorY += 18;
@@ -41616,15 +42941,153 @@ async function exportQuotePdfNative(options){
       cursorY += 6;
     }
     // TOTALE grande con bordo top marcato
+    // V2.10.150: se IVA inclusa, l'etichetta diventa "TOTALE IMPONIBILE"
     setDraw(COL.textDark);
     doc.setLineWidth(1.2);
     doc.line(totalsX, cursorY, totalsX + totalsBlockW, cursorY);
     cursorY += 4;
-    setText(13, 'bold', COL.textDark);
-    doc.text('TOTALE', totalsX + labelW - 5, cursorY + 14, { align: 'right' });
-    setText(13, 'bold', COL.blue);
+    const _vatOnPdf = _getVatSettings().enabled && t.totalSellPrice > 0;
+    // V2.10.155: font 11pt (+10% rispetto a 10pt delle altre righe come Totale Listino,
+    // Importo Scontato, IVA). Coerente per IVA on/off e per TOTALE IVATO sotto.
+    const _totFontSize = 11;
+    setText(_totFontSize, 'bold', COL.textDark);
+    doc.text(_vatOnPdf ? 'TOTALE IMPONIBILE' : 'TOTALE (IVA esclusa)', totalsX + labelW - 5, cursorY + 14, { align: 'right' });
+    setText(_totFontSize, 'bold', COL.blue);
     doc.text(_qFmtEur(t.totalSellPrice), totalsX + totalsBlockW - 5, cursorY + 14, { align: 'right' });
     cursorY += 26;
+
+    // V2.10.149: righe IVA + TOTALE IVATO. Mostrate solo se vatEnabled e totale > 0.
+    // IVA NN% è una riga normale; TOTALE IVATO ha bordo top marcato come il TOTALE.
+    if(_getVatSettings().enabled && t.totalSellPrice > 0){
+      const _vat = _calcVat(t.totalSellPrice);
+      const ivaLabel = 'IVA ' + (Number.isInteger(_vat.rate) ? _vat.rate : _vat.rate.toFixed(1)) + '%';
+      setText(10, 'bold', COL.textMuted);
+      doc.text(ivaLabel, totalsX + labelW - 5, cursorY + 12, { align: 'right' });
+      setText(10, 'bold', COL.textMid);
+      doc.text(_qFmtEur(_vat.amount), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
+      cursorY += 18;
+      setDraw(COL.borderLt);
+      doc.setLineWidth(0.5);
+      doc.line(totalsX, cursorY, totalsX + totalsBlockW, cursorY);
+      cursorY += 6;
+      // TOTALE IVATO
+      setDraw(COL.textDark);
+      doc.setLineWidth(1.2);
+      doc.line(totalsX, cursorY, totalsX + totalsBlockW, cursorY);
+      cursorY += 4;
+      setText(11, 'bold', COL.textDark);
+      doc.text('TOTALE IVATO', totalsX + labelW - 5, cursorY + 14, { align: 'right' });
+      setText(11, 'bold', COL.green || '#16a34a');
+      doc.text(_qFmtEur(_vat.total), totalsX + totalsBlockW - 5, cursorY + 14, { align: 'right' });
+      cursorY += 26;
+    }
+
+    // V2.10.156: blocco FORMULA DI PAGAMENTO (PDF). Mostrato solo se attivata
+    // e printInQuote=true. Box compatto con sfondo azzurro chiaro a piena larghezza.
+    if(_shouldPrintPaymentFormula()){
+      const _pmtCalc = _calcPaymentFormula(t);
+      const _pmtPf = _pmtCalc.formula;
+
+      // Costruisco le righe da disegnare
+      const pmtRows = [];
+      if(_pmtPf.includeAdvance && _pmtCalc.advance > 0){
+        pmtRows.push({ label: 'Anticipo alla firma', value: _qFmtEur(_pmtCalc.advance), bold: false });
+      }
+      if(_pmtPf.includeInstallments && _pmtCalc.installments > 0){
+        pmtRows.push({
+          label: 'Rata mensile per ' + _pmtCalc.installments + ' mesi',
+          value: _qFmtEur(_pmtCalc.rataTotale) + '/mese',
+          bold: true,
+          sub: _pmtCalc.rataServizi > 0
+            ? (function(){
+                // V2.10.163: "+ IVA" inline dopo ogni importo se IVA OFF
+                var _vi = _pmtCalc.vatEnabled ? '' : ' + IVA';
+                return _qFmtEur(_pmtCalc.rataCapitale) + _vi + ' di impiantistica + ' + _qFmtEur(_pmtCalc.rataServizi) + _vi + ' di servizi';
+              })()
+            : null,
+        });
+      }
+      if((_pmtPf.includeVigilance && _pmtCalc.vigilance > 0) || (_pmtPf.includeMaintenance && _pmtCalc.maintenance > 0)){
+        const hasInst = _pmtPf.includeInstallments && _pmtCalc.installments > 0;
+        const lbl = hasInst ? 'Canone dei servizi al termine del finanziamento' : 'Canone mensile servizi';
+        const subParts = [];
+        if(_pmtPf.includeVigilance && _pmtCalc.vigilance > 0) subParts.push(_pmtCalc.vatEnabled ? 'Servizio di Vigilanza ' + _qFmtEur(_pmtCalc.vigilance) + '/mese' : 'Servizio di Vigilanza ' + _qFmtEur(_pmtCalc.vigilance) + ' + IVA al mese');
+        if(_pmtPf.includeMaintenance && _pmtCalc.maintenance > 0) subParts.push(_pmtCalc.vatEnabled ? 'Servizio di Manutenzione ' + _qFmtEur(_pmtCalc.maintenance) + '/anno' : 'Servizio di Manutenzione ' + _qFmtEur(_pmtCalc.maintenance) + " + IVA all'anno");
+        pmtRows.push({ label: lbl, value: _qFmtEur(_pmtCalc.canonePost) + '/mese', bold: true, sub: subParts.join(' · ') });
+      }
+
+      if(pmtRows.length > 0){
+        cursorY += 16;
+        // V2.10.160: testo suffisso IVA (in base allo stato vatEnabled del preventivo)
+        const _vatSuffix = _pmtCalc.vatEnabled ? '(IVA ' + _pmtCalc.vatRate + '% inclusa)' : '+ IVA';
+        const _vatSuffixColor = _pmtCalc.vatEnabled ? COL.textMuted : COL.blue;
+        const _vatSuffixSize = 7.5;
+        // Calcolo altezza box
+        const titleH = 18;
+        const rowH = 22;
+        const subH = 12;
+        const padTop = 12;
+        const padBot = 12;
+        let boxH = padTop + titleH + padBot;
+        pmtRows.forEach(r => { boxH += rowH + (r.sub ? subH : 0); });
+
+        // Verifica spazio pagina
+        if(cursorY + boxH > PAGE_H - FOOTER_RESERVE){
+          doc.addPage();
+          drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
+          cursorY = MARGIN;
+        }
+
+        // Sfondo box (light blue tint)
+        doc.setFillColor(240, 249, 255);
+        doc.setDrawColor(186, 230, 253);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(MARGIN, cursorY, CONTENT_W, boxH, 4, 4, 'FD');
+        // Bordo sinistro spesso
+        doc.setFillColor(1, 120, 212);
+        doc.rect(MARGIN, cursorY, 3, boxH, 'F');
+
+        let pY = cursorY + padTop + 10;
+        // Titolo
+        setText(9, 'bold', COL.blue);
+        doc.text('FORMULA DI PAGAMENTO PROPOSTA', MARGIN + 12, pY);
+        pY += titleH;
+
+        // Righe
+        // V2.10.164: importo IVATO → colore verde (coerente con TOTALE IVATO).
+        // Riga "Anticipo" (r.bold=false) e righe bold: il verde sostituisce il blu/scuro solo se IVA inclusa.
+        pmtRows.forEach(r => {
+          setText(r.bold ? 10 : 9.5, 'bold', COL.textMid);
+          doc.text(r.label, MARGIN + 12, pY);
+          // V2.10.160: prima il suffisso IVA all'estrema destra, poi il valore
+          // immediatamente a sinistra del suffisso.
+          setText(_vatSuffixSize, _pmtCalc.vatEnabled ? 'italic' : 'bold', _vatSuffixColor);
+          doc.text(_vatSuffix, MARGIN + CONTENT_W - 12, pY, { align: 'right' });
+          const _vatSuffixW = doc.getTextWidth(_vatSuffix) + 5;
+          // V2.10.164: colore verde se IVATO, altrimenti blu/scuro come prima
+          const _valColor = _pmtCalc.vatEnabled
+            ? (COL.green || '#16a34a')
+            : (r.bold ? COL.blue : COL.textDark);
+          setText(r.bold ? 11 : 10, 'bold', _valColor);
+          doc.text(r.value, MARGIN + CONTENT_W - 12 - _vatSuffixW, pY, { align: 'right' });
+          pY += 14;
+          if(r.sub){
+            setText(7.5, 'italic', COL.textMuted);
+            doc.text(r.sub, MARGIN + 12, pY);
+            pY += subH;
+          }
+          // V2.10.167: rimosso il separatore jsPDF orizzontale tra righe della
+          // formula. Era una linea grigia (#e5e7eb, 0.3pt) tracciata via
+          // doc.line() che attraversava il box da bordo a bordo e finiva per
+          // sovrapporsi al testo (specie al sub-text in italico delle righe
+          // composite). Coerente con V2.10.166 sull'HTML: la separazione tra
+          // righe è ora garantita solo dallo spacing verticale (pY += 14 +
+          // eventuale subH + pY += 4 finale).
+          pY += 4;
+        });
+        cursorY += boxH;
+      }
+    }
 
     // === TESTO LIBERO FOOTER ===
     if(SETTINGS_QFT.footer){
@@ -41831,9 +43294,21 @@ async function exportQuotePdf(){
       totalsHtml =
         (showListino ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.totalPvp) + '</td></tr>' : '') +
         ((showListino || showSconto) && t.totalDiscountValue > 0.005
-          ? '<tr><td class="label">Sconto applicato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.totalDiscountValue) + '</td></tr>'
+          ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.totalDiscountValue) + '</td></tr>'
           : '') +
-        '<tr class="grand"><td class="label">TOTALE</td><td class="val">' + _qFmtEur(t.totalSellPrice) + '</td></tr>';
+        // V2.10.150: "TOTALE" → "TOTALE IMPONIBILE" se IVA inclusa
+        // V2.10.153: classe "grand-sm" (font ridotto -30%) quando IVA attiva
+        '<tr class="grand-sm"><td class="label">' +
+          (_getVatSettings().enabled && t.totalSellPrice > 0 ? 'TOTALE IMPONIBILE' : 'TOTALE (IVA esclusa)') +
+        '</td><td class="val">' + _qFmtEur(t.totalSellPrice) + '</td></tr>' +
+        // V2.10.149: IVA in Modalità Analisi
+        (function(){
+          const _vat = _calcVat(t.totalSellPrice);
+          if(!_getVatSettings().enabled || !(t.totalSellPrice > 0)) return '';
+          const lab = 'IVA ' + (Number.isInteger(_vat.rate) ? _vat.rate : _vat.rate.toFixed(1)) + '%';
+          return '<tr><td class="label">' + lab + '</td><td class="val">' + _qFmtEur(_vat.amount) + '</td></tr>' +
+                 '<tr class="grand-sm"><td class="label">TOTALE IVATO</td><td class="val" style="color:#16a34a">' + _qFmtEur(_vat.total) + '</td></tr>';
+        })();
     } else {
       // ── Modalità ANALISI ──
       // V2.6.1: 10 colonne disponibili con Sconto, Sc.Cliente, Margine
@@ -41967,6 +43442,11 @@ async function exportQuotePdf(){
         '.totals-table td.val{text-align:right;font-weight:700;color:#1f2937}' +
         '.totals-table tr.grand td{font-size:12pt;background:#1f2937;color:#fff;padding:9pt 12pt}' +
         '.totals-table tr.grand td.val{color:#0178d4}' +
+        // V2.10.153: variante ridotta per TOTALE IMPONIBILE e TOTALE IVATO
+        // V2.10.155: aggiornato a 11pt = +10% rispetto al font 10pt delle righe
+        // normali della tabella totali.
+        '.totals-table tr.grand-sm td{font-size:11pt;background:#1f2937;color:#fff;padding:7pt 12pt}' +
+        '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:22pt;padding-top:10pt;border-top:1pt solid #e5e7eb;font-size:8pt;color:#9ca3af;line-height:1.5}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:8pt 12pt;margin-top:14pt;font-size:9pt;color:#0c4a6e}' +
         '.print-bar{position:fixed;top:10px;right:10px;background:#fff;border:1px solid #ccc;padding:8px 12px;border-radius:6px;display:flex;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:1000}' +
@@ -42100,6 +43580,8 @@ async function exportQuotePdf(){
             totalsHtml +
           '</table>' +
         '</div>' +
+        // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
+        _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
           '<div style="margin-top:18pt;padding:0 4pt;font-size:11pt;color:#374151;line-height:1.6;text-align:justify">' +
