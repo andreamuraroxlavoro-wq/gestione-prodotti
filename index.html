@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.169</title>
+<title>Gestione Prodotti V2.10.175</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.169</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.175</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.169');
+console.info('[bootstrap] script avvio — V2.10.175');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.169';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.175';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -32837,8 +32837,9 @@ const QUOTE_KEY_BOUND = 'quote_bound';
      sottocategoria: 'Telecamere',            // free-text con autocomplete
      tags: ['IP', 'esterno', 'PoE'],          // array di stringhe
      unita_misura: 'cad',                     // cad | ora | giorno | mq | ml | forfait
-     prezzo_listino: 80.00,
-     prezzo_netto: 50.00,
+     prezzo_vendita: 80.00,                   // V2.10.171: prezzo finale al cliente (era prezzo_listino)
+     prezzo_costo: 50.00,                     // V2.10.171: costo aziendale (era prezzo_netto)
+     // I vecchi campi prezzo_listino/prezzo_netto restano per backward compat ma non sono piu' fonte di verita'.
      iva_aliquota: 22,
      durata_stimata_minuti: 30,               // opzionale
      note: '',                                // note interne (non stampate)
@@ -32875,8 +32876,11 @@ function _serviceToShadowProduct(svc, existingIdx){
     category: svc.sottocategoria || '',
     short_description: svc.descrizione_breve || svc.nome,
     description: svc.descrizione_estesa || '',
-    PVP: String(svc.prezzo_listino || 0),
-    precio_neto_compra: String(svc.prezzo_netto || 0),
+    // V2.10.171: il PVP dello shadow porta il prezzo_vendita (= prezzo finale al cliente).
+    // Il precio_neto_compra porta il prezzo_costo (= costo aziendale).
+    // Fallback ai vecchi nomi per i servizi non ancora migrati.
+    PVP: String(svc.prezzo_vendita != null ? svc.prezzo_vendita : (svc.prezzo_listino || 0)),
+    precio_neto_compra: String(svc.prezzo_costo != null ? svc.prezzo_costo : (svc.prezzo_netto || 0)),
     // V2.10.65: immagine custom del servizio, oppure fallback ingranaggio
     image_path: svc.immagine || SERVICE_DEFAULT_IMAGE_DATAURI,
     extra_images: [],
@@ -33020,10 +33024,54 @@ async function loadServicesFromIdb(){
       window._SERVICES_STATE.services = [];
     }
     window._SERVICES_STATE.loaded = true;
+    // V2.10.171: migrazione lossless da prezzo_listino/prezzo_netto → prezzo_vendita/prezzo_costo.
+    // I vecchi campi vengono mantenuti per backward compat (export Excel, sync Drive),
+    // ma da V2.10.171 in poi i campi di verita' sono prezzo_vendita e prezzo_costo.
+    if(typeof _migrateServicesToCostoVendita === 'function'){
+      _migrateServicesToCostoVendita();
+    }
   } catch(e){
     console.error('[servizi] errore caricamento da IDB:', e);
     window._SERVICES_STATE.services = [];
     window._SERVICES_STATE.loaded = true;
+  }
+}
+
+/* V2.10.171: migrazione semantica dei servizi.
+   Vecchio modello (V2.10.170 e precedenti):
+     - prezzo_listino  = prezzo "ufficiale" mai usato dal cliente
+     - prezzo_netto    = costo aziendale
+     - vendita_calcolata = prezzo_listino * (1 - sconto/100)  (sconto fittizio)
+   Nuovo modello (V2.10.171+):
+     - prezzo_vendita  = prezzo finale al cliente (= vecchio prezzo_listino)
+     - prezzo_costo    = costo aziendale          (= vecchio prezzo_netto)
+     - guadagno        = vendita - costo
+     - margine %       = (vendita - costo) / vendita * 100
+   La migrazione e' idempotente (puo' essere chiamata piu' volte senza danni)
+   e lossless (conserva i vecchi campi). */
+function _migrateServicesToCostoVendita(){
+  const list = (window._SERVICES_STATE && window._SERVICES_STATE.services) || [];
+  let migrated = 0;
+  for(const svc of list){
+    if(!svc) continue;
+    let changed = false;
+    // prezzo_vendita: se non esiste, prendilo da prezzo_listino
+    if(svc.prezzo_vendita == null && svc.prezzo_listino != null){
+      svc.prezzo_vendita = svc.prezzo_listino;
+      changed = true;
+    }
+    // prezzo_costo: se non esiste, prendilo da prezzo_netto
+    if(svc.prezzo_costo == null && svc.prezzo_netto != null){
+      svc.prezzo_costo = svc.prezzo_netto;
+      changed = true;
+    }
+    if(changed) migrated++;
+  }
+  if(migrated > 0){
+    console.info('[servizi] V2.10.171: migrati ' + migrated + ' servizi al modello costo/vendita');
+    if(typeof _persistServices === 'function'){
+      try { _persistServices(); } catch(_){}
+    }
   }
 }
 
@@ -33075,8 +33123,10 @@ function serviceCreate(data){
     sottocategoria: String(data.sottocategoria || '').trim(),
     tags: Array.isArray(data.tags) ? data.tags.filter(t => t && typeof t === 'string').map(t => t.trim()).filter(Boolean) : [],
     unita_misura: data.unita_misura || 'cad',
-    prezzo_listino: _parseEuroNumber(data.prezzo_listino),
-    prezzo_netto: _parseEuroNumber(data.prezzo_netto),
+    // V2.10.171: nuovi nomi semantici. Per backward compat accetto anche i vecchi
+    // nomi nei dati in input (es. import legacy).
+    prezzo_vendita: _parseEuroNumber(data.prezzo_vendita != null ? data.prezzo_vendita : data.prezzo_listino),
+    prezzo_costo:   _parseEuroNumber(data.prezzo_costo   != null ? data.prezzo_costo   : data.prezzo_netto),
     iva_aliquota: (data.iva_aliquota === '' || data.iva_aliquota == null) ? 22 : Number(data.iva_aliquota),
     durata_stimata_minuti: (data.durata_stimata_minuti === '' || data.durata_stimata_minuti == null) ? null : Number(data.durata_stimata_minuti),
     note: String(data.note || '').trim(),
@@ -33122,8 +33172,11 @@ function serviceUpdate(id, updates){
   if('tags' in updates){
     svc.tags = Array.isArray(updates.tags) ? updates.tags.filter(t => t && typeof t === 'string').map(t => t.trim()).filter(Boolean) : [];
   }
-  if('prezzo_listino' in updates) svc.prezzo_listino = _parseEuroNumber(updates.prezzo_listino);
-  if('prezzo_netto' in updates) svc.prezzo_netto = _parseEuroNumber(updates.prezzo_netto);
+  // V2.10.171: nuovi nomi semantici, con backward compat sui vecchi
+  if('prezzo_vendita' in updates) svc.prezzo_vendita = _parseEuroNumber(updates.prezzo_vendita);
+  else if('prezzo_listino' in updates) svc.prezzo_vendita = _parseEuroNumber(updates.prezzo_listino);
+  if('prezzo_costo' in updates) svc.prezzo_costo = _parseEuroNumber(updates.prezzo_costo);
+  else if('prezzo_netto' in updates) svc.prezzo_costo = _parseEuroNumber(updates.prezzo_netto);
   if('iva_aliquota' in updates) svc.iva_aliquota = (updates.iva_aliquota === '' || updates.iva_aliquota == null) ? 22 : Number(updates.iva_aliquota);
   if('durata_stimata_minuti' in updates) svc.durata_stimata_minuti = (updates.durata_stimata_minuti === '' || updates.durata_stimata_minuti == null) ? null : Number(updates.durata_stimata_minuti);
   if('attivo' in updates) svc.attivo = updates.attivo !== false;
@@ -33255,8 +33308,9 @@ function openServiceEditor(opts){
     sottocategoria: existing ? (existing.sottocategoria || '') : '',
     tags: existing ? (existing.tags || []).slice() : [],
     unita_misura: existing ? (existing.unita_misura || 'cad') : 'cad',
-    prezzo_listino: existing ? existing.prezzo_listino : 0,
-    prezzo_netto: existing ? existing.prezzo_netto : 0,
+    // V2.10.171: nuovi nomi semantici (con fallback ai vecchi per servizi non migrati)
+    prezzo_vendita: existing ? (existing.prezzo_vendita != null ? existing.prezzo_vendita : (existing.prezzo_listino || 0)) : 0,
+    prezzo_costo:   existing ? (existing.prezzo_costo   != null ? existing.prezzo_costo   : (existing.prezzo_netto   || 0)) : 0,
     iva_aliquota: existing ? existing.iva_aliquota : 22,
     durata_stimata_minuti: (existing && existing.durata_stimata_minuti != null) ? existing.durata_stimata_minuti : '',
     note: existing ? (existing.note || '') : '',
@@ -33349,12 +33403,12 @@ function openServiceEditor(opts){
               '</select>' +
             '</div>' +
             '<div class="co-field">' +
-              '<label class="co-field-label" for="svcPvp">Prezzo di Listino (\u20ac)</label>' +
-              '<input class="co-field-input" type="number" step="0.01" min="0" id="svcPvp" value="' + escapeAttr(String(f.prezzo_listino || '')) + '" placeholder="0.00">' +
+              '<label class="co-field-label" for="svcPvp">Prezzo di Vendita (\u20ac) <span style="color:var(--fg3);font-weight:400;font-size:11px">— prezzo finale al cliente</span></label>' +
+              '<input class="co-field-input" type="number" step="0.01" min="0" id="svcPvp" value="' + escapeAttr(String(f.prezzo_vendita || '')) + '" placeholder="0.00">' +
             '</div>' +
             '<div class="co-field">' +
-              '<label class="co-field-label" for="svcNetto">Costo Netto (\u20ac)</label>' +
-              '<input class="co-field-input" type="number" step="0.01" min="0" id="svcNetto" value="' + escapeAttr(String(f.prezzo_netto || '')) + '" placeholder="0.00">' +
+              '<label class="co-field-label" for="svcNetto">Costo (\u20ac) <span style="color:var(--fg3);font-weight:400;font-size:11px">— costo aziendale</span></label>' +
+              '<input class="co-field-input" type="number" step="0.01" min="0" id="svcNetto" value="' + escapeAttr(String(f.prezzo_costo || '')) + '" placeholder="0.00">' +
             '</div>' +
             '<div class="co-field">' +
               '<label class="co-field-label" for="svcIva">Aliquota IVA (%)</label>' +
@@ -33549,8 +33603,9 @@ function openServiceEditor(opts){
       sottocategoria: document.getElementById('svcSottocategoria').value.trim(),
       tags: tags.slice(),
       unita_misura: document.getElementById('svcUnita').value,
-      prezzo_listino: document.getElementById('svcPvp').value,
-      prezzo_netto: document.getElementById('svcNetto').value,
+      // V2.10.171: nuovi nomi semantici (vecchi mantenuti come fallback solo nei DB legacy)
+      prezzo_vendita: document.getElementById('svcPvp').value,
+      prezzo_costo:   document.getElementById('svcNetto').value,
       iva_aliquota: document.getElementById('svcIva').value,
       durata_stimata_minuti: document.getElementById('svcDurata').value,
       note: document.getElementById('svcNote').value.trim(),
@@ -33817,7 +33872,9 @@ function renderServicesPickerList(){
     const tagsHtml = (s.tags || []).slice(0, 6).map(t =>
       '<span style="display:inline-block;padding:1px 7px;background:rgba(16,185,129,0.08);color:#10b981;border-radius:10px;font-size:10.5px;margin-right:4px">' + escapeHtml(t) + '</span>'
     ).join('');
-    const priceStr = (s.prezzo_listino > 0) ? (typeof _qFmtEur === 'function' ? _qFmtEur(s.prezzo_listino) : (s.prezzo_listino.toFixed(2) + ' \u20ac')) : '\u2014';
+    // V2.10.171: usa prezzo_vendita (nuovo) con fallback prezzo_listino (legacy non migrato)
+    const _prezzoVis = (s.prezzo_vendita != null ? s.prezzo_vendita : s.prezzo_listino) || 0;
+    const priceStr = (_prezzoVis > 0) ? (typeof _qFmtEur === 'function' ? _qFmtEur(_prezzoVis) : (_prezzoVis.toFixed(2) + ' \u20ac')) : '\u2014';
     const usageBadge = (s.usage_count > 0) ? '<span style="font-size:11px;color:var(--fg3);margin-left:8px">\u00b7 usato ' + s.usage_count + (s.usage_count === 1 ? ' volta' : ' volte') + '</span>' : '';
     const prefStar = s.preferito ? '<span style="color:#f59e0b;margin-right:4px" title="Preferito">\u2b50</span>' : '';
 
@@ -33938,8 +33995,9 @@ async function addServiceToCart(serviceId, qty){
     const p = DATA[shadowIdx];
     p.short_description = svc.descrizione_breve || svc.nome;
     p.description = svc.descrizione_estesa || '';
-    p.PVP = String(svc.prezzo_listino || 0);
-    p.precio_neto_compra = String(svc.prezzo_netto || 0);
+    // V2.10.171: usa nuovi nomi con fallback ai vecchi
+    p.PVP = String(svc.prezzo_vendita != null ? svc.prezzo_vendita : (svc.prezzo_listino || 0));
+    p.precio_neto_compra = String(svc.prezzo_costo != null ? svc.prezzo_costo : (svc.prezzo_netto || 0));
     p.category_parent = svc.categoria || 'Servizi';
     p.category = svc.sottocategoria || '';
     p.modified = new Date().toISOString();
@@ -34098,8 +34156,8 @@ function renderServicesArchiveTable(){
   html += '<th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--fg2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Codice</th>';
   html += '<th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--fg2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Nome</th>';
   html += '<th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--fg2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Categoria</th>';
-  html += '<th style="padding:10px 14px;text-align:right;font-weight:700;color:var(--fg2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Listino</th>';
-  html += '<th style="padding:10px 14px;text-align:right;font-weight:700;color:var(--fg2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Netto</th>';
+  html += '<th style="padding:10px 14px;text-align:right;font-weight:700;color:var(--fg2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Vendita</th>';
+  html += '<th style="padding:10px 14px;text-align:right;font-weight:700;color:var(--fg2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Costo</th>';
   html += '<th style="padding:10px 14px;text-align:center;font-weight:700;color:var(--fg2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Uso</th>';
   html += '<th style="padding:10px 14px;text-align:right;font-weight:700;color:var(--fg2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Azioni</th>';
   html += '</tr></thead><tbody>';
@@ -34116,8 +34174,9 @@ function renderServicesArchiveTable(){
               (s.descrizione_breve ? '<div style="font-size:12px;color:var(--fg2);margin-top:2px">' + escapeHtml(s.descrizione_breve.substring(0, 90)) + (s.descrizione_breve.length > 90 ? '…' : '') + '</div>' : '') +
             '</td>';
     html += '<td style="padding:11px 14px;color:var(--fg2)">' + escapeHtml(cat) + '<div style="font-size:11px;color:var(--fg3);margin-top:2px">/ ' + escapeHtml(s.unita_misura || '') + '</div></td>';
-    html += '<td style="padding:11px 14px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtEur(s.prezzo_listino) + '</td>';
-    html += '<td style="padding:11px 14px;text-align:right;font-variant-numeric:tabular-nums;color:var(--fg2)">' + fmtEur(s.prezzo_netto) + '</td>';
+    // V2.10.171: prezzo_vendita e prezzo_costo (con fallback ai vecchi)
+    html += '<td style="padding:11px 14px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtEur(s.prezzo_vendita != null ? s.prezzo_vendita : s.prezzo_listino) + '</td>';
+    html += '<td style="padding:11px 14px;text-align:right;font-variant-numeric:tabular-nums;color:var(--fg2)">' + fmtEur(s.prezzo_costo != null ? s.prezzo_costo : s.prezzo_netto) + '</td>';
     html += '<td style="padding:11px 14px;text-align:center;color:var(--fg2);font-size:12px">' + (s.usage_count || 0) + '</td>';
     html += '<td style="padding:11px 14px;text-align:right;white-space:nowrap">' +
               '<button class="btn small svc-arch-edit" data-svc-id="' + escapeAttr(s.id) + '" title="Modifica" style="padding:4px 8px;margin-right:4px">✏️</button>' +
@@ -37689,6 +37748,10 @@ function addToQuoteCart(productIdx, qty){
       // così la normalizzazione \n in getCleanItemName funziona anche se il prodotto
       // viene cancellato dall'anagrafica o se gli idx cambiano dopo una resincronizzazione.
       isPersonal: (p && p.isPersonal === true) ? true : undefined,
+      // V2.10.171: idem per isService, così _isServiceItem riconosce correttamente
+      // i servizi anche se window.DATA non e' caricato (es. fuori dalla sezione Prodotti)
+      // o se il codice del servizio e' stato modificato dopo l'add al carrello.
+      isService: (p && p.isService === true) ? true : undefined,
       // `name` resta per retrocompatibilità con render legacy ma da V2.3.4
       // viene popolato in coerenza con la descMode corrente. La fonte di verità
       // sono nameShort/nameFull, getCleanItemName sceglie quale usare.
@@ -37767,6 +37830,23 @@ function clearQuoteCart(){
 
 function computeQuoteTotals(){
   const items = window._QUOTE_STATE.items;
+  // V2.10.171: migrazione retroattiva al volo - per item gia' nel carrello prima della
+  // V2.10.171, propago i flag isService/isPersonal sull'item se DATA li ha. Questo evita
+  // di dipendere dal lookup di _isServiceItem (che puo' fallire se i codici sono cambiati
+  // o se DATA non e' disponibile). Operazione idempotente, lossless.
+  if(Array.isArray(window.DATA)){
+    let updated = 0;
+    for(const it of items){
+      if(it && it.idx != null && window.DATA[it.idx]){
+        const p = window.DATA[it.idx];
+        if(it.isService === undefined && p.isService === true){ it.isService = true; updated++; }
+        if(it.isPersonal === undefined && p.isPersonal === true){ it.isPersonal = true; updated++; }
+      }
+    }
+    if(updated > 0 && typeof saveQuoteState === 'function'){
+      try { saveQuoteState(); } catch(_){}
+    }
+  }
   let totalPvp = 0, totalNetto = 0, totalQty = 0, validRows = 0;
   // V2.3.7: campi per Modalità Cliente
   // Lo sconto è applicato sul PVP (prezzo listino) per ottenere il prezzo vendita.
@@ -37775,23 +37855,40 @@ function computeQuoteTotals(){
   let totalDiscountValue = 0;    // (totalPvp - totalSellPrice) — quanto ha "tolto" lo sconto
   let weightedDiscountSum = 0;   // per calcolare lo sconto medio pesato sul valore listino
   let weightedDiscountBase = 0;
+  // V2.10.170: scomposizione Prodotti/Servizi per le KPI card dell'analisi.
+  // Regola classificazione: Servizio = isService=true (riconosciuto via _isServiceItem,
+  // che usa servicesList() come fonte di verita' affidabile anche quando window.DATA
+  // non e' caricata). Tutto il resto (Catalogo Visiotech + Prodotti Personali non-servizi)
+  // = Prodotto. Calcolo le stesse metriche del totale generale, separate per gruppo.
+  const split = {
+    prod: { totalPvp:0, totalNetto:0, totalSellPrice:0, totalQty:0, count:0 },
+    serv: { totalPvp:0, totalNetto:0, totalSellPrice:0, totalQty:0, count:0 },
+  };
   for(const it of items){
     totalQty += it.qty;
     const pvpValid = (it.pvp != null && it.pvp > 0);
     const nettoValid = (it.netto != null && it.netto > 0);
+    // V2.10.170: classificazione riga
+    const isSvc = _isServiceItem(it);
+    const bucket = isSvc ? split.serv : split.prod;
+    bucket.count++;
+    bucket.totalQty += it.qty;
     if(pvpValid){
       const lineList = it.pvp * it.qty;
       totalPvp += lineList;
+      bucket.totalPvp += lineList;
       // Sconto cliente: 0..100. Qualsiasi valore non valido viene trattato come 0.
       const dPct = _normDiscountPct(it.discountPct);
       const lineSell = lineList * (1 - dPct / 100);
       totalSellPrice += lineSell;
+      bucket.totalSellPrice += lineSell;
       // Per lo sconto medio pesato: il "peso" è il valore listino della riga.
       weightedDiscountSum  += dPct * lineList;
       weightedDiscountBase += lineList;
     }
     if(nettoValid){
       totalNetto += it.netto * it.qty;
+      bucket.totalNetto += it.netto * it.qty;
     }
     if(pvpValid && nettoValid){
       validRows++;
@@ -37810,10 +37907,70 @@ function computeQuoteTotals(){
     ? (weightedDiscountSum / weightedDiscountBase)
     : null;
   totalDiscountValue = totalPvp - totalSellPrice;
+  // V2.10.170: calcolo metriche derivate per ogni bucket (Prodotti/Servizi).
+  // Stessa logica del totale generale per coerenza:
+  //   - venditaBase = totalSellPrice (con fallback su totalPvp se sconto=0%)
+  //   - margine     = (vendita - netto) / vendita * 100
+  //   - guadagno    = vendita - netto
+  //   - ricarico    = (vendita - netto) / netto * 100
+  const _enrich = (b) => {
+    const venditaBase = (b.totalSellPrice > 0) ? b.totalSellPrice : b.totalPvp;
+    b.marginPct  = (venditaBase > 0 && b.totalNetto > 0) ? ((venditaBase - b.totalNetto) / venditaBase * 100) : null;
+    b.guadagno   = (venditaBase > 0 && b.totalNetto > 0) ? (venditaBase - b.totalNetto) : null;
+    b.ricaricoPct= (b.totalNetto > 0) ? ((venditaBase - b.totalNetto) / b.totalNetto * 100) : null;
+    b.venditaBase = venditaBase;
+  };
+  _enrich(split.prod);
+  _enrich(split.serv);
   return {
     items, totalPvp, totalNetto, totalQty, marginPct, validRows,
     totalSellPrice, totalDiscountValue, avgDiscountPct,
+    // V2.10.170: scomposizione per KPI card analisi
+    split,
   };
+}
+
+// V2.10.170: classifica una riga del carrello come Servizio o Prodotto.
+// Servizio = isService=true (sottoinsieme dei personali). Tutto il resto = Prodotto.
+// Riconoscimento robusto in 4 step:
+//   1) flag isService direttamente sull'item (per item aggiunti da V2.10.170+)
+//   2) prefisso "SVC-" sul code (marker storico applicato all'add al carrello,
+//      sempre presente sui servizi anche pre-V2.10.170)
+//   3) servicesList() come fallback (cerca match su id/codice/nome ricostruito da SVC-XXX)
+//   4) window.DATA[item.idx].isService come ultima rete (se DATA caricato)
+function _isServiceItem(item){
+  if(!item) return false;
+  if(item.isService === true) return true;
+  // V2.10.170 fix: il code dei servizi nel carrello segue il pattern "SVC-<id_servizio>"
+  // (es. "SVC-SRV-682403" deriva dal servizio con id "SRV-682403"). Questo prefisso
+  // e' applicato all'add al carrello e identifica il servizio in modo univoco senza
+  // dipendere ne' da window.DATA (che puo' essere undefined fuori dalla sezione Prodotti)
+  // ne' da servicesList (che usa schema diverso).
+  if(item.code && typeof item.code === 'string' && item.code.indexOf('SVC-') === 0){
+    return true;
+  }
+  // Fallback aggiuntivi (per robustezza in caso il prefisso cambi in futuro)
+  if(typeof servicesList === 'function' && item.code){
+    try {
+      const list = servicesList();
+      if(Array.isArray(list)){
+        const found = list.find(p => p && (
+          p.codice === item.code ||
+          p.id === item.code ||
+          ('SVC-' + p.id) === item.code ||
+          p.name === item.code ||
+          (typeof getField === 'function' && getField(p, 'name') === item.code)
+        ));
+        if(found) return true;
+      }
+    } catch(_){}
+  }
+  if(Array.isArray(window.DATA)){
+    if(item.idx != null && window.DATA[item.idx] && window.DATA[item.idx].isService === true){
+      return true;
+    }
+  }
+  return false;
 }
 
 // V2.3.7: normalizza un valore sconto in 0..100 (numero o stringa, virgola o punto)
@@ -38981,6 +39138,33 @@ function renderQuoteCartContent(){
   const cardLabel = 'font-size:12.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px';
   const cardValue = 'font-size:28px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums';
   const cardSub   = 'font-size:14px;color:var(--fg3);margin-top:3px';
+  // V2.10.170: stili per la scomposizione Prodotti/Servizi sotto le card numeriche di Analisi.
+  // Box a 2 colonne con label e valore. Sfondo neutro semitrasparente, bordi soft.
+  const splitWrap  = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--border)';
+  const splitItem  = 'display:flex;flex-direction:column;gap:1px;font-size:11px;line-height:1.25';
+  const splitLbl   = 'font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.4px;font-size:9.5px';
+  const splitVal   = 'font-size:12.5px;font-weight:600;color:var(--fg);font-variant-numeric:tabular-nums';
+  // Helper rendering: due colonne Prodotti / Servizi con label e valore formattato.
+  // `fmt` = funzione di formattazione (es. _qFmtEur, _qFmtPct).
+  // V2.10.170 fix: 0 e' un valore valido (es. servizi puri con margine=0%), va mostrato.
+  // Solo null/undefined diventano "—". Se entrambi i bucket sono privi del campo
+  // (es. nessun item con netto valido), lo split non viene mostrato.
+  const _renderSplit = (valProd, valServ, fmt, emptyDash) => {
+    const hasProd = (valProd != null);
+    const hasServ = (valServ != null);
+    if(!hasProd && !hasServ) return '';
+    const _f = (v) => (v == null) ? (emptyDash || '—') : fmt(v);
+    return '<div style="' + splitWrap + '">' +
+      '<div style="' + splitItem + '">' +
+        '<span style="' + splitLbl + '">📦 Prodotti</span>' +
+        '<span style="' + splitVal + '">' + _f(valProd) + '</span>' +
+      '</div>' +
+      '<div style="' + splitItem + '">' +
+        '<span style="' + splitLbl + '">🔧 Servizi</span>' +
+        '<span style="' + splitVal + '">' + _f(valServ) + '</span>' +
+      '</div>' +
+    '</div>';
+  };
   // V2.3.9: modalità preventivo
   const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
 
@@ -38992,11 +39176,7 @@ function renderQuoteCartContent(){
     const showDiscount = (t.avgDiscountPct != null && t.totalDiscountValue > 0.005);
     summaryCards =
       '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px">' +
-        '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #3b82f6;border-radius:8px;padding:15px 18px">' +
-          '<div style="' + cardLabel + '">Articoli</div>' +
-          '<div style="' + cardValue + '">' + t.items.length + '</div>' +
-          '<div style="' + cardSub   + '">' + t.totalQty.toLocaleString('it-IT') + ' pezzi totali</div>' +
-        '</div>' +
+        // V2.10.173: rimossa card "Articoli" per dare piu' spazio alle altre card numeriche.
         '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #0178d4;border-radius:8px;padding:15px 18px">' +
           '<div style="' + cardLabel + '">Totale Listino</div>' +
           '<div style="' + cardValue + '">' + _qFmtEur(t.totalPvp) + '</div>' +
@@ -39039,55 +39219,67 @@ function renderQuoteCartContent(){
     const _ricaricoPct = (t.totalNetto > 0) ? ((_venditaForKpi - t.totalNetto) / t.totalNetto * 100) : null;
     summaryCards =
       '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px">' +
-        '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #3b82f6;border-radius:8px;padding:15px 18px">' +
-          '<div style="' + cardLabel + '">Articoli</div>' +
-          '<div style="' + cardValue + '">' + t.items.length + '</div>' +
-          '<div style="' + cardSub   + '">' + t.totalQty.toLocaleString('it-IT') + ' pezzi totali</div>' +
-        '</div>' +
+        // V2.10.173: rimossa card "Articoli" per dare piu' spazio alle altre card numeriche.
         '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #0178d4;border-radius:8px;padding:15px 18px">' +
           '<div style="' + cardLabel + '">Totale PVP</div>' +
-          '<div style="' + cardValue + '">' + _qFmtEur(t.totalPvp) + '</div>' +
-          '<div style="' + cardSub   + '">prezzo di listino</div>' +
+          // V2.10.172: il valore principale mostra solo i Prodotti (i servizi non hanno
+          // un vero "listino di mercato", quindi escluderli dal totale PVP e' piu' corretto
+          // semanticamente). Logica interna inalterata: t.totalPvp resta il totale completo.
+          '<div style="' + cardValue + '">' + _qFmtEur(t.split.prod.totalPvp) + '</div>' +
+          '<div style="' + cardSub   + '">listino (solo prodotti)</div>' +
+          _renderSplit(t.split.prod.totalPvp, t.split.serv.totalPvp, _qFmtEur) +
         '</div>' +
-        // V2.9.31: card "Totale Vendita" - toggleabile
-        (_showVendita ? (
-          '<div style="flex:1;min-width:175px;background:linear-gradient(135deg,rgba(34,197,94,0.06),rgba(34,197,94,0.02));border:1px solid rgba(34,197,94,0.4);border-left:3px solid #16a34a;border-radius:8px;padding:15px 18px">' +
-            '<div style="' + cardLabel + ';color:#16a34a">Totale Vendita</div>' +
-            '<div class="qcart-kpi-tvend-val" style="' + cardValue + ';color:#16a34a">' + _qFmtEur(t.totalSellPrice) + '</div>' +
-            '<div style="' + cardSub   + '">prezzo finale al cliente</div>' +
-          '</div>'
-        ) : '') +
+        // V2.10.175: ordine card scambiato — Totale Netto prima di Totale Vendita
         // V2.9.31: card "Totale Netto" (Costi acquisto) - toggleabile
+        // V2.10.170: aggiunto split Prodotti/Servizi
         (_showCostiAcq ? (
           '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #22c55e;border-radius:8px;padding:15px 18px">' +
             '<div style="' + cardLabel + '">Totale Netto</div>' +
             '<div style="' + cardValue + '">' + _qFmtEur(t.totalNetto) + '</div>' +
             '<div style="' + cardSub   + '">costo di acquisto</div>' +
+            _renderSplit(t.split.prod.totalNetto, t.split.serv.totalNetto, _qFmtEur) +
+          '</div>'
+        ) : '') +
+        // V2.9.31: card "Totale Vendita" - toggleabile
+        // V2.10.172: aggiunto split Prodotti/Servizi
+        (_showVendita ? (
+          '<div style="flex:1;min-width:175px;background:linear-gradient(135deg,rgba(34,197,94,0.06),rgba(34,197,94,0.02));border:1px solid rgba(34,197,94,0.4);border-left:3px solid #16a34a;border-radius:8px;padding:15px 18px">' +
+            '<div style="' + cardLabel + ';color:#16a34a">Totale Vendita</div>' +
+            '<div class="qcart-kpi-tvend-val" style="' + cardValue + ';color:#16a34a">' + _qFmtEur(t.totalSellPrice) + '</div>' +
+            '<div style="' + cardSub   + '">prezzo finale al cliente</div>' +
+            _renderSplit(t.split.prod.totalSellPrice, t.split.serv.totalSellPrice, _qFmtEur) +
           '</div>'
         ) : '') +
         // V2.9.31: card Margine - toggleabile (e solo se c'e\' margine calcolabile)
+        // V2.10.170: aggiunto split Prodotti/Servizi
         ((_showMargine && t.marginPct != null) ? (
           '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #a855f7;border-radius:8px;padding:15px 18px">' +
             '<div style="' + cardLabel + '">Margine</div>' +
             '<div style="' + cardValue + '">' + _qFmtPct(t.marginPct, 1) + '</div>' +
-            '<div style="' + cardSub   + '">% di guadagno sulla vendita</div>' +
+            '<div style="' + cardSub   + '">% sulla vendita</div>' +
+            _renderSplit(t.split.prod.marginPct, t.split.serv.marginPct, (v)=>_qFmtPct(v,1)) +
           '</div>'
         ) : '') +
-        // V2.9.31: card Guadagno - toggleabile
-        ((_showGuadagno && t.marginPct != null) ? (
-          '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #10b981;border-radius:8px;padding:15px 18px">' +
-            '<div style="' + cardLabel + '">Guadagno</div>' +
-            '<div style="' + cardValue + '">' + _qFmtEur(totalSavings) + '</div>' +
-            '<div style="' + cardSub   + '">prezzo vendita − netto</div>' +
-          '</div>'
-        ) : '') +
+        // V2.10.175: ordine card scambiato — Ricarico prima di Guadagno
         // V2.9.31: NUOVA card Ricarico - toggleabile. Accento ciano (#06b6d4)
         // per distinguersi dagli altri (verde costi, viola margine, ecc.).
+        // V2.10.170: aggiunto split Prodotti/Servizi
         ((_showRicarico && _ricaricoPct != null) ? (
           '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #06b6d4;border-radius:8px;padding:15px 18px">' +
             '<div style="' + cardLabel + '">Ricarico</div>' +
             '<div style="' + cardValue + '">' + _qFmtPct(_ricaricoPct, 1) + '</div>' +
-            '<div style="' + cardSub   + '">vendita / costo × 100 − 100</div>' +
+            '<div style="' + cardSub   + '">percentuale ricarico</div>' +
+            _renderSplit(t.split.prod.ricaricoPct, t.split.serv.ricaricoPct, (v)=>_qFmtPct(v,1)) +
+          '</div>'
+        ) : '') +
+        // V2.9.31: card Guadagno - toggleabile
+        // V2.10.170: aggiunto split Prodotti/Servizi
+        ((_showGuadagno && t.marginPct != null) ? (
+          '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #10b981;border-radius:8px;padding:15px 18px">' +
+            '<div style="' + cardLabel + '">Guadagno</div>' +
+            '<div style="' + cardValue + '">' + _qFmtEur(totalSavings) + '</div>' +
+            '<div style="' + cardSub   + '">Utile</div>' +
+            _renderSplit(t.split.prod.guadagno, t.split.serv.guadagno, _qFmtEur) +
           '</div>'
         ) : '') +
       '</div>';
