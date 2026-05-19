@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.178</title>
+<title>Gestione Prodotti V2.10.180</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.178</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.180</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.178');
+console.info('[bootstrap] script avvio — V2.10.180');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.178';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.180';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -19628,6 +19628,13 @@ async function driveRenderSettingsPanel(){
             'style="background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.5);color:#22c55e;font-weight:700">' +
             '🔄 Ripristina personali/servizi scatalogati' +
           '</button>' +
+          // V2.10.179: migrazione servizi legacy (SE-XXX in DATA) verso la nuova architettura
+          // unificata (_SERVICES_STATE). Operazione lossless: trasferisce nome/codice/prezzi
+          // al servizio nuovo e crea automaticamente lo shadow SVC-.
+          '<button type="button" class="btn-pill" onclick="migrateLegacyServicesToServicesState()" ' +
+            'style="background:rgba(99,102,241,0.15);border-color:rgba(99,102,241,0.5);color:#6366f1;font-weight:700">' +
+            '🔁 Migra servizi legacy → catalogo unificato' +
+          '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -23350,11 +23357,6 @@ function applyFilters(options){
       const isNew = !!p._isNew;
       const isObs = !!p._obsoleteSince;
       const isService = p.isService === true;
-      // V2.10.176: gli shadow product (name="SVC-XXX") sono record interni creati
-      // automaticamente al primo uso di un servizio nel carrello. Servono al pipeline
-      // di add-to-cart ma NON devono apparire nella galleria filtrata (sarebbero
-      // duplicati dei record legacy SE-XXX o dei servizi veri in _SERVICES_STATE).
-      const isShadowService = isService && p.name && p.name.indexOf('SVC-') === 0;
       // V2.10.61: "personale puro" = isPersonal ma NON isService (i servizi sono filtrati separatamente)
       const isPersonalOnly = p.isPersonal === true && !isService;
       const matchNew = SPECIAL_FILTERS.has('new') && isNew;
@@ -23362,8 +23364,9 @@ function applyFilters(options){
       // V2.9.12: terzo filtro speciale "Prodotti personali" (escludendo servizi - V2.10.61)
       const matchPersonal = SPECIAL_FILTERS.has('personal') && isPersonalOnly;
       // V2.10.61: quarto filtro speciale "Servizi"
-      // V2.10.176: esclude shadow product dal filtro
-      const matchService = SPECIAL_FILTERS.has('service') && isService && !isShadowService;
+      // V2.10.179: matchService include tutti i servizi (anche shadow SVC-, che
+      // sono la rappresentazione visiva dei servizi nuovi creati da preventivo).
+      const matchService = SPECIAL_FILTERS.has('service') && isService;
       if(!matchNew && !matchObs && !matchPersonal && !matchService) return false;
     }
 
@@ -24033,7 +24036,21 @@ function renderGallery(main, list){
     if(p.isPersonal === true) classes += ' is-personal';
     card.className = classes;
     card.dataset.idx = p._idx;  // per hover-preview (tooltip specifiche tecniche)
-    const name = getField(p,'name');
+    let name = getField(p,'name');
+    // V2.10.180: se e' uno shadow service (name="SVC-XXX"), mostro il codice manuale
+    // del servizio reale al posto del nome shadow. La risoluzione passa per serviceGetById
+    // usando l'id estratto dal name shadow ("SVC-" + svc.id).
+    if(p && p.isService === true && typeof name === 'string' && name.indexOf('SVC-') === 0){
+      const svcId = name.substring(4);
+      if(typeof serviceGetById === 'function'){
+        const svcReal = serviceGetById(svcId);
+        if(svcReal && svcReal.codice){
+          name = svcReal.codice;
+        } else if(svcReal && svcReal.nome){
+          name = svcReal.nome;
+        }
+      }
+    }
     const brand = getField(p,'brand');
     const listino = getField(p,'PVP') || getField(p,'precio_venta_cliente_final');
     const netto = getField(p,'precio_neto_compra');
@@ -34103,6 +34120,120 @@ async function cleanupObsoleteFlagsOnPersonalAndServices(){
   }
 }
 window.cleanupObsoleteFlagsOnPersonalAndServices = cleanupObsoleteFlagsOnPersonalAndServices;
+
+/* V2.10.179: migrazione completa dei servizi legacy (SE-XXX in DATA) verso la nuova
+   architettura unificata. Per ogni record DATA con isService=true e name che NON
+   inizia con "SVC-":
+     1) Verifica se in _SERVICES_STATE.services esiste gia' un servizio con stessi dati
+        (matching su short_description o nome). Se SI, salta (e' gia' migrato).
+     2) Altrimenti, crea un nuovo servizio in _SERVICES_STATE con i dati del legacy
+        (codice = legacy.name, nome = legacy.short_description, prezzi, categoria, ecc.).
+     3) Crea lo shadow product corrispondente in DATA (via _syncShadowForService).
+     4) Elimina il record legacy SE-XXX da DATA.
+   Risultato: ogni servizio esiste in UN solo posto (_SERVICES_STATE), rappresentato
+   visivamente in DATA dal suo shadow "SVC-" (creato automaticamente). */
+async function migrateLegacyServicesToServicesState(){
+  if(!Array.isArray(DATA)){
+    if(typeof toast === 'function') toast('DATA non caricato', 'err');
+    return;
+  }
+  if(!window._SERVICES_STATE || !Array.isArray(window._SERVICES_STATE.services)){
+    if(typeof toast === 'function') toast('_SERVICES_STATE non disponibile', 'err');
+    return;
+  }
+  // Step 1: identifico legacy SE-XXX (isService=true, name NON inizia con "SVC-")
+  const legacyIndices = [];
+  for(let i = 0; i < DATA.length; i++){
+    const p = DATA[i];
+    if(p && p.isService === true && p.name && p.name.indexOf('SVC-') !== 0){
+      legacyIndices.push(i);
+    }
+  }
+  if(legacyIndices.length === 0){
+    if(typeof toast === 'function') toast('Nessun servizio legacy da migrare', 'ok');
+    return;
+  }
+  // Anteprima
+  const legacyNames = legacyIndices.map(i => DATA[i].name).join(', ');
+  const msg = 'Migrare ' + legacyIndices.length + ' servizi legacy (SE-XXX) nella nuova architettura?\n\n' +
+              'Records: ' + legacyNames + '\n\n' +
+              'Per ognuno: verra\' creato un servizio in _SERVICES_STATE (se non esiste gia\') ' +
+              'e il record legacy sara\' rimosso da DATA. Lo shadow SVC- corrispondente sara\' ' +
+              'creato/aggiornato automaticamente. Operazione lossless: tutti i dati (prezzi, ' +
+              'descrizioni, categoria) vengono preservati.';
+  if(!confirm(msg)) return;
+  let migrated = 0, skipped = 0, removed = 0;
+  // Lavoro su copia per non perdere riferimenti agli indici
+  const legacyRecords = legacyIndices.map(i => ({ idx: i, p: DATA[i] }));
+  // Step 2: per ogni legacy, verifico/migro
+  for(const { p } of legacyRecords){
+    const legacyCode = String(p.name || '').trim();
+    const legacyDesc = String(p.short_description || p.description || '').trim();
+    // Match in _SERVICES_STATE: stesso codice manuale OPPURE stessa descrizione breve
+    const existing = window._SERVICES_STATE.services.find(s => s && (
+      (s.codice && legacyCode && s.codice.toLowerCase() === legacyCode.toLowerCase()) ||
+      (s.descrizione_breve && legacyDesc && s.descrizione_breve.toLowerCase() === legacyDesc.toLowerCase()) ||
+      (s.nome && legacyDesc && s.nome.toLowerCase() === legacyDesc.toLowerCase())
+    ));
+    if(existing){
+      skipped++;
+      continue;
+    }
+    // Costruisco il nuovo servizio dai dati del legacy
+    const pvp = Number(p.PVP) || Number(p.prezzo_vendita) || 0;
+    const netto = Number(p.precio_neto_compra) || Number(p.prezzo_costo) || 0;
+    try {
+      const svc = serviceCreate({
+        codice: legacyCode,
+        nome: legacyDesc || legacyCode,
+        descrizione_breve: legacyDesc,
+        descrizione_estesa: String(p.description || ''),
+        categoria: String(p.category_parent || p.category || 'Servizio'),
+        sottocategoria: String(p.category_parent ? p.category : ''),
+        unita_misura: 'cad',
+        prezzo_vendita: pvp,
+        prezzo_costo: netto,
+        iva_aliquota: 22,
+        immagine: String(p.image_url || p.image || ''),
+        attivo: true,
+      });
+      migrated++;
+    } catch(e){
+      console.warn('[migrate-legacy] errore creazione servizio per', legacyCode, ':', e.message);
+      skipped++;
+      continue;
+    }
+  }
+  // Step 3: rimuovo i record legacy da DATA (in ordine inverso per non invalidare indici)
+  // NB: rimuovo SOLO quelli effettivamente migrati o gia\' esistenti in _SERVICES_STATE
+  legacyIndices.sort((a,b) => b - a);
+  for(const idx of legacyIndices){
+    DATA.splice(idx, 1);
+    removed++;
+  }
+  // Step 4: applico filtri + persistenza
+  if(typeof applyFilters === 'function'){
+    try { applyFilters({refreshCascade: true}); } catch(_){}
+  }
+  if(typeof persistData === 'function'){
+    try { await persistData(); } catch(_){}
+  } else if(typeof idbSet === 'function'){
+    try { await idbSet('meta', 'data', { data: DATA, ts: Date.now() }); } catch(_){}
+  }
+  if(typeof driveNotifyChange === 'function'){
+    for(const idx of legacyIndices){
+      try { driveNotifyChange('data', 'legacy-migrate-' + idx, null); } catch(_){}
+    }
+  }
+  if(typeof toast === 'function'){
+    toast('Migrazione completata: ' + migrated + ' creati, ' + skipped + ' saltati (gia\' esistenti), ' +
+          removed + ' record legacy rimossi da DATA. Esegui Upload per propagare.', 'ok', 8000);
+  }
+  if(typeof renderProducts === 'function'){
+    try { renderProducts(); } catch(_){}
+  }
+}
+window.migrateLegacyServicesToServicesState = migrateLegacyServicesToServicesState;
 
 /* ============================================================================
    V2.10.59: Aggiunta servizio al carrello preventivo.
