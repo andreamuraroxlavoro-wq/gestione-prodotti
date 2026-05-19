@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.180</title>
+<title>Gestione Prodotti V2.10.184</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.180</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.184</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.180');
+console.info('[bootstrap] script avvio — V2.10.184');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.180';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.184';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -24970,6 +24970,20 @@ function openEditor(idx){
   // V2.9.25: se il prodotto e' personale, apri l'editor dedicato (con galleria
   // multi-immagine, drag&drop, copertina). L'editor generico non ha senso per
   // i personali (stock magazzini, parametri tecnici, EAN, ecc. non si applicano).
+  // V2.10.181: se e' uno shadow service (isService=true + name="SVC-..."), apri
+  // openServiceEditor sul servizio reale corrispondente in _SERVICES_STATE.
+  // Modificare lo shadow direttamente porterebbe a inconsistenze con il servizio sorgente.
+  if(p.isService === true && typeof p.name === 'string' && p.name.indexOf('SVC-') === 0 && typeof openServiceEditor === 'function'){
+    const svcId = p.name.substring(4);
+    openServiceEditor({
+      id: svcId,
+      onSave: () => {
+        if(typeof applyFilters === 'function') applyFilters();
+        if(typeof render === 'function') render();
+      }
+    });
+    return;
+  }
   if(p.isPersonal === true && typeof openPersonalProductEditor === 'function'){
     openPersonalProductEditor({
       idx: idx,
@@ -36631,7 +36645,7 @@ function openRefreshQuoteDialog(){
         '<div style="padding:12px 14px;border:1px solid rgba(1,120,212,0.3);border-radius:8px;margin-bottom:10px;background:rgba(1,120,212,0.04)">' +
           '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
             '<span style="display:inline-block;font-size:9px;font-weight:700;color:#fff;background:#0178d4;padding:2px 7px;border-radius:9px;text-transform:uppercase;letter-spacing:.4px">' + u.diffs.length + ' modific' + (u.diffs.length === 1 ? 'a' : 'he') + '</span>' +
-            '<div style="font-weight:700;font-family:monospace;font-size:12px;color:var(--fg)">' + escapeHtml(it.code) + '</div>' +
+            '<div style="font-weight:700;font-family:monospace;font-size:12px;color:var(--fg)">' + escapeHtml(getDisplayCode(it)) + '</div>' +
             '<div style="flex:1;font-size:11.5px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(it.nameShort || it.name || '') + '</div>' +
           '</div>' +
           diffsHtml +
@@ -37954,6 +37968,23 @@ function _stripIfHtml(s){
   if(!s) return '';
   if(s.indexOf('<') === -1 && s.indexOf('&') === -1) return s;
   return (typeof stripHtmlForExcel === 'function') ? stripHtmlForExcel(s) : s;
+}
+
+/* V2.10.181: ritorna il codice da visualizzare per un item del carrello.
+   Per gli shadow service (it.code = "SVC-XXX") risolve al codice manuale del
+   servizio reale in _SERVICES_STATE (es. "SE-NOLEGGIO"). Per tutti gli altri
+   item ritorna it.code invariato. La risoluzione e' lossless: il dato salvato
+   nell'item non cambia, solo la rappresentazione visiva. */
+function getDisplayCode(item){
+  if(!item || !item.code) return '';
+  const code = String(item.code);
+  if(code.indexOf('SVC-') !== 0) return code;
+  if(typeof serviceGetById !== 'function') return code;
+  const svcId = code.substring(4);
+  const svc = serviceGetById(svcId);
+  if(svc && svc.codice) return svc.codice;
+  if(svc && svc.nome) return svc.nome;
+  return code;
 }
 
 /* ─── Operazioni sul carrello ─── */
@@ -39582,7 +39613,7 @@ function renderQuoteCartContent(){
           '<td>' +
             (function(){ const u = _qResolveImg(it); return u ? '<img src="' + escapeAttr(u) + '" loading="lazy" style="width:52px;height:52px;object-fit:contain;border-radius:5px;background:var(--bg)" onerror="this.style.display=\'none\'">' : ''; })() +
           '</td>' +
-          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(it.code) + ((function(){ const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(getDisplayCode(it)) + ((function(){ const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
           '<td style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
             const cleanName = getCleanItemName(it);
@@ -39693,7 +39724,7 @@ function renderQuoteCartContent(){
           '<td>' +
             (function(){ const u = _qResolveImg(it); return u ? '<img src="' + escapeAttr(u) + '" loading="lazy" style="width:52px;height:52px;object-fit:contain;border-radius:5px;background:var(--bg)" onerror="this.style.display=\'none\'">' : ''; })() +
           '</td>' +
-          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(it.code) + ((function(){ const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(getDisplayCode(it)) + ((function(){ const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
           '<td style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
             const cleanName = getCleanItemName(it);
@@ -40733,7 +40764,7 @@ async function exportQuoteExcel(){
         const lineDisc = (subList != null && subSell != null) ? (subList - subSell) : null;
         return [
           i + 1,
-          _xlsxSafe(it.code),
+          _xlsxSafe(getDisplayCode(it)),
           _xlsxSafe(it.brand),
           _xlsxSafe(getCleanItemName(it)),
           _xlsxImgUrl(_qResolveImg(it)),
@@ -40770,7 +40801,7 @@ async function exportQuoteExcel(){
           : '';
         return [
           i + 1,
-          _xlsxSafe(it.code),
+          _xlsxSafe(getDisplayCode(it)),
           _xlsxSafe(it.brand),
           _xlsxSafe(getCleanItemName(it)),
           _xlsxImgUrl(_qResolveImg(it)),
@@ -41956,7 +41987,7 @@ async function exportQuoteDocx(options){
         desc: () => {
           const descParas = [];
           if(showCode && it.code){
-            descParas.push(para(mk(it.code, { bold: true, color: TEXT_DARK, size: 21 }), { spacing: { after: 40 } }));
+            descParas.push(para(mk(getDisplayCode(it), { bold: true, color: TEXT_DARK, size: 21 }), { spacing: { after: 40 } }));
           }
           descParas.push(para(mk(getCleanItemName(it), { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.JUSTIFIED }));
           if(showBrand && it.brand){
@@ -42606,7 +42637,7 @@ async function exportQuoteWord(){
           : '';
         // Cella descrizione strutturata: codice (opt) + desc + marca (opt)
         const descParts = [];
-        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(it.code) + '</div>');
+        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
         descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
@@ -42686,7 +42717,7 @@ async function exportQuoteWord(){
           ? '<img src="' + escapeAttr(imgUrlAbs) + '" style="width:50pt;height:50pt;object-fit:contain" alt="">'
           : '';
         const descParts = [];
-        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(it.code) + '</div>');
+        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
         descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
@@ -43373,7 +43404,7 @@ async function exportQuotePdfNative(options){
       const dPctStr = (dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
       // Descrizione composta: codice + descrizione + brand
       const descLines = [];
-      const itCode = (showCode && it.code) ? String(it.code) : '';
+      const itCode = (showCode && it.code) ? String(getDisplayCode(it)) : '';
       if(itCode) descLines.push(itCode);
       descLines.push(getCleanItemName(it));
       if(showBrand && it.brand) descLines.push(String(it.brand).toUpperCase());
@@ -44011,7 +44042,7 @@ async function exportQuotePdf(){
         const imgUrlAbs = _qResolveImg(it);
         const imgCell = imgUrlAbs ? '<img src="' + escapeAttr(imgUrlAbs) + '" alt="">' : '';
         const descParts = [];
-        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(it.code) + '</div>');
+        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
         descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
@@ -44083,7 +44114,7 @@ async function exportQuotePdf(){
         const imgUrlAbs = _qResolveImg(it);
         const imgCell = imgUrlAbs ? '<img src="' + escapeAttr(imgUrlAbs) + '" alt="">' : '';
         const descParts = [];
-        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(it.code) + '</div>');
+        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
         descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
