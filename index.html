@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.184</title>
+<title>Gestione Prodotti V2.10.185</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.184</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.185</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.184');
+console.info('[bootstrap] script avvio — V2.10.185');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.184';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.185';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -38093,10 +38093,8 @@ function addToQuoteCart(productIdx, qty){
 function updateCartItemQty(code, newQty){
   newQty = parseInt(newQty, 10);
   if(isNaN(newQty) || newQty < 0) return;
-  if(newQty === 0){
-    removeFromQuoteCart(code);
-    return;
-  }
+  // V2.10.185: qty=0 non rimuove piu' la riga. La riga resta visibile (con celle
+  // numeriche vuote) ma esclusa dai calcoli. Per rimuovere usa il pulsante ✕.
   const item = window._QUOTE_STATE.items.find(it => it.code === code);
   if(item){
     item.qty = newQty;
@@ -38170,6 +38168,9 @@ function computeQuoteTotals(){
     serv: { totalPvp:0, totalNetto:0, totalSellPrice:0, totalQty:0, count:0 },
   };
   for(const it of items){
+    // V2.10.185: qty=0 → riga "parcheggiata" (visibile ma esclusa dai calcoli).
+    // Non incremento contatori, non sommo prezzi, non considero per bucket.
+    if(!it || it.qty == null || it.qty <= 0) continue;
     totalQty += it.qty;
     const pvpValid = (it.pvp != null && it.pvp > 0);
     const nettoValid = (it.netto != null && it.netto > 0);
@@ -39598,11 +39599,15 @@ function renderQuoteCartContent(){
     // ── Tabella Modalità CLIENTE ──
     // Colonne: # · Img · Codice · Marca · Descrizione · Q.tà · Listino unit · Sconto% · Vendita unit · Tot vendita · ✕
     t.items.forEach((it, i) => {
+      // V2.10.185: qty=0 → riga "parcheggiata". Resta visibile ma con celle
+      // numeriche vuote ed esclusa dai calcoli (skip in computeQuoteTotals).
+      const isZeroQty = (it.qty === 0);
       const dPct = _normDiscountPct(it.discountPct);
-      const sellUnit = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+      const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
       const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
-      const subList  = (it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
+      const subList  = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
       const lineDiscountValue = (subList != null && sellUnit != null) ? (subList - subSell) : null;
+      const _dash = '<span style="color:var(--fg3)">—</span>';
       tbody +=
         '<tr data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" class="qcart-row-draggable">' +
           // V2.9.28: cell numero + maniglia drag-and-drop per riordinare le righe
@@ -39627,18 +39632,19 @@ function renderQuoteCartContent(){
               '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
             '</div>' +
           '</td>' +
-          '<td class="num">' + (it.pvp != null ? _qFmtEur(it.pvp) : '—') + '</td>' +
+          '<td class="num">' + (isZeroQty ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
           '<td>' +
             // V2.6.4: UI compatta identica a quella della colonna "Sc. Cliente"
             // in Modalità Analisi (V2.6.2). Solo casella + simbolo % allineati a destra.
             // Rimosso l'importo in euro sotto (era ridondante: il prezzo finale è
             // già visibile nelle colonne "Vendita unit." e "Tot. Vendita" accanto).
+            (isZeroQty ? _dash :
             '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
               '<input type="number" class="qcart-discount-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + _fmtDiscountForInput(dPct) + '" min="0" max="100" step="0.01" ' +
                 'style="width:54px;padding:3px 6px;font-size:12px" ' +
                 (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>' +
               '<span style="font-size:11px;color:var(--fg3);font-weight:600">%</span>' +
-            '</div>' +
+            '</div>') +
           '</td>' +
           // V2.8.4: classi qcart-cli-prezzo / qcart-cli-totprezzo per fast-update live
           // V2.10.144: cella prezzo trasformata in input editabile. Edit del prezzo
@@ -39647,12 +39653,14 @@ function renderQuoteCartContent(){
           // visualizzazione formattata italiana (1.234,56) — type="number" non
           // accetta separatori migliaia né virgole. Parsing flessibile al blur.
           '<td class="num qcart-cli-prezzo">' +
-            (sellUnit != null
-              ? '<input type="text" inputmode="decimal" class="qcart-price-input qcart-cli-prezzo-input" data-code="' + escapeAttr(it.code) + '" value="' + _qFmtNum(_roundCents(sellUnit), 2) + '" ' +
-                  (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>'
-              : '<span style="color:var(--fg3)">—</span>') +
+            (isZeroQty
+              ? _dash
+              : (sellUnit != null
+                ? '<input type="text" inputmode="decimal" class="qcart-price-input qcart-cli-prezzo-input" data-code="' + escapeAttr(it.code) + '" value="' + _qFmtNum(_roundCents(sellUnit), 2) + '" ' +
+                    (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>'
+                : '<span style="color:var(--fg3)">—</span>')) +
           '</td>' +
-          '<td class="num qcart-cli-totprezzo" style="font-weight:700;color:#16a34a">' + (subSell != null ? _qFmtEur(subSell) : '—') + '</td>' +
+          '<td class="num qcart-cli-totprezzo" style="font-weight:700;color:#16a34a">' + (isZeroQty ? _dash : (subSell != null ? _qFmtEur(subSell) : '—')) + '</td>' +
           '<td style="text-align:center">' +
             '<button class="btn small ghost qcart-remove qcart-remove-btn" data-code="' + escapeAttr(it.code) + '" title="Rimuovi dal carrello">✕</button>' +
           '</td>' +
@@ -39680,13 +39688,17 @@ function renderQuoteCartContent(){
   } else {
     // ── Tabella Modalità ANALISI (comportamento storico) ──
     t.items.forEach((it, i) => {
-      const subPvp = (it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
-      const subNetto = (it.netto != null && it.netto > 0) ? it.netto * it.qty : null;
+      // V2.10.185: qty=0 → riga "parcheggiata". Resta visibile ma con celle
+      // numeriche vuote ed esclusa dai calcoli.
+      const isZeroQty = (it.qty === 0);
+      const _dash = '<span style="color:var(--fg3)">—</span>';
+      const subPvp = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
+      const subNetto = (!isZeroQty && it.netto != null && it.netto > 0) ? it.netto * it.qty : null;
       // V2.5.7: calcolo lo sconto effettivo % (include eventuale cascata: il netto
       // salvato nell'item è già quello effettivo grazie a V2.5.4 in addToQuoteCart).
       // hasCascadeAdj indica che gli sconti aggiuntivi sono stati applicati al
       // momento dell'aggiunta — usato per il badge ★ viola di tracciabilità.
-      const scontoPct = (it.pvp != null && it.pvp > 0 && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
+      const scontoPct = (!isZeroQty && it.pvp != null && it.pvp > 0 && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
         ? (1 - it.netto / it.pvp) * 100
         : null;
       const hasCascadeAdj = Array.isArray(it.cascadeAdjArr) && it.cascadeAdjArr.some(x => x > 0);
@@ -39704,7 +39716,7 @@ function renderQuoteCartContent(){
       // commerciale standard "gross margin %"). Più alto è il margine, più
       // alto è il guadagno relativo sulla vendita.
       const scCliente = _normDiscountPct(it.discountPct);  // 0..100, default 0
-      const prezzoVendita = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - scCliente / 100) : null;
+      const prezzoVendita = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - scCliente / 100) : null;
       const margine = (prezzoVendita != null && it.netto != null && it.netto > 0 && prezzoVendita > 0)
         ? (prezzoVendita - it.netto) / prezzoVendita * 100
         : null;
@@ -39738,20 +39750,20 @@ function renderQuoteCartContent(){
               '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
             '</div>' +
           '</td>' +
-          '<td class="num">' + (it.pvp != null ? _qFmtEur(it.pvp) : '—') + '</td>' +
+          '<td class="num">' + (isZeroQty ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
           // V2.5.7: nuova colonna "Sconto" tra PVP e Netto. Viola con ★ se cascata.
           '<td class="num"' + scTip + '>' +
-            (scontoPct != null
+            (isZeroQty ? _dash : (scontoPct != null
               ? '<span style="' + (hasCascadeAdj ? 'color:#7c3aed;font-weight:700' : 'color:#055a9e') + '">' +
                 _qFmtPct(scontoPct, 1) +
                 (hasCascadeAdj ? ' <span style="color:#7c3aed;font-size:11px;font-weight:900" title="Include sconti aggiuntivi a cascata">★</span>' : '') +
                 '</span>'
-              : '—') +
+              : '—')) +
           '</td>' +
           // V2.7.1: Sequenza colonne: PVP unit. → Sconto → Netto unit. → Tot. Netto → Sc. Cliente → Prezzo Vendita → Margine → Tot. PVP.
-          '<td class="num">' + (it.netto != null ? _qFmtEur(it.netto) : '—') + '</td>' +
+          '<td class="num">' + (isZeroQty ? _dash : (it.netto != null ? _qFmtEur(it.netto) : '—')) + '</td>' +
           // V2.7.1: Tot. Netto (netto × qty) subito dopo Netto unit. per leggibilita' "lato acquisto"
-          '<td class="num" style="font-weight:700;color:var(--accent)">' + (subNetto != null ? _qFmtEur(subNetto) : '—') + '</td>' +
+          '<td class="num" style="font-weight:700;color:var(--accent)">' + (isZeroQty ? _dash : (subNetto != null ? _qFmtEur(subNetto) : '—')) + '</td>' +
           // V2.5.9 / V2.6.2: cella "Sc. Cliente" EDITABILE anche in Modalità Analisi.
           // Stesso modello dati (it.discountPct) e stessa persistenza dell'input
           // in Modalità Cliente: cambiando modalità Cliente↔Analisi il valore
@@ -39759,6 +39771,7 @@ function renderQuoteCartContent(){
           // UI compatta: solo casella + simbolo % (niente importo sotto, perché
           // PVP e Netto sono già visibili in colonne dedicate accanto).
           '<td class="num" title="Sconto applicato al cliente — modificabile direttamente (sincronizzato con Modalità Cliente)">' +
+            (isZeroQty ? _dash :
             '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
               // V2.6.3: rimosso il segno meno davanti all'input — il contesto della
               // colonna "Sc. Cliente" e l'unita' "%" rendono il significato chiaro.
@@ -39766,7 +39779,7 @@ function renderQuoteCartContent(){
                 'style="width:54px;padding:3px 6px;font-size:12px" ' +
                 (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>' +
               '<span style="font-size:11px;color:var(--fg3);font-weight:600">%</span>' +
-            '</div>' +
+            '</div>') +
           '</td>' +
           // V2.7.0: nuova colonna "Prezzo Vendita" tra Sc. Cliente e Margine.
           // = PVP × (1 − sc.cliente/100). Classe qcart-pvend-cell per fast-update
@@ -39775,18 +39788,22 @@ function renderQuoteCartContent(){
           // ricalcolo automatico dello sconto cliente (sincronizzazione bidirezionale).
           // V2.10.145: type="text" + formattazione italiana con separatore migliaia.
           '<td class="num qcart-pvend-cell" title="Prezzo unitario di vendita al cliente: PVP × (1 − sc.cliente/100). Editabile.">' +
-            (prezzoVendita != null
-              ? '<input type="text" inputmode="decimal" class="qcart-price-input qcart-pvend-input" data-code="' + escapeAttr(it.code) + '" value="' + _qFmtNum(_roundCents(prezzoVendita), 2) + '" ' +
-                  (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>'
-              : '<span style="color:var(--fg3)">—</span>') +
+            (isZeroQty
+              ? _dash
+              : (prezzoVendita != null
+                ? '<input type="text" inputmode="decimal" class="qcart-price-input qcart-pvend-input" data-code="' + escapeAttr(it.code) + '" value="' + _qFmtNum(_roundCents(prezzoVendita), 2) + '" ' +
+                    (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>'
+                : '<span style="color:var(--fg3)">—</span>')) +
           '</td>' +
           // V2.5.9 / V2.6.2: cella Margine con classe specifica per fast-update
           // dopo modifica di Sc. Cliente. Il colore e il valore sono ricalcolati
           // in tempo reale da updateRowMargineAfterDiscountChange().
           '<td class="num qcart-margin-cell" title="Margine commerciale: (prezzo_vendita_cliente − netto) / prezzo_vendita_cliente × 100. Verde ≥30% (ottimo) · 15-30% (buono) · 0-15% (marginale) · <0% (in perdita)">' +
-            (margine != null
-              ? '<span style="color:' + margineColor + ';font-weight:700">' + _qFmtPct(margine, 1) + '</span>'
-              : '<span style="color:var(--fg3)">—</span>') +
+            (isZeroQty
+              ? _dash
+              : (margine != null
+                ? '<span style="color:' + margineColor + ';font-weight:700">' + _qFmtPct(margine, 1) + '</span>'
+                : '<span style="color:var(--fg3)">—</span>')) +
           '</td>' +
           // V2.7.7: colonna Tot. Listino nascosta su richiesta utente — Tot. Netto resta visibile come totale per riga.
           '<td style="text-align:center">' +
@@ -40757,9 +40774,11 @@ async function exportQuoteExcel(){
                 'Listino unit. (€)', 'Sconto %', 'Vendita unit. (€)',
                 'Tot. Listino (€)', 'Sconto (€)', 'Tot. Vendita (€)'];
       rows = t.items.map((it, i) => {
+        // V2.10.185: qty=0 → celle numeriche vuote nell'Excel (parcheggiata)
+        const isZeroQty = (it.qty === 0);
         const dPct = _normDiscountPct(it.discountPct);
-        const sellUnit = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
-        const subList  = (it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
+        const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+        const subList  = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
         const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
         const lineDisc = (subList != null && subSell != null) ? (subList - subSell) : null;
         return [
@@ -40769,9 +40788,9 @@ async function exportQuoteExcel(){
           _xlsxSafe(getCleanItemName(it)),
           _xlsxImgUrl(_qResolveImg(it)),
           _xlsxSafe(it.ean),
-          it.qty,
-          it.pvp != null ? Number(it.pvp.toFixed(2)) : '',
-          dPct,
+          isZeroQty ? '' : it.qty,
+          isZeroQty ? '' : (it.pvp != null ? Number(it.pvp.toFixed(2)) : ''),
+          isZeroQty ? '' : dPct,
           sellUnit != null ? Number(sellUnit.toFixed(2)) : '',
           subList != null ? Number(subList.toFixed(2)) : '',
           lineDisc != null ? Number(lineDisc.toFixed(2)) : '',
@@ -40794,9 +40813,11 @@ async function exportQuoteExcel(){
                 'PVP unit. (€)', 'Netto unit. (€)',
                 'Totale PVP (€)', 'Totale Netto (€)', 'Sconto %'];
       rows = t.items.map((it, i) => {
-        const subPvp = (it.pvp != null && it.pvp > 0) ? Number((it.pvp * it.qty).toFixed(2)) : '';
-        const subNet = (it.netto != null && it.netto > 0) ? Number((it.netto * it.qty).toFixed(2)) : '';
-        const sconto = (it.pvp != null && it.netto != null && it.pvp > 0 && it.netto > 0)
+        // V2.10.185: qty=0 → celle numeriche vuote nell'Excel
+        const isZeroQty = (it.qty === 0);
+        const subPvp = (!isZeroQty && it.pvp != null && it.pvp > 0) ? Number((it.pvp * it.qty).toFixed(2)) : '';
+        const subNet = (!isZeroQty && it.netto != null && it.netto > 0) ? Number((it.netto * it.qty).toFixed(2)) : '';
+        const sconto = (!isZeroQty && it.pvp != null && it.netto != null && it.pvp > 0 && it.netto > 0)
           ? Number(((1 - it.netto / it.pvp) * 100).toFixed(1))
           : '';
         return [
@@ -40806,9 +40827,9 @@ async function exportQuoteExcel(){
           _xlsxSafe(getCleanItemName(it)),
           _xlsxImgUrl(_qResolveImg(it)),
           _xlsxSafe(it.ean),
-          it.qty,
-          it.pvp != null ? Number(it.pvp.toFixed(2)) : '',
-          it.netto != null ? Number(it.netto.toFixed(2)) : '',
+          isZeroQty ? '' : it.qty,
+          isZeroQty ? '' : (it.pvp != null ? Number(it.pvp.toFixed(2)) : ''),
+          isZeroQty ? '' : (it.netto != null ? Number(it.netto.toFixed(2)) : ''),
           subPvp,
           subNet,
           sconto,
@@ -41950,10 +41971,12 @@ async function exportQuoteDocx(options){
     const bodyRows = t.items.map((it, idx) => {
       // V2.10.85: zebra disattivata - tutte le righe bianche
       const isZebra = false;
+      // V2.10.185: qty=0 → riga "parcheggiata" anche nel Word docx (cifre vuote)
+      const isZeroQty = (it.qty === 0);
       const dPct = _normDiscountPct(it.discountPct);
-      const sellUnit = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct / 100) : null;
+      const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct / 100) : null;
       const subSell = (sellUnit != null) ? sellUnit * it.qty : null;
-      const dPctStr = (dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
+      const dPctStr = (isZeroQty || dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
       const cellShading = undefined;
       const cellBorders = {
         top:    { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -42002,14 +42025,14 @@ async function exportQuoteDocx(options){
           });
         },
         qty: () => new TableCell({
-          children: [para(mk(String(it.qty), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.CENTER })],
+          children: [para(mk(isZeroQty ? '' : String(it.qty), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.CENTER })],
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 60 },
           borders: cellBorders,
           verticalAlign: VerticalAlign.CENTER,
         }),
         list: () => new TableCell({
-          children: [para(mk(it.pvp != null ? _qFmtEur(it.pvp) : '—', { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.RIGHT })],
+          children: [para(mk(isZeroQty ? '' : (it.pvp != null ? _qFmtEur(it.pvp) : '—'), { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.RIGHT })],
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 80 },
           borders: cellBorders,
@@ -42023,14 +42046,14 @@ async function exportQuoteDocx(options){
           verticalAlign: VerticalAlign.CENTER,
         }),
         price: () => new TableCell({
-          children: [para(mk(sellUnit != null ? _qFmtEur(sellUnit) : '—', { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.RIGHT })],
+          children: [para(mk(isZeroQty ? '' : (sellUnit != null ? _qFmtEur(sellUnit) : '—'), { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.RIGHT })],
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 80 },
           borders: cellBorders,
           verticalAlign: VerticalAlign.CENTER,
         }),
         rtotal: () => new TableCell({
-          children: [para(mk(subSell != null ? _qFmtEur(subSell) : '—', { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.RIGHT })],
+          children: [para(mk(isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—'), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.RIGHT })],
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 80 },
           borders: cellBorders,
@@ -42626,11 +42649,13 @@ async function exportQuoteWord(){
       const wPct = (w) => Math.round((w / wSum) * 100 * 10) / 10;  // 1 decimale
 
       t.items.forEach((it) => {
+        // V2.10.185: qty=0 → riga "parcheggiata", celle numeriche vuote
+        const isZeroQty = (it.qty === 0);
         const dPct = _normDiscountPct(it.discountPct);
-        const sellUnit = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+        const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
         const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
         const fmt = (v) => v != null ? _qFmtEur(v) : '—';
-        const dPctStr = (dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
+        const dPctStr = (isZeroQty || dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
         const imgUrlAbs = _qResolveImg(it);
         const imgCell = imgUrlAbs
           ? '<img src="' + escapeAttr(imgUrlAbs) + '" style="width:50pt;height:50pt;object-fit:contain" alt="">'
@@ -42646,11 +42671,11 @@ async function exportQuoteWord(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + it.qty + '</td>',
-          list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
+          qty:      '<td class="col-qty">' + (isZeroQty ? '' : it.qty) + '</td>',
+          list:     '<td class="col-money">' + (isZeroQty ? '' : fmt(it.pvp)) + '</td>',
           discount: '<td class="col-discount">' + dPctStr + '</td>',
-          price:    '<td class="col-money">' + fmt(sellUnit) + '</td>',
-          rtotal:   '<td class="col-money col-tot"><b>' + (subSell != null ? _qFmtEur(subSell) : '—') + '</b></td>',
+          price:    '<td class="col-money">' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',
+          rtotal:   '<td class="col-money col-tot"><b>' + (isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',
         };
         rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
@@ -43398,10 +43423,12 @@ async function exportQuotePdfNative(options){
 
     // Body: ogni riga è un array di stringhe nella stessa lunghezza di cols
     const body = t.items.map((it, idx) => {
+      // V2.10.185: qty=0 → riga visibile con celle numeriche vuote (esclusa dai calcoli)
+      const isZeroQty = (it.qty === 0);
       const dPct = _normDiscountPct(it.discountPct);
-      const sellUnit = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct / 100) : null;
+      const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct / 100) : null;
       const subSell = (sellUnit != null) ? sellUnit * it.qty : null;
-      const dPctStr = (dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
+      const dPctStr = (isZeroQty || dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
       // Descrizione composta: codice + descrizione + brand
       const descLines = [];
       const itCode = (showCode && it.code) ? String(getDisplayCode(it)) : '';
@@ -43415,11 +43442,11 @@ async function exportQuotePdfNative(options){
       const cellMap = {
         img: '',  // immagine renderizzata in didDrawCell
         desc: descText,
-        qty: String(it.qty),
-        list: it.pvp != null ? _qFmtEur(it.pvp) : '—',
+        qty: isZeroQty ? '' : String(it.qty),
+        list: isZeroQty ? '' : (it.pvp != null ? _qFmtEur(it.pvp) : '—'),
         discount: dPctStr,
-        price: sellUnit != null ? _qFmtEur(sellUnit) : '—',
-        rtotal: subSell != null ? _qFmtEur(subSell) : '—',
+        price: isZeroQty ? '' : (sellUnit != null ? _qFmtEur(sellUnit) : '—'),
+        rtotal: isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—'),
       };
       return cols.map(c => cellMap[c.key]);
     });
@@ -44034,11 +44061,13 @@ async function exportQuotePdf(){
       const wPct = (w) => Math.round((w / wSum) * 100 * 10) / 10;
 
       t.items.forEach((it) => {
+        // V2.10.185: qty=0 → riga "parcheggiata", celle numeriche vuote
+        const isZeroQty = (it.qty === 0);
         const dPct = _normDiscountPct(it.discountPct);
-        const sellUnit = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+        const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
         const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
         const fmt = (v) => v != null ? _qFmtEur(v) : '—';
-        const dPctStr = (dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
+        const dPctStr = (isZeroQty || dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
         const imgUrlAbs = _qResolveImg(it);
         const imgCell = imgUrlAbs ? '<img src="' + escapeAttr(imgUrlAbs) + '" alt="">' : '';
         const descParts = [];
@@ -44050,11 +44079,11 @@ async function exportQuotePdf(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + it.qty + '</td>',
-          list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
+          qty:      '<td class="col-qty">' + (isZeroQty ? '' : it.qty) + '</td>',
+          list:     '<td class="col-money">' + (isZeroQty ? '' : fmt(it.pvp)) + '</td>',
           discount: '<td class="col-discount">' + dPctStr + '</td>',
-          price:    '<td class="col-money">' + fmt(sellUnit) + '</td>',
-          rtotal:   '<td class="col-money col-tot"><b>' + (subSell != null ? _qFmtEur(subSell) : '—') + '</b></td>',
+          price:    '<td class="col-money">' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',
+          rtotal:   '<td class="col-money col-tot"><b>' + (isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',
         };
         rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
