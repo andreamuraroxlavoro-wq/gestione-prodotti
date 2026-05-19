@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.192</title>
+<title>Gestione Prodotti V2.10.193</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.192</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.193</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.192');
+console.info('[bootstrap] script avvio — V2.10.193');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.192';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.193';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -12233,6 +12233,11 @@ const DRIVE_POLL_VALID_VALUES    = [0, 1, 3, 5, 10];         // opzioni ammesse 
 // per scaricare modifiche di altri device durante la sessione precedente.
 // L'utente sincronizza esplicitamente via i 2 pulsanti topbar ☁️⬆ e ☁️⬇.
 const DRIVE_LOCAL_MODE_KEY       = 'gp_drive_local_mode';    // '1' = ON, altrimenti OFF
+// V2.10.193: sotto-toggle per Modalità Locale — controlla se all'avvio della pagina
+// viene eseguito il safety pull automatico da Drive. Default: '1' (automatico, comportamento
+// storico). Quando '0': nessun pull all'avvio, l'utente deve cliccare ☁️⬇ Importa da Drive.
+// Il push resta sempre manuale in modalità Locale, indipendentemente da questo flag.
+const DRIVE_LOCAL_AUTO_PULL_KEY  = 'gp_drive_local_auto_pull'; // '1' (default) = pull auto all'avvio, '0' = manuale
 // V2.2.42: cache delle statistiche remote — aggiornata ad ogni save riuscito.
 // Permette di mostrare conteggio prodotti e dimensione senza scaricare tutto il file.
 const DRIVE_REMOTE_STATS_KEY     = 'gp_drive_remote_stats';
@@ -12356,6 +12361,9 @@ const DRIVE_STATE = {
   // V2.10.103: modalità locale (offline-first work mode)
   localMode: false,             // true = niente push/pull automatici, sync esplicito via pulsanti
   safetyPullDone: false,        // true dopo il safety pull all'apertura (1 volta sola per sessione)
+  // V2.10.193: sotto-toggle Modalità Locale — pull automatico all'avvio.
+  // Default true (comportamento storico V2.10.103). Quando false, niente pull all'avvio.
+  localAutoPull: true,
 };
 
 // V2.10.86: Targeted Sync — file Drive separati per dati write-frequent
@@ -12602,6 +12610,10 @@ function driveInit(){
     // Default OFF. Solo il valore esplicito '1' la attiva.
     DRIVE_STATE.localMode = localStorage.getItem(DRIVE_LOCAL_MODE_KEY) === '1';
     DRIVE_STATE.safetyPullDone = false;  // reset ad ogni init
+    // V2.10.193: sotto-toggle pull automatico all'avvio (solo per modalità Locale).
+    // Default TRUE per backward compatibility (comportamento storico V2.10.103).
+    // Solo il valore esplicito '0' lo disattiva.
+    DRIVE_STATE.localAutoPull = localStorage.getItem(DRIVE_LOCAL_AUTO_PULL_KEY) !== '0';
 
     // V2.2.38 (A): carica buffer modifiche pending da localStorage
     // Se ci sono modifiche da una sessione precedente, le riprenderemo dopo l'init dell'app.
@@ -15856,6 +15868,32 @@ function driveSetLocalMode(enabled){
 
 function driveGetLocalMode(){
   return !!DRIVE_STATE.localMode;
+}
+
+/* V2.10.193: setter/getter sotto-toggle "Pull automatico all'avvio" della Modalità Locale.
+   Quando enabled=true (default): all'apertura della pagina viene chiamato _driveSafetyPullOnOpen
+   che scarica i dati da Drive. Quando enabled=false: nessun pull automatico, l'utente deve
+   cliccare manualmente ☁️⬇ Importa da Drive nella topbar.
+   Il push resta comunque sempre manuale in Modalità Locale (questo flag NON influenza il push).
+   Effetto immediato: solo persistenza del flag — non viene fatto nessun pull qui (il pull
+   automatico avviene solo all'init della pagina). */
+function driveSetLocalAutoPull(enabled){
+  DRIVE_STATE.localAutoPull = !!enabled;
+  try {
+    if(DRIVE_STATE.localAutoPull){
+      // Default → rimuovo la key per pulizia (lettura assume default true)
+      localStorage.removeItem(DRIVE_LOCAL_AUTO_PULL_KEY);
+    } else {
+      localStorage.setItem(DRIVE_LOCAL_AUTO_PULL_KEY, '0');
+    }
+  } catch(e){
+    console.warn('[drive] cannot persist localAutoPull', e && e.message);
+  }
+  console.info('[drive] localAutoPull =', DRIVE_STATE.localAutoPull ? 'ON (pull auto all\'avvio)' : 'OFF (pull manuale)');
+}
+
+function driveGetLocalAutoPull(){
+  return DRIVE_STATE.localAutoPull !== false;  // default true
 }
 
 // V2.10.105: Sistema di stati visivi per i 3 pulsanti sync in topbar
@@ -19463,6 +19501,48 @@ async function driveRenderSettingsPanel(){
           ? '<div style="margin-top:12px;padding:10px 12px;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,.30);border-radius:7px;font-size:11px;color:#eab308;font-weight:500">' +
               '⚠ Modalità Locale attiva — ricordati di sincronizzare prima di chiudere il browser.' +
             '</div>'
+          : ''
+        ) +
+        // V2.10.193: sotto-toggle "Pull automatico all'avvio" — visibile SOLO quando
+        // Modalità Locale è attiva. Permette di scegliere se all'apertura della pagina
+        // i dati vengono scaricati da Drive automaticamente oppure manualmente (☁️⬇).
+        // Il push resta sempre manuale in Modalità Locale.
+        (_unifiedCurrent === 'local' && !_hasPending
+          ? (function(){
+              var autoPullOn = (DRIVE_STATE.localAutoPull !== false);
+              return '<div style="margin-top:10px;padding:12px 13px;background:rgba(234,88,12,0.06);border:1px solid rgba(234,88,12,.25);border-radius:7px">' +
+                '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+                  '<div style="flex:1;min-width:200px">' +
+                    '<div style="font-size:11px;font-weight:700;color:var(--fg);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">⬇ Pull automatico all\'avvio</div>' +
+                    '<div style="font-size:11px;color:var(--fg2);line-height:1.5">' +
+                      'Decide cosa fare all\'apertura della pagina:<br>' +
+                      '• <b>Automatico</b>: scarica subito da Drive i dati piu\' recenti (comportamento storico).<br>' +
+                      '• <b>Manuale</b>: nessun pull all\'avvio, usi tu il pulsante <b>☁️⬇ Importa da Drive</b> in topbar quando serve.<br>' +
+                      '<span style="color:var(--fg3)">Il push resta sempre manuale in Modalita\' Locale.</span>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div style="display:flex;flex-direction:column;gap:6px;min-width:130px">' +
+                    '<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:var(--fg);font-weight:600">' +
+                      '<input type="radio" name="driveLocalAutoPull" value="1" ' + (autoPullOn ? 'checked' : '') + ' ' +
+                        'onchange="driveSetLocalAutoPull(true); driveRenderSettingsPanel()">' +
+                      '🟢 Automatico' +
+                    '</label>' +
+                    '<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:var(--fg);font-weight:600">' +
+                      '<input type="radio" name="driveLocalAutoPull" value="0" ' + (!autoPullOn ? 'checked' : '') + ' ' +
+                        'onchange="driveSetLocalAutoPull(false); driveRenderSettingsPanel()">' +
+                      '⚪ Manuale' +
+                    '</label>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="margin-top:8px;font-size:10px;color:var(--fg3);display:flex;align-items:center;gap:6px">' +
+                  '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' +
+                    (autoPullOn ? '#22c55e' : '#9ca3af') + ';' + (autoPullOn ? 'box-shadow:0 0 6px rgba(34,197,94,.6)' : '') + '"></span>' +
+                  (autoPullOn
+                    ? 'Pull automatico ATTIVO — i dati vengono scaricati da Drive ad ogni apertura della pagina.'
+                    : 'Pull manuale — apri la pagina senza scaricare, premi ☁️⬇ in topbar quando vuoi.') +
+                '</div>' +
+              '</div>';
+            })()
           : ''
         ) +
         // V2.10.94: sezione "Pull automatico" — controllo separato dal push.
@@ -36049,7 +36129,7 @@ function openSaveQuoteDialog(opts){
         '</section>' +
 
         // V2.10.5: Step 2 - Nome preventivo (opzionale)
-        // V2.10.192: textarea multi-riga al posto di input — permette oggetti lunghi
+        // V2.10.193: textarea multi-riga al posto di input — permette oggetti lunghi
         // (descrizioni, presentazioni) che vengono giustificati nelle stampe.
         '<section class="sq-sect" id="sqSectNome" style="opacity:0.4;pointer-events:none">' +
           '<div class="sq-sect-title"><span class="sq-sect-num">2</span> Nome / Oggetto preventivo (opzionale)</div>' +
@@ -36766,12 +36846,12 @@ function openRefreshQuoteDialog(){
    con tag esoterici perche' la toolbar usa document.execCommand che produce
    solo tag standard (b, i, u, ol, ul, li, span con style="color/background").
    
-   V2.10.192: aggiunto helper htmlToTextRuns() per parsing HTML in strutture
+   V2.10.193: aggiunto helper htmlToTextRuns() per parsing HTML in strutture
    di "runs" usate da PDF jsPDF e Word docx. Senza questo, il vecchio strip-tag
    buttava via tutti gli stili (bold/dimensioni/colori) negli export.
    ============================================================================ */
 
-/* V2.10.192: parsa una stringa HTML (prodotta dal nostro editor contentEditable)
+/* V2.10.193: parsa una stringa HTML (prodotta dal nostro editor contentEditable)
    in un array di paragrafi, ognuno con un array di "runs". Ogni run e' un pezzo
    di testo continuo con uno stile coerente:
      { text, bold, italic, underline, strike, fontSize, color, highlight }
@@ -37122,7 +37202,7 @@ function openFreeTextDialog(){
   tb.appendChild(tbBtn('strikeThrough', '<s>B</s>', 'Barrato'));
   tb.appendChild(tbSep());
 
-  // V2.10.192: dropdown dimensione font.
+  // V2.10.193: dropdown dimensione font.
   // execCommand('fontSize') produce <font size="N"> (scala 1-7 obsoleta) che non
   // viene rispettata uniformemente in PDF/Word. Usiamo wrap manuale con
   // <span style="font-size:Xpt"> che e' stabile e parsabile dal nostro htmlToTextRuns.
@@ -37199,7 +37279,7 @@ function openFreeTextDialog(){
   tb.appendChild(tbBtn('insertUnorderedList', '\u2022 \u2022', 'Elenco puntato'));
   tb.appendChild(tbBtn('insertOrderedList', '1.', 'Elenco numerato'));
   tb.appendChild(tbSep());
-  // V2.10.192: pulsanti allineamento con icone distinte (SVG inline) + aggiunto Giustifica.
+  // V2.10.193: pulsanti allineamento con icone distinte (SVG inline) + aggiunto Giustifica.
   // Prima usavo U+2261 sia per left che per right (stessa icona): non si distinguevano.
   // Ora 4 icone chiare: ≡ left, ≡ center, ≡ right, ☰ justify (linee tutte lunghe uguali).
   // Uso piccoli SVG inline per simbologia tipografica standard.
@@ -42061,7 +42141,7 @@ async function exportQuoteDocx(options){
     const mk = (text, opts) => new TextRun(Object.assign({ font: 'Calibri', size: 19 }, opts || {}, { text }));
     const para = (children, opts) => new Paragraph(Object.assign({ children: Array.isArray(children) ? children : [children] }, opts || {}));
 
-    // V2.10.192: converte HTML formattato (output dell'editor testo libero) in array
+    // V2.10.193: converte HTML formattato (output dell'editor testo libero) in array
     // di Paragraph docx, preservando bold/italic/underline/strike/font-size/color/highlight.
     // baseOpts: opzioni di default applicate a OGNI run (es. color: TEXT_MID, size: 22 = 11pt).
     // paraOpts: opzioni di default applicate a OGNI paragraph (es. alignment JUSTIFIED, spacing).
@@ -42210,7 +42290,7 @@ async function exportQuoteDocx(options){
       if(_quoteCliente.codiceFiscale){
         destInner.push(para(mk('C.F.: ' + _quoteCliente.codiceFiscale, { color: '4B5563', size: 18 })));
       }
-      // V2.10.192: indirizzo e CAP/Citta/Provincia su righe separate (non piu' uniti
+      // V2.10.193: indirizzo e CAP/Citta/Provincia su righe separate (non piu' uniti
       // con virgola). Migliora leggibilita' di intestazioni lunghe.
       if(_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()){
         destInner.push(para(mk(_quoteCliente.indirizzo.trim(), { color: TEXT_MID, size: 19 }), { spacing: { before: 100 } }));
@@ -42220,7 +42300,7 @@ async function exportQuoteDocx(options){
         destInner.push(para(mk(_quoteCliente.capCitta.trim(), { color: TEXT_MID, size: 19 }),
           beforeSpacing ? { spacing: beforeSpacing } : {}));
       }
-      // V2.10.192: blocco riferimento completo (nome bold + ruolo italics + telefono + email)
+      // V2.10.193: blocco riferimento completo (nome bold + ruolo italics + telefono + email)
       // visibile sempre quando i campi sono valorizzati. Aggregato sotto il nome con spacing
       // minore (60) per percezione di gruppo coerente.
       if(_quoteCliente.persRiferimento){
@@ -42231,7 +42311,7 @@ async function exportQuoteDocx(options){
         if(_quoteCliente.ruoloRiferimento){
           destInner.push(para(mk(_quoteCliente.ruoloRiferimento, { color: TEXT_MUTED, italics: true, size: 17 }), { spacing: { before: 30 } }));
         }
-        // V2.10.192: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
+        // V2.10.193: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
         // con fallback ai campi telefono/email del cliente generale se mancano.
         const _refTel = _quoteCliente.telRiferimento || _quoteCliente.telefono || '';
         const _refMail = _quoteCliente.emailRiferimento || _quoteCliente.email || '';
@@ -42314,7 +42394,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // CARD OGGETTO (border-left blu su sfondo CARD_BG)
     // =====================================================
-    // V2.10.192: testo Oggetto multi-paragrafo (split su \n) + giustificato.
+    // V2.10.193: testo Oggetto multi-paragrafo (split su \n) + giustificato.
     // Era una sola riga, ora supporta descrizioni lunghe inserite nella textarea UI.
     let oggettoTable = null;
     if(_quoteNome){
@@ -42352,7 +42432,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // TESTO LIBERO HEADER (se presente)
     // =====================================================
-    // V2.10.192: ora preserva la formattazione completa (bold, italic, underline,
+    // V2.10.193: ora preserva la formattazione completa (bold, italic, underline,
     // strike, font-size, color, highlight) tramite htmlToTextRuns + htmlToDocxParagraphs.
     let headerFreeText = null;
     if(SETTINGS_QFT.header){
@@ -42703,7 +42783,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // TESTO LIBERO FOOTER (se presente)
     // =====================================================
-    // V2.10.192: stesso approccio dell'header, formattazione preservata.
+    // V2.10.193: stesso approccio dell'header, formattazione preservata.
     let footerFreeText = null;
     if(SETTINGS_QFT.footer){
       const footerParas = htmlToDocxParagraphs(
@@ -43300,7 +43380,7 @@ async function exportQuoteWord(){
         '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:30pt;padding-top:14pt;border-top:1pt solid #e5e7eb;font-size:9pt;color:#9ca3af;line-height:1.6}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:10pt 14pt;margin-top:18pt;font-size:10pt;color:#0c4a6e}' +
-        // V2.10.192: regole specifiche per il testo libero (header/footer) — garantiscono
+        // V2.10.193: regole specifiche per il testo libero (header/footer) — garantiscono
         // che il <b>/<strong>, <i>/<em>, <u>, <s>, e <span style="font-size:..."> inline
         // dell'editor vengano onorati anche in Word .doc (che ha un parser HTML "vintage"
         // e a volte ignora gli stili inline se sovrascritti da regole generiche).
@@ -43353,16 +43433,16 @@ async function exportQuoteWord(){
               '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:Calibri,monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
-              // V2.10.192: indirizzo e CAP/Citta/Provincia su righe separate (era unito da virgola)
+              // V2.10.193: indirizzo e CAP/Citta/Provincia su righe separate (era unito da virgola)
               (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim() ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml(_quoteCliente.indirizzo.trim()) + '</div>' : '') +
               (_quoteCliente.capCitta && _quoteCliente.capCitta.trim() ? '<div style="font-size:9.5pt;color:#374151;line-height:1.4' + ((!_quoteCliente.indirizzo || !_quoteCliente.indirizzo.trim()) ? ';margin-top:5pt' : '') + '">' + escapeHtml(_quoteCliente.capCitta.trim()) + '</div>' : '') +
-              // V2.10.192: blocco riferimento completo (nome bold + ruolo + telefono + email)
+              // V2.10.193: blocco riferimento completo (nome bold + ruolo + telefono + email)
               // raggruppato in un unico blocco separato da bordo tratteggiato.
               (_quoteCliente.persRiferimento ? (
                 '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
                   'Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' +
                   (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') +
-                  // V2.10.192: telefono/email del REFERENTE con fallback ai campi cliente
+                  // V2.10.193: telefono/email del REFERENTE con fallback ai campi cliente
                   ((_quoteCliente.telRiferimento || _quoteCliente.telefono) ? '<br><span style="color:#6b7280">Tel: ' + escapeHtml(_quoteCliente.telRiferimento || _quoteCliente.telefono) + '</span>' : '') +
                   ((_quoteCliente.emailRiferimento || _quoteCliente.email) ? '<br><span style="color:#6b7280">Email: ' + escapeHtml(_quoteCliente.emailRiferimento || _quoteCliente.email) + '</span>' : '') +
                 '</div>'
@@ -43382,7 +43462,7 @@ async function exportQuoteWord(){
         '</div>' +
       '</div>' +
       // V2.10.15: riga OGGETTO con card laterale + accento ambra (Variante B - elegante e armoniosa)
-      // V2.10.192: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
+      // V2.10.193: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
       // della textarea e wrappare automaticamente i testi lunghi multi-riga.
       (_quoteNome ? (
         '<div style="margin:0 32pt;padding:8pt 16pt;background:#fafaf9;border-left:4pt solid #0178d4;border-radius:2pt;display:flex;flex-direction:column;gap:2pt">' +
@@ -43391,7 +43471,7 @@ async function exportQuoteWord(){
         '</div>'
       ) : '') +
       // V2.10.24: testo libero header (sotto card OGGETTO) - HTML formattato dall'utente. V2.10.26: distanza maggiore + giustificato
-      // V2.10.192: usa classe .qft-block per garantire che bold/italic/font-size inline siano onorati in Word .doc
+      // V2.10.193: usa classe .qft-block per garantire che bold/italic/font-size inline siano onorati in Word .doc
       ((SETTINGS_QFT && SETTINGS_QFT.header) ? (
         '<div class="qft-block" style="margin:18pt 32pt 0 32pt;padding:0 4pt;font-size:11pt">' +
           SETTINGS_QFT.header +
@@ -43411,7 +43491,7 @@ async function exportQuoteWord(){
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
-        // V2.10.192: usa classe .qft-block (vedi commento header)
+        // V2.10.193: usa classe .qft-block (vedi commento header)
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
           '<div class="qft-block" style="margin-top:18pt;padding:0 4pt;font-size:11pt">' +
             SETTINGS_QFT.footer +
@@ -43692,8 +43772,8 @@ async function exportQuotePdfNative(options){
       return cy;
     };
 
-    /* V2.10.192: render PDF di paragrafi "rich" (con runs di stili misti).
-       Page-break automatico (V2.10.192): quando il testo libero supera il margine
+    /* V2.10.193: render PDF di paragrafi "rich" (con runs di stili misti).
+       Page-break automatico (V2.10.193): quando il testo libero supera il margine
        inferiore della pagina, fluisce automaticamente sulla pagina successiva invece
        di essere troncato (comportamento simile a Word/docx).
        Input: array di paragrafi nel formato di htmlToTextRuns:
@@ -43718,7 +43798,7 @@ async function exportQuotePdfNative(options){
       defAlign = defAlign || 'justify';
       const PARAGRAPH_GAP = 4;   // spazio extra fra paragrafi
       let cy = y;
-      // V2.10.192: helper interno per page-break. Se pageBreakOpts attivo, controlla se
+      // V2.10.193: helper interno per page-break. Se pageBreakOpts attivo, controlla se
       // la prossima riga di altezza `lineH` ci sta. In caso contrario fa onNewPage + reset cy.
       const checkPageBreak = (lineH) => {
         if(!pageBreakOpts) return;
@@ -43737,7 +43817,7 @@ async function exportQuotePdfNative(options){
         let prefix = p.listMarker ? p.listMarker : '';
         // Se paragrafo vuoto, salto con piccolo gap
         if(runs.length === 0 && !prefix){
-          // V2.10.192: anche i paragrafi vuoti possono superare il margine
+          // V2.10.193: anche i paragrafi vuoti possono superare il margine
           checkPageBreak(defSize * 1.2);
           cy += defSize * 1.2;
           continue;
@@ -43811,7 +43891,7 @@ async function exportQuotePdfNative(options){
           // Calcolo altezza riga = max fontSize della riga * 1.25
           const maxFontSize = line.reduce((m, tk) => Math.max(m, tk.fontSize), defSize);
           const lineH = maxFontSize * 1.25;
-          // V2.10.192: page-break check PRIMA di disegnare la riga.
+          // V2.10.193: page-break check PRIMA di disegnare la riga.
           // Se la riga non sta piu' nello spazio rimanente, vado a nuova pagina.
           checkPageBreak(lineH);
           // Baseline = cy + maxFontSize (cy e' top della riga)
@@ -43995,7 +44075,7 @@ async function exportQuotePdfNative(options){
         doc.text('C.F.: ' + _quoteCliente.codiceFiscale, colRightX + padX, measureY + 4);
         measureY += 12;
       }
-      // V2.10.192: indirizzo e CAP/Citta/Provincia su righe separate.
+      // V2.10.193: indirizzo e CAP/Citta/Provincia su righe separate.
       if(_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()){
         setText(9.5, 'normal', COL.textMid);
         const lines = wrapText(_quoteCliente.indirizzo.trim(), colRightW - 2 * padX, 9.5, 'normal');
@@ -44006,7 +44086,7 @@ async function exportQuotePdfNative(options){
         const lines = wrapText(_quoteCliente.capCitta.trim(), colRightW - 2 * padX, 9.5, 'normal');
         lines.forEach(line => { doc.text(line, colRightX + padX, measureY + 4); measureY += 12; });
       }
-      // V2.10.192: blocco riferimento completo — nome + ruolo + telefono + email
+      // V2.10.193: blocco riferimento completo — nome + ruolo + telefono + email
       // sempre raggruppati sotto a "Alla c.a." (anziche' telefono/email come blocco a se')
       if(_quoteCliente.persRiferimento){
         measureY += 4;
@@ -44021,7 +44101,7 @@ async function exportQuotePdfNative(options){
           doc.text(_quoteCliente.ruoloRiferimento, colRightX + padX, measureY + 4);
           measureY += 11;
         }
-        // V2.10.192: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
+        // V2.10.193: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
         // con fallback ai campi telefono/email del cliente generale.
         const _refTel = _quoteCliente.telRiferimento || _quoteCliente.telefono || '';
         const _refMail = _quoteCliente.emailRiferimento || _quoteCliente.email || '';
@@ -44083,7 +44163,7 @@ async function exportQuotePdfNative(options){
     cursorY = Math.max(leftY, rightY) + 18;
 
     // === CARD OGGETTO ===
-    // V2.10.192: testo Oggetto multi-riga giustificato (era una sola riga troncata).
+    // V2.10.193: testo Oggetto multi-riga giustificato (era una sola riga troncata).
     // Calcolo altezza in base alle righe wrappate, gestisco anche eventuali \n inseriti
     // dall'utente nella textarea. Giustificazione tramite drawJustifiedText (V2.10.186).
     if(_quoteNome){
@@ -44130,9 +44210,9 @@ async function exportQuotePdfNative(options){
     }
 
     // === TESTO LIBERO HEADER ===
-    // V2.10.192: parsing HTML completo con preservazione di bold/italic/underline/strike/
+    // V2.10.193: parsing HTML completo con preservazione di bold/italic/underline/strike/
     // font-size/color/highlight. drawRichRunsParagraphs gestisce layout multi-stile.
-    // Page-break automatico (V2.10.192): se il testo eccede la pagina, fluisce sulla successiva.
+    // Page-break automatico (V2.10.193): se il testo eccede la pagina, fluisce sulla successiva.
     if(SETTINGS_QFT.header){
       const paras = (typeof htmlToTextRuns === 'function') ? htmlToTextRuns(SETTINGS_QFT.header) : [];
       if(paras.length > 0){
@@ -44661,7 +44741,7 @@ async function exportQuotePdfNative(options){
     }
 
     // === TESTO LIBERO FOOTER ===
-    // V2.10.192: vedi commento header. drawRichRunsParagraphs gestisce nativamente
+    // V2.10.193: vedi commento header. drawRichRunsParagraphs gestisce nativamente
     // bold/italic/dimensioni/colori/evidenziatore + page-break automatico (il render
     // verifica riga per riga se serve nuova pagina, quindi non serve piu' la stima
     // a-priori).
@@ -45023,7 +45103,7 @@ async function exportQuotePdf(){
         '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:22pt;padding-top:10pt;border-top:1pt solid #e5e7eb;font-size:8pt;color:#9ca3af;line-height:1.5}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:8pt 12pt;margin-top:14pt;font-size:9pt;color:#0c4a6e}' +
-        // V2.10.192: regole per testo libero (vedi spiegazione nel docx export)
+        // V2.10.193: regole per testo libero (vedi spiegazione nel docx export)
         '.qft-block{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#374151;line-height:1.6;text-align:justify}' +
         '.qft-block b,.qft-block strong{font-weight:bold !important}' +
         '.qft-block i,.qft-block em{font-style:italic !important}' +
@@ -45123,15 +45203,15 @@ async function exportQuotePdf(){
               '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
-              // V2.10.192: indirizzo e CAP/Citta/Provincia su righe separate
+              // V2.10.193: indirizzo e CAP/Citta/Provincia su righe separate
               (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim() ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml(_quoteCliente.indirizzo.trim()) + '</div>' : '') +
               (_quoteCliente.capCitta && _quoteCliente.capCitta.trim() ? '<div style="font-size:9.5pt;color:#374151;line-height:1.4' + ((!_quoteCliente.indirizzo || !_quoteCliente.indirizzo.trim()) ? ';margin-top:5pt' : '') + '">' + escapeHtml(_quoteCliente.capCitta.trim()) + '</div>' : '') +
-              // V2.10.192: blocco riferimento completo (nome + ruolo + telefono + email raggruppati)
+              // V2.10.193: blocco riferimento completo (nome + ruolo + telefono + email raggruppati)
               (_quoteCliente.persRiferimento ? (
                 '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
                   'Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' +
                   (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') +
-                  // V2.10.192: telefono/email del REFERENTE con fallback ai campi cliente
+                  // V2.10.193: telefono/email del REFERENTE con fallback ai campi cliente
                   ((_quoteCliente.telRiferimento || _quoteCliente.telefono) ? '<br><span style="color:#6b7280">Tel: ' + escapeHtml(_quoteCliente.telRiferimento || _quoteCliente.telefono) + '</span>' : '') +
                   ((_quoteCliente.emailRiferimento || _quoteCliente.email) ? '<br><span style="color:#6b7280">Email: ' + escapeHtml(_quoteCliente.emailRiferimento || _quoteCliente.email) + '</span>' : '') +
                 '</div>'
@@ -45150,7 +45230,7 @@ async function exportQuotePdf(){
         '</div>' +
       '</div>' +
       // V2.10.15: riga OGGETTO con card laterale + accento ambra (Variante B - elegante e armoniosa)
-      // V2.10.192: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
+      // V2.10.193: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
       // della textarea e wrappare automaticamente i testi lunghi multi-riga.
       (_quoteNome ? (
         '<div style="margin:0 24pt;padding:8pt 16pt;background:#fafaf9;border-left:4pt solid #0178d4;border-radius:2pt;display:flex;flex-direction:column;gap:2pt">' +
@@ -45159,7 +45239,7 @@ async function exportQuotePdf(){
         '</div>'
       ) : '') +
       // V2.10.24: testo libero header (sotto card OGGETTO) - HTML formattato dall'utente. V2.10.26: distanza maggiore + giustificato
-      // V2.10.192: usa classe .qft-block (vedi commento header)
+      // V2.10.193: usa classe .qft-block (vedi commento header)
       ((SETTINGS_QFT && SETTINGS_QFT.header) ? (
         '<div class="qft-block" style="margin:18pt 24pt 0 24pt;padding:0 4pt;font-size:11pt">' +
           SETTINGS_QFT.header +
@@ -45179,7 +45259,7 @@ async function exportQuotePdf(){
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
-        // V2.10.192: usa classe .qft-block (vedi commento header)
+        // V2.10.193: usa classe .qft-block (vedi commento header)
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
           '<div class="qft-block" style="margin-top:18pt;padding:0 4pt;font-size:11pt">' +
             SETTINGS_QFT.footer +
@@ -47944,15 +48024,19 @@ async function init(){
   try {
     driveInit();
     // V2.10.103: se modalità locale ON, fa UN safety pull (asincrono) e NON avvia polling.
+    // V2.10.193: il safety pull viene eseguito solo se localAutoPull è ON (default).
+    // Se l'utente ha disattivato il pull automatico, deve cliccare ☁️⬇ Importa da Drive.
     // Altrimenti: comportamento auto storico.
     if(DRIVE_STATE.localMode){
-      if(DRIVE_STATE.url && DRIVE_STATE.initialized){
+      if(DRIVE_STATE.url && DRIVE_STATE.initialized && DRIVE_STATE.localAutoPull !== false){
         // Asincrono, non bloccante. Singolo pull all'apertura.
         if(typeof _driveSafetyPullOnOpen === 'function'){
           _driveSafetyPullOnOpen().catch(e => console.warn('[drive] safety pull failed', e));
         }
       }
-      console.info('[drive] init: modalità locale, no polling automatico');
+      console.info('[drive] init: modalità locale,',
+        DRIVE_STATE.localAutoPull !== false ? 'pull auto all\'avvio ON,' : 'pull auto all\'avvio OFF,',
+        'no polling automatico');
     } else {
       // Auto-load: se Drive è configurato, inizializzato e online → controlla se ha modifiche più recenti
       if(DRIVE_STATE.url && DRIVE_STATE.initialized){
