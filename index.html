@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.185</title>
+<title>Gestione Prodotti V2.10.192</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.185</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.192</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.185');
+console.info('[bootstrap] script avvio — V2.10.192');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.185';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.192';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -36049,11 +36049,13 @@ function openSaveQuoteDialog(opts){
         '</section>' +
 
         // V2.10.5: Step 2 - Nome preventivo (opzionale)
+        // V2.10.192: textarea multi-riga al posto di input — permette oggetti lunghi
+        // (descrizioni, presentazioni) che vengono giustificati nelle stampe.
         '<section class="sq-sect" id="sqSectNome" style="opacity:0.4;pointer-events:none">' +
-          '<div class="sq-sect-title"><span class="sq-sect-num">2</span> Nome preventivo (opzionale)</div>' +
+          '<div class="sq-sect-title"><span class="sq-sect-num">2</span> Nome / Oggetto preventivo (opzionale)</div>' +
           '<div class="sq-sect-body">' +
-            '<input type="text" id="sqNomePreventivo" placeholder="es. Impianto videosorveglianza Sede principale" maxlength="120" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:13px">' +
-            '<p class="settings-hint" style="margin:6px 0 0 0;font-size:11px">Un nome descrittivo che aiuta a identificare il preventivo nell’archivio (es. progetto, sede, cantiere). Visibile nell’elenco preventivi.</p>' +
+            '<textarea id="sqNomePreventivo" placeholder="es. Impianto videosorveglianza Sede principale&#10;&#10;Oppure una descrizione piu\' estesa che verra\' riportata giustificata nell\'anteprima e nelle stampe (PDF, Word)." maxlength="2000" rows="3" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:13px;font-family:inherit;line-height:1.5;resize:vertical;min-height:70px"></textarea>' +
+            '<p class="settings-hint" style="margin:6px 0 0 0;font-size:11px">Un titolo breve oppure una descrizione estesa multi-riga del preventivo (es. progetto, sede, cantiere, presentazione). Compare nell\u0027archivio (prima riga) e nelle stampe (testo completo, giustificato).</p>' +
           '</div>' +
         '</section>' +
 
@@ -36763,7 +36765,261 @@ function openRefreshQuoteDialog(){
    export Word/PDF lo iniettiamo direttamente: l'utente non puo' pasticciare
    con tag esoterici perche' la toolbar usa document.execCommand che produce
    solo tag standard (b, i, u, ol, ul, li, span con style="color/background").
+   
+   V2.10.192: aggiunto helper htmlToTextRuns() per parsing HTML in strutture
+   di "runs" usate da PDF jsPDF e Word docx. Senza questo, il vecchio strip-tag
+   buttava via tutti gli stili (bold/dimensioni/colori) negli export.
    ============================================================================ */
+
+/* V2.10.192: parsa una stringa HTML (prodotta dal nostro editor contentEditable)
+   in un array di paragrafi, ognuno con un array di "runs". Ogni run e' un pezzo
+   di testo continuo con uno stile coerente:
+     { text, bold, italic, underline, strike, fontSize, color, highlight }
+   - fontSize: in pt (default null = usa default del contesto)
+   - color: hex 6 char senza # (default null)
+   - highlight: hex 6 char senza # (default null)
+   I paragrafi sono separati da blocchi <p>, <div>, <li>, oppure da <br>
+   (br = nuovo paragrafo, semplifica il rendering riga-per-riga in PDF/Word).
+   I <ul>/<ol> diventano paragrafi con prefisso "• " o "1. " ecc.
+   Restituisce: [ { runs: [...], listMarker: '• '|'1. '|null, indent: 0|1 } , ... ]
+*/
+function htmlToTextRuns(html){
+  if(!html || typeof html !== 'string') return [];
+  const trimmed = html.trim();
+  if(!trimmed) return [];
+
+  // Parser DOM in sandbox (non manipola la pagina visibile)
+  const container = document.createElement('div');
+  container.innerHTML = trimmed;
+
+  const paragraphs = [];
+  let current = { runs: [], listMarker: null, indent: 0 };
+
+  function pushParagraph(){
+    // Push solo se ha contenuto, oppure se e' un paragrafo vuoto intenzionale
+    paragraphs.push(current);
+    current = { runs: [], listMarker: null, indent: 0 };
+  }
+
+  function parseStyleAttr(styleStr){
+    const out = {};
+    if(!styleStr) return out;
+    styleStr.split(';').forEach(p => {
+      const idx = p.indexOf(':');
+      if(idx < 0) return;
+      const key = p.slice(0, idx).trim().toLowerCase();
+      const val = p.slice(idx + 1).trim();
+      if(key && val) out[key] = val;
+    });
+    return out;
+  }
+
+  function normalizeColor(v){
+    if(!v) return null;
+    v = String(v).trim();
+    // hex
+    let m = v.match(/^#([0-9a-fA-F]{6})$/);
+    if(m) return m[1].toUpperCase();
+    m = v.match(/^#([0-9a-fA-F]{3})$/);
+    if(m){
+      const h = m[1];
+      return (h[0]+h[0]+h[1]+h[1]+h[2]+h[2]).toUpperCase();
+    }
+    // rgb()
+    m = v.match(/^rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if(m){
+      const r = parseInt(m[1],10), g = parseInt(m[2],10), b = parseInt(m[3],10);
+      return ((r<<16)|(g<<8)|b).toString(16).padStart(6,'0').toUpperCase();
+    }
+    // 'transparent' o 'inherit' o nomi vari → null
+    if(/^(transparent|inherit|initial|unset|none)$/i.test(v)) return null;
+    return null;
+  }
+
+  function parseFontSize(v){
+    if(!v) return null;
+    v = String(v).trim().toLowerCase();
+    let m = v.match(/^([\d.]+)\s*pt$/);
+    if(m) return parseFloat(m[1]);
+    m = v.match(/^([\d.]+)\s*px$/);
+    if(m) return parseFloat(m[1]) * 0.75;  // 1px = 0.75pt
+    m = v.match(/^([\d.]+)\s*em$/);
+    if(m) return parseFloat(m[1]) * 11;  // 1em ≈ 11pt (default editor)
+    m = v.match(/^([\d.]+)$/);
+    if(m) return parseFloat(m[1]);  // assume pt se senza unita'
+    return null;
+  }
+
+  function walk(node, ctx){
+    if(node.nodeType === Node.TEXT_NODE){
+      const text = node.nodeValue;
+      if(text == null || text === '') return;
+      // Conserva spazi: solo collasso whitespace multipli interni a singolo spazio,
+      // ma NON trim (lo spazio finale e' significativo tra runs adiacenti)
+      const cleaned = text.replace(/[\t\r\n]+/g, ' ').replace(/  +/g, ' ');
+      if(cleaned){
+        current.runs.push({
+          text: cleaned,
+          bold: !!ctx.bold,
+          italic: !!ctx.italic,
+          underline: !!ctx.underline,
+          strike: !!ctx.strike,
+          fontSize: ctx.fontSize || null,
+          color: ctx.color || null,
+          highlight: ctx.highlight || null,
+        });
+      }
+      return;
+    }
+    if(node.nodeType !== Node.ELEMENT_NODE) return;
+
+    const tag = node.tagName.toUpperCase();
+    const styleAttr = node.getAttribute('style') || '';
+    const styles = parseStyleAttr(styleAttr);
+
+    // Costruisco nuovo contesto figlio (ereditando)
+    const childCtx = Object.assign({}, ctx);
+    if(tag === 'B' || tag === 'STRONG') childCtx.bold = true;
+    if(tag === 'I' || tag === 'EM') childCtx.italic = true;
+    if(tag === 'U') childCtx.underline = true;
+    if(tag === 'S' || tag === 'STRIKE' || tag === 'DEL') childCtx.strike = true;
+
+    // Stili inline che impattano il run
+    if(styles['font-weight']){
+      const fw = styles['font-weight'].toLowerCase();
+      if(fw === 'bold' || fw === 'bolder' || parseInt(fw,10) >= 600) childCtx.bold = true;
+      else if(fw === 'normal' || fw === 'lighter' || (parseInt(fw,10) > 0 && parseInt(fw,10) < 600)) childCtx.bold = false;
+    }
+    if(styles['font-style'] && /italic|oblique/.test(styles['font-style'])) childCtx.italic = true;
+    if(styles['text-decoration']){
+      if(/underline/.test(styles['text-decoration'])) childCtx.underline = true;
+      if(/line-through/.test(styles['text-decoration'])) childCtx.strike = true;
+    }
+    if(styles['font-size']){
+      const fs = parseFontSize(styles['font-size']);
+      if(fs) childCtx.fontSize = fs;
+    }
+    if(styles['color']){
+      const c = normalizeColor(styles['color']);
+      if(c) childCtx.color = c;
+    }
+    if(styles['background-color'] || styles['background']){
+      const c = normalizeColor(styles['background-color'] || styles['background']);
+      if(c) childCtx.highlight = c;
+    }
+
+    // Tag <font color=".." size=".."> (legacy, ma fallback in caso)
+    if(tag === 'FONT'){
+      const fc = node.getAttribute('color');
+      if(fc){ const c = normalizeColor(fc); if(c) childCtx.color = c; }
+      const fs = node.getAttribute('size');
+      if(fs){
+        // scala 1-7 legacy: mappo a pt approssimativi
+        const sizeMap = { '1': 8, '2': 10, '3': 11, '4': 13, '5': 16, '6': 20, '7': 28 };
+        const v = sizeMap[String(fs)];
+        if(v) childCtx.fontSize = v;
+      }
+    }
+
+    // Tag a blocco → chiudo paragrafo corrente e ne apro uno nuovo
+    const isBlock = (tag === 'P' || tag === 'DIV' || tag === 'LI' || tag === 'H1' ||
+                     tag === 'H2' || tag === 'H3' || tag === 'H4' || tag === 'H5' || tag === 'H6' ||
+                     tag === 'BLOCKQUOTE');
+
+    // H1-H6: bold + dimensione automatica (se non gia' impostata da style)
+    if(tag === 'H1'){ childCtx.bold = true; if(!childCtx.fontSize) childCtx.fontSize = 18; }
+    if(tag === 'H2'){ childCtx.bold = true; if(!childCtx.fontSize) childCtx.fontSize = 16; }
+    if(tag === 'H3'){ childCtx.bold = true; if(!childCtx.fontSize) childCtx.fontSize = 14; }
+    if(tag === 'H4' || tag === 'H5' || tag === 'H6'){ childCtx.bold = true; if(!childCtx.fontSize) childCtx.fontSize = 12; }
+
+    // Allineamento (text-align) → memorizzato sul paragrafo
+    let alignAttr = null;
+    if(styles['text-align']) alignAttr = styles['text-align'].toLowerCase();
+    else if(node.getAttribute && node.getAttribute('align')) alignAttr = node.getAttribute('align').toLowerCase();
+
+    if(isBlock){
+      // Se il paragrafo corrente ha gia' contenuto, lo chiudo
+      if(current.runs.length > 0) pushParagraph();
+
+      // Imposto eventuale list marker
+      if(tag === 'LI'){
+        // Devo distinguere UL vs OL guardando il parent
+        const parent = node.parentNode;
+        if(parent && parent.tagName){
+          const pt = parent.tagName.toUpperCase();
+          if(pt === 'OL'){
+            // calcolo l'indice (1-based) tra i li figli
+            const lis = Array.prototype.filter.call(parent.children, c => c.tagName.toUpperCase() === 'LI');
+            const idx = lis.indexOf(node) + 1;
+            current.listMarker = idx + '. ';
+          } else {
+            current.listMarker = '\u2022 ';  // bullet
+          }
+          current.indent = 1;
+        }
+      }
+      if(alignAttr) current.align = alignAttr;
+
+      // Caso <p><br></p> o <div><br></div>: paragrafo vuoto intenzionale
+      const onlyBr = node.childNodes.length === 1 && node.firstChild.nodeType === Node.ELEMENT_NODE && node.firstChild.tagName.toUpperCase() === 'BR';
+      if(onlyBr){
+        // Inserisco un paragrafo vuoto come "riga vuota"
+        pushParagraph();
+        return;
+      }
+
+      // Ricorsione
+      for(const child of node.childNodes) walk(child, childCtx);
+
+      // Chiudo il paragrafo aperto dal blocco
+      if(current.runs.length > 0 || current.listMarker){
+        pushParagraph();
+      }
+      return;
+    }
+
+    // <br>: chiudo il paragrafo corrente (a capo)
+    if(tag === 'BR'){
+      pushParagraph();
+      return;
+    }
+
+    // <ul>/<ol>: contenitori — ricorsione semplice (i LI gestiscono il loro paragrafo)
+    if(tag === 'UL' || tag === 'OL'){
+      // Se il paragrafo corrente ha contenuto, chiudo prima
+      if(current.runs.length > 0) pushParagraph();
+      for(const child of node.childNodes) walk(child, childCtx);
+      return;
+    }
+
+    // Default: tag inline (span, b, i, u, font, ecc.) — ricorsione mantenendo paragrafo
+    for(const child of node.childNodes) walk(child, childCtx);
+  }
+
+  const initCtx = { bold: false, italic: false, underline: false, strike: false, fontSize: null, color: null, highlight: null };
+  for(const child of container.childNodes) walk(child, initCtx);
+
+  // Chiudo paragrafo finale se ha contenuto
+  if(current.runs.length > 0 || current.listMarker) pushParagraph();
+
+  // Filtro paragrafi totalmente vuoti consecutivi (max 1 vuoto consecutivo)
+  const cleaned = [];
+  let lastEmpty = false;
+  for(const p of paragraphs){
+    const isEmpty = (!p.runs || p.runs.length === 0) && !p.listMarker;
+    if(isEmpty && lastEmpty) continue;
+    cleaned.push(p);
+    lastEmpty = isEmpty;
+  }
+  // Rimuovo paragrafo vuoto finale
+  while(cleaned.length > 0){
+    const last = cleaned[cleaned.length - 1];
+    const isEmpty = (!last.runs || last.runs.length === 0) && !last.listMarker;
+    if(isEmpty) cleaned.pop();
+    else break;
+  }
+  return cleaned;
+}
 
 function openFreeTextDialog(){
   const ex = document.getElementById('freeTextDialog');
@@ -36865,12 +37121,107 @@ function openFreeTextDialog(){
   tb.appendChild(tbBtn('underline', '<u>S</u>', 'Sottolineato (Ctrl+U)'));
   tb.appendChild(tbBtn('strikeThrough', '<s>B</s>', 'Barrato'));
   tb.appendChild(tbSep());
+
+  // V2.10.192: dropdown dimensione font.
+  // execCommand('fontSize') produce <font size="N"> (scala 1-7 obsoleta) che non
+  // viene rispettata uniformemente in PDF/Word. Usiamo wrap manuale con
+  // <span style="font-size:Xpt"> che e' stabile e parsabile dal nostro htmlToTextRuns.
+  const FT_SIZES = [
+    { pt: 11, label: '11pt (normale)' },
+    { pt: 12, label: '12pt' },
+    { pt: 14, label: '14pt' },
+    { pt: 16, label: '16pt (sottotitolo)' },
+    { pt: 18, label: '18pt (titolo)' },
+    { pt: 22, label: '22pt (grande)' },
+  ];
+  const sizeSel = document.createElement('select');
+  sizeSel.title = 'Dimensione testo (applica alla selezione)';
+  sizeSel.className = 'btn small ghost';
+  sizeSel.style.cssText = 'padding:3px 6px;font-size:12px;height:26px;border-radius:4px;cursor:pointer';
+  const ph = document.createElement('option');
+  ph.value = '';
+  ph.textContent = 'Dim.';
+  ph.selected = true;
+  ph.disabled = true;
+  sizeSel.appendChild(ph);
+  FT_SIZES.forEach(s => {
+    const o = document.createElement('option');
+    o.value = String(s.pt);
+    o.textContent = s.label;
+    sizeSel.appendChild(o);
+  });
+  // Salva la selezione prima che il dropdown rubi il focus
+  sizeSel.addEventListener('mousedown', () => {
+    const sel = window.getSelection();
+    if(sel && sel.rangeCount > 0){
+      sizeSel._savedRange = sel.getRangeAt(0).cloneRange();
+    }
+  });
+  sizeSel.addEventListener('change', () => {
+    const pt = parseInt(sizeSel.value, 10);
+    if(!pt){ sizeSel.value=''; return; }
+    editor.focus();
+    if(sizeSel._savedRange){
+      const sel0 = window.getSelection();
+      sel0.removeAllRanges();
+      sel0.addRange(sizeSel._savedRange);
+    }
+    const sel = window.getSelection();
+    if(sel && sel.rangeCount > 0 && !sel.isCollapsed){
+      const range = sel.getRangeAt(0);
+      const span = document.createElement('span');
+      span.style.fontSize = pt + 'pt';
+      try {
+        try {
+          range.surroundContents(span);
+        } catch(_){
+          const frag = range.extractContents();
+          span.appendChild(frag);
+          range.insertNode(span);
+        }
+        // Rimuovo eventuali font-size nidificati piu' interni (l'esterno vince)
+        span.querySelectorAll('span[style*="font-size"]').forEach(inner => {
+          if(inner !== span){
+            inner.style.fontSize = '';
+            if(!inner.getAttribute('style')) inner.removeAttribute('style');
+          }
+        });
+      } catch(err){
+        console.warn('[freeText] fontSize apply failed:', err);
+      }
+    }
+    sizeSel.value = '';
+    sizeSel._savedRange = null;
+  });
+  tb.appendChild(sizeSel);
+  tb.appendChild(tbSep());
+
   tb.appendChild(tbBtn('insertUnorderedList', '\u2022 \u2022', 'Elenco puntato'));
   tb.appendChild(tbBtn('insertOrderedList', '1.', 'Elenco numerato'));
   tb.appendChild(tbSep());
-  tb.appendChild(tbBtn('justifyLeft', '\u2261', 'Allinea a sinistra'));
-  tb.appendChild(tbBtn('justifyCenter', '\u2630', 'Centra'));
-  tb.appendChild(tbBtn('justifyRight', '\u2261', 'Allinea a destra'));
+  // V2.10.192: pulsanti allineamento con icone distinte (SVG inline) + aggiunto Giustifica.
+  // Prima usavo U+2261 sia per left che per right (stessa icona): non si distinguevano.
+  // Ora 4 icone chiare: ≡ left, ≡ center, ≡ right, ☰ justify (linee tutte lunghe uguali).
+  // Uso piccoli SVG inline per simbologia tipografica standard.
+  const _alignIcon = (variant) => {
+    // variant: 'left' | 'center' | 'right' | 'justify'
+    const lines = {
+      left:    [[0,14],[0,10],[0,14],[0,10]],     // tutte left
+      center:  [[2,10],[1,12],[2,10],[1,12]],     // center
+      right:   [[4,10],[6,8],[4,10],[6,8]],       // right
+      justify: [[0,14],[0,14],[0,14],[0,14]],     // tutte stessa larghezza piena
+    }[variant];
+    let svg = '<svg width="14" height="11" viewBox="0 0 14 11" xmlns="http://www.w3.org/2000/svg" fill="currentColor">';
+    lines.forEach((l, i) => {
+      svg += '<rect x="' + l[0] + '" y="' + (i*2+1) + '" width="' + l[1] + '" height="1.3" rx="0.4"/>';
+    });
+    svg += '</svg>';
+    return svg;
+  };
+  tb.appendChild(tbBtn('justifyLeft',    _alignIcon('left'),    'Allinea a sinistra'));
+  tb.appendChild(tbBtn('justifyCenter',  _alignIcon('center'),  'Centra'));
+  tb.appendChild(tbBtn('justifyRight',   _alignIcon('right'),   'Allinea a destra'));
+  tb.appendChild(tbBtn('justifyFull',    _alignIcon('justify'), 'Giustifica'));
   tb.appendChild(tbSep());
 
   // Color picker per evidenziatore
@@ -41710,6 +42061,68 @@ async function exportQuoteDocx(options){
     const mk = (text, opts) => new TextRun(Object.assign({ font: 'Calibri', size: 19 }, opts || {}, { text }));
     const para = (children, opts) => new Paragraph(Object.assign({ children: Array.isArray(children) ? children : [children] }, opts || {}));
 
+    // V2.10.192: converte HTML formattato (output dell'editor testo libero) in array
+    // di Paragraph docx, preservando bold/italic/underline/strike/font-size/color/highlight.
+    // baseOpts: opzioni di default applicate a OGNI run (es. color: TEXT_MID, size: 22 = 11pt).
+    // paraOpts: opzioni di default applicate a OGNI paragraph (es. alignment JUSTIFIED, spacing).
+    const htmlToDocxParagraphs = (html, baseOpts, paraOpts) => {
+      const paras = (typeof htmlToTextRuns === 'function') ? htmlToTextRuns(html) : [];
+      if(!paras.length) return [];
+      // Mappo nome highlight: docx vuole valori specifici (yellow, green, cyan, magenta, ecc.)
+      // Per i 5 colori della toolbar (#fef08a, #bef264, #a7f3d0, #fda4af, #a5b4fc) approssimo:
+      const HEX_TO_HIGHLIGHT = {
+        'FEF08A': 'yellow',
+        'BEF264': 'green',
+        'A7F3D0': 'cyan',
+        'FDA4AF': 'red',
+        'A5B4FC': 'blue',
+      };
+      const ALIGN_MAP = {
+        'left':    AlignmentType.LEFT,
+        'center':  AlignmentType.CENTER,
+        'right':   AlignmentType.RIGHT,
+        'justify': AlignmentType.JUSTIFIED,
+      };
+      return paras.map(p => {
+        // Costruisco i runs: ogni run conserva il testo + flag di stile
+        const runs = (p.runs || []).map(r => {
+          const opts = Object.assign({}, baseOpts || {});
+          if(r.bold) opts.bold = true;
+          if(r.italic) opts.italics = true;
+          if(r.underline) opts.underline = { type: 'single' };
+          if(r.strike) opts.strike = true;
+          if(r.fontSize){
+            // docx size in half-points (es. 11pt = 22)
+            opts.size = Math.round(r.fontSize * 2);
+          }
+          if(r.color){
+            opts.color = r.color;
+          }
+          if(r.highlight){
+            const hl = HEX_TO_HIGHLIGHT[r.highlight];
+            if(hl) opts.highlight = hl;
+          }
+          return mk(r.text, opts);
+        });
+        // Se paragrafo ha listMarker, lo prepongo come run
+        if(p.listMarker){
+          runs.unshift(mk(p.listMarker, Object.assign({}, baseOpts || {})));
+        }
+        // Se il paragrafo e' totalmente vuoto, inserisco una stringa vuota per non rompere docx
+        if(runs.length === 0){
+          runs.push(mk('', baseOpts || {}));
+        }
+        // Opzioni paragrafo: parto da paraOpts, override allineamento se specificato dall'utente
+        const pOpts = Object.assign({}, paraOpts || {});
+        if(p.align && ALIGN_MAP[p.align]) pOpts.alignment = ALIGN_MAP[p.align];
+        if(p.listMarker && p.indent){
+          // Indentazione manuale per liste — left ~ 360 twips per livello (~0.25 inch)
+          pOpts.indent = Object.assign({ left: p.indent * 360 }, pOpts.indent || {});
+        }
+        return para(runs, pOpts);
+      });
+    };
+
     // === Pre-carico immagini articoli ===
     // V2.10.37: faccio fetch in parallelo per non bloccare
     const imageBuffers = {};
@@ -41797,25 +42210,45 @@ async function exportQuoteDocx(options){
       if(_quoteCliente.codiceFiscale){
         destInner.push(para(mk('C.F.: ' + _quoteCliente.codiceFiscale, { color: '4B5563', size: 18 })));
       }
-      const addrLine = [_quoteCliente.indirizzo, _quoteCliente.capCitta].filter(x => x && x.trim()).join(', ');
-      if(addrLine){
-        destInner.push(para(mk(addrLine, { color: TEXT_MID, size: 19 }), { spacing: { before: 100 } }));
+      // V2.10.192: indirizzo e CAP/Citta/Provincia su righe separate (non piu' uniti
+      // con virgola). Migliora leggibilita' di intestazioni lunghe.
+      if(_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()){
+        destInner.push(para(mk(_quoteCliente.indirizzo.trim(), { color: TEXT_MID, size: 19 }), { spacing: { before: 100 } }));
       }
+      if(_quoteCliente.capCitta && _quoteCliente.capCitta.trim()){
+        const beforeSpacing = (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()) ? undefined : { before: 100 };
+        destInner.push(para(mk(_quoteCliente.capCitta.trim(), { color: TEXT_MID, size: 19 }),
+          beforeSpacing ? { spacing: beforeSpacing } : {}));
+      }
+      // V2.10.192: blocco riferimento completo (nome bold + ruolo italics + telefono + email)
+      // visibile sempre quando i campi sono valorizzati. Aggregato sotto il nome con spacing
+      // minore (60) per percezione di gruppo coerente.
       if(_quoteCliente.persRiferimento){
-        const refText = 'Alla c.a. ' + _quoteCliente.persRiferimento;
         destInner.push(para([
           mk('Alla c.a. ', { color: '4B5563', size: 18 }),
           mk(_quoteCliente.persRiferimento, { bold: true, color: TEXT_DARK, size: 18 }),
-        ], { spacing: { before: 120 } }));
+        ], { spacing: { before: 140 } }));
         if(_quoteCliente.ruoloRiferimento){
-          destInner.push(para(mk(_quoteCliente.ruoloRiferimento, { color: TEXT_MUTED, italics: true, size: 17 })));
+          destInner.push(para(mk(_quoteCliente.ruoloRiferimento, { color: TEXT_MUTED, italics: true, size: 17 }), { spacing: { before: 30 } }));
         }
-      }
-      if(_quoteCliente.telefono){
-        destInner.push(para(mk('Tel: ' + _quoteCliente.telefono, { color: TEXT_MUTED, size: 17 }), { spacing: { before: 120 } }));
-      }
-      if(_quoteCliente.email){
-        destInner.push(para(mk('Email: ' + _quoteCliente.email, { color: TEXT_MUTED, size: 17 })));
+        // V2.10.192: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
+        // con fallback ai campi telefono/email del cliente generale se mancano.
+        const _refTel = _quoteCliente.telRiferimento || _quoteCliente.telefono || '';
+        const _refMail = _quoteCliente.emailRiferimento || _quoteCliente.email || '';
+        if(_refTel){
+          destInner.push(para(mk('Tel: ' + _refTel, { color: TEXT_MUTED, size: 17 }), { spacing: { before: 30 } }));
+        }
+        if(_refMail){
+          destInner.push(para(mk('Email: ' + _refMail, { color: TEXT_MUTED, size: 17 }), { spacing: { before: 30 } }));
+        }
+      } else {
+        // Niente referente: telefono/email del cliente come blocco separato sotto l'indirizzo
+        if(_quoteCliente.telefono){
+          destInner.push(para(mk('Tel: ' + _quoteCliente.telefono, { color: TEXT_MUTED, size: 17 }), { spacing: { before: 120 } }));
+        }
+        if(_quoteCliente.email){
+          destInner.push(para(mk('Email: ' + _quoteCliente.email, { color: TEXT_MUTED, size: 17 })));
+        }
       }
 
       // V2.10.38: box destinatario con bordo sottile su tutti i lati
@@ -41881,8 +42314,19 @@ async function exportQuoteDocx(options){
     // =====================================================
     // CARD OGGETTO (border-left blu su sfondo CARD_BG)
     // =====================================================
+    // V2.10.192: testo Oggetto multi-paragrafo (split su \n) + giustificato.
+    // Era una sola riga, ora supporta descrizioni lunghe inserite nella textarea UI.
     let oggettoTable = null;
     if(_quoteNome){
+      const nomeParagraphs = String(_quoteNome).split(/\n+/).filter(s => s.trim());
+      const nomeParas = (nomeParagraphs.length > 0 ? nomeParagraphs : [String(_quoteNome)]).map((p, idx) => {
+        // Spacing fra paragrafi interni (non sull'ultimo)
+        const isLast = (idx === nomeParagraphs.length - 1);
+        return para(mk(p.trim(), { bold: true, color: TEXT_DARK, size: 28 }), {
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: isLast ? undefined : { after: 80 },
+        });
+      });
       oggettoTable = new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         borders: noTableBorders,
@@ -41890,7 +42334,7 @@ async function exportQuoteDocx(options){
           children: [new TableCell({
             children: [
               para(mk('Oggetto della Proposta', { color: TEXT_MUTED, size: 19 }), { spacing: { after: 40 } }),
-              para(mk(_quoteNome, { bold: true, color: TEXT_DARK, size: 28 })),
+              ...nomeParas,
             ],
             shading: { type: ShadingType.CLEAR, fill: CARD_BG, color: 'auto' },
             margins: { top: 200, bottom: 200, left: 320, right: 320 },
@@ -41908,20 +42352,20 @@ async function exportQuoteDocx(options){
     // =====================================================
     // TESTO LIBERO HEADER (se presente)
     // =====================================================
-    // SETTINGS_QFT.header è HTML — per ora lo convertiamo via strip dei tag.
-    // Una conversione HTML-to-docx completa sarebbe troppo complessa per MVP.
+    // V2.10.192: ora preserva la formattazione completa (bold, italic, underline,
+    // strike, font-size, color, highlight) tramite htmlToTextRuns + htmlToDocxParagraphs.
     let headerFreeText = null;
     if(SETTINGS_QFT.header){
-      const stripped = SETTINGS_QFT.header.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]+>/g, '').trim();
-      if(stripped){
-        // Spezza per newline e crea un paragrafo per blocco
-        const lines = stripped.split('\n').filter(s => s.trim());
-        headerFreeText = lines.map(line => para(mk(line.trim(), { color: TEXT_MID, size: 22 }), {
-          alignment: AlignmentType.JUSTIFIED,
-          spacing: { line: 320 },
-        }));
+      const headerParas = htmlToDocxParagraphs(
+        SETTINGS_QFT.header,
+        { color: TEXT_MID, size: 22 },
+        { alignment: AlignmentType.JUSTIFIED, spacing: { line: 320 } }
+      );
+      if(headerParas.length > 0){
+        headerFreeText = headerParas;
       }
     }
+
 
     // =====================================================
     // TITOLO "Dettaglio della Soluzione proposta"
@@ -42259,15 +42703,16 @@ async function exportQuoteDocx(options){
     // =====================================================
     // TESTO LIBERO FOOTER (se presente)
     // =====================================================
+    // V2.10.192: stesso approccio dell'header, formattazione preservata.
     let footerFreeText = null;
     if(SETTINGS_QFT.footer){
-      const stripped = SETTINGS_QFT.footer.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]+>/g, '').trim();
-      if(stripped){
-        const lines = stripped.split('\n').filter(s => s.trim());
-        footerFreeText = lines.map(line => para(mk(line.trim(), { color: TEXT_MID, size: 22 }), {
-          alignment: AlignmentType.JUSTIFIED,
-          spacing: { line: 320 },
-        }));
+      const footerParas = htmlToDocxParagraphs(
+        SETTINGS_QFT.footer,
+        { color: TEXT_MID, size: 22 },
+        { alignment: AlignmentType.JUSTIFIED, spacing: { line: 320 } }
+      );
+      if(footerParas.length > 0){
+        footerFreeText = footerParas;
       }
     }
 
@@ -42855,6 +43300,18 @@ async function exportQuoteWord(){
         '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:30pt;padding-top:14pt;border-top:1pt solid #e5e7eb;font-size:9pt;color:#9ca3af;line-height:1.6}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:10pt 14pt;margin-top:18pt;font-size:10pt;color:#0c4a6e}' +
+        // V2.10.192: regole specifiche per il testo libero (header/footer) — garantiscono
+        // che il <b>/<strong>, <i>/<em>, <u>, <s>, e <span style="font-size:..."> inline
+        // dell'editor vengano onorati anche in Word .doc (che ha un parser HTML "vintage"
+        // e a volte ignora gli stili inline se sovrascritti da regole generiche).
+        '.qft-block{font-family:Calibri,Arial,sans-serif;color:#374151;line-height:1.6;text-align:justify}' +
+        '.qft-block b,.qft-block strong{font-weight:bold !important}' +
+        '.qft-block i,.qft-block em{font-style:italic !important}' +
+        '.qft-block u{text-decoration:underline !important}' +
+        '.qft-block s,.qft-block strike,.qft-block del{text-decoration:line-through !important}' +
+        '.qft-block p{margin:0 0 6pt 0}' +
+        '.qft-block ul,.qft-block ol{margin:6pt 0 6pt 18pt;padding-left:18pt}' +
+        '.qft-block li{margin:2pt 0}' +
       '</style></head><body>' +
       // V2.10.13: header riorganizzato (Word) - layout professionale.
       // Banda scura in alto: SX logo + dati PREVENTIVO, DX box DESTINATARIO con sfondo chiaro.
@@ -42896,14 +43353,26 @@ async function exportQuoteWord(){
               '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:Calibri,monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
-              ((_quoteCliente.indirizzo || _quoteCliente.capCitta) ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml([_quoteCliente.indirizzo, _quoteCliente.capCitta].filter(x=>x && x.trim()).join(', ')) + '</div>' : '') +
-              (_quoteCliente.persRiferimento ? '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.4">Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' + (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') + '</div>' : '') +
-              ((_quoteCliente.telefono || _quoteCliente.email) ? (
+              // V2.10.192: indirizzo e CAP/Citta/Provincia su righe separate (era unito da virgola)
+              (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim() ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml(_quoteCliente.indirizzo.trim()) + '</div>' : '') +
+              (_quoteCliente.capCitta && _quoteCliente.capCitta.trim() ? '<div style="font-size:9.5pt;color:#374151;line-height:1.4' + ((!_quoteCliente.indirizzo || !_quoteCliente.indirizzo.trim()) ? ';margin-top:5pt' : '') + '">' + escapeHtml(_quoteCliente.capCitta.trim()) + '</div>' : '') +
+              // V2.10.192: blocco riferimento completo (nome bold + ruolo + telefono + email)
+              // raggruppato in un unico blocco separato da bordo tratteggiato.
+              (_quoteCliente.persRiferimento ? (
+                '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
+                  'Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' +
+                  (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') +
+                  // V2.10.192: telefono/email del REFERENTE con fallback ai campi cliente
+                  ((_quoteCliente.telRiferimento || _quoteCliente.telefono) ? '<br><span style="color:#6b7280">Tel: ' + escapeHtml(_quoteCliente.telRiferimento || _quoteCliente.telefono) + '</span>' : '') +
+                  ((_quoteCliente.emailRiferimento || _quoteCliente.email) ? '<br><span style="color:#6b7280">Email: ' + escapeHtml(_quoteCliente.emailRiferimento || _quoteCliente.email) + '</span>' : '') +
+                '</div>'
+              ) : ((_quoteCliente.telefono || _quoteCliente.email) ? (
+                // Niente referente: telefono/email come blocco separato
                 '<div style="font-size:8.5pt;color:#6b7280;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
                   (_quoteCliente.telefono ? 'Tel: ' + escapeHtml(_quoteCliente.telefono) + (_quoteCliente.email ? '<br>' : '') : '') +
                   (_quoteCliente.email ? 'Email: ' + escapeHtml(_quoteCliente.email) : '') +
                 '</div>'
-              ) : '') +
+              ) : '')) +
             '</div>' +
             // V2.10.18: riga metadata preventivo SOTTO la card destinatario, fuori dal box
             '<div style="font-size:9.5pt;color:#d1d5db;margin-top:8pt;text-align:right;letter-spacing:0.2pt">' +
@@ -42913,15 +43382,18 @@ async function exportQuoteWord(){
         '</div>' +
       '</div>' +
       // V2.10.15: riga OGGETTO con card laterale + accento ambra (Variante B - elegante e armoniosa)
+      // V2.10.192: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
+      // della textarea e wrappare automaticamente i testi lunghi multi-riga.
       (_quoteNome ? (
         '<div style="margin:0 32pt;padding:8pt 16pt;background:#fafaf9;border-left:4pt solid #0178d4;border-radius:2pt;display:flex;flex-direction:column;gap:2pt">' +
           '<span style="font-size:9.5pt;color:#6b7280;letter-spacing:0.2pt">Oggetto della Proposta</span>' +
-          '<span style="font-weight:600;font-size:14pt;color:#1f2937;line-height:1.3">' + escapeHtml(_quoteNome) + '</span>' +
+          '<span style="font-weight:600;font-size:14pt;color:#1f2937;line-height:1.4;text-align:justify;white-space:pre-wrap">' + escapeHtml(_quoteNome) + '</span>' +
         '</div>'
       ) : '') +
       // V2.10.24: testo libero header (sotto card OGGETTO) - HTML formattato dall'utente. V2.10.26: distanza maggiore + giustificato
+      // V2.10.192: usa classe .qft-block per garantire che bold/italic/font-size inline siano onorati in Word .doc
       ((SETTINGS_QFT && SETTINGS_QFT.header) ? (
-        '<div style="margin:18pt 32pt 0 32pt;padding:0 4pt;font-size:11pt;color:#374151;line-height:1.6;text-align:justify">' +
+        '<div class="qft-block" style="margin:18pt 32pt 0 32pt;padding:0 4pt;font-size:11pt">' +
           SETTINGS_QFT.header +
         '</div>'
       ) : '') +
@@ -42939,8 +43411,9 @@ async function exportQuoteWord(){
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
+        // V2.10.192: usa classe .qft-block (vedi commento header)
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
-          '<div style="margin-top:18pt;padding:0 4pt;font-size:11pt;color:#374151;line-height:1.6;text-align:justify">' +
+          '<div class="qft-block" style="margin-top:18pt;padding:0 4pt;font-size:11pt">' +
             SETTINGS_QFT.footer +
           '</div>'
         ) : '') +
@@ -43166,6 +43639,250 @@ async function exportQuotePdfNative(options){
       return doc.splitTextToSize(String(text || ''), maxWidth);
     };
 
+    /* V2.10.186: vera giustificazione del testo per jsPDF.
+       jsPDF accetta l'opzione `align: 'justify'` ma in pratica la ignora (resta left).
+       Workaround standard: distribuire spazi extra tra le parole per riempire la linea
+       fino alla larghezza target. L'ultima riga del paragrafo NON viene giustificata
+       (text-align-last:left, comportamento tipografico standard come nel Word).
+       Parametri:
+         lines = array di righe gia' wrappate (output di wrapText)
+         x, y = coordinate prima riga
+         maxWidth = larghezza target
+         lineHeight = altezza riga (es. 14)
+         size, style = font setup (richiamati per allinearsi col chiamante) */
+    const drawJustifiedText = (lines, x, y, maxWidth, lineHeight, size, style) => {
+      doc.setFontSize(size);
+      doc.setFont('helvetica', style || 'normal');
+      let cy = y;
+      for(let i = 0; i < lines.length; i++){
+        const isLast = (i === lines.length - 1);
+        const line = lines[i];
+        const words = line.split(/\s+/).filter(w => w.length > 0);
+        // Salta righe vuote o ultima/unica → render normale left
+        if(isLast || words.length <= 1){
+          doc.text(line, x, cy);
+          cy += lineHeight;
+          continue;
+        }
+        // Calcolo larghezza totale parole (senza spazi)
+        const wordsW = words.reduce((sum, w) => sum + doc.getTextWidth(w), 0);
+        const spaceW = doc.getTextWidth(' ');
+        const normalW = wordsW + spaceW * (words.length - 1);
+        // Quanto spazio extra distribuire fra le N-1 gap?
+        const extra = maxWidth - normalW;
+        // Se la linea e' gia' vicina al margine (extra < soglia minima) → render normale.
+        // Se l'extra e' troppo grande (>50% maxWidth) e' probabilmente una riga corta
+        // (es. ultima frase di paragrafo che il wrap non ha rotto): non giustificare.
+        if(extra <= 1 || extra > maxWidth * 0.4){
+          doc.text(line, x, cy);
+          cy += lineHeight;
+          continue;
+        }
+        // Distribuisco l'extra. Disegno parola per parola con offset incrementale.
+        const gapExtra = extra / (words.length - 1);
+        let wx = x;
+        for(let k = 0; k < words.length; k++){
+          doc.text(words[k], wx, cy);
+          if(k < words.length - 1){
+            wx += doc.getTextWidth(words[k]) + spaceW + gapExtra;
+          }
+        }
+        cy += lineHeight;
+      }
+      return cy;
+    };
+
+    /* V2.10.192: render PDF di paragrafi "rich" (con runs di stili misti).
+       Page-break automatico (V2.10.192): quando il testo libero supera il margine
+       inferiore della pagina, fluisce automaticamente sulla pagina successiva invece
+       di essere troncato (comportamento simile a Word/docx).
+       Input: array di paragrafi nel formato di htmlToTextRuns:
+         [{ runs: [{text, bold, italic, underline, strike, fontSize, color, highlight}, ...],
+            listMarker: '• '|'1. '|null, align: 'left'|'center'|'right'|'justify' }, ...]
+       Parametri:
+         paras  = array prodotto da htmlToTextRuns
+         x      = X di partenza (es. MARGIN)
+         y      = Y iniziale (cursore verticale)
+         width  = larghezza disponibile (es. CONTENT_W)
+         defSize= dimensione default (es. 11)
+         defColor = colore default in [r,g,b] (es. COL.textMid)
+         defAlign = allineamento default se non specificato sul paragrafo
+         pageBreakOpts = (opzionale) { pageH, footerReserve, marginTop, onNewPage }
+           Se passato, ogni volta che la prossima riga supererebbe `pageH - footerReserve`:
+             1. invoca `onNewPage()` (deve fare doc.addPage() + disegnare footer)
+             2. resetta cy a `marginTop`
+             3. continua a disegnare dalla nuova posizione
+       Restituisce: nuova Y dopo aver disegnato. */
+    const drawRichRunsParagraphs = (paras, x, y, width, defSize, defColor, defAlign, pageBreakOpts) => {
+      if(!paras || paras.length === 0) return y;
+      defAlign = defAlign || 'justify';
+      const PARAGRAPH_GAP = 4;   // spazio extra fra paragrafi
+      let cy = y;
+      // V2.10.192: helper interno per page-break. Se pageBreakOpts attivo, controlla se
+      // la prossima riga di altezza `lineH` ci sta. In caso contrario fa onNewPage + reset cy.
+      const checkPageBreak = (lineH) => {
+        if(!pageBreakOpts) return;
+        if(cy + lineH > pageBreakOpts.pageH - pageBreakOpts.footerReserve){
+          if(typeof pageBreakOpts.onNewPage === 'function'){
+            pageBreakOpts.onNewPage();
+          }
+          cy = pageBreakOpts.marginTop;
+        }
+      };
+      for(let pi = 0; pi < paras.length; pi++){
+        const p = paras[pi];
+        const runs = p.runs || [];
+        const align = p.align || defAlign;
+        // Eventuale list marker prepend
+        let prefix = p.listMarker ? p.listMarker : '';
+        // Se paragrafo vuoto, salto con piccolo gap
+        if(runs.length === 0 && !prefix){
+          // V2.10.192: anche i paragrafi vuoti possono superare il margine
+          checkPageBreak(defSize * 1.2);
+          cy += defSize * 1.2;
+          continue;
+        }
+        // Costruisco i "tokens" = lista di {text, style} dove text e' una parola o uno spazio.
+        // Spezzo ogni run su \s+ ma conservo gli spazi originali. Per semplicita' uso split('  ').
+        const tokens = [];
+        if(prefix){
+          tokens.push({ text: prefix, bold: false, italic: false, underline: false, strike: false,
+                        fontSize: defSize, color: defColor, highlight: null });
+        }
+        for(const r of runs){
+          const style = {
+            bold: !!r.bold, italic: !!r.italic, underline: !!r.underline, strike: !!r.strike,
+            fontSize: r.fontSize || defSize,
+            color: r.color ? _hexToRgb(r.color) : defColor,
+            highlight: r.highlight ? _hexToRgb(r.highlight) : null,
+          };
+          // Spezzo il testo in parole + separatori (whitespace)
+          const text = r.text || '';
+          // Regex: cattura sequenze di non-spazio e sequenze di spazi
+          const parts = text.match(/\s+|\S+/g) || [];
+          for(const part of parts){
+            tokens.push(Object.assign({ text: part }, style));
+          }
+        }
+        // Calcolo larghezza di ogni token (con font setting temporaneo)
+        for(const tk of tokens){
+          doc.setFontSize(tk.fontSize);
+          let fontStyle = 'normal';
+          if(tk.bold && tk.italic) fontStyle = 'bolditalic';
+          else if(tk.bold) fontStyle = 'bold';
+          else if(tk.italic) fontStyle = 'italic';
+          doc.setFont('helvetica', fontStyle);
+          tk._fontStyle = fontStyle;
+          tk._w = doc.getTextWidth(tk.text);
+          tk._isSpace = /^\s+$/.test(tk.text);
+        }
+        // Layout in righe: accumulo token finche' la larghezza supera `width`
+        const linesTk = [];
+        let curLine = [];
+        let curW = 0;
+        for(const tk of tokens){
+          // Se inserire il token supera la larghezza E la riga non e' vuota → vai a capo.
+          // Eccezione: token-spazio iniziali si scartano se la riga e' vuota.
+          if(curLine.length === 0 && tk._isSpace) continue;
+          if(curW + tk._w > width && curLine.length > 0){
+            // Rimuovo trailing space dalla riga corrente
+            while(curLine.length > 0 && curLine[curLine.length - 1]._isSpace){
+              curW -= curLine[curLine.length - 1]._w;
+              curLine.pop();
+            }
+            linesTk.push(curLine);
+            curLine = [];
+            curW = 0;
+            if(tk._isSpace) continue;
+          }
+          curLine.push(tk);
+          curW += tk._w;
+        }
+        if(curLine.length > 0){
+          while(curLine.length > 0 && curLine[curLine.length - 1]._isSpace){
+            curLine.pop();
+          }
+          linesTk.push(curLine);
+        }
+        // Disegno riga per riga.
+        for(let li = 0; li < linesTk.length; li++){
+          const line = linesTk[li];
+          if(line.length === 0) continue;
+          // Calcolo altezza riga = max fontSize della riga * 1.25
+          const maxFontSize = line.reduce((m, tk) => Math.max(m, tk.fontSize), defSize);
+          const lineH = maxFontSize * 1.25;
+          // V2.10.192: page-break check PRIMA di disegnare la riga.
+          // Se la riga non sta piu' nello spazio rimanente, vado a nuova pagina.
+          checkPageBreak(lineH);
+          // Baseline = cy + maxFontSize (cy e' top della riga)
+          const baseline = cy + maxFontSize;
+          // Calcolo larghezza totale token (somma _w)
+          const totalW = line.reduce((s, tk) => s + tk._w, 0);
+          // Numero di gap (= spazi interni)
+          const spaces = line.filter(tk => tk._isSpace);
+          const numGaps = spaces.length;
+          // Larghezza disponibile per gap (per giustificazione)
+          let gapExtra = 0;
+          let startX = x;
+          const isLastLine = (li === linesTk.length - 1);
+          if(align === 'center'){
+            startX = x + (width - totalW) / 2;
+          } else if(align === 'right'){
+            startX = x + (width - totalW);
+          } else if(align === 'justify' && !isLastLine && numGaps > 0){
+            const extra = width - totalW;
+            if(extra > 0 && extra < width * 0.4){
+              gapExtra = extra / numGaps;
+            }
+          }
+          // Disegno
+          let cx = startX;
+          for(const tk of line){
+            doc.setFontSize(tk.fontSize);
+            doc.setFont('helvetica', tk._fontStyle);
+            const col = tk.color || defColor;
+            doc.setTextColor(col[0], col[1], col[2]);
+            // Highlight: rettangolo di sfondo dietro al testo (se presente)
+            if(tk.highlight && !tk._isSpace){
+              const prevFill = doc.getFillColor();
+              doc.setFillColor(tk.highlight[0], tk.highlight[1], tk.highlight[2]);
+              doc.rect(cx, baseline - tk.fontSize + 1, tk._w, tk.fontSize + 1, 'F');
+              // Ripristino fill
+              if(prevFill && prevFill.length){
+                doc.setFillColor(prevFill[0] || 0, prevFill[1] || 0, prevFill[2] || 0);
+              }
+            }
+            doc.text(tk.text, cx, baseline);
+            // Underline / strike: linee manuali (jsPDF non le applica nativamente al testo)
+            if(tk.underline && !tk._isSpace){
+              doc.setDrawColor(col[0], col[1], col[2]);
+              doc.setLineWidth(0.5);
+              doc.line(cx, baseline + 1.5, cx + tk._w, baseline + 1.5);
+            }
+            if(tk.strike && !tk._isSpace){
+              doc.setDrawColor(col[0], col[1], col[2]);
+              doc.setLineWidth(0.5);
+              const yStrike = baseline - tk.fontSize / 3;
+              doc.line(cx, yStrike, cx + tk._w, yStrike);
+            }
+            cx += tk._w;
+            if(tk._isSpace) cx += gapExtra;
+          }
+          cy += lineH;
+        }
+        // Gap fra paragrafi (non dopo l'ultimo)
+        if(pi < paras.length - 1) cy += PARAGRAPH_GAP;
+      }
+      return cy;
+    };
+    // Helper hex 6char → [r,g,b]
+    const _hexToRgb = (hex) => {
+      if(!hex || typeof hex !== 'string') return null;
+      const h = hex.replace('#','').toUpperCase();
+      if(h.length !== 6) return null;
+      return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+    };
+
     // === Footer ricorrente: linea blu + testo + pagina N/M ===
     // Registriamo come "after each page" callback usando autoTable o ridisegnando dopo
     const _pageFooterText = (function(){
@@ -43278,12 +43995,19 @@ async function exportQuotePdfNative(options){
         doc.text('C.F.: ' + _quoteCliente.codiceFiscale, colRightX + padX, measureY + 4);
         measureY += 12;
       }
-      const addrLine = [_quoteCliente.indirizzo, _quoteCliente.capCitta].filter(x => x && x.trim()).join(', ');
-      if(addrLine){
+      // V2.10.192: indirizzo e CAP/Citta/Provincia su righe separate.
+      if(_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()){
         setText(9.5, 'normal', COL.textMid);
-        const lines = wrapText(addrLine, colRightW - 2 * padX, 9.5, 'normal');
+        const lines = wrapText(_quoteCliente.indirizzo.trim(), colRightW - 2 * padX, 9.5, 'normal');
         lines.forEach(line => { doc.text(line, colRightX + padX, measureY + 4); measureY += 12; });
       }
+      if(_quoteCliente.capCitta && _quoteCliente.capCitta.trim()){
+        setText(9.5, 'normal', COL.textMid);
+        const lines = wrapText(_quoteCliente.capCitta.trim(), colRightW - 2 * padX, 9.5, 'normal');
+        lines.forEach(line => { doc.text(line, colRightX + padX, measureY + 4); measureY += 12; });
+      }
+      // V2.10.192: blocco riferimento completo — nome + ruolo + telefono + email
+      // sempre raggruppati sotto a "Alla c.a." (anziche' telefono/email come blocco a se')
       if(_quoteCliente.persRiferimento){
         measureY += 4;
         setText(9, 'normal', [75, 85, 99]);
@@ -43297,17 +44021,33 @@ async function exportQuotePdfNative(options){
           doc.text(_quoteCliente.ruoloRiferimento, colRightX + padX, measureY + 4);
           measureY += 11;
         }
-      }
-      if(_quoteCliente.telefono){
-        measureY += 4;
-        setText(8.5, 'normal', COL.textMuted);
-        doc.text('Tel: ' + _quoteCliente.telefono, colRightX + padX, measureY + 4);
-        measureY += 11;
-      }
-      if(_quoteCliente.email){
-        setText(8.5, 'normal', COL.textMuted);
-        doc.text('Email: ' + _quoteCliente.email, colRightX + padX, measureY + 4);
-        measureY += 11;
+        // V2.10.192: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
+        // con fallback ai campi telefono/email del cliente generale.
+        const _refTel = _quoteCliente.telRiferimento || _quoteCliente.telefono || '';
+        const _refMail = _quoteCliente.emailRiferimento || _quoteCliente.email || '';
+        if(_refTel){
+          setText(8.5, 'normal', COL.textMuted);
+          doc.text('Tel: ' + _refTel, colRightX + padX, measureY + 4);
+          measureY += 11;
+        }
+        if(_refMail){
+          setText(8.5, 'normal', COL.textMuted);
+          doc.text('Email: ' + _refMail, colRightX + padX, measureY + 4);
+          measureY += 11;
+        }
+      } else {
+        // Nessun referente: telefono/email del cliente come blocco indipendente
+        if(_quoteCliente.telefono){
+          measureY += 4;
+          setText(8.5, 'normal', COL.textMuted);
+          doc.text('Tel: ' + _quoteCliente.telefono, colRightX + padX, measureY + 4);
+          measureY += 11;
+        }
+        if(_quoteCliente.email){
+          setText(8.5, 'normal', COL.textMuted);
+          doc.text('Email: ' + _quoteCliente.email, colRightX + padX, measureY + 4);
+          measureY += 11;
+        }
       }
 
       const boxH = measureY + padY - boxY;
@@ -43343,38 +44083,68 @@ async function exportQuotePdfNative(options){
     cursorY = Math.max(leftY, rightY) + 18;
 
     // === CARD OGGETTO ===
+    // V2.10.192: testo Oggetto multi-riga giustificato (era una sola riga troncata).
+    // Calcolo altezza in base alle righe wrappate, gestisco anche eventuali \n inseriti
+    // dall'utente nella textarea. Giustificazione tramite drawJustifiedText (V2.10.186).
     if(_quoteNome){
       const cardX = MARGIN, cardW = CONTENT_W;
       const cardPadL = 16, cardPadR = 16, cardPadV = 10;
       const titleSize = 9.5, nameSize = 14;
       const lineGap = 4;
+      const lineH = nameSize * 1.25;  // ~17.5pt per nameSize=14
 
+      // Spezzo il testo dell'oggetto su piu' righe rispettando i \n manuali
+      const innerW = cardW - cardPadL - cardPadR - 4;  // 4 = bordo sx
+      const paragraphs = String(_quoteNome).split(/\n+/).filter(s => s.trim());
+      const allLines = [];
+      // Per misurare devo settare font/size attivi
+      doc.setFontSize(nameSize);
+      doc.setFont('helvetica', 'bold');
+      paragraphs.forEach(par => {
+        const wrapped = doc.splitTextToSize(par.trim(), innerW);
+        wrapped.forEach(l => allLines.push(l));
+      });
+      // Almeno 1 riga
+      const numLines = Math.max(1, allLines.length);
+
+      const cardH = cardPadV * 2 + 11 + lineGap + numLines * lineH;
+
+      // Sfondo card + bordo sx
       setFill(COL.cardBg);
-      // Calcolo altezza: due righe testo + padding
-      const cardH = cardPadV * 2 + 11 + lineGap + nameSize + 4;
       doc.rect(cardX, cursorY, cardW, cardH, 'F');
-      // Bordo sx blu
       setFill(COL.blue);
       doc.rect(cardX, cursorY, 4, cardH, 'F');
-      // Etichetta + nome
+
+      // Etichetta
       setText(titleSize, 'normal', COL.textMuted);
       doc.text('Oggetto della Proposta', cardX + cardPadL, cursorY + cardPadV + 9);
+
+      // Testo dell'oggetto (multi-riga giustificato)
       setText(nameSize, 'bold', COL.textDark);
-      doc.text(_quoteNome, cardX + cardPadL, cursorY + cardPadV + 9 + lineGap + nameSize - 2);
+      const textStartY = cursorY + cardPadV + 9 + lineGap + nameSize - 2;
+      // Uso drawJustifiedText (definita sotto in scope) per giustificare le righe
+      // tranne l'ultima (text-align-last:left).
+      drawJustifiedText(allLines, cardX + cardPadL, textStartY, innerW, lineH, nameSize, 'bold');
 
       cursorY += cardH + 14;
     }
 
     // === TESTO LIBERO HEADER ===
+    // V2.10.192: parsing HTML completo con preservazione di bold/italic/underline/strike/
+    // font-size/color/highlight. drawRichRunsParagraphs gestisce layout multi-stile.
+    // Page-break automatico (V2.10.192): se il testo eccede la pagina, fluisce sulla successiva.
     if(SETTINGS_QFT.header){
-      const stripped = SETTINGS_QFT.header.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]+>/g, '').trim();
-      if(stripped){
-        setText(11, 'normal', COL.textMid);
-        const lines = wrapText(stripped, CONTENT_W, 11, 'normal');
-        lines.forEach(line => {
-          // text-align: justify -> per ora left, jsPDF non supporta nativamente justify ma c'e' workaround
-          doc.text(line, MARGIN, cursorY + 11, { align: 'justify', maxWidth: CONTENT_W });
-          cursorY += 14;
+      const paras = (typeof htmlToTextRuns === 'function') ? htmlToTextRuns(SETTINGS_QFT.header) : [];
+      if(paras.length > 0){
+        const startY = cursorY + 4;
+        cursorY = drawRichRunsParagraphs(paras, MARGIN, startY, CONTENT_W, 11, COL.textMid, 'justify', {
+          pageH: PAGE_H,
+          footerReserve: FOOTER_RESERVE,
+          marginTop: MARGIN,
+          onNewPage: () => {
+            doc.addPage();
+            drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
+          },
         });
         cursorY += 8;
       }
@@ -43891,22 +44661,22 @@ async function exportQuotePdfNative(options){
     }
 
     // === TESTO LIBERO FOOTER ===
+    // V2.10.192: vedi commento header. drawRichRunsParagraphs gestisce nativamente
+    // bold/italic/dimensioni/colori/evidenziatore + page-break automatico (il render
+    // verifica riga per riga se serve nuova pagina, quindi non serve piu' la stima
+    // a-priori).
     if(SETTINGS_QFT.footer){
-      const stripped = SETTINGS_QFT.footer.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]+>/g, '').trim();
-      if(stripped){
+      const paras = (typeof htmlToTextRuns === 'function') ? htmlToTextRuns(SETTINGS_QFT.footer) : [];
+      if(paras.length > 0){
         cursorY += 8;
-        setText(11, 'normal', COL.textMid);
-        const lines = wrapText(stripped, CONTENT_W, 11, 'normal');
-        // Verifica spazio
-        const linesH = lines.length * 14;
-        if(cursorY + linesH > PAGE_H - FOOTER_RESERVE){
-          doc.addPage();
-          drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
-          cursorY = MARGIN;
-        }
-        lines.forEach(line => {
-          doc.text(line, MARGIN, cursorY + 11);
-          cursorY += 14;
+        cursorY = drawRichRunsParagraphs(paras, MARGIN, cursorY, CONTENT_W, 11, COL.textMid, 'justify', {
+          pageH: PAGE_H,
+          footerReserve: FOOTER_RESERVE,
+          marginTop: MARGIN,
+          onNewPage: () => {
+            doc.addPage();
+            drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
+          },
         });
       }
     }
@@ -44253,6 +45023,15 @@ async function exportQuotePdf(){
         '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:22pt;padding-top:10pt;border-top:1pt solid #e5e7eb;font-size:8pt;color:#9ca3af;line-height:1.5}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:8pt 12pt;margin-top:14pt;font-size:9pt;color:#0c4a6e}' +
+        // V2.10.192: regole per testo libero (vedi spiegazione nel docx export)
+        '.qft-block{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#374151;line-height:1.6;text-align:justify}' +
+        '.qft-block b,.qft-block strong{font-weight:bold !important}' +
+        '.qft-block i,.qft-block em{font-style:italic !important}' +
+        '.qft-block u{text-decoration:underline !important}' +
+        '.qft-block s,.qft-block strike,.qft-block del{text-decoration:line-through !important}' +
+        '.qft-block p{margin:0 0 6pt 0}' +
+        '.qft-block ul,.qft-block ol{margin:6pt 0 6pt 18pt;padding-left:18pt}' +
+        '.qft-block li{margin:2pt 0}' +
         '.print-bar{position:fixed;top:10px;right:10px;background:#fff;border:1px solid #ccc;padding:8px 12px;border-radius:6px;display:flex;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:1000}' +
         '.print-bar button{padding:6px 12px;font-size:13px;border-radius:4px;cursor:pointer;border:1px solid #999}' +
         '@media print{.print-bar{display:none}}' +
@@ -44344,14 +45123,24 @@ async function exportQuotePdf(){
               '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
-              ((_quoteCliente.indirizzo || _quoteCliente.capCitta) ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml([_quoteCliente.indirizzo, _quoteCliente.capCitta].filter(x=>x && x.trim()).join(', ')) + '</div>' : '') +
-              (_quoteCliente.persRiferimento ? '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.4">Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' + (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') + '</div>' : '') +
-              ((_quoteCliente.telefono || _quoteCliente.email) ? (
+              // V2.10.192: indirizzo e CAP/Citta/Provincia su righe separate
+              (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim() ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml(_quoteCliente.indirizzo.trim()) + '</div>' : '') +
+              (_quoteCliente.capCitta && _quoteCliente.capCitta.trim() ? '<div style="font-size:9.5pt;color:#374151;line-height:1.4' + ((!_quoteCliente.indirizzo || !_quoteCliente.indirizzo.trim()) ? ';margin-top:5pt' : '') + '">' + escapeHtml(_quoteCliente.capCitta.trim()) + '</div>' : '') +
+              // V2.10.192: blocco riferimento completo (nome + ruolo + telefono + email raggruppati)
+              (_quoteCliente.persRiferimento ? (
+                '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
+                  'Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' +
+                  (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') +
+                  // V2.10.192: telefono/email del REFERENTE con fallback ai campi cliente
+                  ((_quoteCliente.telRiferimento || _quoteCliente.telefono) ? '<br><span style="color:#6b7280">Tel: ' + escapeHtml(_quoteCliente.telRiferimento || _quoteCliente.telefono) + '</span>' : '') +
+                  ((_quoteCliente.emailRiferimento || _quoteCliente.email) ? '<br><span style="color:#6b7280">Email: ' + escapeHtml(_quoteCliente.emailRiferimento || _quoteCliente.email) + '</span>' : '') +
+                '</div>'
+              ) : ((_quoteCliente.telefono || _quoteCliente.email) ? (
                 '<div style="font-size:8.5pt;color:#6b7280;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
                   (_quoteCliente.telefono ? 'Tel: ' + escapeHtml(_quoteCliente.telefono) + (_quoteCliente.email ? '<br>' : '') : '') +
                   (_quoteCliente.email ? 'Email: ' + escapeHtml(_quoteCliente.email) : '') +
                 '</div>'
-              ) : '') +
+              ) : '')) +
             '</div>' +
             // V2.10.18: riga metadata preventivo SOTTO la card destinatario, fuori dal box
             '<div style="font-size:9.5pt;color:#d1d5db;margin-top:8pt;text-align:right;letter-spacing:0.2pt">' +
@@ -44361,15 +45150,18 @@ async function exportQuotePdf(){
         '</div>' +
       '</div>' +
       // V2.10.15: riga OGGETTO con card laterale + accento ambra (Variante B - elegante e armoniosa)
+      // V2.10.192: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
+      // della textarea e wrappare automaticamente i testi lunghi multi-riga.
       (_quoteNome ? (
         '<div style="margin:0 24pt;padding:8pt 16pt;background:#fafaf9;border-left:4pt solid #0178d4;border-radius:2pt;display:flex;flex-direction:column;gap:2pt">' +
           '<span style="font-size:9.5pt;color:#6b7280;letter-spacing:0.2pt">Oggetto della Proposta</span>' +
-          '<span style="font-weight:600;font-size:14pt;color:#1f2937;line-height:1.3">' + escapeHtml(_quoteNome) + '</span>' +
+          '<span style="font-weight:600;font-size:14pt;color:#1f2937;line-height:1.4;text-align:justify;white-space:pre-wrap">' + escapeHtml(_quoteNome) + '</span>' +
         '</div>'
       ) : '') +
       // V2.10.24: testo libero header (sotto card OGGETTO) - HTML formattato dall'utente. V2.10.26: distanza maggiore + giustificato
+      // V2.10.192: usa classe .qft-block (vedi commento header)
       ((SETTINGS_QFT && SETTINGS_QFT.header) ? (
-        '<div style="margin:18pt 24pt 0 24pt;padding:0 4pt;font-size:11pt;color:#374151;line-height:1.6;text-align:justify">' +
+        '<div class="qft-block" style="margin:18pt 24pt 0 24pt;padding:0 4pt;font-size:11pt">' +
           SETTINGS_QFT.header +
         '</div>'
       ) : '') +
@@ -44387,8 +45179,9 @@ async function exportQuotePdf(){
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
+        // V2.10.192: usa classe .qft-block (vedi commento header)
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
-          '<div style="margin-top:18pt;padding:0 4pt;font-size:11pt;color:#374151;line-height:1.6;text-align:justify">' +
+          '<div class="qft-block" style="margin-top:18pt;padding:0 4pt;font-size:11pt">' +
             SETTINGS_QFT.footer +
           '</div>'
         ) : '') +
