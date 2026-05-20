@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.193</title>
+<title>Gestione Prodotti V2.10.211</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.193</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.211</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.193');
+console.info('[bootstrap] script avvio — V2.10.211');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,7 +10276,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.193';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.211';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -10418,6 +10418,23 @@ function personalProductUpdate(idx, updates){
     }
   });
   item.modified = new Date().toISOString();
+  // V2.10.211: BUGFIX — rimuovo eventuali override EDITS residui per questo indice.
+  // I prodotti personali sono editabili DIRETTAMENTE su `item`, non tramite il sistema
+  // EDITS (che serve solo per i prodotti del catalogo Visiotech). Se un EDITS stantio
+  // resta agganciato a questo _idx — possibile dopo reload, perche' gli _idx vengono
+  // riusati — getField() darebbe la precedenza all'EDITS oscurando il valore appena
+  // salvato (es. prezzo di listino che non si aggiorna nella card). Lo elimino qui.
+  try {
+    if(typeof EDITS !== 'undefined' && item._idx !== undefined && EDITS[item._idx]){
+      delete EDITS[item._idx];
+      // Persisto la rimozione dell'EDITS su IndexedDB (stesso metodo usato altrove)
+      if(typeof idbSet === 'function'){
+        Promise.resolve(idbSet('edits', 'main', EDITS)).catch(e => {
+          console.warn('[personali] persist EDITS cleanup fallito:', e && e.message);
+        });
+      }
+    }
+  } catch(_){}
   // Refresh cache ricerca
   if(typeof rebuildSearchCacheForItem === 'function'){
     try { rebuildSearchCacheForItem(item); } catch(_){}
@@ -10499,6 +10516,171 @@ function personalProductsCount(){
   return DATA.reduce((n, p) => n + (p && p.isPersonal === true ? 1 : 0), 0);
 }
 
+/* V2.10.211: reindicizza TUTTI gli _idx di DATA in modo sequenziale e univoco.
+   Ogni record riceve _idx = posizione reale nell'array. Risolve il bug degli
+   _idx duplicati (due record con lo stesso _idx) che faceva aprire l'editor
+   sbagliato — es. "Modifica prodotto personale" su uno shadow service.
+   Idempotente e lossless: _idx e' solo una chiave interna, riassegnarla non
+   altera i dati. Restituisce il numero di _idx che erano errati (per logging). */
+function _reindexDATA(){
+  if(!Array.isArray(DATA)) return 0;
+  let fixed = 0;
+  DATA.forEach((p, i) => {
+    if(!p) return;
+    if(p._idx !== i){
+      p._idx = i;
+      fixed++;
+    }
+  });
+  return fixed;
+}
+
+/* V2.10.211: verifica se ci sono _idx duplicati in DATA. Restituisce true se
+   trovati (e in tal caso conviene chiamare _reindexDATA). Diagnostica leggera. */
+function _hasDuplicateIdx(){
+  if(!Array.isArray(DATA)) return false;
+  const seen = new Set();
+  for(const p of DATA){
+    if(!p || p._idx === undefined) continue;
+    if(seen.has(p._idx)) return true;
+    seen.add(p._idx);
+  }
+  return false;
+}
+
+/* ============================================================================
+   V2.10.211: DUPLICAZIONE prodotti e servizi.
+   - duplicateProductAsPersonal(idx): copia un prodotto (catalogo Visiotech O personale)
+     creando un NUOVO prodotto personale. Apre subito l'editor della copia.
+   - duplicateService(id): copia un servizio creando un nuovo servizio. Apre l'editor.
+   In entrambi i casi il codice viene reso univoco aggiungendo un suffisso.
+   ============================================================================ */
+
+/* Genera un codice univoco aggiungendo " (copia)" / " (copia 2)" ... al codice base.
+   `existsFn(code)` deve restituire true se il codice e' gia' usato. */
+function _makeUniqueCopyCode(baseCode, existsFn){
+  const base = String(baseCode || '').trim() || 'COPIA';
+  let candidate = base + ' (copia)';
+  if(!existsFn(candidate)) return candidate;
+  let n = 2;
+  while(n < 1000){
+    candidate = base + ' (copia ' + n + ')';
+    if(!existsFn(candidate)) return candidate;
+    n++;
+  }
+  // Fallback: suffisso timestamp
+  return base + ' (copia ' + Date.now().toString(36).toUpperCase() + ')';
+}
+
+/* Duplica un prodotto (qualsiasi: catalogo Visiotech o personale) come NUOVO
+   prodotto personale. L'originale non viene toccato.
+   V2.10.211: NON crea piu' il record subito — apre l'editor in modalita' CREAZIONE
+   pre-compilato con i dati della copia. Il prodotto viene creato solo se l'utente
+   clicca "Crea prodotto"; se annulla, non resta nulla.
+   `idx` = _idx logico del prodotto sorgente. */
+function duplicateProductAsPersonal(idx){
+  const src = DATA.find(x => x && x._idx === idx);
+  if(!src){
+    if(typeof toast === 'function') toast('Prodotto da duplicare non trovato', 'err');
+    return;
+  }
+  // Leggo i valori effettivi (con override EDITS applicati, se prodotto catalogo)
+  const gf = (typeof getField === 'function')
+    ? (f) => getField(src, f)
+    : (f) => src[f];
+  // Codice univoco per la copia
+  const baseCode = String(gf('name') || src.name || 'PRODOTTO').trim();
+  const newCode = _makeUniqueCopyCode(baseCode, (c) => DATA.some(p => p && p.name === c));
+  // Immagini extra: copio l'array se presente
+  let extraImgs = [];
+  if(Array.isArray(src.extra_images)) extraImgs = src.extra_images.slice();
+  else if(typeof parseExtraImages === 'function' && src.extra_images_paths){
+    try { extraImgs = parseExtraImages(src.extra_images_paths) || []; } catch(_){}
+  }
+  // Chiudo l'eventuale editor del prodotto sorgente
+  if(typeof closeEditor === 'function'){ try { closeEditor(); } catch(_){} }
+  const exModal = document.getElementById('personalProductModal');
+  if(exModal) exModal.remove();
+  // Apro l'editor in modalita' CREAZIONE pre-compilata. Il record viene creato
+  // solo se l'utente conferma con "Crea prodotto".
+  if(typeof openPersonalProductEditor === 'function'){
+    openPersonalProductEditor({
+      prefill: {
+        name: newCode,
+        brand: String(gf('brand') || ''),
+        category_parent: String(gf('category_parent') || ''),
+        category: String(gf('category') || ''),
+        short_description: String(gf('short_description') || ''),
+        description: String(gf('description') || ''),
+        PVP: String(gf('PVP') || '0'),
+        precio_neto_compra: String(gf('precio_neto_compra') || '0'),
+        image_path: String(gf('image_path') || ''),
+        extra_images: extraImgs,
+      },
+      onSave: () => {
+        if(typeof applyFilters === 'function') applyFilters();
+        if(typeof render === 'function') render();
+      }
+    });
+  }
+}
+
+/* Duplica un servizio. L'originale non viene toccato.
+   V2.10.211: NON crea piu' il record subito — apre l'editor in modalita' CREAZIONE
+   pre-compilato con i dati della copia. Il servizio viene creato solo se l'utente
+   clicca "Crea servizio"; se annulla, non resta nulla.
+   `id` = id del servizio sorgente. */
+function duplicateService(id){
+  if(typeof serviceGetById !== 'function'){
+    if(typeof toast === 'function') toast('Funzioni servizi non disponibili', 'err');
+    return;
+  }
+  const src = serviceGetById(id);
+  if(!src){
+    if(typeof toast === 'function') toast('Servizio da duplicare non trovato', 'err');
+    return;
+  }
+  // Codice univoco (se il sorgente ha un codice manuale)
+  const services = (window._SERVICES_STATE && window._SERVICES_STATE.services) || [];
+  let newCode = '';
+  if(src.codice && String(src.codice).trim()){
+    newCode = _makeUniqueCopyCode(String(src.codice).trim(),
+      (c) => services.some(s => s && s.codice && s.codice.toLowerCase() === c.toLowerCase()));
+  }
+  const newNome = String(src.nome || 'Servizio') + ' (copia)';
+  // Chiudo l'editor del servizio sorgente
+  const exSvc = document.getElementById('serviceEditorModal');
+  if(exSvc) exSvc.remove();
+  // Apro l'editor in modalita' CREAZIONE pre-compilata. Il servizio viene creato
+  // solo se l'utente conferma con "Crea servizio".
+  if(typeof openServiceEditor === 'function'){
+    openServiceEditor({
+      prefill: {
+        codice: newCode,
+        nome: newNome,
+        descrizione_breve: String(src.descrizione_breve || ''),
+        descrizione_estesa: String(src.descrizione_estesa || ''),
+        categoria: String(src.categoria || ''),
+        sottocategoria: String(src.sottocategoria || ''),
+        tags: Array.isArray(src.tags) ? src.tags.slice() : [],
+        unita_misura: src.unita_misura || 'cad',
+        prezzo_vendita: src.prezzo_vendita != null ? src.prezzo_vendita : (src.prezzo_listino || 0),
+        prezzo_costo: src.prezzo_costo != null ? src.prezzo_costo : (src.prezzo_netto || 0),
+        iva_aliquota: src.iva_aliquota != null ? src.iva_aliquota : 22,
+        durata_stimata_minuti: src.durata_stimata_minuti != null ? src.durata_stimata_minuti : '',
+        note: String(src.note || ''),
+        attivo: src.attivo !== false,
+        preferito: false,  // la copia non eredita lo stato "preferito"
+        immagine: String(src.immagine || ''),
+      },
+      onSave: () => {
+        if(typeof applyFilters === 'function') applyFilters();
+        if(typeof render === 'function') render();
+      }
+    });
+  }
+}
+
 /* ============================================================================
    V2.9.10: Dialog di creazione/modifica prodotto personale.
    API:
@@ -10515,27 +10697,58 @@ function openPersonalProductEditor(opts){
     toast('Prodotto non trovato o non personale', 'err');
     return;
   }
+  // V2.10.211: PROTEZIONE — gli shadow service hanno isPersonal=true MA anche
+  // isService=true. Non devono mai aprirsi in questo editor (e' per prodotti, non
+  // servizi): se capita, reindirizzo all'editor servizi corretto. Questo previene
+  // il bug "Modifica prodotto personale" che mostrava un servizio col codice SVC-SRV-.
+  if(isEdit && existing && existing.isService === true){
+    const svcName = String(existing.name || '');
+    if(svcName.indexOf('SVC-') === 0 && typeof openServiceEditor === 'function'){
+      openServiceEditor({
+        id: svcName.substring(4),
+        onSave: opts.onSave,
+        onCancel: opts.onCancel,
+      });
+      return;
+    }
+    // Servizio legacy senza prefisso SVC-: cerco per codice/descrizione
+    if(typeof openServiceEditor === 'function' && window._SERVICES_STATE
+       && Array.isArray(window._SERVICES_STATE.services)){
+      const desc = String(existing.short_description || existing.description || '').trim();
+      const svc = window._SERVICES_STATE.services.find(s => s && (
+        (s.codice && svcName && s.codice.toLowerCase() === svcName.toLowerCase()) ||
+        (s.descrizione_breve && desc && s.descrizione_breve.toLowerCase() === desc.toLowerCase())
+      ));
+      if(svc && svc.id){
+        openServiceEditor({ id: svc.id, onSave: opts.onSave, onCancel: opts.onCancel });
+        return;
+      }
+    }
+  }
 
   const ex = document.getElementById('personalProductModal');
   if(ex) ex.remove();
 
+  // V2.10.211: in modalita' CREAZIONE si puo' passare opts.prefill per pre-compilare
+  // i campi (es. duplicazione di un prodotto). Il record viene creato solo al Salva.
+  const pre = (!isEdit && opts.prefill && typeof opts.prefill === 'object') ? opts.prefill : null;
   const f = {
-    name: existing ? existing.name : '',
-    brand: existing ? (existing.brand || '') : '',
-    category_parent: existing ? (existing.category_parent || '') : '',
-    category: existing ? (existing.category || '') : '',
-    short_description: existing ? (existing.short_description || '') : '',
-    description: existing ? (existing.description || '') : '',
-    PVP: existing ? (existing.PVP || '') : '',
-    precio_neto_compra: existing ? (existing.precio_neto_compra || '') : '',
-    image_path: existing ? (existing.image_path || '') : '',
+    name: existing ? existing.name : (pre ? (pre.name || '') : ''),
+    brand: existing ? (existing.brand || '') : (pre ? (pre.brand || '') : ''),
+    category_parent: existing ? (existing.category_parent || '') : (pre ? (pre.category_parent || '') : ''),
+    category: existing ? (existing.category || '') : (pre ? (pre.category || '') : ''),
+    short_description: existing ? (existing.short_description || '') : (pre ? (pre.short_description || '') : ''),
+    description: existing ? (existing.description || '') : (pre ? (pre.description || '') : ''),
+    PVP: existing ? (existing.PVP || '') : (pre ? (pre.PVP || '') : ''),
+    precio_neto_compra: existing ? (existing.precio_neto_compra || '') : (pre ? (pre.precio_neto_compra || '') : ''),
+    image_path: existing ? (existing.image_path || '') : (pre ? (pre.image_path || '') : ''),
     // V2.9.27: FIX BUG GRAVE - leggo extra_images dall'item esistente.
     // Prima questo campo non veniva letto, causando perdita TOTALE delle
     // immagini extra al successivo save (l'hidden field veniva inizializzato
     // a "[]" e poi sovrascriveva l'array reale nel DATA).
     extra_images: existing && Array.isArray(existing.extra_images)
       ? existing.extra_images.slice()
-      : [],
+      : (pre && Array.isArray(pre.extra_images) ? pre.extra_images.slice() : []),
   };
 
   const bg = document.createElement('div');
@@ -10645,6 +10858,8 @@ function openPersonalProductEditor(opts){
         '<button class="btn ghost" id="ppCancelBtn">Annulla</button>' +
         '<span style="flex:1"></span>' +
         (isEdit ? '<button class="btn danger" id="ppDeleteBtn" style="margin-right:auto">🗑️ Elimina</button>' : '') +
+        // V2.10.211: pulsante Duplica — crea una copia del prodotto come prodotto personale
+        (isEdit ? '<button class="btn" id="ppDuplicateBtn" style="background:var(--bg2);color:var(--fg)">📋 Duplica</button>' : '') +
         '<button class="btn primary" id="ppSaveBtn">' + (isEdit ? '💾 Salva modifiche' : '➕ Crea prodotto') + '</button>' +
       '</div>' +
     '</div>';
@@ -10723,6 +10938,20 @@ function openPersonalProductEditor(opts){
         toast('Errore: ' + (e.message || e), 'err');
       }
     });
+    // V2.10.211: handler Duplica — crea una copia come prodotto personale.
+    const ppDupBtn = document.getElementById('ppDuplicateBtn');
+    if(ppDupBtn){
+      ppDupBtn.addEventListener('click', () => {
+        const src = DATA[opts.idx];
+        if(!src || src._idx === undefined){
+          toast('Prodotto da duplicare non trovato', 'err');
+          return;
+        }
+        cleanup();
+        // duplicateProductAsPersonal lavora su _idx logico e apre l'editor della copia
+        duplicateProductAsPersonal(src._idx);
+      });
+    }
   }
 
   setTimeout(() => {
@@ -11085,7 +11314,7 @@ function renderPersonalProductsTable(){
     const netto = _qFmtEur(priceNum(p.precio_neto_compra) || 0);
     return (
       '<tr class="pp-row" data-idx="' + p._idx + '" style="cursor:pointer">' +
-        '<td style="padding:10px 12px;font-family:monospace;font-size:12px;color:var(--accent2);font-weight:600;white-space:nowrap">' + escapeHtml(p.name) + '</td>' +
+        '<td style="padding:10px 12px;font-family:monospace;font-size:12px;color:var(--accent2);font-weight:600;white-space:nowrap">' + escapeHtml(typeof resolveDisplayCode === 'function' ? resolveDisplayCode(p.name) : p.name) + '</td>' +
         '<td style="padding:10px 12px;font-size:12.5px">' + escapeHtml(p.brand || '—') + '</td>' +
         '<td style="padding:10px 12px;font-size:12.5px">' +
           (p.category_parent ? '<div style="color:var(--fg2)">' + escapeHtml(p.category_parent) + '</div>' : '') +
@@ -11425,7 +11654,7 @@ function renderAddPersonalToCartList(){
       '<div class="add-svc-card" data-idx="' + p._idx + '" style="display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);margin-bottom:8px;transition:border-color 0.12s,background 0.12s">' +
         '<div style="flex:1;min-width:0">' +
           '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
-            '<span style="font-family:monospace;font-size:11.5px;color:var(--accent2);font-weight:600">' + escapeHtml(p.name) + '</span>' +
+            '<span style="font-family:monospace;font-size:11.5px;color:var(--accent2);font-weight:600">' + escapeHtml(typeof resolveDisplayCode === 'function' ? resolveDisplayCode(p.name) : p.name) + '</span>' +
             (p.category_parent ? '<span style="font-size:11px;color:var(--fg3)">' + escapeHtml(p.category_parent) + (p.category ? ' / ' + escapeHtml(p.category) : '') + '</span>' : '') +
           '</div>' +
           '<div style="font-size:13px;font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeAttr(p.short_description) + '">' +
@@ -12233,7 +12462,7 @@ const DRIVE_POLL_VALID_VALUES    = [0, 1, 3, 5, 10];         // opzioni ammesse 
 // per scaricare modifiche di altri device durante la sessione precedente.
 // L'utente sincronizza esplicitamente via i 2 pulsanti topbar ☁️⬆ e ☁️⬇.
 const DRIVE_LOCAL_MODE_KEY       = 'gp_drive_local_mode';    // '1' = ON, altrimenti OFF
-// V2.10.193: sotto-toggle per Modalità Locale — controlla se all'avvio della pagina
+// V2.10.211: sotto-toggle per Modalità Locale — controlla se all'avvio della pagina
 // viene eseguito il safety pull automatico da Drive. Default: '1' (automatico, comportamento
 // storico). Quando '0': nessun pull all'avvio, l'utente deve cliccare ☁️⬇ Importa da Drive.
 // Il push resta sempre manuale in modalità Locale, indipendentemente da questo flag.
@@ -12361,7 +12590,7 @@ const DRIVE_STATE = {
   // V2.10.103: modalità locale (offline-first work mode)
   localMode: false,             // true = niente push/pull automatici, sync esplicito via pulsanti
   safetyPullDone: false,        // true dopo il safety pull all'apertura (1 volta sola per sessione)
-  // V2.10.193: sotto-toggle Modalità Locale — pull automatico all'avvio.
+  // V2.10.211: sotto-toggle Modalità Locale — pull automatico all'avvio.
   // Default true (comportamento storico V2.10.103). Quando false, niente pull all'avvio.
   localAutoPull: true,
 };
@@ -12376,9 +12605,12 @@ const DRIVE_TARGETED_TARGETS = ['quotesArchive', 'clients', 'services'];
 
 // Stato runtime per ogni target (timer di debounce, flag di sync in corso, ultimo errore)
 const DRIVE_TARGETED_STATE = {
-  quotesArchive: { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null },
-  clients:       { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null },
-  services:      { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null },
+  // V2.10.211: aggiunto permanentError — quando il send fallisce per un errore
+  // NON recuperabile col retry (es. "payload too large"), si memorizza qui e si
+  // ferma il loop di retry infinito. Cancellato al primo send riuscito.
+  quotesArchive: { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null, permanentError: null },
+  clients:       { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null, permanentError: null },
+  services:      { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null, permanentError: null },
 };
 
 // V2.10.168: tracciamento "file Drive targeted da pushare" indipendente dalla modalità.
@@ -12610,7 +12842,7 @@ function driveInit(){
     // Default OFF. Solo il valore esplicito '1' la attiva.
     DRIVE_STATE.localMode = localStorage.getItem(DRIVE_LOCAL_MODE_KEY) === '1';
     DRIVE_STATE.safetyPullDone = false;  // reset ad ogni init
-    // V2.10.193: sotto-toggle pull automatico all'avvio (solo per modalità Locale).
+    // V2.10.211: sotto-toggle pull automatico all'avvio (solo per modalità Locale).
     // Default TRUE per backward compatibility (comportamento storico V2.10.103).
     // Solo il valore esplicito '0' lo disattiva.
     DRIVE_STATE.localAutoPull = localStorage.getItem(DRIVE_LOCAL_AUTO_PULL_KEY) !== '0';
@@ -14941,6 +15173,15 @@ function driveScheduleTargetedSave(target){
   const state = DRIVE_TARGETED_STATE[target];
   state.pending = true;
 
+  // V2.10.211: i dati di questo target sono cambiati. Se era attivo un errore
+  // permanente (es. payload troppo grande), lo azzero: ora il payload potrebbe
+  // essere diverso (magari l'utente ha eliminato dei record) e ha senso
+  // ritentare UNA volta. Se e' ancora troppo grande, il send fallira' di nuovo
+  // e ri-bloccherà — un tentativo per modifica, non un loop infinito.
+  if(state.permanentError){
+    _driveClearPermanentError(target);
+  }
+
   if(state.scheduledTimer){
     clearTimeout(state.scheduledTimer);
   }
@@ -14955,6 +15196,54 @@ function driveScheduleTargetedSave(target){
   if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
 }
 
+// V2.10.211: riconosce gli errori NON recuperabili col retry. Per questi,
+// riprovare a inviare lo stesso payload darebbe sempre lo stesso errore, quindi
+// il loop di retry va fermato. Il caso tipico e' "payload too large": l'archivio
+// (es. quotesArchive) ha superato il limite di dimensione imposto da Drive.
+function _driveIsPermanentError(msg){
+  if(!msg) return false;
+  const m = String(msg).toLowerCase();
+  // "payload too large" / "request entity too large" / superamento limite KB
+  if(m.indexOf('payload too large') !== -1) return true;
+  if(m.indexOf('entity too large') !== -1) return true;
+  if(m.indexOf('too large') !== -1 && m.indexOf('limit') !== -1) return true;
+  if(m.indexOf('http 413') !== -1) return true;  // 413 Payload Too Large
+  return false;
+}
+
+// V2.10.211: avvisa l'utente di un errore permanente sul sync Drive. Mostra un
+// toast persistente (una sola volta per target finche' l'errore resta attivo)
+// che spiega il problema in italiano, senza tecnicismi da console.
+const _drivePermanentErrorNotified = new Set();
+function _driveNotifyPermanentError(target, msg){
+  if(_drivePermanentErrorNotified.has(target)) return;  // gia' avvisato
+  _drivePermanentErrorNotified.add(target);
+  const nomeTarget = (target === 'quotesArchive') ? 'archivio preventivi'
+                   : (target === 'clients')      ? 'archivio clienti'
+                   : (target === 'services')     ? 'archivio servizi'
+                   : target;
+  if(typeof toast === 'function'){
+    toast('Salvataggio su Drive sospeso: l\u0027' + nomeTarget + ' e\u0027 troppo grande ' +
+      'per Drive. I dati restano salvati in locale. Riduci i dati (es. elimina ' +
+      'preventivi vecchi) e riprova il salvataggio dal pulsante Drive.', 'err', 12000);
+  }
+}
+
+// V2.10.211: azzera l'errore permanente di un target. Va chiamata quando i dati
+// del target cambiano (es. l'utente ha eliminato dei preventivi): a quel punto
+// il payload potrebbe essere tornato sotto il limite e ha senso riprovare.
+function _driveClearPermanentError(target){
+  const state = DRIVE_TARGETED_STATE[target];
+  if(state && state.permanentError){
+    state.permanentError = null;
+    _drivePermanentErrorNotified.delete(target);
+    console.info('[drive-targeted] ' + target + ' errore permanente azzerato — i dati sono cambiati, retry riabilitato.');
+  } else {
+    // Anche se non c'era errore, tengo pulito il set di notifica
+    _drivePermanentErrorNotified.delete(target);
+  }
+}
+
 // Esegue effettivamente il send targeted. Costruisce payload + invia.
 // Atomic: se altri save dello stesso target sono in coda durante il send,
 // viene riprogrammato un altro send a fine corrente.
@@ -14966,6 +15255,18 @@ async function _driveSendTargeted(target){
   if(state.syncing){
     // Già in corso: marca pending, il finally riprogramma
     state.pending = true;
+    return false;
+  }
+
+  // V2.10.211: se un precedente tentativo è fallito con errore PERMANENTE
+  // (es. payload troppo grande), non ha senso riprovare: stesso payload →
+  // stesso errore. Esco subito ed evito il loop di retry infinito.
+  // Il permanentError viene azzerato solo quando i dati cambiano abbastanza
+  // da poter avere successo (vedi _driveClearPermanentError).
+  if(state.permanentError){
+    console.warn('[drive-targeted] ' + target + ' send saltato: errore permanente attivo (' +
+      state.permanentError + '). In attesa che i dati vengano ridotti.');
+    state.pending = false;
     return false;
   }
 
@@ -15001,6 +15302,7 @@ async function _driveSendTargeted(target){
     state.lastSyncAt = new Date().toISOString();
     state.lastSyncedTs = j.ts || payload.ts;
     state.lastError = null;
+    state.permanentError = null;  // V2.10.211: send riuscito → azzero eventuale errore permanente
     console.info('[drive-targeted] ' + target + ' OK in ' + elapsed + 'ms (server: ' + (j.processingMs||'?') + 'ms)');
 
     // Salva su localStorage l'ultimo ts noto (per la migrazione/check al boot)
@@ -15019,10 +15321,24 @@ async function _driveSendTargeted(target){
     state.lastError = e.message;
     console.warn('[drive-targeted] ' + target + ' ERROR:', e.message);
 
-    // Recovery: ritento dopo 5s con backoff. Il pending=true farà riprovare automaticamente.
+    // V2.10.211: distinguo errori PERMANENTI da errori TEMPORANEI.
+    // Permanente = riprovare lo stesso payload darà sempre lo stesso errore
+    // (es. "payload too large"). Temporaneo = rete/timeout/server momentaneo.
+    if(_driveIsPermanentError(e.message)){
+      state.permanentError = e.message;
+      state.pending = false;  // NIENTE retry: fermo il loop infinito
+      console.error('[drive-targeted] ' + target + ' ERRORE PERMANENTE — retry disattivato. ' +
+        'Causa: ' + e.message);
+      if(typeof _driveNotifyPermanentError === 'function'){
+        try { _driveNotifyPermanentError(target, e.message); } catch(_){}
+      }
+      return false;
+    }
+
+    // Errore temporaneo: ritento dopo 5s. Il pending=true farà riprovare.
     state.pending = true;
     setTimeout(() => {
-      if(state.pending && !state.syncing){
+      if(state.pending && !state.syncing && !state.permanentError){
         _driveSendTargeted(target).catch(()=>{});
       }
     }, 5000);
@@ -15410,6 +15726,14 @@ async function driveSyncNow(){
   const targetedPromises = [];
   for(const target of DRIVE_TARGETED_TARGETS){
     const state = DRIVE_TARGETED_STATE[target];
+    // V2.10.211: il sync manuale e' un'azione volontaria dell'utente. Se un
+    // target ha un errore permanente (es. era troppo grande), lo azzero e
+    // ritento: magari l'utente ha appena ridotto i dati. Se e' ancora troppo
+    // grande, fallira' una volta e ri-bloccherà — nessun loop.
+    if(state.permanentError){
+      _driveClearPermanentError(target);
+      state.pending = true;
+    }
     if(state.pending && !state.syncing){
       if(state.scheduledTimer){ clearTimeout(state.scheduledTimer); state.scheduledTimer = null; }
       targetedPromises.push(_driveSendTargeted(target).catch(e => {
@@ -15870,7 +16194,7 @@ function driveGetLocalMode(){
   return !!DRIVE_STATE.localMode;
 }
 
-/* V2.10.193: setter/getter sotto-toggle "Pull automatico all'avvio" della Modalità Locale.
+/* V2.10.211: setter/getter sotto-toggle "Pull automatico all'avvio" della Modalità Locale.
    Quando enabled=true (default): all'apertura della pagina viene chiamato _driveSafetyPullOnOpen
    che scarica i dati da Drive. Quando enabled=false: nessun pull automatico, l'utente deve
    cliccare manualmente ☁️⬇ Importa da Drive nella topbar.
@@ -19503,7 +19827,7 @@ async function driveRenderSettingsPanel(){
             '</div>'
           : ''
         ) +
-        // V2.10.193: sotto-toggle "Pull automatico all'avvio" — visibile SOLO quando
+        // V2.10.211: sotto-toggle "Pull automatico all'avvio" — visibile SOLO quando
         // Modalità Locale è attiva. Permette di scegliere se all'apertura della pagina
         // i dati vengono scaricati da Drive automaticamente oppure manualmente (☁️⬇).
         // Il push resta sempre manuale in Modalità Locale.
@@ -24117,19 +24441,10 @@ function renderGallery(main, list){
     card.className = classes;
     card.dataset.idx = p._idx;  // per hover-preview (tooltip specifiche tecniche)
     let name = getField(p,'name');
-    // V2.10.180: se e' uno shadow service (name="SVC-XXX"), mostro il codice manuale
-    // del servizio reale al posto del nome shadow. La risoluzione passa per serviceGetById
-    // usando l'id estratto dal name shadow ("SVC-" + svc.id).
-    if(p && p.isService === true && typeof name === 'string' && name.indexOf('SVC-') === 0){
-      const svcId = name.substring(4);
-      if(typeof serviceGetById === 'function'){
-        const svcReal = serviceGetById(svcId);
-        if(svcReal && svcReal.codice){
-          name = svcReal.codice;
-        } else if(svcReal && svcReal.nome){
-          name = svcReal.nome;
-        }
-      }
+    // V2.10.211: risoluzione UNIFICATA del codice shadow service tramite resolveDisplayCode.
+    // (prima la logica era duplicata inline qui — ora centralizzata).
+    if(typeof resolveDisplayCode === 'function'){
+      name = resolveDisplayCode(name);
     }
     const brand = getField(p,'brand');
     const listino = getField(p,'PVP') || getField(p,'precio_venta_cliente_final');
@@ -24435,7 +24750,7 @@ function renderTable(main, list){
     tr.innerHTML = `
       <td>${img? `<img class="tbl-img" loading="lazy" src="${img}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder-mini',textContent:'—'}))">` : '<div class="placeholder-mini">—</div>'}</td>
       <td><span style="display:inline-flex;align-items:center;white-space:nowrap">${rowActionsCell}</span></td>
-      <td style="min-width:280px">${highlightPlain(getField(p,'name'))}${inlineBadge}</td>
+      <td style="min-width:280px">${highlightPlain(typeof resolveDisplayCode === 'function' ? resolveDisplayCode(getField(p,'name')) : getField(p,'name'))}${inlineBadge}</td>
       <td data-brand style="font-weight:700">${highlightPlain(getField(p,'brand'))}</td>
       <td style="color:var(--fg2);font-size:12px">${highlightPlain(getField(p,'category_parent')||'')}</td>
       <td>${highlightPlain(getField(p,'category')||'')}</td>
@@ -24597,7 +24912,11 @@ function buildHoverPreviewHtml(p, mode){
   }
   const isOriginalView = mode === 'original';
 
-  const name = _hpGetField(p, 'name', mode) || '—';
+  // V2.10.211: risolvo il codice da mostrare. Per gli shadow service (name="SVC-...")
+  // mostro il codice manuale del servizio (es. "SE-STARTUP") invece del nome tecnico
+  // interno ("SVC-SRV-802172"), che non deve mai comparire nella UI.
+  const rawName = _hpGetField(p, 'name', mode) || '—';
+  const name = (typeof resolveDisplayCode === 'function') ? resolveDisplayCode(rawName) : rawName;
   const brand = _hpGetField(p, 'brand', mode) || '';
   const cat = _hpGetField(p, 'category', mode) || '';
   const ean = _hpGetField(p, 'ean', mode) || '';
@@ -25045,8 +25364,36 @@ function openEditor(idx){
   // V2.2.35: chiudi sempre la tooltip hover preview prima di aprire la scheda
   // (evita sovrapposizione visiva tra tooltip e dialog di modifica)
   if(typeof closeHoverPreview === 'function') closeHoverPreview(true, true);
-  const p = DATA.find(x=>x._idx===idx);
+  let p = DATA.find(x=>x._idx===idx);
   if(!p) return;
+  // V2.10.211: BUGFIX CRITICO — _idx duplicati.
+  // Gli _idx dovrebbero essere univoci, ma per come vengono assegnati (DATA.length
+  // al momento dell'inserimento) possono collidere — es. uno shadow service e un
+  // prodotto personale con lo stesso _idx. In quel caso DATA.find(_idx) restituisce
+  // il PRIMO record trovato, che puo' essere quello sbagliato (apriva "Modifica
+  // prodotto personale" su un servizio, o viceversa).
+  // Soluzione: se rilevo _idx duplicati, riparo DATA reindicizzando TUTTI gli _idx
+  // in modo sequenziale e univoco, poi ri-cerco il record corretto. La riparazione
+  // e' lossless (cambia solo _idx, chiave interna) e idempotente.
+  const sameIdx = DATA.filter(x => x && x._idx === idx);
+  if(sameIdx.length > 1){
+    console.warn('[openEditor V2.10.211] _idx duplicato (' + sameIdx.length +
+      ' record con _idx=' + idx + '): riparo DATA reindicizzando.');
+    // Memorizzo il riferimento all'oggetto p PRIMA del reindex (l'identita' resta)
+    const targetRef = p;
+    if(typeof _reindexDATA === 'function'){
+      _reindexDATA();
+    } else {
+      DATA.forEach((x, i) => { if(x) x._idx = i; });
+    }
+    // Dopo il reindex ri-trovo il record per riferimento oggetto (identita' stabile)
+    p = targetRef;
+    idx = p._idx;
+    // Persisto la riparazione su IndexedDB
+    if(typeof idbSet === 'function'){
+      Promise.resolve(idbSet('data', 'main', DATA)).catch(() => {});
+    }
+  }
   // V2.9.25: se il prodotto e' personale, apri l'editor dedicato (con galleria
   // multi-immagine, drag&drop, copertina). L'editor generico non ha senso per
   // i personali (stock magazzini, parametri tecnici, EAN, ecc. non si applicano).
@@ -25062,6 +25409,39 @@ function openEditor(idx){
         if(typeof render === 'function') render();
       }
     });
+    return;
+  }
+  // V2.10.211: BUGFIX — servizi LEGACY (isService=true ma name NON inizia con "SVC-",
+  // es. "SE-NSTV2", "SE-STARTUP"). Prima cadevano nel ramo "editor generico" che
+  // apriva una scheda prodotto a caso (l'editor catalogo non ha senso per un servizio).
+  // Ora cerco il servizio corrispondente in _SERVICES_STATE — per codice manuale
+  // oppure per descrizione breve — e apro openServiceEditor su quello.
+  if(p.isService === true && typeof p.name === 'string' && p.name.indexOf('SVC-') !== 0){
+    const legacyCode = String(p.name || '').trim();
+    const legacyDesc = String(p.short_description || p.description || '').trim();
+    let svc = null;
+    if(window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services)){
+      svc = window._SERVICES_STATE.services.find(s => s && (
+        (s.codice && legacyCode && s.codice.toLowerCase() === legacyCode.toLowerCase()) ||
+        (s.descrizione_breve && legacyDesc && s.descrizione_breve.toLowerCase() === legacyDesc.toLowerCase()) ||
+        (s.nome && legacyDesc && s.nome.toLowerCase() === legacyDesc.toLowerCase())
+      ));
+    }
+    if(svc && svc.id && typeof openServiceEditor === 'function'){
+      openServiceEditor({
+        id: svc.id,
+        onSave: () => {
+          if(typeof applyFilters === 'function') applyFilters();
+          if(typeof render === 'function') render();
+        }
+      });
+      return;
+    }
+    // Nessuna corrispondenza in _SERVICES_STATE: il servizio legacy non e' ancora
+    // stato migrato. Avviso l'utente invece di aprire una scheda prodotto sbagliata.
+    if(typeof toast === 'function'){
+      toast('Servizio legacy "' + legacyCode + '" non ancora migrato. Usa la migrazione servizi legacy nella vista Servizi.', 'err');
+    }
     return;
   }
   if(p.isPersonal === true && typeof openPersonalProductEditor === 'function'){
@@ -25352,6 +25732,8 @@ function renderEditor(){
       <button class="btn ghost" onclick="closeEditor()">Annulla</button>
       ${EDITS[idx] ? `<button class="btn ${previewOriginal ? 'primary' : 'subtle'}" onclick="togglePreviewOriginal()" title="${previewOriginal ? 'Torna alla vista con le tue modifiche' : 'Mostra i valori originali del fornitore senza ripristinarli'}">${previewOriginal ? '🖊️ Stai visualizzando i Testi ORIGINALI' : '👁 Stai visualizzando i Testi MODIFICATI'}</button>` : ''}
       ${EDITS[idx] ? `<button class="btn warn" onclick="revertEdit()">↶ Ripristina originale</button>`:''}
+      <!-- V2.10.211: Duplica — crea una copia del prodotto come prodotto personale -->
+      <button class="btn" style="background:var(--bg2);color:var(--fg)" onclick="duplicateProductAsPersonal(${idx})" title="Crea una copia modificabile di questo prodotto (come prodotto personale)">📋 Duplica come personale</button>
       <button class="btn primary" onclick="saveEdit()" ${previewOriginal ? 'disabled title="Disabilitato in modalità Visualizza Originale — torna alla vista modificata per salvare"' : ''}>💾 Salva modifiche</button>
     </div>
   `;
@@ -33052,6 +33434,12 @@ async function _syncShadowForService(svcOrId){
     if(idx < 0){
       const newShadow = _serviceToShadowProduct(svc);
       DATA.push(newShadow);
+      // V2.10.211: garantisco _idx univoci dopo l'inserimento del nuovo shadow.
+      // Previene collisioni di _idx (shadow vs prodotti personali) che facevano
+      // aprire l'editor sbagliato. _reindexDATA e' idempotente e lossless.
+      if(typeof _reindexDATA === 'function'){
+        _reindexDATA();
+      }
       driveOp = 'upsert';
       driveRecord = newShadow;
     } else {
@@ -33123,6 +33511,15 @@ async function _syncAllShadowsFromArchive(){
 
   if(added > 0 || updated > 0){
     console.info(`[servizi] sync shadow: +${added} aggiunti, ~${updated} aggiornati (no auto-remove)`);
+    // V2.10.211: dopo l'aggiunta di shadow, garantisco _idx univoci. Previene
+    // collisioni di _idx (shadow vs prodotti personali) che facevano aprire
+    // l'editor sbagliato. _reindexDATA e' idempotente e lossless.
+    if(added > 0 && typeof _reindexDATA === 'function'){
+      const _fixed = _reindexDATA();
+      if(_fixed > 0){
+        console.info('[servizi] reindex _idx dopo sync shadow:', _fixed, 'record corretti');
+      }
+    }
     await _persistData();
     // V2.10.101: NON chiamo più driveNotifyChange automaticamente per gli shadow.
     // Le modifiche degli shadow products vengono pushate a Drive solo quando
@@ -33160,6 +33557,15 @@ async function loadServicesFromIdb(){
     // ma da V2.10.171 in poi i campi di verita' sono prezzo_vendita e prezzo_costo.
     if(typeof _migrateServicesToCostoVendita === 'function'){
       _migrateServicesToCostoVendita();
+    }
+    // V2.10.211: segnalo eventuali servizi con prezzi sospetti (corrotti dal
+    // vecchio bug _parseEuroNumber) con un dialog cliccabile. Ritardato di ~1.2s
+    // cosi' appare quando l'interfaccia e' gia' pronta, senza sovrapporsi alle
+    // schermate di caricamento iniziali. Non modifica nulla, solo diagnostica.
+    if(typeof _diagnoseSuspiciousServicePrices === 'function'){
+      setTimeout(() => {
+        try { _diagnoseSuspiciousServicePrices(); } catch(_){}
+      }, 1200);
     }
   } catch(e){
     console.error('[servizi] errore caricamento da IDB:', e);
@@ -33204,6 +33610,128 @@ function _migrateServicesToCostoVendita(){
       try { _persistServices(); } catch(_){}
     }
   }
+}
+
+/* V2.10.211: diagnostica servizi con prezzi potenzialmente corrotti dal bug
+   _parseEuroNumber (pre-V2.10.211). Quel bug moltiplicava i prezzi quando il
+   valore aveva un punto decimale (es. 27.5 → 275, perche' il punto veniva
+   rimosso come separatore migliaia). NON corregge nulla automaticamente: non
+   c'e' modo sicuro di sapere se "275" e' un valore giusto o un "27.5" corrotto.
+   Si limita a segnalare in console i servizi sospetti, cosi' l'utente puo'
+   verificarli e correggerli a mano dall'editor. Euristica di sospetto:
+   un prezzo che e' multiplo esatto di un valore "tondo a 1 decimale" ×10 e
+   che risulta anomalo (costo > vendita, oppure prezzi inusualmente alti).
+   Volutamente conservativa: meglio non segnalare che dare falsi allarmi. */
+function _diagnoseSuspiciousServicePrices(){
+  const list = (window._SERVICES_STATE && window._SERVICES_STATE.services) || [];
+  const suspects = [];
+  for(const svc of list){
+    if(!svc) continue;
+    const vendita = Number(svc.prezzo_vendita) || 0;
+    const costo = Number(svc.prezzo_costo) || 0;
+    // Sospetto principale: il costo aziendale e' MAGGIORE del prezzo di vendita.
+    // E' quasi sempre un errore (un servizio si vende a piu' di quanto costa).
+    if(costo > 0 && vendita > 0 && costo > vendita){
+      suspects.push({
+        id: svc.id,                                  // V2.10.211: id per aprire l'editor
+        codice: svc.codice || svc.nome || svc.id,
+        nome: svc.nome || '',
+        vendita: vendita,
+        costo: costo,
+        motivo: 'costo (' + costo + ') maggiore del prezzo di vendita (' + vendita + ')',
+      });
+    }
+  }
+  if(suspects.length > 0){
+    console.warn('[servizi V2.10.211] ' + suspects.length +
+      ' servizio/i con prezzi sospetti (forse corrotti dal vecchio bug _parseEuroNumber).' +
+      ' Verificali e correggili a mano dall\'editor servizi:');
+    suspects.forEach(s => console.warn('  • ' + s.codice + ' — ' + s.motivo));
+    // V2.10.211: invece del solo toast "vedi console", apro un dialog con la
+    // lista cliccabile dei servizi sospetti. Ogni voce ha un pulsante che apre
+    // direttamente l'editor di quel servizio per la correzione.
+    if(typeof _showSuspiciousServicesDialog === 'function'){
+      try { _showSuspiciousServicesDialog(suspects); } catch(e){ console.error(e); }
+    }
+  }
+  return suspects;
+}
+
+/* V2.10.211: mostra un dialog con la lista dei servizi dai prezzi sospetti.
+   Ogni riga ha un pulsante "Correggi" che apre l'editor di quel servizio. */
+function _showSuspiciousServicesDialog(suspects){
+  if(!Array.isArray(suspects) || suspects.length === 0) return;
+  // Rimuovo un eventuale dialog precedente
+  const old = document.getElementById('suspiciousSvcModal');
+  if(old) old.remove();
+
+  const fmtEur = (n) => {
+    const v = Number(n) || 0;
+    return v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20ac';
+  };
+
+  const bg = document.createElement('div');
+  bg.id = 'suspiciousSvcModal';
+  bg.className = 'modal-bg';
+
+  const rows = suspects.map((s, i) => {
+    const safeId = escapeAttr(String(s.id || ''));
+    return '<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);margin-bottom:8px">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-weight:700;font-size:13.5px;color:var(--fg);font-family:monospace">' + escapeHtml(s.codice) + '</div>' +
+        (s.nome ? '<div style="font-size:11.5px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(s.nome) + '</div>' : '') +
+        '<div style="font-size:11.5px;color:#dc2626;margin-top:3px">' +
+          'Costo acquisto: <strong>' + fmtEur(s.costo) + '</strong> &nbsp;&middot;&nbsp; ' +
+          'Prezzo vendita: <strong>' + fmtEur(s.vendita) + '</strong>' +
+        '</div>' +
+      '</div>' +
+      '<button class="btn small primary suspicious-fix-btn" data-svc-id="' + safeId + '" type="button" ' +
+        'style="font-size:12px;flex-shrink:0">✏️ Correggi</button>' +
+    '</div>';
+  }).join('');
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:560px;max-height:88vh;display:flex;flex-direction:column">' +
+      '<div class="modal-head">' +
+        '<h3>⚠️ Servizi con prezzi da verificare</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:20px 24px;overflow-y:auto">' +
+        '<p class="settings-hint" style="margin:0 0 16px 0">' +
+          'Per ' + suspects.length + ' servizi' + (suspects.length === 1 ? 'o il' : ' i') +
+          ' costo d\u0027acquisto risulta <strong>maggiore</strong> del prezzo di vendita. ' +
+          'E\u0027 quasi sempre un errore — probabilmente i prezzi sono stati alterati da un ' +
+          'vecchio bug (ora corretto) che moltiplicava per 10 alcuni valori. ' +
+          'Clicca <strong>Correggi</strong> per aprire il servizio e sistemare il prezzo a mano.' +
+        '</p>' +
+        rows +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<span style="flex:1"></span>' +
+        '<button class="btn ghost" id="suspiciousSvcCloseBtn" type="button">Chiudi</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+  const closeBtn = document.getElementById('suspiciousSvcCloseBtn');
+  if(closeBtn) closeBtn.addEventListener('click', () => bg.remove());
+
+  // Pulsanti "Correggi": aprono l'editor del servizio.
+  bg.querySelectorAll('.suspicious-fix-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const svcId = btn.dataset.svcId;
+      if(!svcId){ toast('ID servizio mancante', 'err'); return; }
+      bg.remove();  // chiudo il dialog di diagnostica
+      if(typeof openServiceEditor === 'function'){
+        try {
+          openServiceEditor({ id: svcId });
+        } catch(e){
+          console.error('[servizi] apertura editor fallita:', e);
+          toast('Errore nell\u0027apertura dell\u0027editor: ' + (e.message || e), 'err');
+        }
+      }
+    });
+  });
 }
 
 /* Persistenza: salva in IDB + notifica Drive. */
@@ -33358,11 +33886,29 @@ function serviceIncrementUsage(id){
   }
 }
 
-/* Helper parser numerico euro: accetta "12.50", "12,50", numero, null/undefined. */
+/* Helper parser numerico euro.
+   V2.10.211: BUGFIX CRITICO. La versione precedente rimuoveva SEMPRE tutti i punti
+   trattandoli come separatori di migliaia, poi convertiva la virgola in decimale.
+   Ma i campi prezzo dell'editor sono <input type="number">: in JavaScript il loro
+   .value usa SEMPRE il punto come separatore decimale (es. "27.5"), mai la virgola,
+   indipendentemente dal locale del browser. Risultato: "27.5" → "275" (×10!),
+   "5.5" → "55", "1234.56" → "123456". I prezzi venivano moltiplicati.
+   Regola corretta:
+   - Se c'e' una VIRGOLA → formato europeo "1.234,56": i punti sono migliaia,
+     la virgola e' il decimale.
+   - Se NON c'e' virgola → il punto (se presente) e' gia' il separatore decimale
+     standard (formato di input type=number e di JSON): lascio la stringa com'e'.
+   Accetta numero, stringa, null/undefined/''. */
 function _parseEuroNumber(v){
   if(v == null || v === '') return 0;
   if(typeof v === 'number') return isNaN(v) ? 0 : v;
-  const s = String(v).trim().replace(/\./g, '').replace(',', '.');
+  let s = String(v).trim();
+  if(s === '') return 0;
+  if(s.indexOf(',') >= 0){
+    // Formato europeo: i punti sono separatori di migliaia, la virgola e' decimale.
+    s = s.replace(/\./g, '').replace(',', '.');
+  }
+  // Senza virgola: il punto (se c'e') e' gia' il separatore decimale. Non lo tocco.
   const n = parseFloat(s);
   return isNaN(n) ? 0 : n;
 }
@@ -33430,24 +33976,27 @@ function openServiceEditor(opts){
   const ex = document.getElementById('serviceEditorModal');
   if(ex) ex.remove();
 
+  // V2.10.211: in modalita' CREAZIONE si puo' passare opts.prefill per pre-compilare
+  // i campi (es. duplicazione di un servizio). Il servizio viene creato solo al Salva.
+  const pre = (!isEdit && opts.prefill && typeof opts.prefill === 'object') ? opts.prefill : null;
   const f = {
-    codice: existing ? (existing.codice || '') : '',
-    nome: existing ? (existing.nome || '') : '',
-    descrizione_breve: existing ? (existing.descrizione_breve || '') : '',
-    descrizione_estesa: existing ? (existing.descrizione_estesa || '') : '',
-    categoria: existing ? (existing.categoria || '') : '',
-    sottocategoria: existing ? (existing.sottocategoria || '') : '',
-    tags: existing ? (existing.tags || []).slice() : [],
-    unita_misura: existing ? (existing.unita_misura || 'cad') : 'cad',
+    codice: existing ? (existing.codice || '') : (pre ? (pre.codice || '') : ''),
+    nome: existing ? (existing.nome || '') : (pre ? (pre.nome || '') : ''),
+    descrizione_breve: existing ? (existing.descrizione_breve || '') : (pre ? (pre.descrizione_breve || '') : ''),
+    descrizione_estesa: existing ? (existing.descrizione_estesa || '') : (pre ? (pre.descrizione_estesa || '') : ''),
+    categoria: existing ? (existing.categoria || '') : (pre ? (pre.categoria || '') : ''),
+    sottocategoria: existing ? (existing.sottocategoria || '') : (pre ? (pre.sottocategoria || '') : ''),
+    tags: existing ? (existing.tags || []).slice() : (pre && Array.isArray(pre.tags) ? pre.tags.slice() : []),
+    unita_misura: existing ? (existing.unita_misura || 'cad') : (pre ? (pre.unita_misura || 'cad') : 'cad'),
     // V2.10.171: nuovi nomi semantici (con fallback ai vecchi per servizi non migrati)
-    prezzo_vendita: existing ? (existing.prezzo_vendita != null ? existing.prezzo_vendita : (existing.prezzo_listino || 0)) : 0,
-    prezzo_costo:   existing ? (existing.prezzo_costo   != null ? existing.prezzo_costo   : (existing.prezzo_netto   || 0)) : 0,
-    iva_aliquota: existing ? existing.iva_aliquota : 22,
-    durata_stimata_minuti: (existing && existing.durata_stimata_minuti != null) ? existing.durata_stimata_minuti : '',
-    note: existing ? (existing.note || '') : '',
-    attivo: existing ? (existing.attivo !== false) : true,
-    preferito: existing ? (existing.preferito === true) : false,
-    immagine: existing ? (existing.immagine || '') : '',  // V2.10.65
+    prezzo_vendita: existing ? (existing.prezzo_vendita != null ? existing.prezzo_vendita : (existing.prezzo_listino || 0)) : (pre && pre.prezzo_vendita != null ? pre.prezzo_vendita : 0),
+    prezzo_costo:   existing ? (existing.prezzo_costo   != null ? existing.prezzo_costo   : (existing.prezzo_netto   || 0)) : (pre && pre.prezzo_costo != null ? pre.prezzo_costo : 0),
+    iva_aliquota: existing ? existing.iva_aliquota : (pre && pre.iva_aliquota != null ? pre.iva_aliquota : 22),
+    durata_stimata_minuti: (existing && existing.durata_stimata_minuti != null) ? existing.durata_stimata_minuti : (pre && pre.durata_stimata_minuti != null ? pre.durata_stimata_minuti : ''),
+    note: existing ? (existing.note || '') : (pre ? (pre.note || '') : ''),
+    attivo: existing ? (existing.attivo !== false) : (pre ? (pre.attivo !== false) : true),
+    preferito: existing ? (existing.preferito === true) : (pre ? (pre.preferito === true) : false),
+    immagine: existing ? (existing.immagine || '') : (pre ? (pre.immagine || '') : ''),  // V2.10.65
   };
 
   const bg = document.createElement('div');
@@ -33596,6 +34145,8 @@ function openServiceEditor(opts){
         '<button class="btn ghost" id="svcCancelBtn">Annulla</button>' +
         (isEdit ? '<button class="btn ghost" id="svcDeleteBtn" style="color:#ef4444">\ud83d\uddd1\ufe0f Elimina</button>' : '') +
         '<span style="flex:1"></span>' +
+        // V2.10.211: pulsante Duplica servizio
+        (isEdit ? '<button class="btn" id="svcDuplicateBtn" style="background:var(--bg2);color:var(--fg)">\ud83d\udccb Duplica</button>' : '') +
         '<button class="btn primary" id="svcSaveBtn">' + (isEdit ? '\ud83d\udcbe Salva modifiche' : '\u2795 Crea servizio') + '</button>' +
       '</div>' +
     '</div>';
@@ -33783,6 +34334,15 @@ function openServiceEditor(opts){
         toast('Errore: ' + (e.message || e), 'err');
       }
     });
+    // V2.10.211: handler Duplica servizio
+    const svcDupBtn = document.getElementById('svcDuplicateBtn');
+    if(svcDupBtn){
+      svcDupBtn.addEventListener('click', () => {
+        cleanup();
+        // duplicateService crea la copia e apre l'editor della copia
+        duplicateService(opts.id);
+      });
+    }
   }
 
   setTimeout(() => {
@@ -35557,39 +36117,50 @@ function _computeSnapshotTotals(items){
 function _buildVersionSnapshot(noteVersione){
   // Deep clone profondo via JSON per disaccoppiare totalmente dal state runtime
   const items = JSON.parse(JSON.stringify(window._QUOTE_STATE.items || []));
-  // V2.10.89: rimuovo `image` solo se la riga riferisce un prodotto del catalogo
-  // Visiotech standard (presente in DATA e NON personale/servizio). Per personali
-  // e servizi mantengo l'image originale: per loro è l'unica fonte disponibile.
+  // V2.10.211: rimuovo `image` da OGNI riga il cui prodotto sia ricostruibile
+  // da DATA tramite code/idx — vale sia per i prodotti standard del catalogo
+  // sia per i prodotti PERSONALI e i SERVIZI. Motivo: l'immagine vive una volta
+  // sola nel prodotto (campo image_path in DATA) e _qResolveImg la recupera da
+  // li' come fallback. Salvarne una copia base64 in OGNI versione gonfiava
+  // l'archivio preventivi di megabyte (ogni "salva" duplicava le foto).
+  // L'immagine viene mantenuta SOLO se il prodotto non e' piu' in DATA (es.
+  // prodotto eliminato): in quel caso la copia nella versione e' l'unica fonte.
+  let strippedCount = 0;
   items.forEach(it => {
     if(!it || typeof it !== 'object') return;
     if(!it.image) return;
-    // Verifica se è un prodotto Visiotech standard ricostruibile da catalogo
-    let canStrip = false;
+    let p = null;
     if(Array.isArray(window.DATA)){
-      let p = null;
       if(it.idx != null && window.DATA[it.idx]){
         p = window.DATA[it.idx];
       }
       // Verifica anche per code (idx potrebbe essere cambiato dopo re-import)
       if(!p && it.code){
-        p = window.DATA.find(x => x && (x.reference === it.code || (typeof getField === 'function' && getField(x, 'reference') === it.code)));
-      }
-      if(p){
-        const isPersonal = p.isPersonal === true;
-        const isService  = p.isService === true;
-        // Strip solo se NON personale e NON servizio E ha image_path nel catalogo
-        if(!isPersonal && !isService){
-          const hasImagePath = (typeof getField === 'function')
-            ? !!getField(p, 'image_path')
-            : !!p.image_path;
-          if(hasImagePath) canStrip = true;
-        }
+        p = window.DATA.find(x => x && (
+          x.reference === it.code ||
+          x.name === it.code ||
+          (typeof getField === 'function' && getField(x, 'reference') === it.code)
+        ));
       }
     }
-    if(canStrip){
-      delete it.image;
+    if(p){
+      // Il prodotto esiste in DATA: l'immagine e' ricostruibile. Verifico che
+      // abbia davvero un image_path (o un'image) da cui ripescarla.
+      const hasImagePath = (typeof getField === 'function')
+        ? !!getField(p, 'image_path')
+        : !!p.image_path;
+      const hasImage = !!p.image;
+      if(hasImagePath || hasImage){
+        delete it.image;
+        strippedCount++;
+      }
     }
+    // Se p e' null (prodotto non in DATA) mantengo it.image: e' l'unica fonte.
   });
+  if(strippedCount > 0){
+    console.info('[preventivi V2.10.211] snapshot versione: rimosse ' + strippedCount +
+      ' immagini ricostruibili da DATA (riduzione dimensione archivio).');
+  }
   const settings = JSON.parse(JSON.stringify(window._QUOTE_STATE.settings || {}));
   const totals = _computeSnapshotTotals(items);
   return {
@@ -35600,6 +36171,350 @@ function _buildVersionSnapshot(noteVersione){
     settings: settings,
     totals: totals,
   };
+}
+
+/* V2.10.211: verifica se l'immagine di una riga preventivo e' ricostruibile da
+   DATA (prodotto standard, personale o servizio ancora presente in archivio).
+   Se si', la copia base64 nella versione e' ridondante e si puo' rimuovere. */
+/* V2.10.211: classifica l'immagine di una riga preventivo. Restituisce:
+   - 'no-image'     : la riga non ha un'immagine incorporata
+   - 'reconstructible': l'immagine c'e' e il prodotto e' in DATA → rimovibile
+   - 'orphan'       : l'immagine c'e' ma il prodotto NON e' piu' in DATA → da tenere
+   Usa lo stesso matching di _qResolveImg (idx, poi code vs name/reference). */
+function _classifyQuoteItemImage(it){
+  if(!it || !it.image) return 'no-image';
+  if(!Array.isArray(window.DATA)) return 'orphan';
+  let p = null;
+  // 1) match per idx (come _qResolveImg)
+  if(it.idx != null && window.DATA[it.idx]) p = window.DATA[it.idx];
+  // 2) match per code: il code dell'item == name del prodotto (vedi addToQuoteCart).
+  //    Provo name, reference e getField per coprire prodotti standard e personali.
+  if(!p && it.code){
+    const code = String(it.code).trim();
+    p = window.DATA.find(x => {
+      if(!x) return false;
+      if(x.name === code || x.reference === code) return true;
+      if(typeof getField === 'function'){
+        if(getField(x, 'name') === code) return true;
+        if(getField(x, 'reference') === code) return true;
+      }
+      return false;
+    });
+  }
+  if(!p) return 'orphan';
+  // Il prodotto esiste: l'immagine e' ricostruibile se ha image_path o un'image.
+  const hasImagePath = (typeof getField === 'function')
+    ? !!getField(p, 'image_path') : !!p.image_path;
+  if(hasImagePath || p.image) return 'reconstructible';
+  // Prodotto trovato ma senza nessuna immagine da cui ripescare → orfana.
+  return 'orphan';
+}
+
+/* V2.10.211: retrocompat — true solo se l'immagine e' sicuramente ricostruibile. */
+function _quoteItemImageIsReconstructible(it){
+  return _classifyQuoteItemImage(it) === 'reconstructible';
+}
+
+/* V2.10.211: analizza l'archivio preventivi. Per ogni immagine incorporata
+   nelle versioni la classifica via _classifyQuoteItemImage:
+   - 'reconstructible' → rimovibile (il prodotto e' in DATA)
+   - 'orphan'          → da tenere (il prodotto non e' piu' in DATA)
+   Restituisce statistiche dettagliate. Non modifica nulla. */
+function analyzeQuotesArchiveSize(){
+  const arch = window._QUOTES_ARCHIVE || {};
+  const quotes = Array.isArray(arch.quotes) ? arch.quotes : [];
+  const totalBytes = JSON.stringify(arch).length;
+  let imageBytes = 0;            // byte totali di tutte le stringhe image
+  let redundantImageBytes = 0;   // byte rimovibili (ricostruibili da DATA)
+  let orphanImageBytes = 0;      // byte di immagini orfane (prodotto assente)
+  let imageCount = 0;
+  let redundantCount = 0;
+  let orphanCount = 0;
+  let versionCount = 0;
+  const perQuote = [];
+  const orphanSamples = [];      // primi orfani, per diagnostica
+
+  quotes.forEach(q => {
+    if(!q) return;
+    const versions = Array.isArray(q.versions) ? q.versions : [];
+    let qImageBytes = 0;
+    versions.forEach(v => {
+      versionCount++;
+      const items = Array.isArray(v.items) ? v.items : [];
+      items.forEach(it => {
+        if(!it || !it.image) return;
+        const len = String(it.image).length;
+        imageBytes += len;
+        qImageBytes += len;
+        imageCount++;
+        const cls = _classifyQuoteItemImage(it);
+        if(cls === 'reconstructible'){
+          redundantImageBytes += len;
+          redundantCount++;
+        } else if(cls === 'orphan'){
+          orphanImageBytes += len;
+          orphanCount++;
+          if(orphanSamples.length < 8){
+            orphanSamples.push({
+              quoteId: q.id,
+              code: it.code || '(senza code)',
+              idx: (it.idx != null ? it.idx : '(senza idx)'),
+              isService: !!it.isService,
+              isPersonal: !!it.isPersonal,
+              imgKB: Math.round(len / 1024),
+            });
+          }
+        }
+      });
+    });
+    perQuote.push({
+      id: q.id,
+      versioni: versions.length,
+      bytes: JSON.stringify(q).length,
+      imageBytes: qImageBytes,
+    });
+  });
+
+  perQuote.sort((a, b) => b.bytes - a.bytes);  // piu' pesanti in cima
+
+  // Diagnostica in console: se ci sono molte orfane il match sta fallendo.
+  if(orphanCount > 0){
+    console.warn('[preventivi V2.10.211] ' + orphanCount + ' immagini classificate ORFANE ' +
+      '(prodotto non trovato in DATA). Campioni:', orphanSamples);
+  }
+
+  return {
+    totalBytes, imageBytes,
+    redundantImageBytes, orphanImageBytes,
+    imageCount, redundantCount, orphanCount,
+    versionCount, quoteCount: quotes.length,
+    perQuote, orphanSamples,
+  };
+}
+
+/* V2.10.211: pulizia retroattiva. Rimuove dalle versioni gia' salvate le foto
+   incorporate. opts.mode:
+   - 'safe' (default) → rimuove solo le foto ricostruibili da DATA
+   - 'all'            → rimuove TUTTE le foto incorporate (anche le orfane)
+   Restituisce { removed, bytesFreed }. Persiste l'archivio se ha rimosso qualcosa. */
+function cleanupQuotesArchiveImages(opts){
+  const mode = (opts && opts.mode === 'all') ? 'all' : 'safe';
+  const arch = window._QUOTES_ARCHIVE || {};
+  const quotes = Array.isArray(arch.quotes) ? arch.quotes : [];
+  let removed = 0;
+  let bytesFreed = 0;
+  quotes.forEach(q => {
+    if(!q) return;
+    const versions = Array.isArray(q.versions) ? q.versions : [];
+    versions.forEach(v => {
+      const items = Array.isArray(v.items) ? v.items : [];
+      items.forEach(it => {
+        if(!it || !it.image) return;
+        const remove = (mode === 'all')
+          ? true
+          : (_classifyQuoteItemImage(it) === 'reconstructible');
+        if(remove){
+          bytesFreed += String(it.image).length;
+          delete it.image;
+          removed++;
+        }
+      });
+    });
+  });
+  if(removed > 0){
+    if(typeof _persistQuotesArchive === 'function'){
+      try { _persistQuotesArchive(); } catch(e){ console.error(e); }
+    }
+    console.info('[preventivi V2.10.211] pulizia immagini (' + mode + '): rimosse ' + removed +
+      ' foto, liberati ~' + Math.round(bytesFreed/1024) + ' KB.');
+  }
+  return { removed, bytesFreed };
+}
+
+/* V2.10.211: dialog "Ottimizza dimensione archivio". Mostra l'analisi della
+   dimensione (totale, immagini, ridondanti) e permette di lanciare la pulizia. */
+function openOptimizeArchiveDialog(){
+  const old = document.getElementById('optimizeArchiveModal');
+  if(old) old.remove();
+
+  const a = analyzeQuotesArchiveSize();
+  const fmtKB = (b) => Math.round(b / 1024).toLocaleString('it-IT') + ' KB';
+  const fmtMB = (b) => (b / 1024 / 1024).toFixed(2) + ' MB';
+  const pct = (part, tot) => tot > 0 ? Math.round(part / tot * 100) : 0;
+
+  // Limite indicativo Drive (lato GAS): ~5 MB. Sopra → sync bloccato.
+  const DRIVE_LIMIT = 5 * 1024 * 1024;
+  const overLimit = a.totalBytes > DRIVE_LIMIT;
+  // "Tutte le foto incorporate" = ricostruibili + orfane. La pulizia completa
+  // le rimuove tutte; per le orfane serve la conferma estesa dell'utente.
+  const allImageBytes = a.imageBytes;
+  const afterFull = a.totalBytes - allImageBytes;
+  const afterSafe = a.totalBytes - a.redundantImageBytes;
+  const afterFullOver = afterFull > DRIVE_LIMIT;
+
+  // Tabella per-preventivo (top 8 piu' pesanti)
+  const topRows = a.perQuote.slice(0, 8).map(q =>
+    '<tr>' +
+      '<td style="font-family:monospace;font-weight:700;padding:5px 8px">' + escapeHtml(q.id || '?') + '</td>' +
+      '<td style="text-align:center;padding:5px 8px">' + q.versioni + '</td>' +
+      '<td style="text-align:right;padding:5px 8px">' + fmtKB(q.bytes) + '</td>' +
+      '<td style="text-align:right;padding:5px 8px;color:' + (q.imageBytes > 0 ? '#dc2626' : 'var(--fg3)') + '">' +
+        (q.imageBytes > 0 ? fmtKB(q.imageBytes) : '\u2014') + '</td>' +
+    '</tr>'
+  ).join('');
+
+  // Diagnostica: campioni di immagini "orfane" (match fallito). Aiuta a capire
+  // se il problema e' un prodotto davvero cancellato o un mismatch di codici.
+  const orphanRows = (a.orphanSamples || []).map(s =>
+    '<tr>' +
+      '<td style="font-family:monospace;padding:4px 8px">' + escapeHtml(String(s.code)) + '</td>' +
+      '<td style="text-align:center;padding:4px 8px">' + escapeHtml(String(s.idx)) + '</td>' +
+      '<td style="text-align:center;padding:4px 8px">' +
+        (s.isService ? 'servizio' : (s.isPersonal ? 'personale' : 'standard')) + '</td>' +
+      '<td style="text-align:right;padding:4px 8px">' + s.imgKB + ' KB</td>' +
+    '</tr>'
+  ).join('');
+
+  const bg = document.createElement('div');
+  bg.id = 'optimizeArchiveModal';
+  bg.className = 'modal-bg';
+  bg.style.zIndex = '520';
+
+  const statColor = overLimit ? '#dc2626' : '#16a34a';
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:660px;max-height:90vh;display:flex;flex-direction:column">' +
+      '<div class="modal-head"><h3>\uD83D\uDCE6 Ottimizza dimensione archivio</h3></div>' +
+      '<div class="modal-body" style="display:block;padding:20px 24px;overflow-y:auto">' +
+
+        // Riepilogo: dimensione + foto incorporate totali
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">' +
+          '<div style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);border-left:3px solid ' + statColor + ';border-radius:8px;padding:12px 14px">' +
+            '<div style="font-size:10px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px">Dimensione attuale</div>' +
+            '<div style="font-size:21px;font-weight:800;color:' + statColor + '">' + fmtMB(a.totalBytes) + '</div>' +
+            '<div style="font-size:11px;color:var(--fg3)">' + a.quoteCount + ' preventivi \u00b7 ' + a.versionCount + ' versioni</div>' +
+          '</div>' +
+          '<div style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #dc2626;border-radius:8px;padding:12px 14px">' +
+            '<div style="font-size:10px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px">Foto incorporate</div>' +
+            '<div style="font-size:21px;font-weight:800;color:#dc2626">' + fmtMB(allImageBytes) + '</div>' +
+            '<div style="font-size:11px;color:var(--fg3)">' + a.imageCount + ' immagini \u00b7 ' + pct(allImageBytes, a.totalBytes) + '% del totale</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Spiegazione
+        '<p class="settings-hint" style="margin:0 0 14px 0">' +
+          (overLimit
+            ? '<strong style="color:#dc2626">L\u0027archivio supera il limite di Drive (~5 MB)</strong>: la sincronizzazione e\u0027 bloccata. '
+            : 'L\u0027archivio e\u0027 sotto il limite di Drive. ') +
+          'Ogni volta che salvi una versione di un preventivo, le foto dei prodotti vengono ' +
+          'copiate al suo interno. Le foto sono pero\u0027 gia\u0027 salvate nei prodotti: ' +
+          'le copie nelle versioni si possono rimuovere e anteprime/PDF le ricostruiscono.' +
+        '</p>' +
+
+        // Ripartizione: ricostruibili vs orfane
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">' +
+          '<div style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">' +
+            '<div style="font-size:11px;font-weight:700;color:#16a34a">\u2713 Ricostruibili \u2014 ' + fmtKB(a.redundantImageBytes) + '</div>' +
+            '<div style="font-size:11px;color:var(--fg3);margin-top:2px">' + a.redundantCount + ' foto di prodotti presenti in archivio. Rimozione sicura.</div>' +
+          '</div>' +
+          '<div style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">' +
+            '<div style="font-size:11px;font-weight:700;color:' + (a.orphanCount > 0 ? '#d97706' : 'var(--fg3)') + '">\u26a0 Orfane \u2014 ' + fmtKB(a.orphanImageBytes) + '</div>' +
+            '<div style="font-size:11px;color:var(--fg3);margin-top:2px">' + a.orphanCount + ' foto di prodotti non ritrovati in archivio. Verifica prima di rimuovere.</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Esito previsto
+        '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px">' +
+          '<div style="font-size:12px;color:var(--fg2);line-height:1.7">' +
+            'Solo ricostruibili: <strong>' + fmtMB(a.totalBytes) + '</strong> \u2192 <strong style="color:#16a34a">' + fmtMB(afterSafe) + '</strong><br>' +
+            'Tutte le foto incorporate: <strong>' + fmtMB(a.totalBytes) + '</strong> \u2192 ' +
+            '<strong style="color:' + (afterFullOver ? '#dc2626' : '#16a34a') + '">' + fmtMB(afterFull) + '</strong>' +
+            (afterFullOver
+              ? '<br><span style="color:#dc2626;font-size:11px">\u26a0 Anche rimuovendo tutte le foto l\u0027archivio resta sopra il limite. Valuta di eliminare preventivi o versioni vecchie.</span>'
+              : '<br><span style="color:#16a34a;font-size:11px">\u2713 Rimuovendo le foto l\u0027archivio torna sotto il limite di Drive.</span>') +
+          '</div>' +
+        '</div>' +
+
+        // Diagnostica orfane (mostrata solo se ce ne sono)
+        (orphanRows ?
+          '<details style="margin-bottom:12px"><summary style="cursor:pointer;font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.5px">Dettaglio foto orfane (diagnostica)</summary>' +
+          '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px">' +
+            '<thead><tr style="border-bottom:1px solid var(--border);color:var(--fg3)">' +
+              '<th style="text-align:left;padding:4px 8px">Codice riga</th>' +
+              '<th style="text-align:center;padding:4px 8px">idx</th>' +
+              '<th style="text-align:center;padding:4px 8px">Tipo</th>' +
+              '<th style="text-align:right;padding:4px 8px">Peso foto</th>' +
+            '</tr></thead><tbody>' + orphanRows + '</tbody>' +
+          '</table>' +
+          '<div style="font-size:10px;color:var(--fg3);margin-top:6px">Se questi prodotti esistono ancora in archivio, segnalalo: il sistema di abbinamento va corretto.</div>' +
+          '</details>'
+        : '') +
+
+        // Tabella top preventivi
+        (topRows ?
+          '<div style="font-size:11px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Preventivi piu\u0027 pesanti</div>' +
+          '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px">' +
+            '<thead><tr style="border-bottom:1px solid var(--border);color:var(--fg3)">' +
+              '<th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase">Preventivo</th>' +
+              '<th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase">Versioni</th>' +
+              '<th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase">Peso</th>' +
+              '<th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase">di cui foto</th>' +
+            '</tr></thead>' +
+            '<tbody>' + topRows + '</tbody>' +
+          '</table>'
+        : '') +
+
+      '</div>' +
+      '<div class="modal-foot" style="flex-wrap:wrap;gap:8px">' +
+        '<button class="btn ghost" id="optArchCloseBtn" type="button">Chiudi</button>' +
+        '<span style="flex:1"></span>' +
+        (a.redundantCount > 0
+          ? '<button class="btn small ghost" id="optArchCleanSafeBtn" type="button">\uD83E\uDDF9 Pulisci ricostruibili (' + a.redundantCount + ')</button>'
+          : '') +
+        (a.imageCount > 0
+          ? '<button class="btn primary" id="optArchCleanAllBtn" type="button" style="background:#16a34a;border-color:#16a34a">\uD83E\uDDF9 Rimuovi tutte le foto (' + a.imageCount + ')</button>'
+          : '<span style="font-size:12px;color:var(--fg3)">Nessuna foto incorporata</span>') +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+  const closeBtn = document.getElementById('optArchCloseBtn');
+  if(closeBtn) closeBtn.addEventListener('click', () => bg.remove());
+
+  const _afterClean = (res) => {
+    bg.remove();
+    toast('Pulizia completata: rimosse ' + res.removed + ' foto, liberati ~' +
+      Math.round(res.bytesFreed/1024) + ' KB. ' +
+      'Ora puoi riprovare la sincronizzazione Drive.', 'ok', 9000);
+    setTimeout(() => { try { openOptimizeArchiveDialog(); } catch(_){} }, 600);
+  };
+
+  // Pulizia "sicura": solo immagini ricostruibili da DATA.
+  const safeBtn = document.getElementById('optArchCleanSafeBtn');
+  if(safeBtn){
+    safeBtn.addEventListener('click', () => {
+      if(!confirm('Rimuovere le ' + a.redundantCount + ' foto ricostruibili dalle versioni salvate?\n\n' +
+          'Le foto restano nei prodotti: anteprime e PDF continueranno a mostrarle. ' +
+          'Operazione sicura e non reversibile.')) return;
+      _afterClean(cleanupQuotesArchiveImages({ mode: 'safe' }));
+    });
+  }
+
+  // Pulizia completa: tutte le foto incorporate (incluse le orfane).
+  const allBtn = document.getElementById('optArchCleanAllBtn');
+  if(allBtn){
+    allBtn.addEventListener('click', () => {
+      const orphanWarn = a.orphanCount > 0
+        ? '\n\nATTENZIONE: ' + a.orphanCount + ' di queste foto appartengono a prodotti non ' +
+          'ritrovati in archivio. Se quei prodotti sono stati eliminati, le foto andranno perse ' +
+          'nelle versioni storiche. Se invece esistono ancora, verranno comunque ricostruite.'
+        : '';
+      if(!confirm('Rimuovere TUTTE le ' + a.imageCount + ' foto incorporate dalle versioni salvate?' +
+          orphanWarn + '\n\nOperazione non reversibile.')) return;
+      _afterClean(cleanupQuotesArchiveImages({ mode: 'all' }));
+    });
+  }
 }
 
 /* Crea un nuovo preventivo a partire dallo state attuale del carrello.
@@ -36129,7 +37044,7 @@ function openSaveQuoteDialog(opts){
         '</section>' +
 
         // V2.10.5: Step 2 - Nome preventivo (opzionale)
-        // V2.10.193: textarea multi-riga al posto di input — permette oggetti lunghi
+        // V2.10.211: textarea multi-riga al posto di input — permette oggetti lunghi
         // (descrizioni, presentazioni) che vengono giustificati nelle stampe.
         '<section class="sq-sect" id="sqSectNome" style="opacity:0.4;pointer-events:none">' +
           '<div class="sq-sect-title"><span class="sq-sect-num">2</span> Nome / Oggetto preventivo (opzionale)</div>' +
@@ -36496,6 +37411,11 @@ function openSaveQuoteDialog(opts){
       if(typeof renderQuoteCartContent === 'function'){
         try { renderQuoteCartContent(); } catch(_){}
       }
+      // V2.10.211: aggiorno anche la barra info del carrello (cliente / nome /
+      // versione), altrimenti dopo il salvataggio resta sul valore precedente.
+      if(typeof renderQuoteCartBoundInfo === 'function'){
+        try { renderQuoteCartBoundInfo(); } catch(_){}
+      }
     } catch(e){
       console.error('[preventivi] save fallito:', e);
       toast('Errore: ' + (e.message || e), 'err');
@@ -36550,9 +37470,31 @@ function _refreshQuote_buildDiff(){
     return { notFound: [], unchanged: [], updated: [] };
   }
 
-  const result = { notFound: [], unchanged: [], updated: [] };
+  // V2.10.211: result.excluded raccoglie gli articoli NON selezionati nel
+  // carrello quando esiste una selezione parziale. Non vengono confrontati
+  // ne' aggiornati: restano col valore attuale.
+  const result = { notFound: [], unchanged: [], updated: [], excluded: [] };
+
+  // V2.10.211: le checkbox del carrello sono VUOTE di default. Una riga e'
+  // "selezionata" solo se _selectedForUpdate === true (l'utente l'ha spuntata).
+  // Comportamento di "Aggiorna preventivo":
+  //  - se l'utente ha spuntato ALCUNE righe → confronta solo quelle, le altre
+  //    finiscono in `excluded`;
+  //  - se NON ha spuntato NESSUNA riga → considera tutte le righe (comodita':
+  //    "Aggiorna preventivo" senza selezione = aggiorna tutto). Non avrebbe
+  //    senso un aggiornamento che non confronta nulla.
+  const _anySelected = window._QUOTE_STATE.items.some(
+    it => it && it._selectedForUpdate === true
+  );
+  const _applySelectionFilter = _anySelected;
 
   window._QUOTE_STATE.items.forEach((item, itemIdx) => {
+    // V2.10.211: con selezione parziale, escludo le righe NON spuntate.
+    // Se nessuna riga e' spuntata, _applySelectionFilter e' false → confronto tutto.
+    if(_applySelectionFilter && item && item._selectedForUpdate !== true){
+      result.excluded.push({ itemIdx, item, code: item.code });
+      return;
+    }
     // Cerco prodotto in DATA per code (== name in DATA)
     const p = DATA.find(x => x && x.isPersonal !== true && String(getField(x, 'name') || '').trim() === item.code)
             || DATA.find(x => x && x.isPersonal === true && String(getField(x, 'name') || '').trim() === item.code);
@@ -36632,10 +37574,23 @@ function _refreshQuote_buildDiff(){
   return result;
 }
 
-function _refreshQuote_applyAll(updateResult){
+/* V2.10.211: applica gli aggiornamenti. `selectedItemIdxs` (opzionale) e' un
+   Set/array di itemIdx: se fornito, vengono aggiornati SOLO gli articoli i cui
+   itemIdx sono inclusi. Se omesso (o null), vengono aggiornati tutti gli
+   articoli "updated" — comportamento storico, backward-compatible. */
+function _refreshQuote_applyAll(updateResult, selectedItemIdxs){
   let applied = 0;
+  // Normalizzo il filtro: null = tutti, altrimenti Set di itemIdx ammessi
+  let filterSet = null;
+  if(selectedItemIdxs != null){
+    filterSet = (selectedItemIdxs instanceof Set)
+      ? selectedItemIdxs
+      : new Set(Array.isArray(selectedItemIdxs) ? selectedItemIdxs : []);
+  }
   // Update degli items "updated"
   updateResult.updated.forEach(u => {
+    // V2.10.211: se c'e' un filtro di selezione, salto gli articoli non selezionati
+    if(filterSet && !filterSet.has(u.itemIdx)) return;
     const it = window._QUOTE_STATE.items[u.itemIdx];
     if(!it) return;
     Object.keys(u.updates).forEach(k => {
@@ -36675,11 +37630,16 @@ function openRefreshQuoteDialog(){
   const totUpdated = diff.updated.length;
   const totUnchanged = diff.unchanged.length;
   const totNotFound = diff.notFound.length;
-  const totItems = totUpdated + totUnchanged + totNotFound;
+  const totExcluded = (diff.excluded || []).length;  // V2.10.211
+  const totItems = totUpdated + totUnchanged + totNotFound + totExcluded;
 
   // Caso semplice: nessuna modifica trovata
   if(totUpdated === 0 && totNotFound === 0){
-    toast('Tutti gli articoli sono gia\u0027 allineati al catalogo (' + totUnchanged + ' invariati)', 'ok');
+    const msgExcl = totExcluded > 0
+      ? ' — ' + totExcluded + ' riga/he esclusa/e dalla selezione nel carrello'
+      : '';
+    toast('Tutti gli articoli selezionati sono gia\u0027 allineati al catalogo (' +
+      totUnchanged + ' invariati' + msgExcl + ')', 'ok');
     return;
   }
 
@@ -36724,8 +37684,13 @@ function openRefreshQuoteDialog(){
         );
       }).join('');
       return (
-        '<div style="padding:12px 14px;border:1px solid rgba(1,120,212,0.3);border-radius:8px;margin-bottom:10px;background:rgba(1,120,212,0.04)">' +
+        '<div class="rq-update-row" style="padding:12px 14px;border:1px solid rgba(1,120,212,0.3);border-radius:8px;margin-bottom:10px;background:rgba(1,120,212,0.04)">' +
           '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
+            // V2.10.211: checkbox di selezione per riga (selezionata di default)
+            '<label style="display:inline-flex;align-items:center;cursor:pointer;flex-shrink:0" title="Includi questo articolo nell\'aggiornamento">' +
+              '<input type="checkbox" class="rq-row-check" data-item-idx="' + u.itemIdx + '" checked ' +
+                'style="width:16px;height:16px;cursor:pointer;accent-color:#0178d4;margin:0">' +
+            '</label>' +
             '<span style="display:inline-block;font-size:9px;font-weight:700;color:#fff;background:#0178d4;padding:2px 7px;border-radius:9px;text-transform:uppercase;letter-spacing:.4px">' + u.diffs.length + ' modific' + (u.diffs.length === 1 ? 'a' : 'he') + '</span>' +
             '<div style="font-weight:700;font-family:monospace;font-size:12px;color:var(--fg)">' + escapeHtml(getDisplayCode(it)) + '</div>' +
             '<div style="flex:1;font-size:11.5px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(it.nameShort || it.name || '') + '</div>' +
@@ -36736,8 +37701,17 @@ function openRefreshQuoteDialog(){
     }).join('');
     updatedHtml =
       '<section style="margin-bottom:18px">' +
-        '<div style="font-size:12px;font-weight:700;color:#0178d4;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">' +
-          '🔄 ' + totUpdated + ' articol' + (totUpdated === 1 ? 'o' : 'i') + ' da aggiornare' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">' +
+          '<div style="font-size:12px;font-weight:700;color:#0178d4;text-transform:uppercase;letter-spacing:.5px">' +
+            '🔄 ' + totUpdated + ' articol' + (totUpdated === 1 ? 'o' : 'i') + ' da aggiornare' +
+          '</div>' +
+          // V2.10.211: controlli di selezione massiva
+          '<span style="flex:1"></span>' +
+          '<button type="button" id="rqSelectAll" class="btn small ghost" style="padding:4px 10px;font-size:11px">Seleziona tutti</button>' +
+          '<button type="button" id="rqSelectNone" class="btn small ghost" style="padding:4px 10px;font-size:11px">Deseleziona tutti</button>' +
+        '</div>' +
+        '<div style="font-size:11.5px;color:var(--fg2);margin-bottom:10px;line-height:1.5">' +
+          'Spunta gli articoli che vuoi aggiornare. Quelli non selezionati restano col valore attuale.' +
         '</div>' +
         rows +
       '</section>';
@@ -36774,7 +37748,7 @@ function openRefreshQuoteDialog(){
     const rows = diff.unchanged.map(u =>
       '<div style="padding:6px 10px;font-size:11.5px;color:var(--fg3);display:flex;gap:10px;align-items:center">' +
         '<span style="color:#22c55e">✅</span>' +
-        '<span style="font-family:monospace;font-weight:600;color:var(--fg2)">' + escapeHtml(u.item.code) + '</span>' +
+        '<span style="font-family:monospace;font-weight:600;color:var(--fg2)">' + escapeHtml(getDisplayCode(u.item)) + '</span>' +
         '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(u.item.nameShort || u.item.name || '') + '</span>' +
       '</div>'
     ).join('');
@@ -36789,6 +37763,30 @@ function openRefreshQuoteDialog(){
       '</section>';
   }
 
+  // ── V2.10.211: Sezione "esclusi dalla selezione nel carrello" (collassata) ──
+  let excludedHtml = '';
+  if(totExcluded > 0){
+    const rows = (diff.excluded || []).map(ex =>
+      '<div style="padding:6px 10px;font-size:11.5px;color:var(--fg3);display:flex;gap:10px;align-items:center">' +
+        '<span style="color:var(--fg3)">⊘</span>' +
+        '<span style="font-family:monospace;font-weight:600;color:var(--fg2)">' + escapeHtml(getDisplayCode(ex.item)) + '</span>' +
+        '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(ex.item.nameShort || ex.item.name || '') + '</span>' +
+      '</div>'
+    ).join('');
+    excludedHtml =
+      '<section style="margin-bottom:18px">' +
+        '<details style="border:1px solid var(--border);border-radius:8px;background:var(--bg3)">' +
+          '<summary style="padding:10px 14px;cursor:pointer;font-size:12px;font-weight:700;color:var(--fg2);text-transform:uppercase;letter-spacing:.5px">' +
+            '⊘ ' + totExcluded + ' riga/he esclusa/e (deselezionata/e nel carrello)' +
+          '</summary>' +
+          '<div style="padding:8px 14px 4px 14px;font-size:11.5px;color:var(--fg2);line-height:1.5">' +
+            'Hai tolto la spunta a queste righe nella tabella del carrello: non verranno aggiornate.' +
+          '</div>' +
+          '<div style="padding:8px 14px 14px 14px">' + rows + '</div>' +
+        '</details>' +
+      '</section>';
+  }
+
   const canApply = (totUpdated > 0);
 
   bg.innerHTML =
@@ -36797,10 +37795,15 @@ function openRefreshQuoteDialog(){
         '<h3>🔄 Aggiorna preventivo dal catalogo</h3>' +
       '</div>' +
       '<div class="modal-body" style="display:block;padding:22px 26px;overflow-y:auto">' +
-        '<p class="settings-hint" style="margin:0 0 18px 0">L\u0027aggiornamento confronta i ' + totItems + ' articoli del carrello con il catalogo attuale e applica le modifiche disponibili. <strong>Quantita\u0027 e sconti applicati non vengono modificati</strong> (sono scelte commerciali).</p>' +
+        '<p class="settings-hint" style="margin:0 0 18px 0">L\u0027aggiornamento confronta gli articoli del carrello con il catalogo attuale e applica le modifiche disponibili. <strong>Quantita\u0027 e sconti applicati non vengono modificati</strong> (sono scelte commerciali).' +
+          (totExcluded > 0
+            ? ' <br><span style="color:var(--fg3)">' + totExcluded + ' riga/he e\u0027 stata esclusa perche\u0027 deselezionata nel carrello.</span>'
+            : '') +
+        '</p>' +
         updatedHtml +
         notFoundHtml +
         unchangedHtml +
+        excludedHtml +
         (totUpdated === 0 ? '<p style="text-align:center;padding:20px;color:var(--fg2)">Nessun aggiornamento disponibile.</p>' : '') +
       '</div>' +
       '<div class="modal-foot">' +
@@ -36814,9 +37817,48 @@ function openRefreshQuoteDialog(){
   bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
   document.getElementById('rqCancelBtn').addEventListener('click', () => bg.remove());
   if(canApply){
-    document.getElementById('rqApplyBtn').addEventListener('click', () => {
+    const applyBtn = document.getElementById('rqApplyBtn');
+    const checks = () => Array.from(bg.querySelectorAll('.rq-row-check'));
+
+    // V2.10.211: aggiorna il testo del pulsante col numero di articoli selezionati,
+    // e lo disabilita se non c'e' nessuna selezione.
+    const refreshApplyBtn = () => {
+      const selected = checks().filter(c => c.checked).length;
+      applyBtn.textContent = '🔄 Applica aggiornamenti (' + selected + ')';
+      applyBtn.disabled = (selected === 0);
+      applyBtn.style.opacity = (selected === 0) ? '0.5' : '1';
+      applyBtn.style.cursor = (selected === 0) ? 'not-allowed' : 'pointer';
+    };
+
+    // Ogni checkbox aggiorna il conteggio
+    checks().forEach(c => c.addEventListener('change', refreshApplyBtn));
+
+    // Seleziona tutti / Deseleziona tutti
+    const selAll = document.getElementById('rqSelectAll');
+    const selNone = document.getElementById('rqSelectNone');
+    if(selAll) selAll.addEventListener('click', () => {
+      checks().forEach(c => { c.checked = true; });
+      refreshApplyBtn();
+    });
+    if(selNone) selNone.addEventListener('click', () => {
+      checks().forEach(c => { c.checked = false; });
+      refreshApplyBtn();
+    });
+
+    refreshApplyBtn();  // stato iniziale (tutte spuntate)
+
+    applyBtn.addEventListener('click', () => {
       try {
-        const n = _refreshQuote_applyAll(diff);
+        // Raccolgo gli itemIdx degli articoli selezionati
+        const selectedIdxs = checks()
+          .filter(c => c.checked)
+          .map(c => parseInt(c.dataset.itemIdx, 10))
+          .filter(n => !isNaN(n));
+        if(selectedIdxs.length === 0){
+          toast('Nessun articolo selezionato', 'err');
+          return;
+        }
+        const n = _refreshQuote_applyAll(diff, selectedIdxs);
         bg.remove();
         toast(n + ' articol' + (n === 1 ? 'o aggiornato' : 'i aggiornati') + ' nel carrello', 'ok');
       } catch(err){
@@ -36846,12 +37888,12 @@ function openRefreshQuoteDialog(){
    con tag esoterici perche' la toolbar usa document.execCommand che produce
    solo tag standard (b, i, u, ol, ul, li, span con style="color/background").
    
-   V2.10.193: aggiunto helper htmlToTextRuns() per parsing HTML in strutture
+   V2.10.211: aggiunto helper htmlToTextRuns() per parsing HTML in strutture
    di "runs" usate da PDF jsPDF e Word docx. Senza questo, il vecchio strip-tag
    buttava via tutti gli stili (bold/dimensioni/colori) negli export.
    ============================================================================ */
 
-/* V2.10.193: parsa una stringa HTML (prodotta dal nostro editor contentEditable)
+/* V2.10.211: parsa una stringa HTML (prodotta dal nostro editor contentEditable)
    in un array di paragrafi, ognuno con un array di "runs". Ogni run e' un pezzo
    di testo continuo con uno stile coerente:
      { text, bold, italic, underline, strike, fontSize, color, highlight }
@@ -37202,7 +38244,7 @@ function openFreeTextDialog(){
   tb.appendChild(tbBtn('strikeThrough', '<s>B</s>', 'Barrato'));
   tb.appendChild(tbSep());
 
-  // V2.10.193: dropdown dimensione font.
+  // V2.10.211: dropdown dimensione font.
   // execCommand('fontSize') produce <font size="N"> (scala 1-7 obsoleta) che non
   // viene rispettata uniformemente in PDF/Word. Usiamo wrap manuale con
   // <span style="font-size:Xpt"> che e' stabile e parsabile dal nostro htmlToTextRuns.
@@ -37279,7 +38321,7 @@ function openFreeTextDialog(){
   tb.appendChild(tbBtn('insertUnorderedList', '\u2022 \u2022', 'Elenco puntato'));
   tb.appendChild(tbBtn('insertOrderedList', '1.', 'Elenco numerato'));
   tb.appendChild(tbSep());
-  // V2.10.193: pulsanti allineamento con icone distinte (SVG inline) + aggiunto Giustifica.
+  // V2.10.211: pulsanti allineamento con icone distinte (SVG inline) + aggiunto Giustifica.
   // Prima usavo U+2261 sia per left che per right (stessa icona): non si distinguevano.
   // Ora 4 icone chiare: ≡ left, ≡ center, ≡ right, ☰ justify (linee tutte lunghe uguali).
   // Uso piccoli SVG inline per simbologia tipografica standard.
@@ -37579,6 +38621,10 @@ function openQuotesArchiveSection(){
         '<div id="qaTableWrap" style="flex:1;overflow:auto;padding:0"></div>' +
       '</div>' +
       '<div class="modal-foot">' +
+        // V2.10.211: strumento di ottimizzazione dimensione archivio (rimuove
+        // immagini ridondanti dalle versioni — risolve l'errore "payload too large").
+        '<button class="btn small ghost" id="qaOptimizeBtn" type="button" title="Analizza e riduci la dimensione dell\u0027archivio preventivi" style="font-size:12px">📦 Ottimizza dimensione</button>' +
+        '<span style="flex:1"></span>' +
         '<button class="btn ghost" onclick="closeQuotesArchiveSection()">Chiudi</button>' +
       '</div>' +
     '</div>';
@@ -37604,6 +38650,15 @@ function openQuotesArchiveSection(){
     renderQuotesArchiveTable();
   });
   document.getElementById('qaManageStatiBtn').addEventListener('click', openManageStatiDialog);
+  // V2.10.211: handler "Ottimizza dimensione" — apre il dialog di analisi/pulizia.
+  (function(){
+    const optBtn = document.getElementById('qaOptimizeBtn');
+    if(optBtn){
+      optBtn.addEventListener('click', () => {
+        if(typeof openOptimizeArchiveDialog === 'function') openOptimizeArchiveDialog();
+      });
+    }
+  })();
 
   // Restore filter values
   document.getElementById('qaSearch').value = window._QUOTES_FILTER.q || '';
@@ -37916,6 +38971,13 @@ function openQuoteDetailDialog(quoteId){
         if(document.getElementById('quotesArchiveModal')){
           renderQuotesArchiveTable();
         }
+        // V2.10.211: BUGFIX — aggiorno anche la barra info del carrello, altrimenti
+        // restava "congelata" sul vecchio nome (es. "(nessun nome assegnato)") mentre
+        // l'export PDF mostrava gia' il nome aggiornato. Le due viste leggono lo stesso
+        // quote.nome ma la barra non veniva re-renderizzata dopo il salvataggio.
+        if(typeof renderQuoteCartBoundInfo === 'function'){
+          try { renderQuoteCartBoundInfo(); } catch(_){}
+        }
       } catch(err){
         console.error('[preventivi] save nome fallito:', err);
         toast('Errore: ' + (err.message || err), 'err');
@@ -37965,6 +39027,11 @@ function openQuoteDetailDialog(quoteId){
       // Re-render tabella se aperta
       if(document.getElementById('quotesArchiveModal')){
         renderQuotesArchiveTable();
+      }
+      // V2.10.211: aggiorno la barra info del carrello — mostra anche lo stato
+      // del preventivo (badge), che altrimenti resterebbe sul valore precedente.
+      if(typeof renderQuoteCartBoundInfo === 'function'){
+        try { renderQuoteCartBoundInfo(); } catch(_){}
       }
     } catch(err){
       console.error('[preventivi] cambio stato fallito:', err);
@@ -38408,13 +39475,27 @@ function _stripIfHtml(s){
    nell'item non cambia, solo la rappresentazione visiva. */
 function getDisplayCode(item){
   if(!item || !item.code) return '';
-  const code = String(item.code);
+  return resolveDisplayCode(item.code);
+}
+
+/* V2.10.211: risoluzione UNIFICATA del codice da mostrare a partire da una
+   stringa di codice grezza. Centralizza la logica che prima era solo dentro
+   getDisplayCode (che lavorava su item.code). Da usare ovunque si mostri il
+   codice di un prodotto/servizio nella UI, per non far mai "trapelare" i nomi
+   tecnici interni degli shadow service (es. "SVC-SRV-802172").
+   Regola: se il codice inizia con "SVC-" e' uno shadow service → risolvo al
+   codice manuale del servizio reale (svc.codice), con fallback al nome del
+   servizio (svc.nome). Per tutti gli altri codici ritorno il valore invariato.
+   Risoluzione lossless: il dato salvato non cambia, cambia solo la vista. */
+function resolveDisplayCode(rawCode){
+  if(!rawCode) return '';
+  const code = String(rawCode);
   if(code.indexOf('SVC-') !== 0) return code;
   if(typeof serviceGetById !== 'function') return code;
   const svcId = code.substring(4);
   const svc = serviceGetById(svcId);
-  if(svc && svc.codice) return svc.codice;
-  if(svc && svc.nome) return svc.nome;
+  if(svc && svc.codice && String(svc.codice).trim()) return String(svc.codice).trim();
+  if(svc && svc.nome && String(svc.nome).trim()) return String(svc.nome).trim();
   return code;
 }
 
@@ -38542,6 +39623,40 @@ function removeFromQuoteCart(code){
     saveQuoteState();
     renderQuoteFloatingButton();
   }
+}
+
+/* V2.10.211: elimina dal carrello le righe SELEZIONATE con le checkbox.
+   Le checkbox sono vuote di default: una riga e' selezionata SOLO se
+   _selectedForUpdate === true (l'utente l'ha spuntata esplicitamente).
+   Restituisce il numero di righe rimosse. Non chiede conferma: la conferma
+   e' gestita dal chiamante (handler del pulsante "Elimina righe"). */
+function deleteSelectedQuoteRows(){
+  if(!window._QUOTE_STATE || !Array.isArray(window._QUOTE_STATE.items)) return 0;
+  const before = window._QUOTE_STATE.items.length;
+  // Tengo solo le righe NON selezionate (_selectedForUpdate !== true).
+  window._QUOTE_STATE.items = window._QUOTE_STATE.items.filter(
+    it => it && it._selectedForUpdate !== true
+  );
+  const removed = before - window._QUOTE_STATE.items.length;
+  if(removed > 0){
+    saveQuoteState();
+    if(typeof renderQuoteFloatingButton === 'function'){
+      try { renderQuoteFloatingButton(); } catch(_){}
+    }
+    if(typeof renderQuoteCartContent === 'function'){
+      try { renderQuoteCartContent(); } catch(_){}
+    }
+  }
+  return removed;
+}
+
+/* V2.10.211: conta le righe SELEZIONATE con le checkbox del carrello.
+   Selezionata = _selectedForUpdate === true (default checkbox vuote). */
+function countSelectedQuoteRows(){
+  if(!window._QUOTE_STATE || !Array.isArray(window._QUOTE_STATE.items)) return 0;
+  return window._QUOTE_STATE.items.reduce(
+    (n, it) => n + (it && it._selectedForUpdate === true ? 1 : 0), 0
+  );
 }
 
 // V2.3.7: aggiorna lo sconto % di una riga (Modalità Cliente).
@@ -39104,7 +40219,7 @@ function openQuoteAddDialog(productIdx){
       '<div class="modal-body" style="display:block;padding:18px 22px">' +
         '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px">' +
           '<div style="font-size:10.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">' + escapeHtml(brand || 'Prodotto') + '</div>' +
-          '<div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:4px">' + escapeHtml(code) + '</div>' +
+          '<div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:4px">' + escapeHtml(typeof resolveDisplayCode === 'function' ? resolveDisplayCode(code) : code) + '</div>' +
           '<div style="font-size:11.5px;color:var(--fg2);line-height:1.5;white-space:pre-line;max-height:120px;overflow-y:auto">' + escapeHtml(desc).slice(0, 400) + (desc.length > 400 ? '…' : '') + '</div>' +
           (function(){
             // V2.3.7: in Modalità Cliente nascondo il netto (dato sensibile interno).
@@ -39248,6 +40363,9 @@ function openQuoteCart(){
         // V2.10.24: pulsante "Inserisci Testo Libero" - apre dialog di scelta posizione + editor WYSIWYG
         '<button class="btn small" id="quoteCartFreeTextBtn" type="button" title="Inserisci testo libero personalizzato (presentazione iniziale o note finali)" style="font-size:13px;background:#0178d4;color:#fff;border-color:#0178d4">✏️ Inserisci Testo Libero</button>' +
         '<button class="btn small primary" id="quoteCartAddServiceBtn" type="button" title="Aggiungi una nuova riga al preventivo (prodotti personali o servizi)" style="font-size:13px">➕ Aggiungi Riga</button>' +
+        // V2.10.211: pulsante "Elimina righe" - cancella le righe spuntate con le
+        // checkbox del carrello (stesso meccanismo di selezione di "Aggiorna preventivo").
+        '<button class="btn small" id="quoteCartDeleteRowsBtn" type="button" title="Elimina le righe selezionate con le checkbox" style="font-size:13px;background:#ef4444;color:#fff;border-color:#ef4444">🗑️ Elimina righe</button>' +
         '<button class="btn small ghost" id="quoteCartSettingsBtn" type="button" title="Modalità preventivo e descrizione" style="font-size:13px">⚙️ Impostazioni preventivo</button>' +
         '<button class="btn small ghost" id="quoteCartPrintSettingsBtn" type="button" title="Cosa includere nelle esportazioni" style="font-size:13px">🖨️ Impostazioni di stampa</button>' +
       '</div>' +
@@ -39300,6 +40418,29 @@ function openQuoteCart(){
   document.getElementById('quoteCartFreeTextBtn').addEventListener('click', () => openFreeTextDialog());
   // V2.9.12: handler pulsante "Aggiungi Servizi"
   document.getElementById('quoteCartAddServiceBtn').addEventListener('click', () => openAddRowChoiceDialog());
+  // V2.10.211: handler pulsante "Elimina righe" — cancella le righe selezionate
+  // con le checkbox del carrello, previa conferma.
+  (function(){
+    const delBtn = document.getElementById('quoteCartDeleteRowsBtn');
+    if(!delBtn) return;
+    delBtn.addEventListener('click', () => {
+      const n = (typeof countSelectedQuoteRows === 'function') ? countSelectedQuoteRows() : 0;
+      const tot = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items))
+        ? window._QUOTE_STATE.items.length : 0;
+      if(n === 0){
+        toast('Nessuna riga selezionata. Spunta le righe da eliminare con le checkbox.', 'err');
+        return;
+      }
+      // Sicurezza: avviso se l'utente sta per svuotare tutto il carrello
+      const svuotaTutto = (n === tot);
+      const msg = svuotaTutto
+        ? 'Stai per eliminare TUTTE le ' + n + ' righe del preventivo.\n\nIl carrello restera\' vuoto. Procedere?'
+        : 'Eliminare le ' + n + ' righe selezionate dal preventivo?\n\nL\'azione non puo\' essere annullata.';
+      if(!confirm(msg)) return;
+      const removed = (typeof deleteSelectedQuoteRows === 'function') ? deleteSelectedQuoteRows() : 0;
+      toast(removed + ' rig' + (removed === 1 ? 'a eliminata' : 'he eliminate') + ' dal preventivo', 'ok');
+    });
+  })();
   // V2.4.7: handler per il nuovo pulsante Impostazioni di stampa
   document.getElementById('quoteCartPrintSettingsBtn').addEventListener('click', () => openQuotePrintSettingsDialog());
 
@@ -40046,6 +41187,14 @@ function renderQuoteCartContent(){
             '<span class="qcart-drag-handle" title="Trascina per riordinare" style="display:inline-block;cursor:grab;color:var(--fg3);font-size:14px;padding:0 4px;margin-right:4px;line-height:1">⋮⋮</span>' +
             (i + 1) +
           '</td>' +
+          // V2.10.211: checkbox di selezione per "Aggiorna preventivo".
+          // V2.10.211: checkbox spuntata SOLO se _selectedForUpdate===true (default: vuote).
+          '<td style="text-align:center">' +
+            '<input type="checkbox" class="qcart-update-check" data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" ' +
+              (it._selectedForUpdate === true ? 'checked' : '') + ' ' +
+              'title="Seleziona questa riga per Aggiorna preventivo o Elimina righe" ' +
+              'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0">' +
+          '</td>' +
           '<td>' +
             (function(){ const u = _qResolveImg(it); return u ? '<img src="' + escapeAttr(u) + '" loading="lazy" style="width:52px;height:52px;object-fit:contain;border-radius:5px;background:var(--bg)" onerror="this.style.display=\'none\'">' : ''; })() +
           '</td>' +
@@ -40092,9 +41241,6 @@ function renderQuoteCartContent(){
                 : '<span style="color:var(--fg3)">—</span>')) +
           '</td>' +
           '<td class="num qcart-cli-totprezzo" style="font-weight:700;color:#16a34a">' + (isZeroQty ? _dash : (subSell != null ? _qFmtEur(subSell) : '—')) + '</td>' +
-          '<td style="text-align:center">' +
-            '<button class="btn small ghost qcart-remove qcart-remove-btn" data-code="' + escapeAttr(it.code) + '" title="Rimuovi dal carrello">✕</button>' +
-          '</td>' +
         '</tr>';
     });
     tableHtml =
@@ -40102,6 +41248,12 @@ function renderQuoteCartContent(){
         '<thead>' +
           '<tr>' +
             '<th>Riga</th>' +  // V2.7.9: rinominato (era #)
+            // V2.10.211: colonna checkbox "Aggiorna" con select-all nell'header
+            '<th style="text-align:center" title="Seleziona / deseleziona tutte le righe (per Aggiorna o Elimina)">' +
+              '<input type="checkbox" id="qcartUpdateCheckAll" ' +
+                'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0" ' +
+                'title="Seleziona / deseleziona tutte le righe">' +
+            '</th>' +
             '<th>Foto</th>' +  // V2.7.9: rinominato (era Img)
             '<th>Codice</th>' +
             '<th>Marca</th>' +
@@ -40111,7 +41263,6 @@ function renderQuoteCartContent(){
             '<th class="num" style="text-align:center">Sconto</th>' +  // V2.7.4: centrato sopra il box sconto
             '<th class="num">Prezzo</th>' +  // V2.7.9: rinominato (era Vendita)
             '<th class="num">Tot. Prezzo</th>' +  // V2.7.9: rinominato (era Tot. Vendita)
-            '<th></th>' +
           '</tr>' +
         '</thead>' +
         '<tbody>' + tbody + '</tbody>' +
@@ -40164,6 +41315,13 @@ function renderQuoteCartContent(){
             '<span class="qcart-drag-handle" title="Trascina per riordinare" style="display:inline-block;cursor:grab;color:var(--fg3);font-size:14px;padding:0 4px;margin-right:4px;line-height:1">⋮⋮</span>' +
             (i + 1) +
           '</td>' +
+          // V2.10.211: checkbox di selezione per "Aggiorna preventivo".
+          '<td style="text-align:center">' +
+            '<input type="checkbox" class="qcart-update-check" data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" ' +
+              (it._selectedForUpdate === true ? 'checked' : '') + ' ' +
+              'title="Seleziona questa riga per Aggiorna preventivo o Elimina righe" ' +
+              'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0">' +
+          '</td>' +
           '<td>' +
             (function(){ const u = _qResolveImg(it); return u ? '<img src="' + escapeAttr(u) + '" loading="lazy" style="width:52px;height:52px;object-fit:contain;border-radius:5px;background:var(--bg)" onerror="this.style.display=\'none\'">' : ''; })() +
           '</td>' +
@@ -40191,10 +41349,10 @@ function renderQuoteCartContent(){
                 '</span>'
               : '—')) +
           '</td>' +
-          // V2.7.1: Sequenza colonne: PVP unit. → Sconto → Netto unit. → Tot. Netto → Sc. Cliente → Prezzo Vendita → Margine → Tot. PVP.
-          '<td class="num">' + (isZeroQty ? _dash : (it.netto != null ? _qFmtEur(it.netto) : '—')) + '</td>' +
-          // V2.7.1: Tot. Netto (netto × qty) subito dopo Netto unit. per leggibilita' "lato acquisto"
-          '<td class="num" style="font-weight:700;color:var(--accent)">' + (isZeroQty ? _dash : (subNetto != null ? _qFmtEur(subNetto) : '—')) + '</td>' +
+          // V2.7.1: Sequenza colonne: PVP unit. → Sconto → Netto unit. → Sc. Cliente → Prezzo Vendita → Margine.
+          // V2.10.211: cella "Netto ACQ" colorata di rosso (#dc2626) per evidenziare il costo d'acquisto.
+          '<td class="num" style="color:#dc2626;font-weight:600">' + (isZeroQty ? _dash : (it.netto != null ? _qFmtEur(it.netto) : '—')) + '</td>' +
+          // V2.10.211: colonna "Tot. Netto ACQ" rimossa su richiesta utente.
           // V2.5.9 / V2.6.2: cella "Sc. Cliente" EDITABILE anche in Modalità Analisi.
           // Stesso modello dati (it.discountPct) e stessa persistenza dell'input
           // in Modalità Cliente: cambiando modalità Cliente↔Analisi il valore
@@ -40236,10 +41394,6 @@ function renderQuoteCartContent(){
                 ? '<span style="color:' + margineColor + ';font-weight:700">' + _qFmtPct(margine, 1) + '</span>'
                 : '<span style="color:var(--fg3)">—</span>')) +
           '</td>' +
-          // V2.7.7: colonna Tot. Listino nascosta su richiesta utente — Tot. Netto resta visibile come totale per riga.
-          '<td style="text-align:center">' +
-            '<button class="btn small ghost qcart-remove qcart-remove-btn" data-code="' + escapeAttr(it.code) + '" title="Rimuovi dal carrello">✕</button>' +
-          '</td>' +
         '</tr>';
     });
     tableHtml =
@@ -40247,6 +41401,12 @@ function renderQuoteCartContent(){
         '<thead>' +
           '<tr>' +
             '<th>Riga</th>' +  // V2.7.8: rinominato (era #)
+            // V2.10.211: colonna checkbox "Aggiorna" con select-all nell'header
+            '<th style="text-align:center" title="Seleziona / deseleziona tutte le righe (per Aggiorna o Elimina)">' +
+              '<input type="checkbox" id="qcartUpdateCheckAll" ' +
+                'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0" ' +
+                'title="Seleziona / deseleziona tutte le righe">' +
+            '</th>' +
             '<th>Img</th>' +
             '<th>Codice</th>' +
             '<th>Marca</th>' +
@@ -40255,11 +41415,9 @@ function renderQuoteCartContent(){
             '<th class="num">Listino</th>' +
             '<th class="num">Sconto ACQ</th>' +
             '<th class="num">Netto ACQ</th>' +  // V2.7.8: rinominato (era Netto)
-            '<th class="num">Tot. Netto ACQ</th>' +  // V2.7.8: rinominato (era Tot. Netto)
             '<th class="num" style="text-align:center">Sc. Cliente</th>' +  // V2.5.9+V2.7.4: centrato sopra il box sconto
             '<th class="num">Prezzo</th>' +  // V2.7.8: rinominato (era Vendita)
             '<th class="num">Margine</th>' +      // V2.5.9: % di guadagno sulla vendita
-            '<th></th>' +
           '</tr>' +
         '</thead>' +
         '<tbody>' + tbody + '</tbody>' +
@@ -40293,14 +41451,52 @@ function renderQuoteCartContent(){
       renderQuoteCartContent();
     });
   });
-  container.querySelectorAll('.qcart-remove').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const code = btn.dataset.code;
-      if(!confirm('Rimuovere "' + code + '" dal carrello?')) return;
-      removeFromQuoteCart(code);
-      renderQuoteCartContent();
+  // V2.10.211: handler checkbox di selezione per "Aggiorna preventivo".
+  // Lo stato e' salvato su it._selectedForUpdate e persiste nel _QUOTE_STATE.
+  // Non serve re-render: la checkbox aggiorna solo il flag.
+  const _qcartUpdateChecks = () => Array.from(container.querySelectorAll('.qcart-update-check'));
+  // Allinea lo stato della checkbox "select-all" dell'header (checked / indeterminate)
+  const _syncQcartCheckAll = () => {
+    const all = _qcartUpdateChecks();
+    const checkAll = container.querySelector('#qcartUpdateCheckAll');
+    if(!checkAll || all.length === 0) return;
+    const sel = all.filter(c => c.checked).length;
+    checkAll.checked = (sel === all.length);
+    checkAll.indeterminate = (sel > 0 && sel < all.length);
+  };
+  _qcartUpdateChecks().forEach(chk => {
+    chk.addEventListener('change', () => {
+      const code = chk.dataset.code;
+      const item = window._QUOTE_STATE.items.find(it => it.code === code);
+      if(item){
+        item._selectedForUpdate = chk.checked;
+        if(typeof saveQuoteState === 'function'){
+          try { saveQuoteState(); } catch(_){}
+        }
+      }
+      _syncQcartCheckAll();
     });
   });
+  // Checkbox "seleziona tutti" nell'header
+  const _qcartCheckAll = container.querySelector('#qcartUpdateCheckAll');
+  if(_qcartCheckAll){
+    _qcartCheckAll.addEventListener('change', () => {
+      const wantChecked = _qcartCheckAll.checked;
+      _qcartUpdateChecks().forEach(chk => {
+        chk.checked = wantChecked;
+        const item = window._QUOTE_STATE.items.find(it => it.code === chk.dataset.code);
+        if(item) item._selectedForUpdate = wantChecked;
+      });
+      if(typeof saveQuoteState === 'function'){
+        try { saveQuoteState(); } catch(_){}
+      }
+    });
+    _syncQcartCheckAll();  // stato iniziale
+  }
+  // V2.10.211: handler ".qcart-remove" rimosso — la X di cancellazione riga non
+  // esiste più. La cancellazione avviene ora dal pulsante "Elimina righe" in
+  // toolbar, sulle righe selezionate con le checkbox. La funzione
+  // removeFromQuoteCart() resta definita come API riutilizzabile.
   // V2.3.9: input sconto % (Modalità Cliente nella sua colonna dedicata,
   // V2.6.2: anche Modalità Analisi nella colonna "Sc. Cliente" editabile).
   container.querySelectorAll('.qcart-discount-input').forEach(inp => {
@@ -42141,7 +43337,7 @@ async function exportQuoteDocx(options){
     const mk = (text, opts) => new TextRun(Object.assign({ font: 'Calibri', size: 19 }, opts || {}, { text }));
     const para = (children, opts) => new Paragraph(Object.assign({ children: Array.isArray(children) ? children : [children] }, opts || {}));
 
-    // V2.10.193: converte HTML formattato (output dell'editor testo libero) in array
+    // V2.10.211: converte HTML formattato (output dell'editor testo libero) in array
     // di Paragraph docx, preservando bold/italic/underline/strike/font-size/color/highlight.
     // baseOpts: opzioni di default applicate a OGNI run (es. color: TEXT_MID, size: 22 = 11pt).
     // paraOpts: opzioni di default applicate a OGNI paragraph (es. alignment JUSTIFIED, spacing).
@@ -42290,7 +43486,7 @@ async function exportQuoteDocx(options){
       if(_quoteCliente.codiceFiscale){
         destInner.push(para(mk('C.F.: ' + _quoteCliente.codiceFiscale, { color: '4B5563', size: 18 })));
       }
-      // V2.10.193: indirizzo e CAP/Citta/Provincia su righe separate (non piu' uniti
+      // V2.10.211: indirizzo e CAP/Citta/Provincia su righe separate (non piu' uniti
       // con virgola). Migliora leggibilita' di intestazioni lunghe.
       if(_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()){
         destInner.push(para(mk(_quoteCliente.indirizzo.trim(), { color: TEXT_MID, size: 19 }), { spacing: { before: 100 } }));
@@ -42300,7 +43496,7 @@ async function exportQuoteDocx(options){
         destInner.push(para(mk(_quoteCliente.capCitta.trim(), { color: TEXT_MID, size: 19 }),
           beforeSpacing ? { spacing: beforeSpacing } : {}));
       }
-      // V2.10.193: blocco riferimento completo (nome bold + ruolo italics + telefono + email)
+      // V2.10.211: blocco riferimento completo (nome bold + ruolo italics + telefono + email)
       // visibile sempre quando i campi sono valorizzati. Aggregato sotto il nome con spacing
       // minore (60) per percezione di gruppo coerente.
       if(_quoteCliente.persRiferimento){
@@ -42311,7 +43507,7 @@ async function exportQuoteDocx(options){
         if(_quoteCliente.ruoloRiferimento){
           destInner.push(para(mk(_quoteCliente.ruoloRiferimento, { color: TEXT_MUTED, italics: true, size: 17 }), { spacing: { before: 30 } }));
         }
-        // V2.10.193: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
+        // V2.10.211: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
         // con fallback ai campi telefono/email del cliente generale se mancano.
         const _refTel = _quoteCliente.telRiferimento || _quoteCliente.telefono || '';
         const _refMail = _quoteCliente.emailRiferimento || _quoteCliente.email || '';
@@ -42394,7 +43590,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // CARD OGGETTO (border-left blu su sfondo CARD_BG)
     // =====================================================
-    // V2.10.193: testo Oggetto multi-paragrafo (split su \n) + giustificato.
+    // V2.10.211: testo Oggetto multi-paragrafo (split su \n) + giustificato.
     // Era una sola riga, ora supporta descrizioni lunghe inserite nella textarea UI.
     let oggettoTable = null;
     if(_quoteNome){
@@ -42432,7 +43628,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // TESTO LIBERO HEADER (se presente)
     // =====================================================
-    // V2.10.193: ora preserva la formattazione completa (bold, italic, underline,
+    // V2.10.211: ora preserva la formattazione completa (bold, italic, underline,
     // strike, font-size, color, highlight) tramite htmlToTextRuns + htmlToDocxParagraphs.
     let headerFreeText = null;
     if(SETTINGS_QFT.header){
@@ -42783,7 +43979,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // TESTO LIBERO FOOTER (se presente)
     // =====================================================
-    // V2.10.193: stesso approccio dell'header, formattazione preservata.
+    // V2.10.211: stesso approccio dell'header, formattazione preservata.
     let footerFreeText = null;
     if(SETTINGS_QFT.footer){
       const footerParas = htmlToDocxParagraphs(
@@ -43380,7 +44576,7 @@ async function exportQuoteWord(){
         '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:30pt;padding-top:14pt;border-top:1pt solid #e5e7eb;font-size:9pt;color:#9ca3af;line-height:1.6}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:10pt 14pt;margin-top:18pt;font-size:10pt;color:#0c4a6e}' +
-        // V2.10.193: regole specifiche per il testo libero (header/footer) — garantiscono
+        // V2.10.211: regole specifiche per il testo libero (header/footer) — garantiscono
         // che il <b>/<strong>, <i>/<em>, <u>, <s>, e <span style="font-size:..."> inline
         // dell'editor vengano onorati anche in Word .doc (che ha un parser HTML "vintage"
         // e a volte ignora gli stili inline se sovrascritti da regole generiche).
@@ -43433,16 +44629,16 @@ async function exportQuoteWord(){
               '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:Calibri,monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
-              // V2.10.193: indirizzo e CAP/Citta/Provincia su righe separate (era unito da virgola)
+              // V2.10.211: indirizzo e CAP/Citta/Provincia su righe separate (era unito da virgola)
               (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim() ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml(_quoteCliente.indirizzo.trim()) + '</div>' : '') +
               (_quoteCliente.capCitta && _quoteCliente.capCitta.trim() ? '<div style="font-size:9.5pt;color:#374151;line-height:1.4' + ((!_quoteCliente.indirizzo || !_quoteCliente.indirizzo.trim()) ? ';margin-top:5pt' : '') + '">' + escapeHtml(_quoteCliente.capCitta.trim()) + '</div>' : '') +
-              // V2.10.193: blocco riferimento completo (nome bold + ruolo + telefono + email)
+              // V2.10.211: blocco riferimento completo (nome bold + ruolo + telefono + email)
               // raggruppato in un unico blocco separato da bordo tratteggiato.
               (_quoteCliente.persRiferimento ? (
                 '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
                   'Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' +
                   (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') +
-                  // V2.10.193: telefono/email del REFERENTE con fallback ai campi cliente
+                  // V2.10.211: telefono/email del REFERENTE con fallback ai campi cliente
                   ((_quoteCliente.telRiferimento || _quoteCliente.telefono) ? '<br><span style="color:#6b7280">Tel: ' + escapeHtml(_quoteCliente.telRiferimento || _quoteCliente.telefono) + '</span>' : '') +
                   ((_quoteCliente.emailRiferimento || _quoteCliente.email) ? '<br><span style="color:#6b7280">Email: ' + escapeHtml(_quoteCliente.emailRiferimento || _quoteCliente.email) + '</span>' : '') +
                 '</div>'
@@ -43462,7 +44658,7 @@ async function exportQuoteWord(){
         '</div>' +
       '</div>' +
       // V2.10.15: riga OGGETTO con card laterale + accento ambra (Variante B - elegante e armoniosa)
-      // V2.10.193: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
+      // V2.10.211: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
       // della textarea e wrappare automaticamente i testi lunghi multi-riga.
       (_quoteNome ? (
         '<div style="margin:0 32pt;padding:8pt 16pt;background:#fafaf9;border-left:4pt solid #0178d4;border-radius:2pt;display:flex;flex-direction:column;gap:2pt">' +
@@ -43471,7 +44667,7 @@ async function exportQuoteWord(){
         '</div>'
       ) : '') +
       // V2.10.24: testo libero header (sotto card OGGETTO) - HTML formattato dall'utente. V2.10.26: distanza maggiore + giustificato
-      // V2.10.193: usa classe .qft-block per garantire che bold/italic/font-size inline siano onorati in Word .doc
+      // V2.10.211: usa classe .qft-block per garantire che bold/italic/font-size inline siano onorati in Word .doc
       ((SETTINGS_QFT && SETTINGS_QFT.header) ? (
         '<div class="qft-block" style="margin:18pt 32pt 0 32pt;padding:0 4pt;font-size:11pt">' +
           SETTINGS_QFT.header +
@@ -43491,7 +44687,7 @@ async function exportQuoteWord(){
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
-        // V2.10.193: usa classe .qft-block (vedi commento header)
+        // V2.10.211: usa classe .qft-block (vedi commento header)
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
           '<div class="qft-block" style="margin-top:18pt;padding:0 4pt;font-size:11pt">' +
             SETTINGS_QFT.footer +
@@ -43772,8 +44968,8 @@ async function exportQuotePdfNative(options){
       return cy;
     };
 
-    /* V2.10.193: render PDF di paragrafi "rich" (con runs di stili misti).
-       Page-break automatico (V2.10.193): quando il testo libero supera il margine
+    /* V2.10.211: render PDF di paragrafi "rich" (con runs di stili misti).
+       Page-break automatico (V2.10.211): quando il testo libero supera il margine
        inferiore della pagina, fluisce automaticamente sulla pagina successiva invece
        di essere troncato (comportamento simile a Word/docx).
        Input: array di paragrafi nel formato di htmlToTextRuns:
@@ -43798,7 +44994,7 @@ async function exportQuotePdfNative(options){
       defAlign = defAlign || 'justify';
       const PARAGRAPH_GAP = 4;   // spazio extra fra paragrafi
       let cy = y;
-      // V2.10.193: helper interno per page-break. Se pageBreakOpts attivo, controlla se
+      // V2.10.211: helper interno per page-break. Se pageBreakOpts attivo, controlla se
       // la prossima riga di altezza `lineH` ci sta. In caso contrario fa onNewPage + reset cy.
       const checkPageBreak = (lineH) => {
         if(!pageBreakOpts) return;
@@ -43817,7 +45013,7 @@ async function exportQuotePdfNative(options){
         let prefix = p.listMarker ? p.listMarker : '';
         // Se paragrafo vuoto, salto con piccolo gap
         if(runs.length === 0 && !prefix){
-          // V2.10.193: anche i paragrafi vuoti possono superare il margine
+          // V2.10.211: anche i paragrafi vuoti possono superare il margine
           checkPageBreak(defSize * 1.2);
           cy += defSize * 1.2;
           continue;
@@ -43891,7 +45087,7 @@ async function exportQuotePdfNative(options){
           // Calcolo altezza riga = max fontSize della riga * 1.25
           const maxFontSize = line.reduce((m, tk) => Math.max(m, tk.fontSize), defSize);
           const lineH = maxFontSize * 1.25;
-          // V2.10.193: page-break check PRIMA di disegnare la riga.
+          // V2.10.211: page-break check PRIMA di disegnare la riga.
           // Se la riga non sta piu' nello spazio rimanente, vado a nuova pagina.
           checkPageBreak(lineH);
           // Baseline = cy + maxFontSize (cy e' top della riga)
@@ -44075,7 +45271,7 @@ async function exportQuotePdfNative(options){
         doc.text('C.F.: ' + _quoteCliente.codiceFiscale, colRightX + padX, measureY + 4);
         measureY += 12;
       }
-      // V2.10.193: indirizzo e CAP/Citta/Provincia su righe separate.
+      // V2.10.211: indirizzo e CAP/Citta/Provincia su righe separate.
       if(_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()){
         setText(9.5, 'normal', COL.textMid);
         const lines = wrapText(_quoteCliente.indirizzo.trim(), colRightW - 2 * padX, 9.5, 'normal');
@@ -44086,7 +45282,7 @@ async function exportQuotePdfNative(options){
         const lines = wrapText(_quoteCliente.capCitta.trim(), colRightW - 2 * padX, 9.5, 'normal');
         lines.forEach(line => { doc.text(line, colRightX + padX, measureY + 4); measureY += 12; });
       }
-      // V2.10.193: blocco riferimento completo — nome + ruolo + telefono + email
+      // V2.10.211: blocco riferimento completo — nome + ruolo + telefono + email
       // sempre raggruppati sotto a "Alla c.a." (anziche' telefono/email come blocco a se')
       if(_quoteCliente.persRiferimento){
         measureY += 4;
@@ -44101,7 +45297,7 @@ async function exportQuotePdfNative(options){
           doc.text(_quoteCliente.ruoloRiferimento, colRightX + padX, measureY + 4);
           measureY += 11;
         }
-        // V2.10.193: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
+        // V2.10.211: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
         // con fallback ai campi telefono/email del cliente generale.
         const _refTel = _quoteCliente.telRiferimento || _quoteCliente.telefono || '';
         const _refMail = _quoteCliente.emailRiferimento || _quoteCliente.email || '';
@@ -44163,7 +45359,7 @@ async function exportQuotePdfNative(options){
     cursorY = Math.max(leftY, rightY) + 18;
 
     // === CARD OGGETTO ===
-    // V2.10.193: testo Oggetto multi-riga giustificato (era una sola riga troncata).
+    // V2.10.211: testo Oggetto multi-riga giustificato (era una sola riga troncata).
     // Calcolo altezza in base alle righe wrappate, gestisco anche eventuali \n inseriti
     // dall'utente nella textarea. Giustificazione tramite drawJustifiedText (V2.10.186).
     if(_quoteNome){
@@ -44210,9 +45406,9 @@ async function exportQuotePdfNative(options){
     }
 
     // === TESTO LIBERO HEADER ===
-    // V2.10.193: parsing HTML completo con preservazione di bold/italic/underline/strike/
+    // V2.10.211: parsing HTML completo con preservazione di bold/italic/underline/strike/
     // font-size/color/highlight. drawRichRunsParagraphs gestisce layout multi-stile.
-    // Page-break automatico (V2.10.193): se il testo eccede la pagina, fluisce sulla successiva.
+    // Page-break automatico (V2.10.211): se il testo eccede la pagina, fluisce sulla successiva.
     if(SETTINGS_QFT.header){
       const paras = (typeof htmlToTextRuns === 'function') ? htmlToTextRuns(SETTINGS_QFT.header) : [];
       if(paras.length > 0){
@@ -44741,7 +45937,7 @@ async function exportQuotePdfNative(options){
     }
 
     // === TESTO LIBERO FOOTER ===
-    // V2.10.193: vedi commento header. drawRichRunsParagraphs gestisce nativamente
+    // V2.10.211: vedi commento header. drawRichRunsParagraphs gestisce nativamente
     // bold/italic/dimensioni/colori/evidenziatore + page-break automatico (il render
     // verifica riga per riga se serve nuova pagina, quindi non serve piu' la stima
     // a-priori).
@@ -45103,7 +46299,7 @@ async function exportQuotePdf(){
         '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:22pt;padding-top:10pt;border-top:1pt solid #e5e7eb;font-size:8pt;color:#9ca3af;line-height:1.5}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:8pt 12pt;margin-top:14pt;font-size:9pt;color:#0c4a6e}' +
-        // V2.10.193: regole per testo libero (vedi spiegazione nel docx export)
+        // V2.10.211: regole per testo libero (vedi spiegazione nel docx export)
         '.qft-block{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#374151;line-height:1.6;text-align:justify}' +
         '.qft-block b,.qft-block strong{font-weight:bold !important}' +
         '.qft-block i,.qft-block em{font-style:italic !important}' +
@@ -45203,15 +46399,15 @@ async function exportQuotePdf(){
               '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
-              // V2.10.193: indirizzo e CAP/Citta/Provincia su righe separate
+              // V2.10.211: indirizzo e CAP/Citta/Provincia su righe separate
               (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim() ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml(_quoteCliente.indirizzo.trim()) + '</div>' : '') +
               (_quoteCliente.capCitta && _quoteCliente.capCitta.trim() ? '<div style="font-size:9.5pt;color:#374151;line-height:1.4' + ((!_quoteCliente.indirizzo || !_quoteCliente.indirizzo.trim()) ? ';margin-top:5pt' : '') + '">' + escapeHtml(_quoteCliente.capCitta.trim()) + '</div>' : '') +
-              // V2.10.193: blocco riferimento completo (nome + ruolo + telefono + email raggruppati)
+              // V2.10.211: blocco riferimento completo (nome + ruolo + telefono + email raggruppati)
               (_quoteCliente.persRiferimento ? (
                 '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
                   'Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' +
                   (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') +
-                  // V2.10.193: telefono/email del REFERENTE con fallback ai campi cliente
+                  // V2.10.211: telefono/email del REFERENTE con fallback ai campi cliente
                   ((_quoteCliente.telRiferimento || _quoteCliente.telefono) ? '<br><span style="color:#6b7280">Tel: ' + escapeHtml(_quoteCliente.telRiferimento || _quoteCliente.telefono) + '</span>' : '') +
                   ((_quoteCliente.emailRiferimento || _quoteCliente.email) ? '<br><span style="color:#6b7280">Email: ' + escapeHtml(_quoteCliente.emailRiferimento || _quoteCliente.email) + '</span>' : '') +
                 '</div>'
@@ -45230,7 +46426,7 @@ async function exportQuotePdf(){
         '</div>' +
       '</div>' +
       // V2.10.15: riga OGGETTO con card laterale + accento ambra (Variante B - elegante e armoniosa)
-      // V2.10.193: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
+      // V2.10.211: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
       // della textarea e wrappare automaticamente i testi lunghi multi-riga.
       (_quoteNome ? (
         '<div style="margin:0 24pt;padding:8pt 16pt;background:#fafaf9;border-left:4pt solid #0178d4;border-radius:2pt;display:flex;flex-direction:column;gap:2pt">' +
@@ -45239,7 +46435,7 @@ async function exportQuotePdf(){
         '</div>'
       ) : '') +
       // V2.10.24: testo libero header (sotto card OGGETTO) - HTML formattato dall'utente. V2.10.26: distanza maggiore + giustificato
-      // V2.10.193: usa classe .qft-block (vedi commento header)
+      // V2.10.211: usa classe .qft-block (vedi commento header)
       ((SETTINGS_QFT && SETTINGS_QFT.header) ? (
         '<div class="qft-block" style="margin:18pt 24pt 0 24pt;padding:0 4pt;font-size:11pt">' +
           SETTINGS_QFT.header +
@@ -45259,7 +46455,7 @@ async function exportQuotePdf(){
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
-        // V2.10.193: usa classe .qft-block (vedi commento header)
+        // V2.10.211: usa classe .qft-block (vedi commento header)
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
           '<div class="qft-block" style="margin-top:18pt;padding:0 4pt;font-size:11pt">' +
             SETTINGS_QFT.footer +
@@ -47958,6 +49154,40 @@ async function init(){
   if(savedData && savedData.length>0){
     DATA = savedData;
     EDITS = savedEdits || {};
+    // V2.10.211: riparazione _idx duplicati. DEVE avvenire PRIMA della migrazione
+    // EDITS sotto (che usa p._idx come chiave). Gli _idx duplicati causavano
+    // l'apertura dell'editor sbagliato (es. "Modifica prodotto personale" su un
+    // servizio). _reindexDATA riassegna _idx = posizione array, univoci. Idempotente.
+    try {
+      if(typeof _hasDuplicateIdx === 'function' && _hasDuplicateIdx()){
+        const _fixed = (typeof _reindexDATA === 'function') ? _reindexDATA() : 0;
+        console.info('[migrazione V2.10.211] _idx duplicati rilevati — reindicizzati',
+          _fixed, 'record');
+        if(typeof idbSet === 'function'){
+          Promise.resolve(idbSet('data', 'main', DATA)).catch(() => {});
+        }
+      }
+    } catch(_){}
+    // V2.10.211: migrazione difensiva — rimuovo override EDITS agganciati per errore
+    // a prodotti personali. I personali si editano direttamente su `item`; un EDITS
+    // residuo (es. dopo riuso di _idx fra reload) farebbe sì che getField() mostri
+    // valori vecchi (es. prezzo di listino) ignorando quelli salvati. Idempotente.
+    try {
+      let _personalEditsCleaned = 0;
+      DATA.forEach(p => {
+        if(p && p.isPersonal === true && p._idx !== undefined && EDITS[p._idx]){
+          delete EDITS[p._idx];
+          _personalEditsCleaned++;
+        }
+      });
+      if(_personalEditsCleaned > 0){
+        console.info('[migrazione V2.10.211] rimossi', _personalEditsCleaned,
+          'override EDITS stantii da prodotti personali');
+        if(typeof idbSet === 'function'){
+          Promise.resolve(idbSet('edits', 'main', EDITS)).catch(() => {});
+        }
+      }
+    } catch(_){}
     // V2.10.65: sincronizzo shadow servizi appena DATA e' caricato.
     // Differito a microtask per non bloccare il flusso di init.
     if(typeof _syncAllShadowsFromArchive === 'function'){
@@ -48024,7 +49254,7 @@ async function init(){
   try {
     driveInit();
     // V2.10.103: se modalità locale ON, fa UN safety pull (asincrono) e NON avvia polling.
-    // V2.10.193: il safety pull viene eseguito solo se localAutoPull è ON (default).
+    // V2.10.211: il safety pull viene eseguito solo se localAutoPull è ON (default).
     // Se l'utente ha disattivato il pull automatico, deve cliccare ☁️⬇ Importa da Drive.
     // Altrimenti: comportamento auto storico.
     if(DRIVE_STATE.localMode){
