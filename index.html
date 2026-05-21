@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.213</title>
+<title>Gestione Prodotti V2.10.226</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.213</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.226</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.213');
+console.info('[bootstrap] script avvio — V2.10.226');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,11 +10276,11 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.213';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.226';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
-/* V2.10.213: FIX CRITICO. `DATA` e' dichiarata con `let` a livello di script:
+/* V2.10.226: FIX CRITICO. `DATA` e' dichiarata con `let` a livello di script:
    NON crea una proprieta' su `window`. Molte funzioni (diagnostica preventivi,
    abbinamento riga↔prodotto, export servizi/personali) leggevano pero' da
    `window.DATA`, che e' SEMPRE undefined → trattavano il catalogo come vuoto.
@@ -10436,7 +10436,7 @@ function personalProductUpdate(idx, updates){
     }
   });
   item.modified = new Date().toISOString();
-  // V2.10.213: BUGFIX — rimuovo eventuali override EDITS residui per questo indice.
+  // V2.10.226: BUGFIX — rimuovo eventuali override EDITS residui per questo indice.
   // I prodotti personali sono editabili DIRETTAMENTE su `item`, non tramite il sistema
   // EDITS (che serve solo per i prodotti del catalogo Visiotech). Se un EDITS stantio
   // resta agganciato a questo _idx — possibile dopo reload, perche' gli _idx vengono
@@ -10534,7 +10534,7 @@ function personalProductsCount(){
   return DATA.reduce((n, p) => n + (p && p.isPersonal === true ? 1 : 0), 0);
 }
 
-/* V2.10.213: reindicizza TUTTI gli _idx di DATA in modo sequenziale e univoco.
+/* V2.10.226: reindicizza TUTTI gli _idx di DATA in modo sequenziale e univoco.
    Ogni record riceve _idx = posizione reale nell'array. Risolve il bug degli
    _idx duplicati (due record con lo stesso _idx) che faceva aprire l'editor
    sbagliato — es. "Modifica prodotto personale" su uno shadow service.
@@ -10553,7 +10553,7 @@ function _reindexDATA(){
   return fixed;
 }
 
-/* V2.10.213: verifica se ci sono _idx duplicati in DATA. Restituisce true se
+/* V2.10.226: verifica se ci sono _idx duplicati in DATA. Restituisce true se
    trovati (e in tal caso conviene chiamare _reindexDATA). Diagnostica leggera. */
 function _hasDuplicateIdx(){
   if(!Array.isArray(DATA)) return false;
@@ -10567,7 +10567,7 @@ function _hasDuplicateIdx(){
 }
 
 /* ============================================================================
-   V2.10.213: DUPLICAZIONE prodotti e servizi.
+   V2.10.226: DUPLICAZIONE prodotti e servizi.
    - duplicateProductAsPersonal(idx): copia un prodotto (catalogo Visiotech O personale)
      creando un NUOVO prodotto personale. Apre subito l'editor della copia.
    - duplicateService(id): copia un servizio creando un nuovo servizio. Apre l'editor.
@@ -10592,7 +10592,7 @@ function _makeUniqueCopyCode(baseCode, existsFn){
 
 /* Duplica un prodotto (qualsiasi: catalogo Visiotech o personale) come NUOVO
    prodotto personale. L'originale non viene toccato.
-   V2.10.213: NON crea piu' il record subito — apre l'editor in modalita' CREAZIONE
+   V2.10.226: NON crea piu' il record subito — apre l'editor in modalita' CREAZIONE
    pre-compilato con i dati della copia. Il prodotto viene creato solo se l'utente
    clicca "Crea prodotto"; se annulla, non resta nulla.
    `idx` = _idx logico del prodotto sorgente. */
@@ -10644,7 +10644,7 @@ function duplicateProductAsPersonal(idx){
 }
 
 /* Duplica un servizio. L'originale non viene toccato.
-   V2.10.213: NON crea piu' il record subito — apre l'editor in modalita' CREAZIONE
+   V2.10.226: NON crea piu' il record subito — apre l'editor in modalita' CREAZIONE
    pre-compilato con i dati della copia. Il servizio viene creato solo se l'utente
    clicca "Crea servizio"; se annulla, non resta nulla.
    `id` = id del servizio sorgente. */
@@ -10715,7 +10715,7 @@ function openPersonalProductEditor(opts){
     toast('Prodotto non trovato o non personale', 'err');
     return;
   }
-  // V2.10.213: PROTEZIONE — gli shadow service hanno isPersonal=true MA anche
+  // V2.10.226: PROTEZIONE — gli shadow service hanno isPersonal=true MA anche
   // isService=true. Non devono mai aprirsi in questo editor (e' per prodotti, non
   // servizi): se capita, reindirizzo all'editor servizi corretto. Questo previene
   // il bug "Modifica prodotto personale" che mostrava un servizio col codice SVC-SRV-.
@@ -10747,7 +10747,7 @@ function openPersonalProductEditor(opts){
   const ex = document.getElementById('personalProductModal');
   if(ex) ex.remove();
 
-  // V2.10.213: in modalita' CREAZIONE si puo' passare opts.prefill per pre-compilare
+  // V2.10.226: in modalita' CREAZIONE si puo' passare opts.prefill per pre-compilare
   // i campi (es. duplicazione di un prodotto). Il record viene creato solo al Salva.
   const pre = (!isEdit && opts.prefill && typeof opts.prefill === 'object') ? opts.prefill : null;
   const f = {
@@ -10876,7 +10876,7 @@ function openPersonalProductEditor(opts){
         '<button class="btn ghost" id="ppCancelBtn">Annulla</button>' +
         '<span style="flex:1"></span>' +
         (isEdit ? '<button class="btn danger" id="ppDeleteBtn" style="margin-right:auto">🗑️ Elimina</button>' : '') +
-        // V2.10.213: pulsante Duplica — crea una copia del prodotto come prodotto personale
+        // V2.10.226: pulsante Duplica — crea una copia del prodotto come prodotto personale
         (isEdit ? '<button class="btn" id="ppDuplicateBtn" style="background:var(--bg2);color:var(--fg)">📋 Duplica</button>' : '') +
         '<button class="btn primary" id="ppSaveBtn">' + (isEdit ? '💾 Salva modifiche' : '➕ Crea prodotto') + '</button>' +
       '</div>' +
@@ -10956,7 +10956,7 @@ function openPersonalProductEditor(opts){
         toast('Errore: ' + (e.message || e), 'err');
       }
     });
-    // V2.10.213: handler Duplica — crea una copia come prodotto personale.
+    // V2.10.226: handler Duplica — crea una copia come prodotto personale.
     const ppDupBtn = document.getElementById('ppDuplicateBtn');
     if(ppDupBtn){
       ppDupBtn.addEventListener('click', () => {
@@ -12480,7 +12480,7 @@ const DRIVE_POLL_VALID_VALUES    = [0, 1, 3, 5, 10];         // opzioni ammesse 
 // per scaricare modifiche di altri device durante la sessione precedente.
 // L'utente sincronizza esplicitamente via i 2 pulsanti topbar ☁️⬆ e ☁️⬇.
 const DRIVE_LOCAL_MODE_KEY       = 'gp_drive_local_mode';    // '1' = ON, altrimenti OFF
-// V2.10.213: sotto-toggle per Modalità Locale — controlla se all'avvio della pagina
+// V2.10.226: sotto-toggle per Modalità Locale — controlla se all'avvio della pagina
 // viene eseguito il safety pull automatico da Drive. Default: '1' (automatico, comportamento
 // storico). Quando '0': nessun pull all'avvio, l'utente deve cliccare ☁️⬇ Importa da Drive.
 // Il push resta sempre manuale in modalità Locale, indipendentemente da questo flag.
@@ -12608,7 +12608,7 @@ const DRIVE_STATE = {
   // V2.10.103: modalità locale (offline-first work mode)
   localMode: false,             // true = niente push/pull automatici, sync esplicito via pulsanti
   safetyPullDone: false,        // true dopo il safety pull all'apertura (1 volta sola per sessione)
-  // V2.10.213: sotto-toggle Modalità Locale — pull automatico all'avvio.
+  // V2.10.226: sotto-toggle Modalità Locale — pull automatico all'avvio.
   // Default true (comportamento storico V2.10.103). Quando false, niente pull all'avvio.
   localAutoPull: true,
 };
@@ -12623,7 +12623,7 @@ const DRIVE_TARGETED_TARGETS = ['quotesArchive', 'clients', 'services'];
 
 // Stato runtime per ogni target (timer di debounce, flag di sync in corso, ultimo errore)
 const DRIVE_TARGETED_STATE = {
-  // V2.10.213: aggiunto permanentError — quando il send fallisce per un errore
+  // V2.10.226: aggiunto permanentError — quando il send fallisce per un errore
   // NON recuperabile col retry (es. "payload too large"), si memorizza qui e si
   // ferma il loop di retry infinito. Cancellato al primo send riuscito.
   quotesArchive: { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null, permanentError: null },
@@ -12860,7 +12860,7 @@ function driveInit(){
     // Default OFF. Solo il valore esplicito '1' la attiva.
     DRIVE_STATE.localMode = localStorage.getItem(DRIVE_LOCAL_MODE_KEY) === '1';
     DRIVE_STATE.safetyPullDone = false;  // reset ad ogni init
-    // V2.10.213: sotto-toggle pull automatico all'avvio (solo per modalità Locale).
+    // V2.10.226: sotto-toggle pull automatico all'avvio (solo per modalità Locale).
     // Default TRUE per backward compatibility (comportamento storico V2.10.103).
     // Solo il valore esplicito '0' lo disattiva.
     DRIVE_STATE.localAutoPull = localStorage.getItem(DRIVE_LOCAL_AUTO_PULL_KEY) !== '0';
@@ -15191,7 +15191,7 @@ function driveScheduleTargetedSave(target){
   const state = DRIVE_TARGETED_STATE[target];
   state.pending = true;
 
-  // V2.10.213: i dati di questo target sono cambiati. Se era attivo un errore
+  // V2.10.226: i dati di questo target sono cambiati. Se era attivo un errore
   // permanente (es. payload troppo grande), lo azzero: ora il payload potrebbe
   // essere diverso (magari l'utente ha eliminato dei record) e ha senso
   // ritentare UNA volta. Se e' ancora troppo grande, il send fallira' di nuovo
@@ -15214,7 +15214,7 @@ function driveScheduleTargetedSave(target){
   if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
 }
 
-// V2.10.213: riconosce gli errori NON recuperabili col retry. Per questi,
+// V2.10.226: riconosce gli errori NON recuperabili col retry. Per questi,
 // riprovare a inviare lo stesso payload darebbe sempre lo stesso errore, quindi
 // il loop di retry va fermato. Il caso tipico e' "payload too large": l'archivio
 // (es. quotesArchive) ha superato il limite di dimensione imposto da Drive.
@@ -15229,7 +15229,7 @@ function _driveIsPermanentError(msg){
   return false;
 }
 
-// V2.10.213: avvisa l'utente di un errore permanente sul sync Drive. Mostra un
+// V2.10.226: avvisa l'utente di un errore permanente sul sync Drive. Mostra un
 // toast persistente (una sola volta per target finche' l'errore resta attivo)
 // che spiega il problema in italiano, senza tecnicismi da console.
 const _drivePermanentErrorNotified = new Set();
@@ -15247,7 +15247,7 @@ function _driveNotifyPermanentError(target, msg){
   }
 }
 
-// V2.10.213: azzera l'errore permanente di un target. Va chiamata quando i dati
+// V2.10.226: azzera l'errore permanente di un target. Va chiamata quando i dati
 // del target cambiano (es. l'utente ha eliminato dei preventivi): a quel punto
 // il payload potrebbe essere tornato sotto il limite e ha senso riprovare.
 function _driveClearPermanentError(target){
@@ -15276,7 +15276,7 @@ async function _driveSendTargeted(target){
     return false;
   }
 
-  // V2.10.213: se un precedente tentativo è fallito con errore PERMANENTE
+  // V2.10.226: se un precedente tentativo è fallito con errore PERMANENTE
   // (es. payload troppo grande), non ha senso riprovare: stesso payload →
   // stesso errore. Esco subito ed evito il loop di retry infinito.
   // Il permanentError viene azzerato solo quando i dati cambiano abbastanza
@@ -15320,7 +15320,7 @@ async function _driveSendTargeted(target){
     state.lastSyncAt = new Date().toISOString();
     state.lastSyncedTs = j.ts || payload.ts;
     state.lastError = null;
-    state.permanentError = null;  // V2.10.213: send riuscito → azzero eventuale errore permanente
+    state.permanentError = null;  // V2.10.226: send riuscito → azzero eventuale errore permanente
     console.info('[drive-targeted] ' + target + ' OK in ' + elapsed + 'ms (server: ' + (j.processingMs||'?') + 'ms)');
 
     // Salva su localStorage l'ultimo ts noto (per la migrazione/check al boot)
@@ -15339,7 +15339,7 @@ async function _driveSendTargeted(target){
     state.lastError = e.message;
     console.warn('[drive-targeted] ' + target + ' ERROR:', e.message);
 
-    // V2.10.213: distinguo errori PERMANENTI da errori TEMPORANEI.
+    // V2.10.226: distinguo errori PERMANENTI da errori TEMPORANEI.
     // Permanente = riprovare lo stesso payload darà sempre lo stesso errore
     // (es. "payload too large"). Temporaneo = rete/timeout/server momentaneo.
     if(_driveIsPermanentError(e.message)){
@@ -15744,7 +15744,7 @@ async function driveSyncNow(){
   const targetedPromises = [];
   for(const target of DRIVE_TARGETED_TARGETS){
     const state = DRIVE_TARGETED_STATE[target];
-    // V2.10.213: il sync manuale e' un'azione volontaria dell'utente. Se un
+    // V2.10.226: il sync manuale e' un'azione volontaria dell'utente. Se un
     // target ha un errore permanente (es. era troppo grande), lo azzero e
     // ritento: magari l'utente ha appena ridotto i dati. Se e' ancora troppo
     // grande, fallira' una volta e ri-bloccherà — nessun loop.
@@ -16212,7 +16212,7 @@ function driveGetLocalMode(){
   return !!DRIVE_STATE.localMode;
 }
 
-/* V2.10.213: setter/getter sotto-toggle "Pull automatico all'avvio" della Modalità Locale.
+/* V2.10.226: setter/getter sotto-toggle "Pull automatico all'avvio" della Modalità Locale.
    Quando enabled=true (default): all'apertura della pagina viene chiamato _driveSafetyPullOnOpen
    che scarica i dati da Drive. Quando enabled=false: nessun pull automatico, l'utente deve
    cliccare manualmente ☁️⬇ Importa da Drive nella topbar.
@@ -19845,7 +19845,7 @@ async function driveRenderSettingsPanel(){
             '</div>'
           : ''
         ) +
-        // V2.10.213: sotto-toggle "Pull automatico all'avvio" — visibile SOLO quando
+        // V2.10.226: sotto-toggle "Pull automatico all'avvio" — visibile SOLO quando
         // Modalità Locale è attiva. Permette di scegliere se all'apertura della pagina
         // i dati vengono scaricati da Drive automaticamente oppure manualmente (☁️⬇).
         // Il push resta sempre manuale in Modalità Locale.
@@ -24459,7 +24459,7 @@ function renderGallery(main, list){
     card.className = classes;
     card.dataset.idx = p._idx;  // per hover-preview (tooltip specifiche tecniche)
     let name = getField(p,'name');
-    // V2.10.213: risoluzione UNIFICATA del codice shadow service tramite resolveDisplayCode.
+    // V2.10.226: risoluzione UNIFICATA del codice shadow service tramite resolveDisplayCode.
     // (prima la logica era duplicata inline qui — ora centralizzata).
     if(typeof resolveDisplayCode === 'function'){
       name = resolveDisplayCode(name);
@@ -24930,7 +24930,7 @@ function buildHoverPreviewHtml(p, mode){
   }
   const isOriginalView = mode === 'original';
 
-  // V2.10.213: risolvo il codice da mostrare. Per gli shadow service (name="SVC-...")
+  // V2.10.226: risolvo il codice da mostrare. Per gli shadow service (name="SVC-...")
   // mostro il codice manuale del servizio (es. "SE-STARTUP") invece del nome tecnico
   // interno ("SVC-SRV-802172"), che non deve mai comparire nella UI.
   const rawName = _hpGetField(p, 'name', mode) || '—';
@@ -25384,7 +25384,7 @@ function openEditor(idx){
   if(typeof closeHoverPreview === 'function') closeHoverPreview(true, true);
   let p = DATA.find(x=>x._idx===idx);
   if(!p) return;
-  // V2.10.213: BUGFIX CRITICO — _idx duplicati.
+  // V2.10.226: BUGFIX CRITICO — _idx duplicati.
   // Gli _idx dovrebbero essere univoci, ma per come vengono assegnati (DATA.length
   // al momento dell'inserimento) possono collidere — es. uno shadow service e un
   // prodotto personale con lo stesso _idx. In quel caso DATA.find(_idx) restituisce
@@ -25395,7 +25395,7 @@ function openEditor(idx){
   // e' lossless (cambia solo _idx, chiave interna) e idempotente.
   const sameIdx = DATA.filter(x => x && x._idx === idx);
   if(sameIdx.length > 1){
-    console.warn('[openEditor V2.10.213] _idx duplicato (' + sameIdx.length +
+    console.warn('[openEditor V2.10.226] _idx duplicato (' + sameIdx.length +
       ' record con _idx=' + idx + '): riparo DATA reindicizzando.');
     // Memorizzo il riferimento all'oggetto p PRIMA del reindex (l'identita' resta)
     const targetRef = p;
@@ -25429,7 +25429,7 @@ function openEditor(idx){
     });
     return;
   }
-  // V2.10.213: BUGFIX — servizi LEGACY (isService=true ma name NON inizia con "SVC-",
+  // V2.10.226: BUGFIX — servizi LEGACY (isService=true ma name NON inizia con "SVC-",
   // es. "SE-NSTV2", "SE-STARTUP"). Prima cadevano nel ramo "editor generico" che
   // apriva una scheda prodotto a caso (l'editor catalogo non ha senso per un servizio).
   // Ora cerco il servizio corrispondente in _SERVICES_STATE — per codice manuale
@@ -25750,7 +25750,7 @@ function renderEditor(){
       <button class="btn ghost" onclick="closeEditor()">Annulla</button>
       ${EDITS[idx] ? `<button class="btn ${previewOriginal ? 'primary' : 'subtle'}" onclick="togglePreviewOriginal()" title="${previewOriginal ? 'Torna alla vista con le tue modifiche' : 'Mostra i valori originali del fornitore senza ripristinarli'}">${previewOriginal ? '🖊️ Stai visualizzando i Testi ORIGINALI' : '👁 Stai visualizzando i Testi MODIFICATI'}</button>` : ''}
       ${EDITS[idx] ? `<button class="btn warn" onclick="revertEdit()">↶ Ripristina originale</button>`:''}
-      <!-- V2.10.213: Duplica — crea una copia del prodotto come prodotto personale -->
+      <!-- V2.10.226: Duplica — crea una copia del prodotto come prodotto personale -->
       <button class="btn" style="background:var(--bg2);color:var(--fg)" onclick="duplicateProductAsPersonal(${idx})" title="Crea una copia modificabile di questo prodotto (come prodotto personale)">📋 Duplica come personale</button>
       <button class="btn primary" onclick="saveEdit()" ${previewOriginal ? 'disabled title="Disabilitato in modalità Visualizza Originale — torna alla vista modificata per salvare"' : ''}>💾 Salva modifiche</button>
     </div>
@@ -33452,7 +33452,7 @@ async function _syncShadowForService(svcOrId){
     if(idx < 0){
       const newShadow = _serviceToShadowProduct(svc);
       DATA.push(newShadow);
-      // V2.10.213: garantisco _idx univoci dopo l'inserimento del nuovo shadow.
+      // V2.10.226: garantisco _idx univoci dopo l'inserimento del nuovo shadow.
       // Previene collisioni di _idx (shadow vs prodotti personali) che facevano
       // aprire l'editor sbagliato. _reindexDATA e' idempotente e lossless.
       if(typeof _reindexDATA === 'function'){
@@ -33529,7 +33529,7 @@ async function _syncAllShadowsFromArchive(){
 
   if(added > 0 || updated > 0){
     console.info(`[servizi] sync shadow: +${added} aggiunti, ~${updated} aggiornati (no auto-remove)`);
-    // V2.10.213: dopo l'aggiunta di shadow, garantisco _idx univoci. Previene
+    // V2.10.226: dopo l'aggiunta di shadow, garantisco _idx univoci. Previene
     // collisioni di _idx (shadow vs prodotti personali) che facevano aprire
     // l'editor sbagliato. _reindexDATA e' idempotente e lossless.
     if(added > 0 && typeof _reindexDATA === 'function'){
@@ -33576,7 +33576,7 @@ async function loadServicesFromIdb(){
     if(typeof _migrateServicesToCostoVendita === 'function'){
       _migrateServicesToCostoVendita();
     }
-    // V2.10.213: segnalo eventuali servizi con prezzi sospetti (corrotti dal
+    // V2.10.226: segnalo eventuali servizi con prezzi sospetti (corrotti dal
     // vecchio bug _parseEuroNumber) con un dialog cliccabile. Ritardato di ~1.2s
     // cosi' appare quando l'interfaccia e' gia' pronta, senza sovrapporsi alle
     // schermate di caricamento iniziali. Non modifica nulla, solo diagnostica.
@@ -33630,8 +33630,8 @@ function _migrateServicesToCostoVendita(){
   }
 }
 
-/* V2.10.213: diagnostica servizi con prezzi potenzialmente corrotti dal bug
-   _parseEuroNumber (pre-V2.10.213). Quel bug moltiplicava i prezzi quando il
+/* V2.10.226: diagnostica servizi con prezzi potenzialmente corrotti dal bug
+   _parseEuroNumber (pre-V2.10.226). Quel bug moltiplicava i prezzi quando il
    valore aveva un punto decimale (es. 27.5 → 275, perche' il punto veniva
    rimosso come separatore migliaia). NON corregge nulla automaticamente: non
    c'e' modo sicuro di sapere se "275" e' un valore giusto o un "27.5" corrotto.
@@ -33651,7 +33651,7 @@ function _diagnoseSuspiciousServicePrices(){
     // E' quasi sempre un errore (un servizio si vende a piu' di quanto costa).
     if(costo > 0 && vendita > 0 && costo > vendita){
       suspects.push({
-        id: svc.id,                                  // V2.10.213: id per aprire l'editor
+        id: svc.id,                                  // V2.10.226: id per aprire l'editor
         codice: svc.codice || svc.nome || svc.id,
         nome: svc.nome || '',
         vendita: vendita,
@@ -33661,11 +33661,11 @@ function _diagnoseSuspiciousServicePrices(){
     }
   }
   if(suspects.length > 0){
-    console.warn('[servizi V2.10.213] ' + suspects.length +
+    console.warn('[servizi V2.10.226] ' + suspects.length +
       ' servizio/i con prezzi sospetti (forse corrotti dal vecchio bug _parseEuroNumber).' +
       ' Verificali e correggili a mano dall\'editor servizi:');
     suspects.forEach(s => console.warn('  • ' + s.codice + ' — ' + s.motivo));
-    // V2.10.213: invece del solo toast "vedi console", apro un dialog con la
+    // V2.10.226: invece del solo toast "vedi console", apro un dialog con la
     // lista cliccabile dei servizi sospetti. Ogni voce ha un pulsante che apre
     // direttamente l'editor di quel servizio per la correzione.
     if(typeof _showSuspiciousServicesDialog === 'function'){
@@ -33675,7 +33675,7 @@ function _diagnoseSuspiciousServicePrices(){
   return suspects;
 }
 
-/* V2.10.213: mostra un dialog con la lista dei servizi dai prezzi sospetti.
+/* V2.10.226: mostra un dialog con la lista dei servizi dai prezzi sospetti.
    Ogni riga ha un pulsante "Correggi" che apre l'editor di quel servizio. */
 function _showSuspiciousServicesDialog(suspects){
   if(!Array.isArray(suspects) || suspects.length === 0) return;
@@ -33905,7 +33905,7 @@ function serviceIncrementUsage(id){
 }
 
 /* Helper parser numerico euro.
-   V2.10.213: BUGFIX CRITICO. La versione precedente rimuoveva SEMPRE tutti i punti
+   V2.10.226: BUGFIX CRITICO. La versione precedente rimuoveva SEMPRE tutti i punti
    trattandoli come separatori di migliaia, poi convertiva la virgola in decimale.
    Ma i campi prezzo dell'editor sono <input type="number">: in JavaScript il loro
    .value usa SEMPRE il punto come separatore decimale (es. "27.5"), mai la virgola,
@@ -33994,7 +33994,7 @@ function openServiceEditor(opts){
   const ex = document.getElementById('serviceEditorModal');
   if(ex) ex.remove();
 
-  // V2.10.213: in modalita' CREAZIONE si puo' passare opts.prefill per pre-compilare
+  // V2.10.226: in modalita' CREAZIONE si puo' passare opts.prefill per pre-compilare
   // i campi (es. duplicazione di un servizio). Il servizio viene creato solo al Salva.
   const pre = (!isEdit && opts.prefill && typeof opts.prefill === 'object') ? opts.prefill : null;
   const f = {
@@ -34163,7 +34163,7 @@ function openServiceEditor(opts){
         '<button class="btn ghost" id="svcCancelBtn">Annulla</button>' +
         (isEdit ? '<button class="btn ghost" id="svcDeleteBtn" style="color:#ef4444">\ud83d\uddd1\ufe0f Elimina</button>' : '') +
         '<span style="flex:1"></span>' +
-        // V2.10.213: pulsante Duplica servizio
+        // V2.10.226: pulsante Duplica servizio
         (isEdit ? '<button class="btn" id="svcDuplicateBtn" style="background:var(--bg2);color:var(--fg)">\ud83d\udccb Duplica</button>' : '') +
         '<button class="btn primary" id="svcSaveBtn">' + (isEdit ? '\ud83d\udcbe Salva modifiche' : '\u2795 Crea servizio') + '</button>' +
       '</div>' +
@@ -34352,7 +34352,7 @@ function openServiceEditor(opts){
         toast('Errore: ' + (e.message || e), 'err');
       }
     });
-    // V2.10.213: handler Duplica servizio
+    // V2.10.226: handler Duplica servizio
     const svcDupBtn = document.getElementById('svcDuplicateBtn');
     if(svcDupBtn){
       svcDupBtn.addEventListener('click', () => {
@@ -35917,7 +35917,7 @@ async function loadQuotesArchiveFromIdb(){
       }
 
       // V2.10.88/89: migrazione retroattiva che rimuoveva il campo `image`
-      // base64 dalle righe delle versioni. DISATTIVATA da V2.10.213:
+      // base64 dalle righe delle versioni. DISATTIVATA da V2.10.226:
       //  - girava al boot, quando DATA poteva non essere ancora caricato → inefficace
       //  - usava una logica di match limitata (solo `reference`, solo standard)
       //  - e' stata superata dallo strumento manuale "Ottimizza dimensione" e dalla
@@ -36137,7 +36137,7 @@ function _computeSnapshotTotals(items){
 function _buildVersionSnapshot(noteVersione){
   // Deep clone profondo via JSON per disaccoppiare totalmente dal state runtime
   const items = JSON.parse(JSON.stringify(window._QUOTE_STATE.items || []));
-  // V2.10.213: rimuovo `image` da OGNI riga il cui prodotto sia ricostruibile
+  // V2.10.226: rimuovo `image` da OGNI riga il cui prodotto sia ricostruibile
   // da DATA tramite code/idx — vale sia per i prodotti standard del catalogo
   // sia per i prodotti PERSONALI e i SERVIZI. Motivo: l'immagine vive una volta
   // sola nel prodotto (campo image_path in DATA) e _qResolveImg la recupera da
@@ -36178,7 +36178,7 @@ function _buildVersionSnapshot(noteVersione){
     // Se p e' null (prodotto non in DATA) mantengo it.image: e' l'unica fonte.
   });
   if(strippedCount > 0){
-    console.info('[preventivi V2.10.213] snapshot versione: rimosse ' + strippedCount +
+    console.info('[preventivi V2.10.226] snapshot versione: rimosse ' + strippedCount +
       ' immagini ricostruibili da DATA (riduzione dimensione archivio).');
   }
   const settings = JSON.parse(JSON.stringify(window._QUOTE_STATE.settings || {}));
@@ -36193,7 +36193,7 @@ function _buildVersionSnapshot(noteVersione){
   };
 }
 
-/* V2.10.213: classifica l'immagine di una riga preventivo. Restituisce:
+/* V2.10.226: classifica l'immagine di una riga preventivo. Restituisce:
    - 'no-image'       : la riga non ha un'immagine incorporata
    - 'reconstructible': l'immagine c'e' e il prodotto e' ANCORA in DATA → la copia
                         base64 nella versione e' rimovibile (l'anteprima ripesca
@@ -36229,12 +36229,12 @@ function _classifyQuoteItemImage(it){
   return p ? 'reconstructible' : 'orphan';
 }
 
-/* V2.10.213: retrocompat — true solo se l'immagine e' sicuramente ricostruibile. */
+/* V2.10.226: retrocompat — true solo se l'immagine e' sicuramente ricostruibile. */
 function _quoteItemImageIsReconstructible(it){
   return _classifyQuoteItemImage(it) === 'reconstructible';
 }
 
-/* V2.10.213: analizza l'archivio preventivi. Per ogni immagine incorporata
+/* V2.10.226: analizza l'archivio preventivi. Per ogni immagine incorporata
    nelle versioni la classifica via _classifyQuoteItemImage:
    - 'reconstructible' → rimovibile (il prodotto e' in DATA)
    - 'orphan'          → da tenere (il prodotto non e' piu' in DATA)
@@ -36298,7 +36298,7 @@ function analyzeQuotesArchiveSize(){
 
   // Diagnostica in console: se ci sono molte orfane il match sta fallendo.
   if(orphanCount > 0){
-    console.warn('[preventivi V2.10.213] ' + orphanCount + ' immagini classificate ORFANE ' +
+    console.warn('[preventivi V2.10.226] ' + orphanCount + ' immagini classificate ORFANE ' +
       '(prodotto non trovato in DATA). Campioni:', orphanSamples);
   }
 
@@ -36311,7 +36311,7 @@ function analyzeQuotesArchiveSize(){
   };
 }
 
-/* V2.10.213: diagnostica approfondita dell'abbinamento riga↔prodotto.
+/* V2.10.226: diagnostica approfondita dell'abbinamento riga↔prodotto.
    Per OGNI riga di preventivo (anche senza immagine: le foto potrebbero gia'
    essere state rimosse) prova ad agganciare il prodotto in DATA e riporta
    ESATTAMENTE perche' il match riesce o fallisce.
@@ -36391,7 +36391,7 @@ function diagnoseQuoteImageMatching(maxRows){
   };
 }
 
-/* V2.10.213: pulizia retroattiva. Rimuove dalle versioni gia' salvate le foto
+/* V2.10.226: pulizia retroattiva. Rimuove dalle versioni gia' salvate le foto
    incorporate. opts.mode:
    - 'safe' (default) → rimuove solo le foto ricostruibili da DATA
    - 'all'            → rimuove TUTTE le foto incorporate (anche le orfane)
@@ -36424,13 +36424,13 @@ function cleanupQuotesArchiveImages(opts){
     if(typeof _persistQuotesArchive === 'function'){
       try { _persistQuotesArchive(); } catch(e){ console.error(e); }
     }
-    console.info('[preventivi V2.10.213] pulizia immagini (' + mode + '): rimosse ' + removed +
+    console.info('[preventivi V2.10.226] pulizia immagini (' + mode + '): rimosse ' + removed +
       ' foto, liberati ~' + Math.round(bytesFreed/1024) + ' KB.');
   }
   return { removed, bytesFreed };
 }
 
-/* V2.10.213: dialog "Ottimizza dimensione archivio". Mostra l'analisi della
+/* V2.10.226: dialog "Ottimizza dimensione archivio". Mostra l'analisi della
    dimensione (totale, immagini, ridondanti) e permette di lanciare la pulizia. */
 function openOptimizeArchiveDialog(){
   const old = document.getElementById('optimizeArchiveModal');
@@ -36582,7 +36582,7 @@ function openOptimizeArchiveDialog(){
   const closeBtn = document.getElementById('optArchCloseBtn');
   if(closeBtn) closeBtn.addEventListener('click', () => bg.remove());
 
-  // V2.10.213: pulsante diagnostica abbinamento riga↔prodotto.
+  // V2.10.226: pulsante diagnostica abbinamento riga↔prodotto.
   const diagBtn = document.getElementById('optArchDiagBtn');
   if(diagBtn){
     diagBtn.addEventListener('click', () => {
@@ -36627,7 +36627,7 @@ function openOptimizeArchiveDialog(){
   }
 }
 
-/* V2.10.213: dialog che mostra il report di diagnostica dell'abbinamento
+/* V2.10.226: dialog che mostra il report di diagnostica dell'abbinamento
    riga↔prodotto. Serve a capire perche' le foto risultano "orfane": rivela
    se DATA e' caricato, quanti prodotti personali ci sono, e per ogni riga
    di preventivo quale campo (idx/code) aggancia o perche' fallisce. */
@@ -37303,7 +37303,7 @@ function openSaveQuoteDialog(opts){
         '</section>' +
 
         // V2.10.5: Step 2 - Nome preventivo (opzionale)
-        // V2.10.213: textarea multi-riga al posto di input — permette oggetti lunghi
+        // V2.10.226: textarea multi-riga al posto di input — permette oggetti lunghi
         // (descrizioni, presentazioni) che vengono giustificati nelle stampe.
         '<section class="sq-sect" id="sqSectNome" style="opacity:0.4;pointer-events:none">' +
           '<div class="sq-sect-title"><span class="sq-sect-num">2</span> Nome / Oggetto preventivo (opzionale)</div>' +
@@ -37670,7 +37670,7 @@ function openSaveQuoteDialog(opts){
       if(typeof renderQuoteCartContent === 'function'){
         try { renderQuoteCartContent(); } catch(_){}
       }
-      // V2.10.213: aggiorno anche la barra info del carrello (cliente / nome /
+      // V2.10.226: aggiorno anche la barra info del carrello (cliente / nome /
       // versione), altrimenti dopo il salvataggio resta sul valore precedente.
       if(typeof renderQuoteCartBoundInfo === 'function'){
         try { renderQuoteCartBoundInfo(); } catch(_){}
@@ -37729,12 +37729,12 @@ function _refreshQuote_buildDiff(){
     return { notFound: [], unchanged: [], updated: [] };
   }
 
-  // V2.10.213: result.excluded raccoglie gli articoli NON selezionati nel
+  // V2.10.226: result.excluded raccoglie gli articoli NON selezionati nel
   // carrello quando esiste una selezione parziale. Non vengono confrontati
   // ne' aggiornati: restano col valore attuale.
   const result = { notFound: [], unchanged: [], updated: [], excluded: [] };
 
-  // V2.10.213: le checkbox del carrello sono VUOTE di default. Una riga e'
+  // V2.10.226: le checkbox del carrello sono VUOTE di default. Una riga e'
   // "selezionata" solo se _selectedForUpdate === true (l'utente l'ha spuntata).
   // Comportamento di "Aggiorna preventivo":
   //  - se l'utente ha spuntato ALCUNE righe → confronta solo quelle, le altre
@@ -37748,7 +37748,7 @@ function _refreshQuote_buildDiff(){
   const _applySelectionFilter = _anySelected;
 
   window._QUOTE_STATE.items.forEach((item, itemIdx) => {
-    // V2.10.213: con selezione parziale, escludo le righe NON spuntate.
+    // V2.10.226: con selezione parziale, escludo le righe NON spuntate.
     // Se nessuna riga e' spuntata, _applySelectionFilter e' false → confronto tutto.
     if(_applySelectionFilter && item && item._selectedForUpdate !== true){
       result.excluded.push({ itemIdx, item, code: item.code });
@@ -37833,7 +37833,7 @@ function _refreshQuote_buildDiff(){
   return result;
 }
 
-/* V2.10.213: applica gli aggiornamenti. `selectedItemIdxs` (opzionale) e' un
+/* V2.10.226: applica gli aggiornamenti. `selectedItemIdxs` (opzionale) e' un
    Set/array di itemIdx: se fornito, vengono aggiornati SOLO gli articoli i cui
    itemIdx sono inclusi. Se omesso (o null), vengono aggiornati tutti gli
    articoli "updated" — comportamento storico, backward-compatible. */
@@ -37848,7 +37848,7 @@ function _refreshQuote_applyAll(updateResult, selectedItemIdxs){
   }
   // Update degli items "updated"
   updateResult.updated.forEach(u => {
-    // V2.10.213: se c'e' un filtro di selezione, salto gli articoli non selezionati
+    // V2.10.226: se c'e' un filtro di selezione, salto gli articoli non selezionati
     if(filterSet && !filterSet.has(u.itemIdx)) return;
     const it = window._QUOTE_STATE.items[u.itemIdx];
     if(!it) return;
@@ -37889,7 +37889,7 @@ function openRefreshQuoteDialog(){
   const totUpdated = diff.updated.length;
   const totUnchanged = diff.unchanged.length;
   const totNotFound = diff.notFound.length;
-  const totExcluded = (diff.excluded || []).length;  // V2.10.213
+  const totExcluded = (diff.excluded || []).length;  // V2.10.226
   const totItems = totUpdated + totUnchanged + totNotFound + totExcluded;
 
   // Caso semplice: nessuna modifica trovata
@@ -37945,7 +37945,7 @@ function openRefreshQuoteDialog(){
       return (
         '<div class="rq-update-row" style="padding:12px 14px;border:1px solid rgba(1,120,212,0.3);border-radius:8px;margin-bottom:10px;background:rgba(1,120,212,0.04)">' +
           '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
-            // V2.10.213: checkbox di selezione per riga (selezionata di default)
+            // V2.10.226: checkbox di selezione per riga (selezionata di default)
             '<label style="display:inline-flex;align-items:center;cursor:pointer;flex-shrink:0" title="Includi questo articolo nell\'aggiornamento">' +
               '<input type="checkbox" class="rq-row-check" data-item-idx="' + u.itemIdx + '" checked ' +
                 'style="width:16px;height:16px;cursor:pointer;accent-color:#0178d4;margin:0">' +
@@ -37964,7 +37964,7 @@ function openRefreshQuoteDialog(){
           '<div style="font-size:12px;font-weight:700;color:#0178d4;text-transform:uppercase;letter-spacing:.5px">' +
             '🔄 ' + totUpdated + ' articol' + (totUpdated === 1 ? 'o' : 'i') + ' da aggiornare' +
           '</div>' +
-          // V2.10.213: controlli di selezione massiva
+          // V2.10.226: controlli di selezione massiva
           '<span style="flex:1"></span>' +
           '<button type="button" id="rqSelectAll" class="btn small ghost" style="padding:4px 10px;font-size:11px">Seleziona tutti</button>' +
           '<button type="button" id="rqSelectNone" class="btn small ghost" style="padding:4px 10px;font-size:11px">Deseleziona tutti</button>' +
@@ -38022,7 +38022,7 @@ function openRefreshQuoteDialog(){
       '</section>';
   }
 
-  // ── V2.10.213: Sezione "esclusi dalla selezione nel carrello" (collassata) ──
+  // ── V2.10.226: Sezione "esclusi dalla selezione nel carrello" (collassata) ──
   let excludedHtml = '';
   if(totExcluded > 0){
     const rows = (diff.excluded || []).map(ex =>
@@ -38079,7 +38079,7 @@ function openRefreshQuoteDialog(){
     const applyBtn = document.getElementById('rqApplyBtn');
     const checks = () => Array.from(bg.querySelectorAll('.rq-row-check'));
 
-    // V2.10.213: aggiorna il testo del pulsante col numero di articoli selezionati,
+    // V2.10.226: aggiorna il testo del pulsante col numero di articoli selezionati,
     // e lo disabilita se non c'e' nessuna selezione.
     const refreshApplyBtn = () => {
       const selected = checks().filter(c => c.checked).length;
@@ -38147,12 +38147,12 @@ function openRefreshQuoteDialog(){
    con tag esoterici perche' la toolbar usa document.execCommand che produce
    solo tag standard (b, i, u, ol, ul, li, span con style="color/background").
    
-   V2.10.213: aggiunto helper htmlToTextRuns() per parsing HTML in strutture
+   V2.10.226: aggiunto helper htmlToTextRuns() per parsing HTML in strutture
    di "runs" usate da PDF jsPDF e Word docx. Senza questo, il vecchio strip-tag
    buttava via tutti gli stili (bold/dimensioni/colori) negli export.
    ============================================================================ */
 
-/* V2.10.213: parsa una stringa HTML (prodotta dal nostro editor contentEditable)
+/* V2.10.226: parsa una stringa HTML (prodotta dal nostro editor contentEditable)
    in un array di paragrafi, ognuno con un array di "runs". Ogni run e' un pezzo
    di testo continuo con uno stile coerente:
      { text, bold, italic, underline, strike, fontSize, color, highlight }
@@ -38503,7 +38503,7 @@ function openFreeTextDialog(){
   tb.appendChild(tbBtn('strikeThrough', '<s>B</s>', 'Barrato'));
   tb.appendChild(tbSep());
 
-  // V2.10.213: dropdown dimensione font.
+  // V2.10.226: dropdown dimensione font.
   // execCommand('fontSize') produce <font size="N"> (scala 1-7 obsoleta) che non
   // viene rispettata uniformemente in PDF/Word. Usiamo wrap manuale con
   // <span style="font-size:Xpt"> che e' stabile e parsabile dal nostro htmlToTextRuns.
@@ -38580,7 +38580,7 @@ function openFreeTextDialog(){
   tb.appendChild(tbBtn('insertUnorderedList', '\u2022 \u2022', 'Elenco puntato'));
   tb.appendChild(tbBtn('insertOrderedList', '1.', 'Elenco numerato'));
   tb.appendChild(tbSep());
-  // V2.10.213: pulsanti allineamento con icone distinte (SVG inline) + aggiunto Giustifica.
+  // V2.10.226: pulsanti allineamento con icone distinte (SVG inline) + aggiunto Giustifica.
   // Prima usavo U+2261 sia per left che per right (stessa icona): non si distinguevano.
   // Ora 4 icone chiare: ≡ left, ≡ center, ≡ right, ☰ justify (linee tutte lunghe uguali).
   // Uso piccoli SVG inline per simbologia tipografica standard.
@@ -38880,7 +38880,7 @@ function openQuotesArchiveSection(){
         '<div id="qaTableWrap" style="flex:1;overflow:auto;padding:0"></div>' +
       '</div>' +
       '<div class="modal-foot">' +
-        // V2.10.213: strumento di ottimizzazione dimensione archivio (rimuove
+        // V2.10.226: strumento di ottimizzazione dimensione archivio (rimuove
         // immagini ridondanti dalle versioni — risolve l'errore "payload too large").
         '<button class="btn small ghost" id="qaOptimizeBtn" type="button" title="Analizza e riduci la dimensione dell\u0027archivio preventivi" style="font-size:12px">📦 Ottimizza dimensione</button>' +
         '<span style="flex:1"></span>' +
@@ -38909,7 +38909,7 @@ function openQuotesArchiveSection(){
     renderQuotesArchiveTable();
   });
   document.getElementById('qaManageStatiBtn').addEventListener('click', openManageStatiDialog);
-  // V2.10.213: handler "Ottimizza dimensione" — apre il dialog di analisi/pulizia.
+  // V2.10.226: handler "Ottimizza dimensione" — apre il dialog di analisi/pulizia.
   (function(){
     const optBtn = document.getElementById('qaOptimizeBtn');
     if(optBtn){
@@ -39230,7 +39230,7 @@ function openQuoteDetailDialog(quoteId){
         if(document.getElementById('quotesArchiveModal')){
           renderQuotesArchiveTable();
         }
-        // V2.10.213: BUGFIX — aggiorno anche la barra info del carrello, altrimenti
+        // V2.10.226: BUGFIX — aggiorno anche la barra info del carrello, altrimenti
         // restava "congelata" sul vecchio nome (es. "(nessun nome assegnato)") mentre
         // l'export PDF mostrava gia' il nome aggiornato. Le due viste leggono lo stesso
         // quote.nome ma la barra non veniva re-renderizzata dopo il salvataggio.
@@ -39287,7 +39287,7 @@ function openQuoteDetailDialog(quoteId){
       if(document.getElementById('quotesArchiveModal')){
         renderQuotesArchiveTable();
       }
-      // V2.10.213: aggiorno la barra info del carrello — mostra anche lo stato
+      // V2.10.226: aggiorno la barra info del carrello — mostra anche lo stato
       // del preventivo (badge), che altrimenti resterebbe sul valore precedente.
       if(typeof renderQuoteCartBoundInfo === 'function'){
         try { renderQuoteCartBoundInfo(); } catch(_){}
@@ -39737,7 +39737,7 @@ function getDisplayCode(item){
   return resolveDisplayCode(item.code);
 }
 
-/* V2.10.213: risoluzione UNIFICATA del codice da mostrare a partire da una
+/* V2.10.226: risoluzione UNIFICATA del codice da mostrare a partire da una
    stringa di codice grezza. Centralizza la logica che prima era solo dentro
    getDisplayCode (che lavorava su item.code). Da usare ovunque si mostri il
    codice di un prodotto/servizio nella UI, per non far mai "trapelare" i nomi
@@ -39884,7 +39884,7 @@ function removeFromQuoteCart(code){
   }
 }
 
-/* V2.10.213: elimina dal carrello le righe SELEZIONATE con le checkbox.
+/* V2.10.226: elimina dal carrello le righe SELEZIONATE con le checkbox.
    Le checkbox sono vuote di default: una riga e' selezionata SOLO se
    _selectedForUpdate === true (l'utente l'ha spuntata esplicitamente).
    Restituisce il numero di righe rimosse. Non chiede conferma: la conferma
@@ -39909,7 +39909,7 @@ function deleteSelectedQuoteRows(){
   return removed;
 }
 
-/* V2.10.213: conta le righe SELEZIONATE con le checkbox del carrello.
+/* V2.10.226: conta le righe SELEZIONATE con le checkbox del carrello.
    Selezionata = _selectedForUpdate === true (default checkbox vuote). */
 function countSelectedQuoteRows(){
   if(!window._QUOTE_STATE || !Array.isArray(window._QUOTE_STATE.items)) return 0;
@@ -40094,6 +40094,1433 @@ function _normDiscountPct(v){
   if(n < 0) return 0;
   if(n > 100) return 100;
   return n;
+}
+
+/* ============================================================================
+   V2.10.226: CRUSCOTTO GRAFICI — analisi statistica del preventivo.
+
+   computeQuoteAnalytics() elabora le righe del carrello e produce tutte le
+   metriche e aggregazioni per i grafici. Tutto coerente con computeQuoteTotals:
+     - vendita riga = pvp * qty * (1 - scontoCliente/100)
+     - costo riga   = netto * qty
+     - guadagno     = vendita - costo
+     - margine %    = (vendita - costo) / vendita * 100
+   Aggrega per: tipo (prodotto/servizio), marca, categoria. Calcola distribuzioni
+   margine e sconto. Non modifica nulla, sola lettura.
+   ============================================================================ */
+function computeQuoteAnalytics(){
+  const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items))
+    ? window._QUOTE_STATE.items : [];
+
+  const rows = [];          // una entry per riga valida (qty>0, pvp>0)
+  let parked = 0;           // righe parcheggiate (qty=0)
+  let noPrice = 0;          // righe senza prezzo valido
+
+  for(const it of items){
+    if(!it) continue;
+    if(it.qty == null || it.qty <= 0){ parked++; continue; }
+    const pvp = (it.pvp != null && it.pvp > 0) ? it.pvp : 0;
+    if(pvp <= 0){ noPrice++; continue; }
+    const qty = it.qty;
+    const netto = (it.netto != null && it.netto > 0) ? it.netto : 0;
+    const dPct = _normDiscountPct(it.discountPct);
+    const listino  = pvp * qty;
+    const vendita  = listino * (1 - dPct / 100);
+    const costo    = netto * qty;
+    const guadagno = vendita - costo;
+    const marginePct = (vendita > 0 && costo > 0) ? (guadagno / vendita * 100) : null;
+    const isSvc = (typeof _isServiceItem === 'function') ? _isServiceItem(it) : (it.isService === true);
+
+    rows.push({
+      code: it.code || '?',
+      nameShort: it.nameShort || it.name || it.code || '?',
+      brand: (String(it.brand || '').trim()) || (isSvc ? 'Servizi' : 'Senza marca'),
+      category: (String(it.category || '').trim()) || 'Senza categoria',
+      isService: isSvc,
+      isPersonal: !!it.isPersonal,
+      qty, pvp, netto, dPct,
+      listino, vendita, costo, guadagno, marginePct,
+    });
+  }
+
+  // Totali generali
+  const tot = {
+    listino: 0, vendita: 0, costo: 0, guadagno: 0,
+    qty: 0, righe: rows.length, parked, noPrice,
+  };
+  rows.forEach(r => {
+    tot.listino  += r.listino;
+    tot.vendita  += r.vendita;
+    tot.costo    += r.costo;
+    tot.guadagno += r.guadagno;
+    tot.qty      += r.qty;
+  });
+  tot.marginePct = (tot.vendita > 0 && tot.costo > 0)
+    ? (tot.guadagno / tot.vendita * 100) : null;
+  tot.ricaricoPct = (tot.costo > 0)
+    ? ((tot.vendita - tot.costo) / tot.costo * 100) : null;
+  tot.scontoMedioPct = (tot.listino > 0)
+    ? ((tot.listino - tot.vendita) / tot.listino * 100) : null;
+
+  // Aggregazione per chiave generica
+  const aggregateBy = (keyFn) => {
+    const map = new Map();
+    rows.forEach(r => {
+      const k = keyFn(r);
+      let g = map.get(k);
+      if(!g){
+        g = { key:k, righe:0, qty:0, listino:0, vendita:0, costo:0, guadagno:0,
+              righeServizio:0, righeProdotto:0 };
+        map.set(k, g);
+      }
+      g.righe++;
+      g.qty      += r.qty;
+      g.listino  += r.listino;
+      g.vendita  += r.vendita;
+      g.costo    += r.costo;
+      g.guadagno += r.guadagno;
+      if(r.isService) g.righeServizio++; else g.righeProdotto++;
+    });
+    const arr = Array.from(map.values());
+    arr.forEach(g => {
+      g.marginePct = (g.vendita > 0 && g.costo > 0)
+        ? (g.guadagno / g.vendita * 100) : null;
+      g.ricaricoPct = (g.costo > 0)
+        ? ((g.vendita - g.costo) / g.costo * 100) : null;
+      g.quotaVendita = (tot.vendita > 0) ? (g.vendita / tot.vendita * 100) : 0;
+      // V2.10.226: sconto medio del gruppo, ponderato sul valore di listino:
+      // (listino - vendita) / listino * 100. Coerente con tot.scontoMedioPct.
+      g.scontoPct = (g.listino > 0)
+        ? ((g.listino - g.vendita) / g.listino * 100) : null;
+      // V2.10.226: il gruppo e' "servizio" se tutte le sue righe lo sono.
+      g.isService = (g.righeServizio > 0 && g.righeProdotto === 0);
+    });
+    arr.sort((a, b) => b.vendita - a.vendita);  // piu' alto fatturato in cima
+    return arr;
+  };
+
+  const byBrand = aggregateBy(r => r.brand);
+  const byCategory = aggregateBy(r => r.category);
+  const byType = aggregateBy(r => r.isService ? 'Servizi' : 'Prodotti');
+
+  // Distribuzione margine per fasce
+  const marginBuckets = [
+    { label:'< 10%',   min:-Infinity, max:10,  count:0, vendita:0 },
+    { label:'10–20%',  min:10,        max:20,  count:0, vendita:0 },
+    { label:'20–30%',  min:20,        max:30,  count:0, vendita:0 },
+    { label:'30–40%',  min:30,        max:40,  count:0, vendita:0 },
+    { label:'≥ 40%',   min:40,        max:Infinity, count:0, vendita:0 },
+  ];
+  rows.forEach(r => {
+    if(r.marginePct == null) return;
+    const b = marginBuckets.find(b => r.marginePct >= b.min && r.marginePct < b.max);
+    if(b){ b.count++; b.vendita += r.vendita; }
+  });
+
+  // Righe ordinate per margine crescente (le piu' deboli in cima) — per attenzione
+  const rowsByMargin = rows
+    .filter(r => r.marginePct != null)
+    .slice()
+    .sort((a, b) => a.marginePct - b.marginePct);
+
+  // Righe per contributo al guadagno (le piu' redditizie)
+  const rowsByGuadagno = rows.slice().sort((a, b) => b.guadagno - a.guadagno);
+
+  return {
+    rows, tot, byBrand, byCategory, byType,
+    marginBuckets, rowsByMargin, rowsByGuadagno,
+  };
+}
+
+/* V2.10.226: helper per il cruscotto grafici. ----------------------------- */
+
+// Formattazioni coerenti con l'app (it-IT)
+// V2.10.226: useGrouping:'always' forza il separatore di migliaia (.) anche
+// per numeri sotto 10.000 — stessa convenzione di fmtPrice. Senza, alcune
+// implementazioni rendono "6600,00" invece di "6.600,00".
+function _qaEuro(n){
+  if(n == null || isNaN(n)) return '\u2014';
+  return n.toLocaleString('it-IT', {
+    minimumFractionDigits:2, maximumFractionDigits:2, useGrouping:'always'
+  }) + ' \u20ac';
+}
+function _qaPct(n){
+  if(n == null || isNaN(n)) return '\u2014';
+  return n.toLocaleString('it-IT', {
+    minimumFractionDigits:1, maximumFractionDigits:1, useGrouping:'always'
+  }) + '%';
+}
+function _qaNum(n){
+  if(n == null || isNaN(n)) return '\u2014';
+  return n.toLocaleString('it-IT', { useGrouping:'always' });
+}
+
+// Palette grafici: serie di colori distinti, leggibili su tema chiaro e scuro.
+const _QA_PALETTE = [
+  '#ff6b35', '#3498db', '#00d9a3', '#ffb627', '#a855f7',
+  '#e74c3c', '#1abc9c', '#e67e22', '#5dade2', '#ec407a',
+  '#26a69a', '#ab47bc',
+];
+function _qaColor(i){ return _QA_PALETTE[i % _QA_PALETTE.length]; }
+
+// Colore semaforico in base al margine % (rosso=basso, verde=alto)
+function _qaMarginColor(pct){
+  if(pct == null) return 'var(--fg3)';
+  if(pct < 10) return '#e74c3c';
+  if(pct < 20) return '#e67e22';
+  if(pct < 30) return '#ffb627';
+  if(pct < 40) return '#1abc9c';
+  return '#00a87f';
+}
+
+/* Donut SVG. segments = [{label, value, color}]. Ritorna stringa SVG.
+   size = diametro px. Mostra al centro un testo opzionale (centerTop/centerBottom). */
+function _qaDonut(segments, size, centerTop, centerBottom){
+  size = size || 200;
+  const cx = size/2, cy = size/2;
+  const r = size/2 - 6;          // raggio esterno
+  const rin = r * 0.62;          // raggio interno (foro)
+  const total = segments.reduce((s, x) => s + (x.value > 0 ? x.value : 0), 0);
+  if(total <= 0){
+    return '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '">' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(--border)" stroke-width="' + (r-rin) + '"/>' +
+      '<text x="' + cx + '" y="' + cy + '" text-anchor="middle" dominant-baseline="middle" ' +
+        'fill="var(--fg3)" font-size="12">nessun dato</text></svg>';
+  }
+  let ang = -Math.PI / 2;  // parte da ore 12
+  let paths = '';
+  segments.forEach(seg => {
+    const v = seg.value > 0 ? seg.value : 0;
+    if(v <= 0) return;
+    const frac = v / total;
+    const a2 = ang + frac * Math.PI * 2;
+    const large = (frac > 0.5) ? 1 : 0;
+    const x1o = cx + r   * Math.cos(ang), y1o = cy + r   * Math.sin(ang);
+    const x2o = cx + r   * Math.cos(a2),  y2o = cy + r   * Math.sin(a2);
+    const x1i = cx + rin * Math.cos(a2),  y1i = cy + rin * Math.sin(a2);
+    const x2i = cx + rin * Math.cos(ang), y2i = cy + rin * Math.sin(ang);
+    paths += '<path d="M ' + x1o + ' ' + y1o +
+      ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + x2o + ' ' + y2o +
+      ' L ' + x1i + ' ' + y1i +
+      ' A ' + rin + ' ' + rin + ' 0 ' + large + ' 0 ' + x2i + ' ' + y2i +
+      ' Z" fill="' + seg.color + '" stroke="var(--bg2)" stroke-width="1.5"/>';
+    ang = a2;
+  });
+  let center = '';
+  if(centerTop){
+    center += '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" ' +
+      'fill="var(--fg)" font-size="' + Math.round(size*0.105) + '" font-weight="800">' +
+      centerTop + '</text>';
+  }
+  if(centerBottom){
+    center += '<text x="' + cx + '" y="' + (cy + 13) + '" text-anchor="middle" ' +
+      'fill="var(--fg3)" font-size="10" font-weight="700" letter-spacing="0.5">' +
+      centerBottom + '</text>';
+  }
+  return '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '">' +
+    paths + center + '</svg>';
+}
+
+/* Barre orizzontali. data = [{label, value, color, sub}]. valueFmt(value)->string.
+   Larghezza fluida (100%), altezza calcolata sulle righe. */
+function _qaBarsH(data, valueFmt, opts){
+  opts = opts || {};
+  if(!data.length){
+    return '<div style="color:var(--fg3);font-size:12px;padding:12px">nessun dato</div>';
+  }
+  const max = Math.max.apply(null, data.map(d => Math.abs(d.value))) || 1;
+  const rowH = opts.rowH || 30;
+  return '<div style="display:flex;flex-direction:column;gap:7px">' +
+    data.map(d => {
+      const w = Math.max(1, Math.abs(d.value) / max * 100);
+      const col = d.color || 'var(--accent)';
+      return '<div style="display:flex;align-items:center;gap:10px;font-size:12px">' +
+        '<div style="width:' + (opts.labelW || 150) + 'px;flex-shrink:0;text-align:right;' +
+          'color:var(--fg2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" ' +
+          'title="' + escapeHtml(String(d.label)) + '">' + escapeHtml(String(d.label)) + '</div>' +
+        '<div style="flex:1;background:var(--bg3);border-radius:4px;height:' + rowH + 'px;position:relative;overflow:hidden">' +
+          '<div style="position:absolute;left:0;top:0;bottom:0;width:' + w + '%;background:' + col + ';' +
+            'border-radius:4px;transition:width .4s ease"></div>' +
+          '<div style="position:absolute;right:8px;top:0;bottom:0;display:flex;align-items:center;' +
+            'font-weight:700;font-size:11px;color:var(--fg);text-shadow:0 0 3px var(--bg2)">' +
+            escapeHtml(valueFmt(d.value)) + (d.sub ? ' <span style="color:var(--fg3);font-weight:600;margin-left:5px">' + escapeHtml(d.sub) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('') +
+  '</div>';
+}
+
+/* V2.10.226: grafico "Margine per riga" con scala orizzontale 0-100%.
+   Variante scelta: griglia con linee tratteggiate ogni 10%, etichette d'asse
+   in alto, bande colorate di sfondo (rosso <10 / arancio 10-20 / giallo 20-30 /
+   verde >=30), barre con valore SEMPRE all'esterno (leggibile anche per barre
+   cortissime). rows = [{code, marginePct, vendita}]. Layout fluido in larghezza.
+   La scala e' fissa 0-100: ogni barra e' direttamente confrontabile con le
+   linee di riferimento. */
+function _qaMarginChart(rows){
+  if(!rows || !rows.length){
+    return '<div style="color:var(--fg3);font-size:12px">Nessuna riga con margine calcolabile</div>';
+  }
+  // Layout a 3 zone orizzontali:
+  //   [0 .. LABEL_W]               colonna codici prodotto (a sinistra)
+  //   [LABEL_W .. -VAL_W]          area barre + griglia + bande (fluida)
+  //   [ultimi VAL_W px a destra]   valore (margine % + euro), fuori dalla barra
+  const LABEL_W = 168;   // larghezza colonna codice
+  const VAL_W   = 116;   // spazio a destra per il valore esterno
+  const ROW_H   = 26;    // altezza barra
+  const GAP     = 8;     // spazio fra righe
+  const AXIS_H  = 18;    // altezza fascia etichette asse
+
+  // Bande di sfondo: [da%, a%, colore]
+  const bands = [
+    [0, 10,  '#e74c3c'],
+    [10, 20, '#e67e22'],
+    [20, 30, '#ffb627'],
+    [30, 100,'#00a87f'],
+  ];
+  // L'area-barre e' un blocco con left:LABEL_W e right:VAL_W; dentro, tutto
+  // si posiziona in % della sua larghezza.
+  const plotStyle = 'position:absolute;left:' + LABEL_W + 'px;right:' + VAL_W + 'px;';
+
+  // Fascia etichette asse (0%..100%)
+  let axis = '';
+  for(let v = 0; v <= 100; v += 10){
+    axis += '<div style="position:absolute;left:' + v + '%;top:0;transform:translateX(-50%);' +
+      'font-size:9px;font-weight:700;color:var(--fg3);white-space:nowrap">' + v + '%</div>';
+  }
+
+  // Griglia (linee verticali tratteggiate)
+  const buildGrid = (heightPx) => {
+    let g = '';
+    for(let v = 0; v <= 100; v += 10){
+      const solid = (v === 0);
+      g += '<div style="position:absolute;left:' + v + '%;top:0;height:' + heightPx + 'px;width:0;' +
+        'border-left:1px ' + (solid ? 'solid' : 'dashed') + ' ' +
+        (solid ? 'var(--border2)' : 'var(--border)') + '"></div>';
+    }
+    return g;
+  };
+
+  const plotH = rows.length * ROW_H + (rows.length - 1) * GAP;
+
+  // Bande colorate di sfondo (opacita' bassa, non disturbano la lettura)
+  let bandsHtml = '';
+  bands.forEach(b => {
+    bandsHtml += '<div style="position:absolute;left:' + b[0] + '%;width:' + (b[1]-b[0]) + '%;' +
+      'top:0;height:' + plotH + 'px;background:' + b[2] + ';opacity:0.10"></div>';
+  });
+
+  // --- Colonna CODICI (a sinistra, nel contenitore esterno) ---
+  // Posizionata in [0 .. LABEL_W], allineata a destra cosi' "tocca" le barre.
+  // V2.10.226: i servizi hanno un badge "SERV" prima del codice, per
+  // distinguerli dai prodotti senza toccare il colore-semaforo della barra.
+  let codesHtml = '';
+  rows.forEach((r, i) => {
+    const y = AXIS_H + i * (ROW_H + GAP);
+    const badge = r.isService
+      ? '<span style="background:#3498db;color:#fff;font-weight:700;font-size:8px;' +
+        'padding:1px 4px;border-radius:3px;margin-right:5px;flex-shrink:0;' +
+        'letter-spacing:.3px">SERV</span>'
+      : '';
+    codesHtml += '<div style="position:absolute;left:0;top:' + y + 'px;width:' + (LABEL_W-10) + 'px;' +
+      'height:' + ROW_H + 'px;display:flex;align-items:center;justify-content:flex-end;' +
+      'font-size:11px;font-weight:600;color:var(--fg2);white-space:nowrap;overflow:hidden;' +
+      'text-overflow:ellipsis" title="' + escapeHtml(String(r.code)) +
+      (r.isService ? ' (servizio)' : '') + '">' +
+      badge +
+      '<span style="overflow:hidden;text-overflow:ellipsis">' +
+      escapeHtml(String(r.code)) + '</span></div>';
+  });
+
+  // --- Colonna VALORI (a destra, nel contenitore esterno) ---
+  // Posizionata negli ultimi VAL_W px; allineata a sinistra cosi' "segue" le barre.
+  let valsHtml = '';
+  rows.forEach((r, i) => {
+    const y = AXIS_H + i * (ROW_H + GAP);
+    const valTxt = _qaPct(r.marginePct) + '  ' + _qaEuro(r.vendita);
+    valsHtml += '<div style="position:absolute;right:0;top:' + y + 'px;width:' + (VAL_W-8) + 'px;' +
+      'height:' + ROW_H + 'px;display:flex;align-items:center;' +
+      'font-size:11px;font-weight:700;color:var(--fg);white-space:nowrap">' +
+      escapeHtml(valTxt) + '</div>';
+  });
+
+  // --- Barre (dentro l'area-barre, solo la barra colorata) ---
+  let barsHtml = '';
+  rows.forEach((r, i) => {
+    const y = i * (ROW_H + GAP);
+    const pct = (r.marginePct == null) ? 0 : Math.max(0, Math.min(100, r.marginePct));
+    const col = _qaMarginColor(r.marginePct);
+    barsHtml += '<div style="position:absolute;left:0;top:' + y + 'px;height:' + ROW_H + 'px;' +
+      'width:' + pct + '%;min-width:3px;background:' + col + ';border-radius:4px;' +
+      'box-shadow:0 1px 2px rgba(0,0,0,0.12)"></div>';
+  });
+
+  // --- Separatori orizzontali fra le righe (V2.10.226) ---
+  // Linee sottili e tenui sotto ogni riga, estese per tutta la larghezza
+  // (colonna codici + area barre + valori). Nessuna linea sotto l'ultima riga.
+  let sepHtml = '';
+  for(let i = 0; i < rows.length - 1; i++){
+    const sy = AXIS_H + i * (ROW_H + GAP) + ROW_H + GAP / 2;
+    sepHtml += '<div style="position:absolute;left:0;right:0;top:' + sy + 'px;height:0;' +
+      'border-top:1px solid var(--border)"></div>';
+  }
+
+  return '<div style="position:relative">' +
+    // fascia etichette asse in alto (allineata all'area-barre)
+    '<div style="' + plotStyle + 'top:0;height:' + AXIS_H + 'px">' + axis + '</div>' +
+    // separatori orizzontali fra le righe (sotto tutto, fanno solo da guida)
+    sepHtml +
+    // colonna codici a sinistra (contenitore esterno)
+    codesHtml +
+    // colonna valori a destra (contenitore esterno)
+    valsHtml +
+    // area barre: griglia + bande + barre colorate
+    '<div style="' + plotStyle + 'top:' + AXIS_H + 'px;height:' + plotH + 'px">' +
+      bandsHtml +
+      buildGrid(plotH) +
+      barsHtml +
+    '</div>' +
+    // spaziatore per dare altezza al contenitore relative
+    '<div style="height:' + (AXIS_H + plotH) + 'px"></div>' +
+  '</div>';
+}
+
+/* Una "card" del cruscotto: titolo + contenuto, stile coerente coi modal app. */
+function _qaCard(title, bodyHtml, opts){
+  opts = opts || {};
+  return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;' +
+    'padding:16px 18px;' + (opts.span ? 'grid-column:1/-1;' : '') + '">' +
+    '<div style="font-size:11px;font-weight:800;color:var(--fg3);text-transform:uppercase;' +
+      'letter-spacing:.7px;margin-bottom:14px;display:flex;align-items:center;gap:7px">' +
+      (opts.icon ? opts.icon + ' ' : '') + escapeHtml(title) + '</div>' +
+    bodyHtml +
+  '</div>';
+}
+
+/* V2.10.226: dialog cruscotto grafici del preventivo. */
+function openQuoteChartsDialog(){
+  const old = document.getElementById('quoteChartsModal');
+  if(old) old.remove();
+
+  const A = computeQuoteAnalytics();
+
+  if(A.tot.righe === 0){
+    const bg0 = document.createElement('div');
+    bg0.id = 'quoteChartsModal';
+    bg0.className = 'modal-bg';
+    bg0.style.zIndex = '540';
+    bg0.innerHTML =
+      '<div class="modal" style="max-width:460px">' +
+        '<div class="modal-head"><h3>\uD83D\uDCCA Grafici del preventivo</h3></div>' +
+        '<div class="modal-body" style="display:block;padding:24px;text-align:center">' +
+          '<div style="font-size:40px;margin-bottom:10px">\uD83D\uDCED</div>' +
+          '<p style="color:var(--fg2);font-size:13px;margin:0">Il preventivo non contiene righe valide da analizzare.' +
+          (A.tot.parked ? '<br>(' + A.tot.parked + ' righe parcheggiate con quantita\u0027 0)' : '') +
+          '</p>' +
+        '</div>' +
+        '<div class="modal-foot"><span style="flex:1"></span>' +
+          '<button class="btn ghost" onclick="this.closest(\'.modal-bg\').remove()">Chiudi</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(bg0);
+    bg0.addEventListener('click', e => { if(e.target === bg0) bg0.remove(); });
+    return;
+  }
+
+  const t = A.tot;
+
+  // --- KPI cards in alto ---
+  // V2.10.226: struttura a due colonne Prodotti/Servizi sotto il numero,
+  // sul modello delle KPI card della vista ANALISI del carrello.
+  const kpi = (label, value, color, opts) => {
+    opts = opts || {};
+    let bottom = '';
+    if(opts.split){
+      // due colonne con icona, come _renderSplit della vista ANALISI
+      const splitWrap = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;' +
+        'margin-top:9px;padding-top:8px;border-top:1px dashed var(--border)';
+      const splitItem = 'display:flex;flex-direction:column;gap:1px;line-height:1.2';
+      const splitLbl  = 'font-weight:800;color:var(--fg3);text-transform:uppercase;' +
+        'letter-spacing:.4px;font-size:8.5px';
+      const splitVal  = 'font-size:11.5px;font-weight:700;color:var(--fg);' +
+        'font-variant-numeric:tabular-nums';
+      bottom = '<div style="' + splitWrap + '">' +
+        '<div style="' + splitItem + '">' +
+          '<span style="' + splitLbl + '">\uD83D\uDCE6 Prodotti</span>' +
+          '<span style="' + splitVal + '">' + opts.split.prod + '</span>' +
+        '</div>' +
+        '<div style="' + splitItem + '">' +
+          '<span style="' + splitLbl + '">\uD83D\uDD27 Servizi</span>' +
+          '<span style="' + splitVal + '">' + opts.split.serv + '</span>' +
+        '</div>' +
+      '</div>';
+    } else if(opts.sub){
+      bottom = '<div style="font-size:10px;color:var(--fg3);margin-top:2px">' +
+        escapeHtml(opts.sub) + '</div>';
+    }
+    return '<div style="flex:1;min-width:150px;background:var(--bg2);border:1px solid var(--border);' +
+      'border-top:3px solid ' + color + ';border-radius:8px;padding:11px 13px">' +
+      '<div style="font-size:9px;font-weight:800;color:var(--fg3);text-transform:uppercase;letter-spacing:.6px">' +
+        escapeHtml(label) + '</div>' +
+      '<div style="font-size:19px;font-weight:800;color:' + color + ';margin-top:3px;' +
+        'font-variant-numeric:tabular-nums">' + value + '</div>' +
+      bottom +
+    '</div>';
+  };
+
+  const kpiRow = (function(){
+    // V2.10.226: split prodotti/servizi a due colonne per le metriche
+    // che hanno una componente materiali e una servizi distinte.
+    const gP = A.byType.find(g => g.key === 'Prodotti');
+    const gS = A.byType.find(g => g.key === 'Servizi');
+    // helper: valore formattato del gruppo o "—" se il gruppo non esiste
+    const sp = (g, field, fmt) => (g && g[field] != null) ? fmt(g[field]) : '\u2014';
+    return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">' +
+      kpi('Totale vendita', _qaEuro(t.vendita), '#00a87f', { split:{
+        prod: sp(gP,'vendita',_qaEuro), serv: sp(gS,'vendita',_qaEuro) } }) +
+      kpi('Costo acquisto', _qaEuro(t.costo), '#e74c3c', { split:{
+        prod: sp(gP,'costo',_qaEuro), serv: sp(gS,'costo',_qaEuro) } }) +
+      kpi('Guadagno', _qaEuro(t.guadagno), '#ff6b35', { split:{
+        prod: sp(gP,'guadagno',_qaEuro), serv: sp(gS,'guadagno',_qaEuro) } }) +
+      kpi('Margine medio', _qaPct(t.marginePct), '#7c3aed', { split:{
+        prod: sp(gP,'marginePct',_qaPct), serv: sp(gS,'marginePct',_qaPct) } }) +
+      kpi('Ricarico medio', _qaPct(t.ricaricoPct), '#3498db', { split:{
+        prod: sp(gP,'ricaricoPct',_qaPct), serv: sp(gS,'ricaricoPct',_qaPct) } }) +
+      kpi('Sconto medio', _qaPct(t.scontoMedioPct), '#e67e22', {
+        sub: 'su listino ' + _qaEuro(t.listino) }) +
+    '</div>';
+  })();
+
+  // --- Donut: Prodotti vs Servizi (per vendita) ---
+  const typeSegs = A.byType.map((g, i) => ({
+    label: g.key,
+    value: g.vendita,
+    color: g.key === 'Servizi' ? '#3498db' : '#ff6b35',
+  }));
+  const donutType = _qaDonut(typeSegs, 180, _qaEuro(t.vendita).replace(' \u20ac',''), 'VENDITA \u20ac');
+  const typeLegend = A.byType.map(g =>
+    '<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px">' +
+      '<span style="width:11px;height:11px;border-radius:3px;flex-shrink:0;background:' +
+        (g.key === 'Servizi' ? '#3498db' : '#ff6b35') + '"></span>' +
+      '<span style="font-weight:700;color:var(--fg)">' + escapeHtml(g.key) + '</span>' +
+      '<span style="flex:1"></span>' +
+      '<span style="font-weight:700;color:var(--fg2)">' + _qaEuro(g.vendita) + '</span>' +
+      '<span style="color:var(--fg3);width:48px;text-align:right">' + _qaPct(g.quotaVendita) + '</span>' +
+    '</div>' +
+    '<div style="font-size:10px;color:var(--fg3);margin:-2px 0 8px 19px">' +
+      g.righe + ' righe \u00b7 margine ' + _qaPct(g.marginePct) + ' \u00b7 guadagno ' + _qaEuro(g.guadagno) +
+    '</div>'
+  ).join('');
+  const cardType = _qaCard('Prodotti vs Servizi', 
+    '<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">' +
+      '<div style="flex-shrink:0">' + donutType + '</div>' +
+      '<div style="flex:1;min-width:200px">' + typeLegend + '</div>' +
+    '</div>', { icon:'\uD83E\uDDE9' });
+
+  // --- Donut: composizione per marca (top 8 + Altre) ---
+  let brandSegsSrc = A.byBrand.slice();
+  let brandSegs;
+  if(brandSegsSrc.length > 8){
+    const top = brandSegsSrc.slice(0, 7);
+    const rest = brandSegsSrc.slice(7);
+    const restVal = rest.reduce((s, g) => s + g.vendita, 0);
+    brandSegs = top.map((g, i) => ({ label:g.key, value:g.vendita, color:_qaColor(i) }));
+    brandSegs.push({ label:'Altre (' + rest.length + ')', value:restVal, color:'#8591a1' });
+  } else {
+    brandSegs = brandSegsSrc.map((g, i) => ({ label:g.key, value:g.vendita, color:_qaColor(i) }));
+  }
+  const donutBrand = _qaDonut(brandSegs, 180, _qaNum(A.byBrand.length), 'MARCHE');
+  const brandLegend = brandSegs.map(s =>
+    '<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:5px">' +
+      '<span style="width:11px;height:11px;border-radius:3px;flex-shrink:0;background:' + s.color + '"></span>' +
+      '<span style="font-weight:600;color:var(--fg2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" ' +
+        'title="' + escapeHtml(s.label) + '">' + escapeHtml(s.label) + '</span>' +
+      '<span style="font-weight:700;color:var(--fg2)">' + _qaEuro(s.value) + '</span>' +
+    '</div>'
+  ).join('');
+  const cardBrandDonut = _qaCard('Composizione per marca', 
+    '<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">' +
+      '<div style="flex-shrink:0">' + donutBrand + '</div>' +
+      '<div style="flex:1;min-width:200px">' + brandLegend + '</div>' +
+    '</div>', { icon:'\uD83C\uDFF7\uFE0F' });
+
+  // --- Fatturato per marca e categoria: tabelle raggruppate Prodotti/Servizi ---
+  // V2.10.226: divise per tipo con intestazione di gruppo e subtotale, come
+  // "Dettaglio per marca". Ogni riga ha valore, quota % e mini-barra.
+  const _qaRankTable = (data, headLabel) => {
+    const prod = data.filter(d => !d.isService);
+    const serv = data.filter(d => d.isService);
+    const maxQuota = Math.max.apply(null, data.map(d => d.quotaVendita || 0)) || 1;
+    let ci = 0;
+    let bodyRows = '';
+    const groupBlock = (label, rows, accent) => {
+      if(!rows.length) return;
+      bodyRows += '<tr style="background:' + accent + '14">' +
+        '<td colspan="4" style="padding:5px 8px;font-size:9px;font-weight:800;' +
+        'text-transform:uppercase;letter-spacing:.5px;color:' + accent + '">' +
+        '\u25A0 ' + escapeHtml(label) + '</td></tr>';
+      let sv = 0, sq = 0;
+      rows.forEach((d, i) => {
+        const col = _qaColor(ci++);
+        const qw = Math.max(2, (d.quotaVendita || 0) / maxQuota * 100);
+        bodyRows += '<tr style="border-bottom:1px solid var(--border)">' +
+          '<td style="text-align:center;padding:5px 8px;color:var(--fg3);width:24px">' + (i+1) + '</td>' +
+          '<td style="padding:5px 8px;padding-left:14px"><span style="display:inline-block;width:8px;' +
+            'height:8px;border-radius:2px;background:' + col + ';margin-right:6px"></span>' +
+            '<span style="font-weight:700;color:var(--fg)">' + escapeHtml(d.key) + '</span></td>' +
+          '<td style="text-align:right;padding:5px 8px;font-weight:700;color:var(--fg)">' +
+            _qaEuro(d.vendita) + '</td>' +
+          '<td style="padding:5px 8px;width:110px">' +
+            '<div style="display:flex;align-items:center;gap:6px">' +
+              '<div style="flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">' +
+                '<div style="height:100%;width:' + qw + '%;background:' + col + ';border-radius:3px"></div>' +
+              '</div>' +
+              '<span style="font-size:10px;color:var(--fg2);font-weight:600;width:42px;text-align:right">' +
+                _qaPct(d.quotaVendita) + '</span>' +
+            '</div></td>' +
+        '</tr>';
+        sv += d.vendita; sq += (d.quotaVendita || 0);
+      });
+      bodyRows += '<tr style="border-top:1px solid ' + accent + ';border-bottom:2px solid var(--border);' +
+        'background:' + accent + '0d;font-weight:800">' +
+        '<td style="padding:5px 8px"></td>' +
+        '<td style="padding:5px 8px;color:' + accent + '">Subtotale ' + escapeHtml(label.toLowerCase()) + '</td>' +
+        '<td style="text-align:right;padding:5px 8px;color:var(--fg)">' + _qaEuro(sv) + '</td>' +
+        '<td style="text-align:right;padding:5px 8px;color:var(--fg2);font-size:10px">' + _qaPct(sq) + '</td>' +
+      '</tr>';
+    };
+    groupBlock('Prodotti', prod, '#ff6b35');
+    groupBlock('Servizi',  serv, '#3498db');
+    return '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+      '<thead><tr style="border-bottom:2px solid var(--border2);color:var(--fg3)">' +
+        '<th style="text-align:center;padding:5px 8px;font-size:9px;text-transform:uppercase">#</th>' +
+        '<th style="text-align:left;padding:5px 8px;font-size:9px;text-transform:uppercase">' + escapeHtml(headLabel) + '</th>' +
+        '<th style="text-align:right;padding:5px 8px;font-size:9px;text-transform:uppercase">Fatturato</th>' +
+        '<th style="text-align:left;padding:5px 8px;font-size:9px;text-transform:uppercase">Quota</th>' +
+      '</tr></thead><tbody>' + bodyRows + '</tbody></table>';
+  };
+
+  const cardBrandBars = _qaCard('Fatturato per marca',
+    _qaRankTable(A.byBrand, 'Marca'), { icon:'\uD83D\uDCB0' });
+  const cardCatBars = _qaCard('Fatturato per categoria',
+    _qaRankTable(A.byCategory, 'Categoria'), { icon:'\uD83D\uDCC2' });
+
+  // --- Grafico margine % per riga, con scala 0-100% (le 14 piu' deboli) ---
+  const marginRows = A.rowsByMargin.slice(0, 14).map(r => ({
+    code: r.code,
+    marginePct: r.marginePct,
+    vendita: r.vendita,
+    isService: !!r.isService,
+  }));
+  const cardMargin = _qaCard('Margine per riga (dal piu\u0027 debole)',
+    _qaMarginChart(marginRows) +
+    '<div style="font-size:10px;color:var(--fg3);margin-top:12px;line-height:1.5">' +
+      'Scala da 0 a 100%. Bande di sfondo: rosso &lt;10% \u00b7 arancio 10-20% \u00b7 ' +
+      'giallo 20-30% \u00b7 verde \u226530%. Le righe con badge ' +
+      '<span style="display:inline-block;background:#3498db;color:#fff;font-weight:700;' +
+      'font-size:8px;padding:1px 5px;border-radius:3px;vertical-align:middle">SERV</span> ' +
+      'sono servizi, le altre prodotti. Le righe in alto sono quelle da rivedere.</div>',
+    { icon:'\u26A0\uFE0F' });
+
+  // --- Distribuzione margine per fasce ---
+  const distMax = Math.max.apply(null, A.marginBuckets.map(b => b.count)) || 1;
+  const distBars = '<div style="display:flex;gap:8px;align-items:flex-end;height:130px;padding:0 4px">' +
+    A.marginBuckets.map(b => {
+      const h = b.count > 0 ? Math.max(8, b.count / distMax * 105) : 3;
+      const col = _qaMarginColor(b.min === -Infinity ? 5 : (b.min + 5));
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">' +
+        '<div style="font-size:12px;font-weight:800;color:var(--fg)">' + b.count + '</div>' +
+        '<div style="width:100%;background:' + col + ';border-radius:4px 4px 0 0;height:' + h + 'px;' +
+          'transition:height .4s ease"></div>' +
+        '<div style="font-size:10px;font-weight:700;color:var(--fg3);text-align:center">' +
+          escapeHtml(b.label) + '</div>' +
+      '</div>';
+    }).join('') +
+  '</div>';
+  const cardDist = _qaCard('Distribuzione righe per fascia di margine',
+    distBars +
+    '<div style="font-size:10px;color:var(--fg3);margin-top:8px">Quante righe ricadono in ogni fascia di marginalita\u0027.</div>',
+    { icon:'\uD83D\uDCCA' });
+
+  // --- Tabella aggregata per marca ---
+  // V2.10.226: tabella "Dettaglio per marca" RAGGRUPPATA per tipo.
+  // Blocco Prodotti (marche-prodotto ordinate per fatturato) con subtotale,
+  // poi blocco Servizi con subtotale, infine il totale generale.
+  const brandProdotti = A.byBrand.filter(g => !g.isService);
+  const brandServizi  = A.byBrand.filter(g => g.isService);
+
+  // Calcola il subtotale di un insieme di gruppi-marca.
+  const _subtot = (gruppi) => {
+    const s = { righe:0, qty:0, listino:0, vendita:0, costo:0, guadagno:0 };
+    gruppi.forEach(g => {
+      s.righe += g.righe; s.qty += g.qty; s.listino += g.listino;
+      s.vendita += g.vendita; s.costo += g.costo; s.guadagno += g.guadagno;
+    });
+    s.marginePct = (s.vendita > 0 && s.costo > 0) ? (s.guadagno / s.vendita * 100) : null;
+    s.scontoPct  = (s.listino > 0) ? ((s.listino - s.vendita) / s.listino * 100) : null;
+    s.quotaVendita = (t.vendita > 0) ? (s.vendita / t.vendita * 100) : 0;
+    return s;
+  };
+
+  // Riga di una marca. colorIdx serve solo al pallino colore.
+  const _brandRow = (g, colorIdx) =>
+    '<tr style="border-bottom:1px solid var(--border)">' +
+      '<td style="padding:6px 8px;padding-left:20px"><span style="display:inline-block;width:9px;height:9px;' +
+        'border-radius:2px;background:' + _qaColor(colorIdx) + ';margin-right:6px"></span>' +
+        '<span style="font-weight:700;color:var(--fg)">' + escapeHtml(g.key) + '</span></td>' +
+      '<td style="text-align:center;padding:6px 8px;color:var(--fg2)">' + g.righe + '</td>' +
+      '<td style="text-align:center;padding:6px 8px;color:var(--fg2)">' + _qaNum(g.qty) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:var(--fg2)">' + _qaEuro(g.listino) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:#e67e22;font-weight:600">' + _qaPct(g.scontoPct) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;font-weight:700;color:var(--fg)">' + _qaEuro(g.vendita) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:#e74c3c">' + _qaEuro(g.costo) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;font-weight:700;color:#00a87f">' + _qaEuro(g.guadagno) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;font-weight:800;color:' + _qaMarginColor(g.marginePct) + '">' +
+        _qaPct(g.marginePct) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:var(--fg3)">' + _qaPct(g.quotaVendita) + '</td>' +
+    '</tr>';
+
+  // Riga intestazione di gruppo (Prodotti / Servizi).
+  const _groupHeader = (label, accent) =>
+    '<tr style="background:' + accent + '14">' +
+      '<td colspan="10" style="padding:6px 8px;font-size:10px;font-weight:800;' +
+        'text-transform:uppercase;letter-spacing:.6px;color:' + accent + '">' +
+        '\u25A0 ' + escapeHtml(label) + '</td>' +
+    '</tr>';
+
+  // Riga subtotale di gruppo.
+  const _subtotRow = (label, s, accent) =>
+    '<tr style="border-top:1px solid ' + accent + ';border-bottom:2px solid var(--border);' +
+      'background:' + accent + '0d;font-weight:800">' +
+      '<td style="padding:6px 8px;color:' + accent + '">' + escapeHtml(label) + '</td>' +
+      '<td style="text-align:center;padding:6px 8px;color:var(--fg2)">' + s.righe + '</td>' +
+      '<td style="text-align:center;padding:6px 8px;color:var(--fg2)">' + _qaNum(s.qty) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:var(--fg2)">' + _qaEuro(s.listino) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:#e67e22">' + _qaPct(s.scontoPct) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:var(--fg)">' + _qaEuro(s.vendita) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:#e74c3c">' + _qaEuro(s.costo) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:#00a87f">' + _qaEuro(s.guadagno) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:' + _qaMarginColor(s.marginePct) + '">' +
+        _qaPct(s.marginePct) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:var(--fg3)">' + _qaPct(s.quotaVendita) + '</td>' +
+    '</tr>';
+
+  let brandTableRows = '';
+  let _ci = 0;
+  if(brandProdotti.length){
+    brandTableRows += _groupHeader('Prodotti', '#ff6b35');
+    brandProdotti.forEach(g => { brandTableRows += _brandRow(g, _ci++); });
+    brandTableRows += _subtotRow('Subtotale prodotti', _subtot(brandProdotti), '#ff6b35');
+  }
+  if(brandServizi.length){
+    brandTableRows += _groupHeader('Servizi', '#3498db');
+    brandServizi.forEach(g => { brandTableRows += _brandRow(g, _ci++); });
+    brandTableRows += _subtotRow('Subtotale servizi', _subtot(brandServizi), '#3498db');
+  }
+
+  const brandTable =
+    '<div style="overflow-x:auto">' +
+    '<table style="width:100%;border-collapse:collapse;font-size:11.5px">' +
+      '<thead><tr style="border-bottom:2px solid var(--border2);color:var(--fg3)">' +
+        '<th style="text-align:left;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.4px">Marca</th>' +
+        '<th style="text-align:center;padding:6px 8px;font-size:10px;text-transform:uppercase">Righe</th>' +
+        '<th style="text-align:center;padding:6px 8px;font-size:10px;text-transform:uppercase">Q.t\u00e0</th>' +
+        '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Listino</th>' +
+        '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Sconto da Listino</th>' +
+        '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Vendita</th>' +
+        '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Costo</th>' +
+        '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Guadagno</th>' +
+        '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Margine</th>' +
+        '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Quota</th>' +
+      '</tr></thead><tbody>' + brandTableRows + '</tbody>' +
+      '<tfoot><tr style="border-top:2px solid var(--border2);font-weight:800">' +
+        '<td style="padding:7px 8px;color:var(--fg)">TOTALE GENERALE</td>' +
+        '<td style="text-align:center;padding:7px 8px;color:var(--fg)">' + t.righe + '</td>' +
+        '<td style="text-align:center;padding:7px 8px;color:var(--fg)">' + _qaNum(t.qty) + '</td>' +
+        '<td style="text-align:right;padding:7px 8px;color:var(--fg)">' + _qaEuro(t.listino) + '</td>' +
+        '<td style="text-align:right;padding:7px 8px;color:#e67e22">' + _qaPct(t.scontoMedioPct) + '</td>' +
+        '<td style="text-align:right;padding:7px 8px;color:var(--fg)">' + _qaEuro(t.vendita) + '</td>' +
+        '<td style="text-align:right;padding:7px 8px;color:#e74c3c">' + _qaEuro(t.costo) + '</td>' +
+        '<td style="text-align:right;padding:7px 8px;color:#00a87f">' + _qaEuro(t.guadagno) + '</td>' +
+        '<td style="text-align:right;padding:7px 8px;color:' + _qaMarginColor(t.marginePct) + '">' + _qaPct(t.marginePct) + '</td>' +
+        '<td style="text-align:right;padding:7px 8px;color:var(--fg3)">100%</td>' +
+      '</tr></tfoot>' +
+    '</table></div>';
+  const cardBrandTable = _qaCard('Dettaglio per marca', brandTable, { icon:'\uD83D\uDCCB', span:true });
+
+  // --- Top righe per guadagno ---
+  const topGain = A.rowsByGuadagno.slice(0, 8).map(r =>
+    '<tr style="border-bottom:1px solid var(--border)">' +
+      '<td style="padding:5px 8px;font-family:monospace;font-weight:700;color:var(--fg)">' + escapeHtml(r.code) + '</td>' +
+      '<td style="padding:5px 8px;color:var(--fg2);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" ' +
+        'title="' + escapeHtml(r.nameShort) + '">' + escapeHtml(r.nameShort) + '</td>' +
+      '<td style="text-align:center;padding:5px 8px;color:var(--fg3)">' + escapeHtml(r.brand) + '</td>' +
+      '<td style="text-align:center;padding:5px 8px;color:var(--fg2)">' + _qaNum(r.qty) + '</td>' +
+      '<td style="text-align:right;padding:5px 8px;font-weight:700;color:#00a87f">' + _qaEuro(r.guadagno) + '</td>' +
+      '<td style="text-align:right;padding:5px 8px;font-weight:800;color:' + _qaMarginColor(r.marginePct) + '">' +
+        _qaPct(r.marginePct) + '</td>' +
+    '</tr>'
+  ).join('');
+  const topGainTable =
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px">' +
+      '<thead><tr style="border-bottom:2px solid var(--border2);color:var(--fg3)">' +
+        '<th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase">Codice</th>' +
+        '<th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase">Descrizione</th>' +
+        '<th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase">Marca</th>' +
+        '<th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase">Q.t\u00e0</th>' +
+        '<th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase">Guadagno</th>' +
+        '<th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase">Margine</th>' +
+      '</tr></thead><tbody>' + topGain + '</tbody></table></div>';
+  const cardTopGain = _qaCard('Righe piu\u0027 redditizie', topGainTable, { icon:'\uD83C\uDFC6', span:true });
+
+  // Avviso righe escluse
+  const exclNote = (t.parked > 0 || t.noPrice > 0)
+    ? '<div style="grid-column:1/-1;font-size:11px;color:var(--fg3);background:var(--bg3);' +
+      'border:1px solid var(--border);border-radius:8px;padding:8px 12px">\u2139\uFE0F ' +
+      'Escluse dall\u0027analisi: ' +
+      (t.parked > 0 ? t.parked + ' righe parcheggiate (quantita\u0027 0)' : '') +
+      (t.parked > 0 && t.noPrice > 0 ? ' \u00b7 ' : '') +
+      (t.noPrice > 0 ? t.noPrice + ' righe senza prezzo di listino' : '') + '.</div>'
+    : '';
+
+  // --- Composizione del modal ---
+  const bg = document.createElement('div');
+  bg.id = 'quoteChartsModal';
+  bg.className = 'modal-bg';
+  bg.style.zIndex = '540';
+  bg.innerHTML =
+    '<div class="modal" style="max-width:96vw;width:96vw;max-height:95vh;display:flex;flex-direction:column">' +
+      '<div class="modal-head" style="display:flex;align-items:center;gap:12px">' +
+        '<h3 style="margin:0">\uD83D\uDCCA Analisi grafica del preventivo</h3>' +
+        '<span style="font-size:12px;color:var(--fg3);font-weight:600">' +
+          t.righe + ' righe analizzate</span>' +
+        '<span style="flex:1"></span>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:18px 22px;overflow-y:auto;flex:1;min-height:0">' +
+        kpiRow +
+        '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">' +
+          cardType +
+          cardBrandDonut +
+          cardBrandBars +
+          cardCatBars +
+          cardMargin +
+          cardDist +
+          cardBrandTable +
+          cardTopGain +
+          exclNote +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="qChartsCloseBtn" type="button">Chiudi</button>' +
+        '<span style="flex:1"></span>' +
+        '<span style="font-size:11px;color:var(--fg3);margin-right:10px">Dati calcolati dalle righe correnti del carrello</span>' +
+        '<button class="btn small" id="qChartsPdfBtn" type="button" style="background:#7c3aed;color:#fff;border-color:#7c3aed">\uD83D\uDCC4 Esporta PDF</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+  const cb = document.getElementById('qChartsCloseBtn');
+  if(cb) cb.addEventListener('click', () => bg.remove());
+
+  // V2.10.226: export PDF del cruscotto analisi
+  const pdfBtn = document.getElementById('qChartsPdfBtn');
+  if(pdfBtn){
+    pdfBtn.addEventListener('click', () => {
+      if(typeof exportQuoteAnalyticsPdf === 'function'){
+        try {
+          exportQuoteAnalyticsPdf(A);
+        } catch(e){
+          console.error('[grafici] errore export PDF:', e);
+          if(typeof toast === 'function') toast('Errore nella generazione del PDF', 'warn');
+        }
+      }
+    });
+  }
+}
+
+/* V2.10.226: esporta il cruscotto di analisi in un PDF A4 orizzontale.
+   Strumento INTERNO (analisi marginalita'), non destinato al cliente.
+   Disegna i grafici direttamente con le primitive jsPDF (no conversione SVG):
+   piu' nitido e affidabile. Usa autoTable per le tabelle dettagliate. */
+function exportQuoteAnalyticsPdf(A){
+  if(!A){ A = computeQuoteAnalytics(); }
+  if(!A || A.tot.righe === 0){
+    if(typeof toast === 'function') toast('Nessuna riga da esportare', 'info');
+    return;
+  }
+  if(typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF){
+    if(typeof toast === 'function') toast('Libreria PDF non disponibile', 'warn');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4', orientation:'landscape' });
+  const PAGE_W = 841.89, PAGE_H = 595.28;
+  const M = 36;                       // margine
+  const CW = PAGE_W - 2*M;            // larghezza utile
+  const t = A.tot;
+
+  // Helper colore: hex "#rrggbb" -> [r,g,b]
+  const hex2rgb = (h) => {
+    const s = String(h).replace('#','');
+    return [parseInt(s.slice(0,2),16), parseInt(s.slice(2,4),16), parseInt(s.slice(4,6),16)];
+  };
+  // Palette in versione RGB (riusa _QA_PALETTE)
+  const palRgb = _QA_PALETTE.map(hex2rgb);
+  const colAt = (i) => palRgb[i % palRgb.length];
+
+  // Info preventivo (se il carrello e' collegato)
+  const bound = (typeof quoteGetBoundInfo === 'function') ? quoteGetBoundInfo() : null;
+  const titoloPrev = bound
+    ? (bound.quoteId + ' v' + bound.versionNumber + (bound.nome ? ' \u2014 ' + bound.nome : ''))
+    : 'Preventivo non salvato (carrello corrente)';
+  const cliente = (bound && bound.cliente)
+    ? (bound.cliente.nome || bound.cliente.ragioneSociale || bound.cliente.name || '')
+    : '';
+  const oggi = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' });
+
+  // ---- Intestazione ----
+  let y = M;
+  doc.setFillColor(124, 58, 237);     // viola Analisi
+  doc.rect(M, y, CW, 44, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(15);
+  doc.text('Analisi del preventivo', M+14, y+19);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  // V2.10.226: il sottotitolo (numero + nome + cliente) puo' essere molto lungo.
+  // Lo tronco alla larghezza disponibile per non sovrapporlo alla data a destra.
+  const dataStr = 'Generato il ' + oggi + '   \u2022   Documento interno';
+  doc.setFontSize(8);
+  const dataW = doc.getTextWidth(dataStr);
+  doc.setFontSize(9);
+  let sottotitolo = titoloPrev + (cliente ? '   \u2022   Cliente: ' + cliente : '');
+  const maxSubW = CW - 28 - dataW - 24;   // 24pt di margine fra i due testi
+  while(sottotitolo.length > 8 && doc.getTextWidth(sottotitolo) > maxSubW){
+    sottotitolo = sottotitolo.slice(0, -2);
+  }
+  if(sottotitolo !== (titoloPrev + (cliente ? '   \u2022   Cliente: ' + cliente : ''))){
+    sottotitolo = sottotitolo.replace(/\s+\S*$/, '') + '\u2026';
+  }
+  doc.text(sottotitolo, M+14, y+34);
+  doc.setFontSize(8);
+  doc.text(dataStr, PAGE_W-M-14, y+34, { align:'right' });
+  y += 44 + 16;
+
+  // ---- KPI cards ----
+  // V2.10.226: struttura a due colonne Prodotti/Servizi come il cruscotto a
+  // video. jsPDF non rende le emoji: uso piccoli quadratini-marcatore colorati.
+  const _gP = A.byType.find(g => g.key === 'Prodotti');
+  const _gS = A.byType.find(g => g.key === 'Servizi');
+  const _spv = (g, field, fmt) => (g && g[field] != null) ? fmt(g[field]) : '\u2014';
+  const kpis = [
+    { l:'Totale vendita', v:_qaEuro(t.vendita), c:[0,168,127],
+      split:{ prod:_spv(_gP,'vendita',_qaEuro), serv:_spv(_gS,'vendita',_qaEuro) } },
+    { l:'Costo acquisto', v:_qaEuro(t.costo), c:[231,76,60],
+      split:{ prod:_spv(_gP,'costo',_qaEuro), serv:_spv(_gS,'costo',_qaEuro) } },
+    { l:'Guadagno', v:_qaEuro(t.guadagno), c:[255,107,53],
+      split:{ prod:_spv(_gP,'guadagno',_qaEuro), serv:_spv(_gS,'guadagno',_qaEuro) } },
+    { l:'Margine medio', v:_qaPct(t.marginePct), c:[124,58,237],
+      split:{ prod:_spv(_gP,'marginePct',_qaPct), serv:_spv(_gS,'marginePct',_qaPct) } },
+    { l:'Ricarico medio', v:_qaPct(t.ricaricoPct), c:[52,152,219],
+      split:{ prod:_spv(_gP,'ricaricoPct',_qaPct), serv:_spv(_gS,'ricaricoPct',_qaPct) } },
+    { l:'Sconto medio', v:_qaPct(t.scontoMedioPct), c:[230,126,34], sub:'su listino' },
+  ];
+  const kpiGap = 10;
+  const kpiW = (CW - kpiGap*(kpis.length-1)) / kpis.length;
+  const kpiH = 70;
+  // colori marcatore: arancione = prodotti, azzurro = servizi (come nell'app)
+  const COL_PROD = [255,107,53];
+  const COL_SERV = [52,152,219];
+  kpis.forEach((k, i) => {
+    const kx = M + i*(kpiW+kpiGap);
+    doc.setFillColor(247,248,250);
+    doc.setDrawColor(214,220,227);
+    doc.roundedRect(kx, y, kpiW, kpiH, 4, 4, 'FD');
+    doc.setFillColor(k.c[0],k.c[1],k.c[2]);
+    doc.rect(kx, y, kpiW, 3, 'F');
+    // etichetta
+    doc.setTextColor(133,145,161);
+    doc.setFont('helvetica','bold'); doc.setFontSize(7);
+    doc.text(k.l.toUpperCase(), kx+8, y+16);
+    // valore grande
+    doc.setTextColor(k.c[0],k.c[1],k.c[2]);
+    doc.setFontSize(13);
+    doc.text(String(k.v), kx+8, y+33);
+
+    if(k.split){
+      // linea tratteggiata di separazione
+      doc.setDrawColor(214,220,227);
+      if(doc.setLineDash) doc.setLineDash([1.4, 1.4], 0);
+      doc.line(kx+8, y+40, kx+kpiW-8, y+40);
+      if(doc.setLineDash) doc.setLineDash([], 0);
+      // due colonne: Prodotti (sinistra) e Servizi (destra)
+      const colX2 = kx + kpiW/2 + 2;
+      const drawCol = (cx, marker, label, val) => {
+        // quadratino-marcatore
+        doc.setFillColor(marker[0], marker[1], marker[2]);
+        doc.roundedRect(cx, y+47, 4.5, 4.5, 1, 1, 'F');
+        // etichetta
+        doc.setTextColor(140,148,160);
+        doc.setFont('helvetica','bold'); doc.setFontSize(5.8);
+        doc.text(label, cx+7, y+50.8);
+        // valore
+        doc.setTextColor(55,60,68);
+        doc.setFont('helvetica','bold'); doc.setFontSize(8);
+        doc.text(String(val), cx, y+62);
+      };
+      drawCol(kx+8,  COL_PROD, 'PRODOTTI', k.split.prod);
+      drawCol(colX2, COL_SERV, 'SERVIZI',  k.split.serv);
+    } else if(k.sub){
+      doc.setTextColor(130,138,150);
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
+      doc.text(String(k.sub), kx+8, y+47);
+    }
+  });
+  y += kpiH + 18;
+
+  // ---- Due DONUT affiancati: Prodotti vs Servizi e Composizione per marca ----
+  // V2.10.226: portati nel PDF i due donut del cruscotto a video. Disegnati
+  // con primitive jsPDF: cerchio esterno, foro centrale, fette come settori
+  // (poligoni di triangolini). Niente conversione da SVG.
+  const _pdfDonut = (cx, cy, rOut, rIn, segs) => {
+    // segs: [{ value, rgb }]. Disegna le fette in senso orario da -90 gradi.
+    const tot = segs.reduce((s, x) => s + (x.value > 0 ? x.value : 0), 0);
+    if(tot <= 0){
+      doc.setFillColor(235,237,240);
+      doc.circle(cx, cy, rOut, 'F');
+      doc.setFillColor(255,255,255);
+      doc.circle(cx, cy, rIn, 'F');
+      return;
+    }
+    let a0 = -Math.PI/2;
+    segs.forEach(sg => {
+      const v = (sg.value > 0) ? sg.value : 0;
+      if(v <= 0) return;
+      const a1 = a0 + (v / tot) * Math.PI * 2;
+      doc.setFillColor(sg.rgb[0], sg.rgb[1], sg.rgb[2]);
+      // suddivido l'arco in step piccoli; ogni step = triangolo dal centro
+      const steps = Math.max(2, Math.ceil((a1 - a0) / 0.10));
+      for(let s = 0; s < steps; s++){
+        const t0 = a0 + (a1 - a0) * (s / steps);
+        const t1 = a0 + (a1 - a0) * ((s+1) / steps);
+        doc.triangle(
+          cx, cy,
+          cx + Math.cos(t0)*rOut, cy + Math.sin(t0)*rOut,
+          cx + Math.cos(t1)*rOut, cy + Math.sin(t1)*rOut,
+          'F');
+      }
+      a0 = a1;
+    });
+    // foro centrale
+    doc.setFillColor(255,255,255);
+    doc.circle(cx, cy, rIn, 'F');
+  };
+
+  const donutBlockH = 132;
+  // se non c'e' spazio per il blocco donut, vado a pagina nuova
+  if(y + donutBlockH > PAGE_H - 50){ doc.addPage(); y = M; }
+  const dHalf = (CW - 20) / 2;
+
+  // --- Donut 1: Prodotti vs Servizi (su vendita) ---
+  (function(){
+    const x = M, w = dHalf;
+    doc.setTextColor(60,60,60);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+    doc.text('Prodotti vs Servizi', x, y);
+    const gP = A.byType.find(g => g.key === 'Prodotti');
+    const gS = A.byType.find(g => g.key === 'Servizi');
+    const segs = [];
+    if(gP) segs.push({ value:gP.vendita, rgb:[255,107,53], g:gP, label:'Prodotti' });
+    if(gS) segs.push({ value:gS.vendita, rgb:[52,152,219], g:gS, label:'Servizi' });
+    const cy = y + 16 + 50;
+    const cx = x + 56;
+    _pdfDonut(cx, cy, 48, 27, segs);
+    // testo al centro: totale vendita
+    doc.setTextColor(40,40,40);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text(_qaEuro(t.vendita).replace(' \u20ac',''), cx, cy-1, { align:'center' });
+    doc.setTextColor(140,148,160);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6);
+    doc.text('VENDITA \u20ac', cx, cy+8, { align:'center' });
+    // legenda a destra del donut
+    let ly = y + 20;
+    const lx = x + 116;
+    segs.forEach(sg => {
+      const quota = (t.vendita > 0) ? (sg.value / t.vendita * 100) : 0;
+      doc.setFillColor(sg.rgb[0], sg.rgb[1], sg.rgb[2]);
+      doc.roundedRect(lx, ly-6, 7, 7, 1.5, 1.5, 'F');
+      doc.setTextColor(45,45,45);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+      doc.text(sg.label, lx+12, ly);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+      doc.text(_qaEuro(sg.value) + '   ' + _qaPct(quota), x+w, ly, { align:'right' });
+      // sottoriga: righe, margine, guadagno
+      doc.setTextColor(130,138,150);
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+      doc.text(sg.g.righe + ' righe  \u00b7  margine ' + _qaPct(sg.g.marginePct) +
+        '  \u00b7  guadagno ' + _qaEuro(sg.g.guadagno), lx+12, ly+9);
+      ly += 26;
+    });
+  })();
+
+  // --- Donut 2: Composizione per marca (su vendita) ---
+  (function(){
+    const x = M + dHalf + 20, w = dHalf;
+    doc.setTextColor(60,60,60);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+    doc.text('Composizione per marca', x, y);
+    const marche = A.byBrand.slice(0, 8);
+    const segs = marche.map((g, i) => ({ value:g.vendita, rgb:colAt(i), g:g }));
+    const cy = y + 16 + 50;
+    const cx = x + 56;
+    _pdfDonut(cx, cy, 48, 27, segs);
+    doc.setTextColor(40,40,40);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text(String(A.byBrand.length), cx, cy+1, { align:'center' });
+    doc.setTextColor(140,148,160);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6);
+    doc.text('MARCHE', cx, cy+10, { align:'center' });
+    // lista marche a destra
+    let ly = y + 18;
+    const lx = x + 116;
+    const rowH = Math.min(13, 96 / Math.max(marche.length, 1));
+    marche.forEach((g, i) => {
+      const c = colAt(i);
+      doc.setFillColor(c[0], c[1], c[2]);
+      doc.roundedRect(lx, ly-5.5, 6, 6, 1, 1, 'F');
+      doc.setTextColor(45,45,45);
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.3);
+      let nm = String(g.key);
+      if(nm.length > 22) nm = nm.slice(0,21) + '\u2026';
+      doc.text(nm, lx+10, ly);
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.3);
+      doc.text(_qaEuro(g.vendita), x+w, ly, { align:'right' });
+      ly += rowH;
+    });
+  })();
+
+  y += donutBlockH;
+
+  // ---- Due TABELLE affiancate: fatturato per marca e per categoria ----
+  // V2.10.226: tabelle raggruppate per tipo (Prodotti / Servizi), ognuna con
+  // intestazione di gruppo e riga di subtotale. Coerente con "Dettaglio per marca".
+  const half = (CW - 20) / 2;
+
+  const buildRankTable = (x, w, title, data, headLabel) => {
+    doc.setTextColor(60,60,60);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+    doc.text(title, x, y);
+
+    const prod = data.filter(d => !d.isService);
+    const serv = data.filter(d => d.isService);
+    const maxQuota = Math.max.apply(null, data.map(d => d.quotaVendita || 0)) || 1;
+
+    // body con righe tipizzate: '_head' intestazione, '_sub' subtotale, oppure dato
+    const body = [];
+    const meta = [];   // parallelo a body: per ogni riga, {type, quota, colorIdx}
+    const pushGroup = (label, rows, rgb) => {
+      if(!rows.length) return;
+      body.push([ Object.assign({ content: label.toUpperCase(), colSpan: 4 },
+        { styles:{ halign:'left', fontStyle:'bold', fontSize:7,
+          fillColor: rgb.concat(), textColor:[255,255,255] } }) ]);
+      meta.push({ type:'_head' });
+      let sv = 0, sq = 0;
+      rows.forEach((d, i) => {
+        body.push([ String(i+1), d.key, _qaEuro(d.vendita), _qaPct(d.quotaVendita) ]);
+        meta.push({ type:'data', quota:d.quotaVendita||0, colorIdx:meta.length });
+        sv += d.vendita; sq += (d.quotaVendita || 0);
+      });
+      const fill = [ Math.round(255-(255-rgb[0])*0.16),
+                     Math.round(255-(255-rgb[1])*0.16),
+                     Math.round(255-(255-rgb[2])*0.16) ];
+      const sc = (c, ha) => ({ content:c, styles:{ halign:ha, fontStyle:'bold', fillColor:fill } });
+      body.push([ sc('', 'center'), sc('Subtotale ' + label.toLowerCase(), 'left'),
+        sc(_qaEuro(sv), 'right'), sc(_qaPct(sq), 'right') ]);
+      meta.push({ type:'_sub' });
+    };
+    pushGroup('Prodotti', prod, [255,107,53]);
+    pushGroup('Servizi',  serv, [52,152,219]);
+
+    doc.autoTable({
+      startY: y + 6,
+      margin: { left:x },
+      tableWidth: w,
+      head: [['#', headLabel, 'Fatturato', 'Quota']],
+      body: body,
+      theme: 'grid',
+      styles: { font:'helvetica', fontSize:7.5, cellPadding:3.5, textColor:[45,45,45], lineColor:[224,228,233], lineWidth:0.4 },
+      headStyles: { fillColor:[124,58,237], textColor:[255,255,255], fontStyle:'bold', fontSize:7 },
+      columnStyles: {
+        0:{ halign:'center', cellWidth:18, textColor:[140,148,160] },
+        1:{ halign:'left', fontStyle:'bold' },
+        2:{ halign:'right', cellWidth:74 },
+        3:{ halign:'right', cellWidth:74 },
+      },
+      // Mini-barra di riferimento nella colonna Quota, solo sulle righe-dato.
+      didDrawCell: (data) => {
+        if(data.section === 'body' && data.column.index === 3){
+          const m = meta[data.row.index];
+          if(!m || m.type !== 'data') return;
+          const barMaxW = data.cell.width - 8;
+          const bw = Math.max(1, m.quota / maxQuota * barMaxW);
+          const by = data.cell.y + data.cell.height - 4;
+          const c = colAt(m.colorIdx);
+          doc.setFillColor(c[0], c[1], c[2]);
+          doc.rect(data.cell.x + 4, by, bw, 2, 'F');
+        }
+      },
+    });
+    return doc.lastAutoTable.finalY;
+  };
+
+  const yA = buildRankTable(M, half, 'Fatturato per marca', A.byBrand, 'Marca');
+  const yB = buildRankTable(M+half+20, half, 'Fatturato per categoria', A.byCategory, 'Categoria');
+  y = Math.max(yA, yB) + 18;
+
+  // ---- Distribuzione margine: TABELLA invece di istogramma sciolto ----
+  // V2.10.226: tabella chiara con fascia, conteggio righe, quota e fatturato.
+  const distColors = [[231,76,60],[230,126,34],[255,182,39],[26,188,156],[0,168,127]];
+  const distTotRighe = A.marginBuckets.reduce((s,b) => s + b.count, 0) || 1;
+  const distBody = A.marginBuckets.map(b => [
+    String(b.label).replace(/\u2265/g,'>=').replace(/\u2264/g,'<='),
+    String(b.count),
+    _qaPct(b.count / distTotRighe * 100),
+    _qaEuro(b.vendita),
+  ]);
+  // V2.10.226: stimo l'altezza dell'intero blocco (titolo + intestazione +
+  // righe). Se non ci sta nella pagina corrente, lo mando TUTTO a pagina
+  // nuova: cosi' titolo e tabella non si separano mai.
+  const distTableEstH = 14 + 22 + (distBody.length + 1) * 19;
+  if(y + distTableEstH > PAGE_H - 50){ doc.addPage(); y = M; }
+
+  doc.setTextColor(60,60,60);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+  doc.text('Distribuzione righe per fascia di margine', M, y);
+  doc.autoTable({
+    startY: y + 6,
+    margin: { left:M, right:M },
+    head: [['Fascia di margine','Righe','Quota righe','Fatturato della fascia']],
+    body: distBody,
+    theme: 'grid',
+    rowPageBreak: 'avoid',
+    styles: { font:'helvetica', fontSize:8, cellPadding:4, textColor:[45,45,45], lineColor:[224,228,233], lineWidth:0.4 },
+    headStyles: { fillColor:[42,52,65], textColor:[255,255,255], fontStyle:'bold', fontSize:7.5 },
+    columnStyles: {
+      0:{ halign:'left', fontStyle:'bold', cellWidth:160 },
+      1:{ halign:'center' },
+      2:{ halign:'center' },
+      3:{ halign:'right' },
+    },
+    // Pallino colore-fascia accanto all'etichetta
+    didDrawCell: (data) => {
+      if(data.section === 'body' && data.column.index === 0){
+        const c = distColors[data.row.index] || [120,120,120];
+        doc.setFillColor(c[0], c[1], c[2]);
+        doc.circle(data.cell.x + 7, data.cell.y + data.cell.height/2, 2.6, 'F');
+      }
+    },
+    didParseCell: (data) => {
+      // spazio a sinistra per il pallino
+      if(data.section === 'body' && data.column.index === 0){
+        data.cell.styles.cellPadding = { top:4, right:4, bottom:4, left:16 };
+      }
+    },
+  });
+  y = doc.lastAutoTable.finalY + 18;
+
+  // ---- Tabella dettaglio per marca (autoTable) ----
+  // V2.10.226: rowPageBreak 'avoid' impedisce che la tabella si spezzi a meta';
+  // se non ci sta nella pagina corrente, parte da una pagina nuova intera.
+  // V2.10.226: ogni cella del totale come oggetto con halign ESPLICITO.
+  // autoTable non propaga sempre columnStyles.halign al piede: forzandolo qui
+  // le colonne del TOTALE restano allineate come quelle del corpo.
+  const _fc = (content, halign, extra) => Object.assign(
+    { content: content, styles: { halign: halign } }, extra || {});
+
+  // V2.10.226: tabella PDF raggruppata per tipo (Prodotti / Servizi).
+  const _pdfBrandProdotti = A.byBrand.filter(g => !g.isService);
+  const _pdfBrandServizi  = A.byBrand.filter(g => g.isService);
+  const _pdfSubtot = (gruppi) => {
+    const s = { righe:0, qty:0, listino:0, vendita:0, costo:0, guadagno:0 };
+    gruppi.forEach(g => {
+      s.righe += g.righe; s.qty += g.qty; s.listino += g.listino;
+      s.vendita += g.vendita; s.costo += g.costo; s.guadagno += g.guadagno;
+    });
+    s.marginePct = (s.vendita > 0 && s.costo > 0) ? (s.guadagno / s.vendita * 100) : null;
+    s.scontoPct  = (s.listino > 0) ? ((s.listino - s.vendita) / s.listino * 100) : null;
+    s.quotaVendita = (t.vendita > 0) ? (s.vendita / t.vendita * 100) : 0;
+    return s;
+  };
+  // riga marca normale
+  const _pdfBrandRow = (g) => [
+    g.key, String(g.righe), _qaNum(g.qty), _qaEuro(g.listino), _qaPct(g.scontoPct),
+    _qaEuro(g.vendita), _qaEuro(g.costo), _qaEuro(g.guadagno),
+    _qaPct(g.marginePct), _qaPct(g.quotaVendita),
+  ];
+  // riga intestazione gruppo: una sola cella con colSpan
+  const _pdfGroupHeader = (label, rgb) => [
+    Object.assign(
+      { content: label, colSpan: 10 },
+      { styles: { halign:'left', fontStyle:'bold', fontSize:7.5,
+        fillColor: rgb.concat(), textColor:[255,255,255] } }),
+  ];
+  // riga subtotale gruppo
+  const _pdfSubtotRow = (label, s, rgb) => {
+    const fill = [ Math.round(255-(255-rgb[0])*0.18),
+                   Math.round(255-(255-rgb[1])*0.18),
+                   Math.round(255-(255-rgb[2])*0.18) ];
+    const cell = (c, ha) => ({ content:c, styles:{ halign:ha, fontStyle:'bold', fillColor:fill } });
+    return [
+      cell(label,'left'), cell(String(s.righe),'center'), cell(_qaNum(s.qty),'center'),
+      cell(_qaEuro(s.listino),'right'), cell(_qaPct(s.scontoPct),'right'),
+      cell(_qaEuro(s.vendita),'right'), cell(_qaEuro(s.costo),'right'),
+      cell(_qaEuro(s.guadagno),'right'), cell(_qaPct(s.marginePct),'right'),
+      cell(_qaPct(s.quotaVendita),'right'),
+    ];
+  };
+
+  const brandBody = [];
+  if(_pdfBrandProdotti.length){
+    brandBody.push(_pdfGroupHeader('PRODOTTI', [255,107,53]));
+    _pdfBrandProdotti.forEach(g => brandBody.push(_pdfBrandRow(g)));
+    brandBody.push(_pdfSubtotRow('Subtotale prodotti', _pdfSubtot(_pdfBrandProdotti), [255,107,53]));
+  }
+  if(_pdfBrandServizi.length){
+    brandBody.push(_pdfGroupHeader('SERVIZI', [52,152,219]));
+    _pdfBrandServizi.forEach(g => brandBody.push(_pdfBrandRow(g)));
+    brandBody.push(_pdfSubtotRow('Subtotale servizi', _pdfSubtot(_pdfBrandServizi), [52,152,219]));
+  }
+
+  const brandFoot = [[
+    _fc('TOTALE GENERALE', 'left'),
+    _fc(String(t.righe), 'center'),
+    _fc(_qaNum(t.qty), 'center'),
+    _fc(_qaEuro(t.listino), 'right'),
+    _fc(_qaPct(t.scontoMedioPct), 'right'),
+    _fc(_qaEuro(t.vendita), 'right'),
+    _fc(_qaEuro(t.costo), 'right'),
+    _fc(_qaEuro(t.guadagno), 'right'),
+    _fc(_qaPct(t.marginePct), 'right'),
+    _fc('100%', 'right'),
+  ]];
+
+  // Se lo spazio residuo e' poco, vado a pagina nuova: cosi' la tabella resta intera.
+  const brandTableEstH = 26 + (brandBody.length + 1) * 17;
+  if(y + brandTableEstH > PAGE_H - 50){ doc.addPage(); y = M; }
+
+  doc.setTextColor(60,60,60);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+  doc.text('Dettaglio per marca', M, y);
+
+  // Header con halign esplicito (stesso motivo del foot).
+  const brandHead = [[
+    _fc('Marca', 'left'),
+    _fc('Righe', 'center'),
+    _fc('Q.ta', 'center'),
+    _fc('Listino', 'right'),
+    _fc('Sconto da Listino', 'right'),
+    _fc('Vendita', 'right'),
+    _fc('Costo', 'right'),
+    _fc('Guadagno', 'right'),
+    _fc('Margine', 'right'),
+    _fc('Quota', 'right'),
+  ]];
+
+  doc.autoTable({
+    startY: y + 6,
+    margin: { left:M, right:M },
+    head: brandHead,
+    body: brandBody,
+    foot: brandFoot,
+    theme: 'grid',
+    rowPageBreak: 'avoid',
+    showFoot: 'lastPage',
+    styles: { font:'helvetica', fontSize:8, cellPadding:4, textColor:[40,40,40], lineColor:[224,228,233], lineWidth:0.4 },
+    headStyles: { fillColor:[124,58,237], textColor:[255,255,255], fontStyle:'bold', fontSize:7.5 },
+    footStyles: { fillColor:[238,241,245], textColor:[20,20,20], fontStyle:'bold' },
+    columnStyles: {
+      0:{ halign:'left', fontStyle:'bold' },
+      1:{ halign:'center' }, 2:{ halign:'center' },
+      3:{ halign:'right' }, 4:{ halign:'right', textColor:[230,126,34] },
+      5:{ halign:'right', fontStyle:'bold' }, 6:{ halign:'right', textColor:[231,76,60] },
+      7:{ halign:'right', textColor:[0,150,110], fontStyle:'bold' },
+      8:{ halign:'right', fontStyle:'bold' }, 9:{ halign:'right' },
+    },
+  });
+
+  // ---- Tabella righe piu' redditizie ----
+  // V2.10.226: la tabella non deve spezzarsi; codice su una riga sola
+  // (font ridotto + colonna larga), descrizione troncata a parola intera.
+  let afterY = doc.lastAutoTable.finalY + 18;
+  const gainEstH = 26 + (Math.min(A.rowsByGuadagno.length, 12) + 1) * 20;
+  if(afterY + gainEstH > PAGE_H - 50){ doc.addPage(); afterY = M; }
+  doc.setTextColor(60,60,60);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+  doc.text('Righe piu\u0027 redditizie', M, afterY);
+
+  // Tronca una descrizione a una lunghezza max, ma a confine di parola.
+  const troncaParola = (s, max) => {
+    s = String(s || '').trim();
+    if(s.length <= max) return s;
+    let cut = s.slice(0, max);
+    const sp = cut.lastIndexOf(' ');
+    if(sp > max * 0.6) cut = cut.slice(0, sp);
+    return cut + '\u2026';
+  };
+
+  const gainBody = A.rowsByGuadagno.slice(0, 12).map((r, i) => [
+    String(i+1),
+    r.code,
+    troncaParola(r.nameShort, 64),
+    r.brand,
+    _qaNum(r.qty),
+    _qaEuro(r.vendita),
+    _qaEuro(r.guadagno),
+    _qaPct(r.marginePct),
+  ]);
+  doc.autoTable({
+    startY: afterY + 6,
+    margin: { left:M, right:M },
+    head: [['#','Codice','Descrizione','Marca','Q.ta','Vendita','Guadagno','Margine']],
+    body: gainBody,
+    theme: 'striped',
+    rowPageBreak: 'avoid',
+    styles: { font:'helvetica', fontSize:8, cellPadding:4, textColor:[40,40,40], overflow:'ellipsize' },
+    headStyles: { fillColor:[42,52,65], textColor:[255,255,255], fontStyle:'bold', fontSize:7.5 },
+    alternateRowStyles: { fillColor:[248,249,251] },
+    columnStyles: {
+      0:{ halign:'center', cellWidth:20, textColor:[140,148,160] },
+      // codice: largo e font monospaziato piccolo, niente a-capo
+      1:{ cellWidth:128, fontStyle:'bold', fontSize:7, overflow:'visible' },
+      2:{ cellWidth:'auto', textColor:[90,98,110] },
+      3:{ halign:'center', cellWidth:96 },
+      4:{ halign:'center', cellWidth:34 },
+      5:{ halign:'right', cellWidth:70 },
+      6:{ halign:'right', cellWidth:74, textColor:[0,150,110], fontStyle:'bold' },
+      7:{ halign:'right', cellWidth:54, fontStyle:'bold' },
+    },
+  });
+
+  // ---- Footer su tutte le pagine ----
+  const pages = doc.internal.getNumberOfPages();
+  for(let p=1; p<=pages; p++){
+    doc.setPage(p);
+    doc.setDrawColor(214,220,227);
+    doc.line(M, PAGE_H-26, PAGE_W-M, PAGE_H-26);
+    doc.setTextColor(140,148,160);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.text('Analisi preventivo \u2014 documento interno \u2014 Security TOWER', M, PAGE_H-15);
+    doc.text('Pagina ' + p + ' di ' + pages, PAGE_W-M, PAGE_H-15, { align:'right' });
+  }
+
+  // ---- Salvataggio ----
+  const fname = 'Analisi-' +
+    (bound ? (bound.quoteId + '-v' + bound.versionNumber) : 'preventivo') +
+    '-' + new Date().toISOString().slice(0,10) + '.pdf';
+  doc.save(fname);
+  if(typeof toast === 'function') toast('PDF dell\u0027analisi generato', 'ok');
 }
 
 // V2.10.149: helper IVA — accesso unificato alle impostazioni IVA del preventivo.
@@ -40622,10 +42049,13 @@ function openQuoteCart(){
         // V2.10.24: pulsante "Inserisci Testo Libero" - apre dialog di scelta posizione + editor WYSIWYG
         '<button class="btn small" id="quoteCartFreeTextBtn" type="button" title="Inserisci testo libero personalizzato (presentazione iniziale o note finali)" style="font-size:13px;background:#0178d4;color:#fff;border-color:#0178d4">✏️ Inserisci Testo Libero</button>' +
         '<button class="btn small primary" id="quoteCartAddServiceBtn" type="button" title="Aggiungi una nuova riga al preventivo (prodotti personali o servizi)" style="font-size:13px">➕ Aggiungi Riga</button>' +
-        // V2.10.213: pulsante "Elimina righe" - cancella le righe spuntate con le
+        // V2.10.226: pulsante "Elimina righe" - cancella le righe spuntate con le
         // checkbox del carrello (stesso meccanismo di selezione di "Aggiorna preventivo").
         '<button class="btn small" id="quoteCartDeleteRowsBtn" type="button" title="Elimina le righe selezionate con le checkbox" style="font-size:13px;background:#ef4444;color:#fff;border-color:#ef4444">🗑️ Elimina righe</button>' +
         '<button class="btn small ghost" id="quoteCartSettingsBtn" type="button" title="Modalità preventivo e descrizione" style="font-size:13px">⚙️ Impostazioni preventivo</button>' +
+        // V2.10.226: pulsante "Grafici" — apre il cruscotto di analisi statistica
+        // del preventivo (composizione per marca/categoria, margini, sconti, ecc.).
+        '<button class="btn small" id="quoteCartChartsBtn" type="button" title="Analisi statistica del preventivo con grafici" style="font-size:13px;background:#7c3aed;color:#fff;border-color:#7c3aed">📊 Grafici</button>' +
         '<button class="btn small ghost" id="quoteCartPrintSettingsBtn" type="button" title="Cosa includere nelle esportazioni" style="font-size:13px">🖨️ Impostazioni di stampa</button>' +
       '</div>' +
       // V2.10.11: barra dinamica "bound info" - mostra cliente/nome/data/versione del preventivo collegato.
@@ -40669,6 +42099,15 @@ function openQuoteCart(){
     bg.remove();
   });
   document.getElementById('quoteCartSettingsBtn').addEventListener('click', () => openQuoteSettingsDialog());
+  // V2.10.226: handler pulsante "Grafici" — cruscotto analisi statistica
+  (function(){
+    const cBtn = document.getElementById('quoteCartChartsBtn');
+    if(cBtn){
+      cBtn.addEventListener('click', () => {
+        if(typeof openQuoteChartsDialog === 'function') openQuoteChartsDialog();
+      });
+    }
+  })();
   // V2.10.3: handler pulsante "Salva preventivo"
   document.getElementById('quoteCartSaveBtn').addEventListener('click', () => openSaveQuoteDialog());
   // V2.10.5: handler pulsante "Aggiorna preventivo"
@@ -40677,7 +42116,7 @@ function openQuoteCart(){
   document.getElementById('quoteCartFreeTextBtn').addEventListener('click', () => openFreeTextDialog());
   // V2.9.12: handler pulsante "Aggiungi Servizi"
   document.getElementById('quoteCartAddServiceBtn').addEventListener('click', () => openAddRowChoiceDialog());
-  // V2.10.213: handler pulsante "Elimina righe" — cancella le righe selezionate
+  // V2.10.226: handler pulsante "Elimina righe" — cancella le righe selezionate
   // con le checkbox del carrello, previa conferma.
   (function(){
     const delBtn = document.getElementById('quoteCartDeleteRowsBtn');
@@ -41446,8 +42885,8 @@ function renderQuoteCartContent(){
             '<span class="qcart-drag-handle" title="Trascina per riordinare" style="display:inline-block;cursor:grab;color:var(--fg3);font-size:14px;padding:0 4px;margin-right:4px;line-height:1">⋮⋮</span>' +
             (i + 1) +
           '</td>' +
-          // V2.10.213: checkbox di selezione per "Aggiorna preventivo".
-          // V2.10.213: checkbox spuntata SOLO se _selectedForUpdate===true (default: vuote).
+          // V2.10.226: checkbox di selezione per "Aggiorna preventivo".
+          // V2.10.226: checkbox spuntata SOLO se _selectedForUpdate===true (default: vuote).
           '<td style="text-align:center">' +
             '<input type="checkbox" class="qcart-update-check" data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" ' +
               (it._selectedForUpdate === true ? 'checked' : '') + ' ' +
@@ -41507,7 +42946,7 @@ function renderQuoteCartContent(){
         '<thead>' +
           '<tr>' +
             '<th>Riga</th>' +  // V2.7.9: rinominato (era #)
-            // V2.10.213: colonna checkbox "Aggiorna" con select-all nell'header
+            // V2.10.226: colonna checkbox "Aggiorna" con select-all nell'header
             '<th style="text-align:center" title="Seleziona / deseleziona tutte le righe (per Aggiorna o Elimina)">' +
               '<input type="checkbox" id="qcartUpdateCheckAll" ' +
                 'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0" ' +
@@ -41574,7 +43013,7 @@ function renderQuoteCartContent(){
             '<span class="qcart-drag-handle" title="Trascina per riordinare" style="display:inline-block;cursor:grab;color:var(--fg3);font-size:14px;padding:0 4px;margin-right:4px;line-height:1">⋮⋮</span>' +
             (i + 1) +
           '</td>' +
-          // V2.10.213: checkbox di selezione per "Aggiorna preventivo".
+          // V2.10.226: checkbox di selezione per "Aggiorna preventivo".
           '<td style="text-align:center">' +
             '<input type="checkbox" class="qcart-update-check" data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" ' +
               (it._selectedForUpdate === true ? 'checked' : '') + ' ' +
@@ -41609,9 +43048,9 @@ function renderQuoteCartContent(){
               : '—')) +
           '</td>' +
           // V2.7.1: Sequenza colonne: PVP unit. → Sconto → Netto unit. → Sc. Cliente → Prezzo Vendita → Margine.
-          // V2.10.213: cella "Netto ACQ" colorata di rosso (#dc2626) per evidenziare il costo d'acquisto.
+          // V2.10.226: cella "Netto ACQ" colorata di rosso (#dc2626) per evidenziare il costo d'acquisto.
           '<td class="num" style="color:#dc2626;font-weight:600">' + (isZeroQty ? _dash : (it.netto != null ? _qFmtEur(it.netto) : '—')) + '</td>' +
-          // V2.10.213: colonna "Tot. Netto ACQ" rimossa su richiesta utente.
+          // V2.10.226: colonna "Tot. Netto ACQ" rimossa su richiesta utente.
           // V2.5.9 / V2.6.2: cella "Sc. Cliente" EDITABILE anche in Modalità Analisi.
           // Stesso modello dati (it.discountPct) e stessa persistenza dell'input
           // in Modalità Cliente: cambiando modalità Cliente↔Analisi il valore
@@ -41660,7 +43099,7 @@ function renderQuoteCartContent(){
         '<thead>' +
           '<tr>' +
             '<th>Riga</th>' +  // V2.7.8: rinominato (era #)
-            // V2.10.213: colonna checkbox "Aggiorna" con select-all nell'header
+            // V2.10.226: colonna checkbox "Aggiorna" con select-all nell'header
             '<th style="text-align:center" title="Seleziona / deseleziona tutte le righe (per Aggiorna o Elimina)">' +
               '<input type="checkbox" id="qcartUpdateCheckAll" ' +
                 'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0" ' +
@@ -41710,7 +43149,7 @@ function renderQuoteCartContent(){
       renderQuoteCartContent();
     });
   });
-  // V2.10.213: handler checkbox di selezione per "Aggiorna preventivo".
+  // V2.10.226: handler checkbox di selezione per "Aggiorna preventivo".
   // Lo stato e' salvato su it._selectedForUpdate e persiste nel _QUOTE_STATE.
   // Non serve re-render: la checkbox aggiorna solo il flag.
   const _qcartUpdateChecks = () => Array.from(container.querySelectorAll('.qcart-update-check'));
@@ -41752,7 +43191,7 @@ function renderQuoteCartContent(){
     });
     _syncQcartCheckAll();  // stato iniziale
   }
-  // V2.10.213: handler ".qcart-remove" rimosso — la X di cancellazione riga non
+  // V2.10.226: handler ".qcart-remove" rimosso — la X di cancellazione riga non
   // esiste più. La cancellazione avviene ora dal pulsante "Elimina righe" in
   // toolbar, sulle righe selezionate con le checkbox. La funzione
   // removeFromQuoteCart() resta definita come API riutilizzabile.
@@ -43596,7 +45035,7 @@ async function exportQuoteDocx(options){
     const mk = (text, opts) => new TextRun(Object.assign({ font: 'Calibri', size: 19 }, opts || {}, { text }));
     const para = (children, opts) => new Paragraph(Object.assign({ children: Array.isArray(children) ? children : [children] }, opts || {}));
 
-    // V2.10.213: converte HTML formattato (output dell'editor testo libero) in array
+    // V2.10.226: converte HTML formattato (output dell'editor testo libero) in array
     // di Paragraph docx, preservando bold/italic/underline/strike/font-size/color/highlight.
     // baseOpts: opzioni di default applicate a OGNI run (es. color: TEXT_MID, size: 22 = 11pt).
     // paraOpts: opzioni di default applicate a OGNI paragraph (es. alignment JUSTIFIED, spacing).
@@ -43745,7 +45184,7 @@ async function exportQuoteDocx(options){
       if(_quoteCliente.codiceFiscale){
         destInner.push(para(mk('C.F.: ' + _quoteCliente.codiceFiscale, { color: '4B5563', size: 18 })));
       }
-      // V2.10.213: indirizzo e CAP/Citta/Provincia su righe separate (non piu' uniti
+      // V2.10.226: indirizzo e CAP/Citta/Provincia su righe separate (non piu' uniti
       // con virgola). Migliora leggibilita' di intestazioni lunghe.
       if(_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()){
         destInner.push(para(mk(_quoteCliente.indirizzo.trim(), { color: TEXT_MID, size: 19 }), { spacing: { before: 100 } }));
@@ -43755,7 +45194,7 @@ async function exportQuoteDocx(options){
         destInner.push(para(mk(_quoteCliente.capCitta.trim(), { color: TEXT_MID, size: 19 }),
           beforeSpacing ? { spacing: beforeSpacing } : {}));
       }
-      // V2.10.213: blocco riferimento completo (nome bold + ruolo italics + telefono + email)
+      // V2.10.226: blocco riferimento completo (nome bold + ruolo italics + telefono + email)
       // visibile sempre quando i campi sono valorizzati. Aggregato sotto il nome con spacing
       // minore (60) per percezione di gruppo coerente.
       if(_quoteCliente.persRiferimento){
@@ -43766,7 +45205,7 @@ async function exportQuoteDocx(options){
         if(_quoteCliente.ruoloRiferimento){
           destInner.push(para(mk(_quoteCliente.ruoloRiferimento, { color: TEXT_MUTED, italics: true, size: 17 }), { spacing: { before: 30 } }));
         }
-        // V2.10.213: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
+        // V2.10.226: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
         // con fallback ai campi telefono/email del cliente generale se mancano.
         const _refTel = _quoteCliente.telRiferimento || _quoteCliente.telefono || '';
         const _refMail = _quoteCliente.emailRiferimento || _quoteCliente.email || '';
@@ -43849,7 +45288,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // CARD OGGETTO (border-left blu su sfondo CARD_BG)
     // =====================================================
-    // V2.10.213: testo Oggetto multi-paragrafo (split su \n) + giustificato.
+    // V2.10.226: testo Oggetto multi-paragrafo (split su \n) + giustificato.
     // Era una sola riga, ora supporta descrizioni lunghe inserite nella textarea UI.
     let oggettoTable = null;
     if(_quoteNome){
@@ -43887,7 +45326,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // TESTO LIBERO HEADER (se presente)
     // =====================================================
-    // V2.10.213: ora preserva la formattazione completa (bold, italic, underline,
+    // V2.10.226: ora preserva la formattazione completa (bold, italic, underline,
     // strike, font-size, color, highlight) tramite htmlToTextRuns + htmlToDocxParagraphs.
     let headerFreeText = null;
     if(SETTINGS_QFT.header){
@@ -44238,7 +45677,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // TESTO LIBERO FOOTER (se presente)
     // =====================================================
-    // V2.10.213: stesso approccio dell'header, formattazione preservata.
+    // V2.10.226: stesso approccio dell'header, formattazione preservata.
     let footerFreeText = null;
     if(SETTINGS_QFT.footer){
       const footerParas = htmlToDocxParagraphs(
@@ -44835,7 +46274,7 @@ async function exportQuoteWord(){
         '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:30pt;padding-top:14pt;border-top:1pt solid #e5e7eb;font-size:9pt;color:#9ca3af;line-height:1.6}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:10pt 14pt;margin-top:18pt;font-size:10pt;color:#0c4a6e}' +
-        // V2.10.213: regole specifiche per il testo libero (header/footer) — garantiscono
+        // V2.10.226: regole specifiche per il testo libero (header/footer) — garantiscono
         // che il <b>/<strong>, <i>/<em>, <u>, <s>, e <span style="font-size:..."> inline
         // dell'editor vengano onorati anche in Word .doc (che ha un parser HTML "vintage"
         // e a volte ignora gli stili inline se sovrascritti da regole generiche).
@@ -44888,16 +46327,16 @@ async function exportQuoteWord(){
               '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:Calibri,monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
-              // V2.10.213: indirizzo e CAP/Citta/Provincia su righe separate (era unito da virgola)
+              // V2.10.226: indirizzo e CAP/Citta/Provincia su righe separate (era unito da virgola)
               (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim() ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml(_quoteCliente.indirizzo.trim()) + '</div>' : '') +
               (_quoteCliente.capCitta && _quoteCliente.capCitta.trim() ? '<div style="font-size:9.5pt;color:#374151;line-height:1.4' + ((!_quoteCliente.indirizzo || !_quoteCliente.indirizzo.trim()) ? ';margin-top:5pt' : '') + '">' + escapeHtml(_quoteCliente.capCitta.trim()) + '</div>' : '') +
-              // V2.10.213: blocco riferimento completo (nome bold + ruolo + telefono + email)
+              // V2.10.226: blocco riferimento completo (nome bold + ruolo + telefono + email)
               // raggruppato in un unico blocco separato da bordo tratteggiato.
               (_quoteCliente.persRiferimento ? (
                 '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
                   'Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' +
                   (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') +
-                  // V2.10.213: telefono/email del REFERENTE con fallback ai campi cliente
+                  // V2.10.226: telefono/email del REFERENTE con fallback ai campi cliente
                   ((_quoteCliente.telRiferimento || _quoteCliente.telefono) ? '<br><span style="color:#6b7280">Tel: ' + escapeHtml(_quoteCliente.telRiferimento || _quoteCliente.telefono) + '</span>' : '') +
                   ((_quoteCliente.emailRiferimento || _quoteCliente.email) ? '<br><span style="color:#6b7280">Email: ' + escapeHtml(_quoteCliente.emailRiferimento || _quoteCliente.email) + '</span>' : '') +
                 '</div>'
@@ -44917,7 +46356,7 @@ async function exportQuoteWord(){
         '</div>' +
       '</div>' +
       // V2.10.15: riga OGGETTO con card laterale + accento ambra (Variante B - elegante e armoniosa)
-      // V2.10.213: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
+      // V2.10.226: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
       // della textarea e wrappare automaticamente i testi lunghi multi-riga.
       (_quoteNome ? (
         '<div style="margin:0 32pt;padding:8pt 16pt;background:#fafaf9;border-left:4pt solid #0178d4;border-radius:2pt;display:flex;flex-direction:column;gap:2pt">' +
@@ -44926,7 +46365,7 @@ async function exportQuoteWord(){
         '</div>'
       ) : '') +
       // V2.10.24: testo libero header (sotto card OGGETTO) - HTML formattato dall'utente. V2.10.26: distanza maggiore + giustificato
-      // V2.10.213: usa classe .qft-block per garantire che bold/italic/font-size inline siano onorati in Word .doc
+      // V2.10.226: usa classe .qft-block per garantire che bold/italic/font-size inline siano onorati in Word .doc
       ((SETTINGS_QFT && SETTINGS_QFT.header) ? (
         '<div class="qft-block" style="margin:18pt 32pt 0 32pt;padding:0 4pt;font-size:11pt">' +
           SETTINGS_QFT.header +
@@ -44946,7 +46385,7 @@ async function exportQuoteWord(){
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
-        // V2.10.213: usa classe .qft-block (vedi commento header)
+        // V2.10.226: usa classe .qft-block (vedi commento header)
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
           '<div class="qft-block" style="margin-top:18pt;padding:0 4pt;font-size:11pt">' +
             SETTINGS_QFT.footer +
@@ -45227,8 +46666,8 @@ async function exportQuotePdfNative(options){
       return cy;
     };
 
-    /* V2.10.213: render PDF di paragrafi "rich" (con runs di stili misti).
-       Page-break automatico (V2.10.213): quando il testo libero supera il margine
+    /* V2.10.226: render PDF di paragrafi "rich" (con runs di stili misti).
+       Page-break automatico (V2.10.226): quando il testo libero supera il margine
        inferiore della pagina, fluisce automaticamente sulla pagina successiva invece
        di essere troncato (comportamento simile a Word/docx).
        Input: array di paragrafi nel formato di htmlToTextRuns:
@@ -45253,7 +46692,7 @@ async function exportQuotePdfNative(options){
       defAlign = defAlign || 'justify';
       const PARAGRAPH_GAP = 4;   // spazio extra fra paragrafi
       let cy = y;
-      // V2.10.213: helper interno per page-break. Se pageBreakOpts attivo, controlla se
+      // V2.10.226: helper interno per page-break. Se pageBreakOpts attivo, controlla se
       // la prossima riga di altezza `lineH` ci sta. In caso contrario fa onNewPage + reset cy.
       const checkPageBreak = (lineH) => {
         if(!pageBreakOpts) return;
@@ -45272,7 +46711,7 @@ async function exportQuotePdfNative(options){
         let prefix = p.listMarker ? p.listMarker : '';
         // Se paragrafo vuoto, salto con piccolo gap
         if(runs.length === 0 && !prefix){
-          // V2.10.213: anche i paragrafi vuoti possono superare il margine
+          // V2.10.226: anche i paragrafi vuoti possono superare il margine
           checkPageBreak(defSize * 1.2);
           cy += defSize * 1.2;
           continue;
@@ -45346,7 +46785,7 @@ async function exportQuotePdfNative(options){
           // Calcolo altezza riga = max fontSize della riga * 1.25
           const maxFontSize = line.reduce((m, tk) => Math.max(m, tk.fontSize), defSize);
           const lineH = maxFontSize * 1.25;
-          // V2.10.213: page-break check PRIMA di disegnare la riga.
+          // V2.10.226: page-break check PRIMA di disegnare la riga.
           // Se la riga non sta piu' nello spazio rimanente, vado a nuova pagina.
           checkPageBreak(lineH);
           // Baseline = cy + maxFontSize (cy e' top della riga)
@@ -45530,7 +46969,7 @@ async function exportQuotePdfNative(options){
         doc.text('C.F.: ' + _quoteCliente.codiceFiscale, colRightX + padX, measureY + 4);
         measureY += 12;
       }
-      // V2.10.213: indirizzo e CAP/Citta/Provincia su righe separate.
+      // V2.10.226: indirizzo e CAP/Citta/Provincia su righe separate.
       if(_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()){
         setText(9.5, 'normal', COL.textMid);
         const lines = wrapText(_quoteCliente.indirizzo.trim(), colRightW - 2 * padX, 9.5, 'normal');
@@ -45541,7 +46980,7 @@ async function exportQuotePdfNative(options){
         const lines = wrapText(_quoteCliente.capCitta.trim(), colRightW - 2 * padX, 9.5, 'normal');
         lines.forEach(line => { doc.text(line, colRightX + padX, measureY + 4); measureY += 12; });
       }
-      // V2.10.213: blocco riferimento completo — nome + ruolo + telefono + email
+      // V2.10.226: blocco riferimento completo — nome + ruolo + telefono + email
       // sempre raggruppati sotto a "Alla c.a." (anziche' telefono/email come blocco a se')
       if(_quoteCliente.persRiferimento){
         measureY += 4;
@@ -45556,7 +46995,7 @@ async function exportQuotePdfNative(options){
           doc.text(_quoteCliente.ruoloRiferimento, colRightX + padX, measureY + 4);
           measureY += 11;
         }
-        // V2.10.213: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
+        // V2.10.226: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
         // con fallback ai campi telefono/email del cliente generale.
         const _refTel = _quoteCliente.telRiferimento || _quoteCliente.telefono || '';
         const _refMail = _quoteCliente.emailRiferimento || _quoteCliente.email || '';
@@ -45618,7 +47057,7 @@ async function exportQuotePdfNative(options){
     cursorY = Math.max(leftY, rightY) + 18;
 
     // === CARD OGGETTO ===
-    // V2.10.213: testo Oggetto multi-riga giustificato (era una sola riga troncata).
+    // V2.10.226: testo Oggetto multi-riga giustificato (era una sola riga troncata).
     // Calcolo altezza in base alle righe wrappate, gestisco anche eventuali \n inseriti
     // dall'utente nella textarea. Giustificazione tramite drawJustifiedText (V2.10.186).
     if(_quoteNome){
@@ -45665,9 +47104,9 @@ async function exportQuotePdfNative(options){
     }
 
     // === TESTO LIBERO HEADER ===
-    // V2.10.213: parsing HTML completo con preservazione di bold/italic/underline/strike/
+    // V2.10.226: parsing HTML completo con preservazione di bold/italic/underline/strike/
     // font-size/color/highlight. drawRichRunsParagraphs gestisce layout multi-stile.
-    // Page-break automatico (V2.10.213): se il testo eccede la pagina, fluisce sulla successiva.
+    // Page-break automatico (V2.10.226): se il testo eccede la pagina, fluisce sulla successiva.
     if(SETTINGS_QFT.header){
       const paras = (typeof htmlToTextRuns === 'function') ? htmlToTextRuns(SETTINGS_QFT.header) : [];
       if(paras.length > 0){
@@ -46196,7 +47635,7 @@ async function exportQuotePdfNative(options){
     }
 
     // === TESTO LIBERO FOOTER ===
-    // V2.10.213: vedi commento header. drawRichRunsParagraphs gestisce nativamente
+    // V2.10.226: vedi commento header. drawRichRunsParagraphs gestisce nativamente
     // bold/italic/dimensioni/colori/evidenziatore + page-break automatico (il render
     // verifica riga per riga se serve nuova pagina, quindi non serve piu' la stima
     // a-priori).
@@ -46558,7 +47997,7 @@ async function exportQuotePdf(){
         '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:22pt;padding-top:10pt;border-top:1pt solid #e5e7eb;font-size:8pt;color:#9ca3af;line-height:1.5}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:8pt 12pt;margin-top:14pt;font-size:9pt;color:#0c4a6e}' +
-        // V2.10.213: regole per testo libero (vedi spiegazione nel docx export)
+        // V2.10.226: regole per testo libero (vedi spiegazione nel docx export)
         '.qft-block{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#374151;line-height:1.6;text-align:justify}' +
         '.qft-block b,.qft-block strong{font-weight:bold !important}' +
         '.qft-block i,.qft-block em{font-style:italic !important}' +
@@ -46658,15 +48097,15 @@ async function exportQuotePdf(){
               '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
-              // V2.10.213: indirizzo e CAP/Citta/Provincia su righe separate
+              // V2.10.226: indirizzo e CAP/Citta/Provincia su righe separate
               (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim() ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml(_quoteCliente.indirizzo.trim()) + '</div>' : '') +
               (_quoteCliente.capCitta && _quoteCliente.capCitta.trim() ? '<div style="font-size:9.5pt;color:#374151;line-height:1.4' + ((!_quoteCliente.indirizzo || !_quoteCliente.indirizzo.trim()) ? ';margin-top:5pt' : '') + '">' + escapeHtml(_quoteCliente.capCitta.trim()) + '</div>' : '') +
-              // V2.10.213: blocco riferimento completo (nome + ruolo + telefono + email raggruppati)
+              // V2.10.226: blocco riferimento completo (nome + ruolo + telefono + email raggruppati)
               (_quoteCliente.persRiferimento ? (
                 '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
                   'Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' +
                   (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') +
-                  // V2.10.213: telefono/email del REFERENTE con fallback ai campi cliente
+                  // V2.10.226: telefono/email del REFERENTE con fallback ai campi cliente
                   ((_quoteCliente.telRiferimento || _quoteCliente.telefono) ? '<br><span style="color:#6b7280">Tel: ' + escapeHtml(_quoteCliente.telRiferimento || _quoteCliente.telefono) + '</span>' : '') +
                   ((_quoteCliente.emailRiferimento || _quoteCliente.email) ? '<br><span style="color:#6b7280">Email: ' + escapeHtml(_quoteCliente.emailRiferimento || _quoteCliente.email) + '</span>' : '') +
                 '</div>'
@@ -46685,7 +48124,7 @@ async function exportQuotePdf(){
         '</div>' +
       '</div>' +
       // V2.10.15: riga OGGETTO con card laterale + accento ambra (Variante B - elegante e armoniosa)
-      // V2.10.213: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
+      // V2.10.226: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
       // della textarea e wrappare automaticamente i testi lunghi multi-riga.
       (_quoteNome ? (
         '<div style="margin:0 24pt;padding:8pt 16pt;background:#fafaf9;border-left:4pt solid #0178d4;border-radius:2pt;display:flex;flex-direction:column;gap:2pt">' +
@@ -46694,7 +48133,7 @@ async function exportQuotePdf(){
         '</div>'
       ) : '') +
       // V2.10.24: testo libero header (sotto card OGGETTO) - HTML formattato dall'utente. V2.10.26: distanza maggiore + giustificato
-      // V2.10.213: usa classe .qft-block (vedi commento header)
+      // V2.10.226: usa classe .qft-block (vedi commento header)
       ((SETTINGS_QFT && SETTINGS_QFT.header) ? (
         '<div class="qft-block" style="margin:18pt 24pt 0 24pt;padding:0 4pt;font-size:11pt">' +
           SETTINGS_QFT.header +
@@ -46714,7 +48153,7 @@ async function exportQuotePdf(){
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
-        // V2.10.213: usa classe .qft-block (vedi commento header)
+        // V2.10.226: usa classe .qft-block (vedi commento header)
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
           '<div class="qft-block" style="margin-top:18pt;padding:0 4pt;font-size:11pt">' +
             SETTINGS_QFT.footer +
@@ -49413,21 +50852,21 @@ async function init(){
   if(savedData && savedData.length>0){
     DATA = savedData;
     EDITS = savedEdits || {};
-    // V2.10.213: riparazione _idx duplicati. DEVE avvenire PRIMA della migrazione
+    // V2.10.226: riparazione _idx duplicati. DEVE avvenire PRIMA della migrazione
     // EDITS sotto (che usa p._idx come chiave). Gli _idx duplicati causavano
     // l'apertura dell'editor sbagliato (es. "Modifica prodotto personale" su un
     // servizio). _reindexDATA riassegna _idx = posizione array, univoci. Idempotente.
     try {
       if(typeof _hasDuplicateIdx === 'function' && _hasDuplicateIdx()){
         const _fixed = (typeof _reindexDATA === 'function') ? _reindexDATA() : 0;
-        console.info('[migrazione V2.10.213] _idx duplicati rilevati — reindicizzati',
+        console.info('[migrazione V2.10.226] _idx duplicati rilevati — reindicizzati',
           _fixed, 'record');
         if(typeof idbSet === 'function'){
           Promise.resolve(idbSet('data', 'main', DATA)).catch(() => {});
         }
       }
     } catch(_){}
-    // V2.10.213: migrazione difensiva — rimuovo override EDITS agganciati per errore
+    // V2.10.226: migrazione difensiva — rimuovo override EDITS agganciati per errore
     // a prodotti personali. I personali si editano direttamente su `item`; un EDITS
     // residuo (es. dopo riuso di _idx fra reload) farebbe sì che getField() mostri
     // valori vecchi (es. prezzo di listino) ignorando quelli salvati. Idempotente.
@@ -49440,7 +50879,7 @@ async function init(){
         }
       });
       if(_personalEditsCleaned > 0){
-        console.info('[migrazione V2.10.213] rimossi', _personalEditsCleaned,
+        console.info('[migrazione V2.10.226] rimossi', _personalEditsCleaned,
           'override EDITS stantii da prodotti personali');
         if(typeof idbSet === 'function'){
           Promise.resolve(idbSet('edits', 'main', EDITS)).catch(() => {});
@@ -49513,7 +50952,7 @@ async function init(){
   try {
     driveInit();
     // V2.10.103: se modalità locale ON, fa UN safety pull (asincrono) e NON avvia polling.
-    // V2.10.213: il safety pull viene eseguito solo se localAutoPull è ON (default).
+    // V2.10.226: il safety pull viene eseguito solo se localAutoPull è ON (default).
     // Se l'utente ha disattivato il pull automatico, deve cliccare ☁️⬇ Importa da Drive.
     // Altrimenti: comportamento auto storico.
     if(DRIVE_STATE.localMode){
