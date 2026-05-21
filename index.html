@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.226</title>
+<title>Gestione Prodotti V2.10.227</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8326,7 +8326,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.226</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.227</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8846,7 +8846,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.226');
+console.info('[bootstrap] script avvio — V2.10.227');
 
 window.openStatsDashboard = function(){
   try {
@@ -10276,11 +10276,11 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.226';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.227';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
-/* V2.10.226: FIX CRITICO. `DATA` e' dichiarata con `let` a livello di script:
+/* V2.10.227: FIX CRITICO. `DATA` e' dichiarata con `let` a livello di script:
    NON crea una proprieta' su `window`. Molte funzioni (diagnostica preventivi,
    abbinamento riga↔prodotto, export servizi/personali) leggevano pero' da
    `window.DATA`, che e' SEMPRE undefined → trattavano il catalogo come vuoto.
@@ -10436,7 +10436,7 @@ function personalProductUpdate(idx, updates){
     }
   });
   item.modified = new Date().toISOString();
-  // V2.10.226: BUGFIX — rimuovo eventuali override EDITS residui per questo indice.
+  // V2.10.227: BUGFIX — rimuovo eventuali override EDITS residui per questo indice.
   // I prodotti personali sono editabili DIRETTAMENTE su `item`, non tramite il sistema
   // EDITS (che serve solo per i prodotti del catalogo Visiotech). Se un EDITS stantio
   // resta agganciato a questo _idx — possibile dopo reload, perche' gli _idx vengono
@@ -10534,7 +10534,7 @@ function personalProductsCount(){
   return DATA.reduce((n, p) => n + (p && p.isPersonal === true ? 1 : 0), 0);
 }
 
-/* V2.10.226: reindicizza TUTTI gli _idx di DATA in modo sequenziale e univoco.
+/* V2.10.227: reindicizza TUTTI gli _idx di DATA in modo sequenziale e univoco.
    Ogni record riceve _idx = posizione reale nell'array. Risolve il bug degli
    _idx duplicati (due record con lo stesso _idx) che faceva aprire l'editor
    sbagliato — es. "Modifica prodotto personale" su uno shadow service.
@@ -10553,7 +10553,7 @@ function _reindexDATA(){
   return fixed;
 }
 
-/* V2.10.226: verifica se ci sono _idx duplicati in DATA. Restituisce true se
+/* V2.10.227: verifica se ci sono _idx duplicati in DATA. Restituisce true se
    trovati (e in tal caso conviene chiamare _reindexDATA). Diagnostica leggera. */
 function _hasDuplicateIdx(){
   if(!Array.isArray(DATA)) return false;
@@ -10567,7 +10567,7 @@ function _hasDuplicateIdx(){
 }
 
 /* ============================================================================
-   V2.10.226: DUPLICAZIONE prodotti e servizi.
+   V2.10.227: DUPLICAZIONE prodotti e servizi.
    - duplicateProductAsPersonal(idx): copia un prodotto (catalogo Visiotech O personale)
      creando un NUOVO prodotto personale. Apre subito l'editor della copia.
    - duplicateService(id): copia un servizio creando un nuovo servizio. Apre l'editor.
@@ -10592,7 +10592,7 @@ function _makeUniqueCopyCode(baseCode, existsFn){
 
 /* Duplica un prodotto (qualsiasi: catalogo Visiotech o personale) come NUOVO
    prodotto personale. L'originale non viene toccato.
-   V2.10.226: NON crea piu' il record subito — apre l'editor in modalita' CREAZIONE
+   V2.10.227: NON crea piu' il record subito — apre l'editor in modalita' CREAZIONE
    pre-compilato con i dati della copia. Il prodotto viene creato solo se l'utente
    clicca "Crea prodotto"; se annulla, non resta nulla.
    `idx` = _idx logico del prodotto sorgente. */
@@ -10644,7 +10644,7 @@ function duplicateProductAsPersonal(idx){
 }
 
 /* Duplica un servizio. L'originale non viene toccato.
-   V2.10.226: NON crea piu' il record subito — apre l'editor in modalita' CREAZIONE
+   V2.10.227: NON crea piu' il record subito — apre l'editor in modalita' CREAZIONE
    pre-compilato con i dati della copia. Il servizio viene creato solo se l'utente
    clicca "Crea servizio"; se annulla, non resta nulla.
    `id` = id del servizio sorgente. */
@@ -10715,7 +10715,7 @@ function openPersonalProductEditor(opts){
     toast('Prodotto non trovato o non personale', 'err');
     return;
   }
-  // V2.10.226: PROTEZIONE — gli shadow service hanno isPersonal=true MA anche
+  // V2.10.227: PROTEZIONE — gli shadow service hanno isPersonal=true MA anche
   // isService=true. Non devono mai aprirsi in questo editor (e' per prodotti, non
   // servizi): se capita, reindirizzo all'editor servizi corretto. Questo previene
   // il bug "Modifica prodotto personale" che mostrava un servizio col codice SVC-SRV-.
@@ -10747,7 +10747,7 @@ function openPersonalProductEditor(opts){
   const ex = document.getElementById('personalProductModal');
   if(ex) ex.remove();
 
-  // V2.10.226: in modalita' CREAZIONE si puo' passare opts.prefill per pre-compilare
+  // V2.10.227: in modalita' CREAZIONE si puo' passare opts.prefill per pre-compilare
   // i campi (es. duplicazione di un prodotto). Il record viene creato solo al Salva.
   const pre = (!isEdit && opts.prefill && typeof opts.prefill === 'object') ? opts.prefill : null;
   const f = {
@@ -10876,7 +10876,7 @@ function openPersonalProductEditor(opts){
         '<button class="btn ghost" id="ppCancelBtn">Annulla</button>' +
         '<span style="flex:1"></span>' +
         (isEdit ? '<button class="btn danger" id="ppDeleteBtn" style="margin-right:auto">🗑️ Elimina</button>' : '') +
-        // V2.10.226: pulsante Duplica — crea una copia del prodotto come prodotto personale
+        // V2.10.227: pulsante Duplica — crea una copia del prodotto come prodotto personale
         (isEdit ? '<button class="btn" id="ppDuplicateBtn" style="background:var(--bg2);color:var(--fg)">📋 Duplica</button>' : '') +
         '<button class="btn primary" id="ppSaveBtn">' + (isEdit ? '💾 Salva modifiche' : '➕ Crea prodotto') + '</button>' +
       '</div>' +
@@ -10956,7 +10956,7 @@ function openPersonalProductEditor(opts){
         toast('Errore: ' + (e.message || e), 'err');
       }
     });
-    // V2.10.226: handler Duplica — crea una copia come prodotto personale.
+    // V2.10.227: handler Duplica — crea una copia come prodotto personale.
     const ppDupBtn = document.getElementById('ppDuplicateBtn');
     if(ppDupBtn){
       ppDupBtn.addEventListener('click', () => {
@@ -12480,7 +12480,7 @@ const DRIVE_POLL_VALID_VALUES    = [0, 1, 3, 5, 10];         // opzioni ammesse 
 // per scaricare modifiche di altri device durante la sessione precedente.
 // L'utente sincronizza esplicitamente via i 2 pulsanti topbar ☁️⬆ e ☁️⬇.
 const DRIVE_LOCAL_MODE_KEY       = 'gp_drive_local_mode';    // '1' = ON, altrimenti OFF
-// V2.10.226: sotto-toggle per Modalità Locale — controlla se all'avvio della pagina
+// V2.10.227: sotto-toggle per Modalità Locale — controlla se all'avvio della pagina
 // viene eseguito il safety pull automatico da Drive. Default: '1' (automatico, comportamento
 // storico). Quando '0': nessun pull all'avvio, l'utente deve cliccare ☁️⬇ Importa da Drive.
 // Il push resta sempre manuale in modalità Locale, indipendentemente da questo flag.
@@ -12608,7 +12608,7 @@ const DRIVE_STATE = {
   // V2.10.103: modalità locale (offline-first work mode)
   localMode: false,             // true = niente push/pull automatici, sync esplicito via pulsanti
   safetyPullDone: false,        // true dopo il safety pull all'apertura (1 volta sola per sessione)
-  // V2.10.226: sotto-toggle Modalità Locale — pull automatico all'avvio.
+  // V2.10.227: sotto-toggle Modalità Locale — pull automatico all'avvio.
   // Default true (comportamento storico V2.10.103). Quando false, niente pull all'avvio.
   localAutoPull: true,
 };
@@ -12623,7 +12623,7 @@ const DRIVE_TARGETED_TARGETS = ['quotesArchive', 'clients', 'services'];
 
 // Stato runtime per ogni target (timer di debounce, flag di sync in corso, ultimo errore)
 const DRIVE_TARGETED_STATE = {
-  // V2.10.226: aggiunto permanentError — quando il send fallisce per un errore
+  // V2.10.227: aggiunto permanentError — quando il send fallisce per un errore
   // NON recuperabile col retry (es. "payload too large"), si memorizza qui e si
   // ferma il loop di retry infinito. Cancellato al primo send riuscito.
   quotesArchive: { scheduledTimer: null, syncing: false, lastSyncAt: null, lastError: null, pending: false, lastSyncedTs: null, permanentError: null },
@@ -12860,7 +12860,7 @@ function driveInit(){
     // Default OFF. Solo il valore esplicito '1' la attiva.
     DRIVE_STATE.localMode = localStorage.getItem(DRIVE_LOCAL_MODE_KEY) === '1';
     DRIVE_STATE.safetyPullDone = false;  // reset ad ogni init
-    // V2.10.226: sotto-toggle pull automatico all'avvio (solo per modalità Locale).
+    // V2.10.227: sotto-toggle pull automatico all'avvio (solo per modalità Locale).
     // Default TRUE per backward compatibility (comportamento storico V2.10.103).
     // Solo il valore esplicito '0' lo disattiva.
     DRIVE_STATE.localAutoPull = localStorage.getItem(DRIVE_LOCAL_AUTO_PULL_KEY) !== '0';
@@ -15191,7 +15191,7 @@ function driveScheduleTargetedSave(target){
   const state = DRIVE_TARGETED_STATE[target];
   state.pending = true;
 
-  // V2.10.226: i dati di questo target sono cambiati. Se era attivo un errore
+  // V2.10.227: i dati di questo target sono cambiati. Se era attivo un errore
   // permanente (es. payload troppo grande), lo azzero: ora il payload potrebbe
   // essere diverso (magari l'utente ha eliminato dei record) e ha senso
   // ritentare UNA volta. Se e' ancora troppo grande, il send fallira' di nuovo
@@ -15214,7 +15214,7 @@ function driveScheduleTargetedSave(target){
   if(typeof _driveUpdateBadge === 'function') _driveUpdateBadge();
 }
 
-// V2.10.226: riconosce gli errori NON recuperabili col retry. Per questi,
+// V2.10.227: riconosce gli errori NON recuperabili col retry. Per questi,
 // riprovare a inviare lo stesso payload darebbe sempre lo stesso errore, quindi
 // il loop di retry va fermato. Il caso tipico e' "payload too large": l'archivio
 // (es. quotesArchive) ha superato il limite di dimensione imposto da Drive.
@@ -15229,7 +15229,7 @@ function _driveIsPermanentError(msg){
   return false;
 }
 
-// V2.10.226: avvisa l'utente di un errore permanente sul sync Drive. Mostra un
+// V2.10.227: avvisa l'utente di un errore permanente sul sync Drive. Mostra un
 // toast persistente (una sola volta per target finche' l'errore resta attivo)
 // che spiega il problema in italiano, senza tecnicismi da console.
 const _drivePermanentErrorNotified = new Set();
@@ -15247,7 +15247,7 @@ function _driveNotifyPermanentError(target, msg){
   }
 }
 
-// V2.10.226: azzera l'errore permanente di un target. Va chiamata quando i dati
+// V2.10.227: azzera l'errore permanente di un target. Va chiamata quando i dati
 // del target cambiano (es. l'utente ha eliminato dei preventivi): a quel punto
 // il payload potrebbe essere tornato sotto il limite e ha senso riprovare.
 function _driveClearPermanentError(target){
@@ -15276,7 +15276,7 @@ async function _driveSendTargeted(target){
     return false;
   }
 
-  // V2.10.226: se un precedente tentativo è fallito con errore PERMANENTE
+  // V2.10.227: se un precedente tentativo è fallito con errore PERMANENTE
   // (es. payload troppo grande), non ha senso riprovare: stesso payload →
   // stesso errore. Esco subito ed evito il loop di retry infinito.
   // Il permanentError viene azzerato solo quando i dati cambiano abbastanza
@@ -15320,7 +15320,7 @@ async function _driveSendTargeted(target){
     state.lastSyncAt = new Date().toISOString();
     state.lastSyncedTs = j.ts || payload.ts;
     state.lastError = null;
-    state.permanentError = null;  // V2.10.226: send riuscito → azzero eventuale errore permanente
+    state.permanentError = null;  // V2.10.227: send riuscito → azzero eventuale errore permanente
     console.info('[drive-targeted] ' + target + ' OK in ' + elapsed + 'ms (server: ' + (j.processingMs||'?') + 'ms)');
 
     // Salva su localStorage l'ultimo ts noto (per la migrazione/check al boot)
@@ -15339,7 +15339,7 @@ async function _driveSendTargeted(target){
     state.lastError = e.message;
     console.warn('[drive-targeted] ' + target + ' ERROR:', e.message);
 
-    // V2.10.226: distinguo errori PERMANENTI da errori TEMPORANEI.
+    // V2.10.227: distinguo errori PERMANENTI da errori TEMPORANEI.
     // Permanente = riprovare lo stesso payload darà sempre lo stesso errore
     // (es. "payload too large"). Temporaneo = rete/timeout/server momentaneo.
     if(_driveIsPermanentError(e.message)){
@@ -15744,7 +15744,7 @@ async function driveSyncNow(){
   const targetedPromises = [];
   for(const target of DRIVE_TARGETED_TARGETS){
     const state = DRIVE_TARGETED_STATE[target];
-    // V2.10.226: il sync manuale e' un'azione volontaria dell'utente. Se un
+    // V2.10.227: il sync manuale e' un'azione volontaria dell'utente. Se un
     // target ha un errore permanente (es. era troppo grande), lo azzero e
     // ritento: magari l'utente ha appena ridotto i dati. Se e' ancora troppo
     // grande, fallira' una volta e ri-bloccherà — nessun loop.
@@ -16212,7 +16212,7 @@ function driveGetLocalMode(){
   return !!DRIVE_STATE.localMode;
 }
 
-/* V2.10.226: setter/getter sotto-toggle "Pull automatico all'avvio" della Modalità Locale.
+/* V2.10.227: setter/getter sotto-toggle "Pull automatico all'avvio" della Modalità Locale.
    Quando enabled=true (default): all'apertura della pagina viene chiamato _driveSafetyPullOnOpen
    che scarica i dati da Drive. Quando enabled=false: nessun pull automatico, l'utente deve
    cliccare manualmente ☁️⬇ Importa da Drive nella topbar.
@@ -19845,7 +19845,7 @@ async function driveRenderSettingsPanel(){
             '</div>'
           : ''
         ) +
-        // V2.10.226: sotto-toggle "Pull automatico all'avvio" — visibile SOLO quando
+        // V2.10.227: sotto-toggle "Pull automatico all'avvio" — visibile SOLO quando
         // Modalità Locale è attiva. Permette di scegliere se all'apertura della pagina
         // i dati vengono scaricati da Drive automaticamente oppure manualmente (☁️⬇).
         // Il push resta sempre manuale in Modalità Locale.
@@ -24459,7 +24459,7 @@ function renderGallery(main, list){
     card.className = classes;
     card.dataset.idx = p._idx;  // per hover-preview (tooltip specifiche tecniche)
     let name = getField(p,'name');
-    // V2.10.226: risoluzione UNIFICATA del codice shadow service tramite resolveDisplayCode.
+    // V2.10.227: risoluzione UNIFICATA del codice shadow service tramite resolveDisplayCode.
     // (prima la logica era duplicata inline qui — ora centralizzata).
     if(typeof resolveDisplayCode === 'function'){
       name = resolveDisplayCode(name);
@@ -24930,7 +24930,7 @@ function buildHoverPreviewHtml(p, mode){
   }
   const isOriginalView = mode === 'original';
 
-  // V2.10.226: risolvo il codice da mostrare. Per gli shadow service (name="SVC-...")
+  // V2.10.227: risolvo il codice da mostrare. Per gli shadow service (name="SVC-...")
   // mostro il codice manuale del servizio (es. "SE-STARTUP") invece del nome tecnico
   // interno ("SVC-SRV-802172"), che non deve mai comparire nella UI.
   const rawName = _hpGetField(p, 'name', mode) || '—';
@@ -25384,7 +25384,7 @@ function openEditor(idx){
   if(typeof closeHoverPreview === 'function') closeHoverPreview(true, true);
   let p = DATA.find(x=>x._idx===idx);
   if(!p) return;
-  // V2.10.226: BUGFIX CRITICO — _idx duplicati.
+  // V2.10.227: BUGFIX CRITICO — _idx duplicati.
   // Gli _idx dovrebbero essere univoci, ma per come vengono assegnati (DATA.length
   // al momento dell'inserimento) possono collidere — es. uno shadow service e un
   // prodotto personale con lo stesso _idx. In quel caso DATA.find(_idx) restituisce
@@ -25395,7 +25395,7 @@ function openEditor(idx){
   // e' lossless (cambia solo _idx, chiave interna) e idempotente.
   const sameIdx = DATA.filter(x => x && x._idx === idx);
   if(sameIdx.length > 1){
-    console.warn('[openEditor V2.10.226] _idx duplicato (' + sameIdx.length +
+    console.warn('[openEditor V2.10.227] _idx duplicato (' + sameIdx.length +
       ' record con _idx=' + idx + '): riparo DATA reindicizzando.');
     // Memorizzo il riferimento all'oggetto p PRIMA del reindex (l'identita' resta)
     const targetRef = p;
@@ -25429,7 +25429,7 @@ function openEditor(idx){
     });
     return;
   }
-  // V2.10.226: BUGFIX — servizi LEGACY (isService=true ma name NON inizia con "SVC-",
+  // V2.10.227: BUGFIX — servizi LEGACY (isService=true ma name NON inizia con "SVC-",
   // es. "SE-NSTV2", "SE-STARTUP"). Prima cadevano nel ramo "editor generico" che
   // apriva una scheda prodotto a caso (l'editor catalogo non ha senso per un servizio).
   // Ora cerco il servizio corrispondente in _SERVICES_STATE — per codice manuale
@@ -25750,7 +25750,7 @@ function renderEditor(){
       <button class="btn ghost" onclick="closeEditor()">Annulla</button>
       ${EDITS[idx] ? `<button class="btn ${previewOriginal ? 'primary' : 'subtle'}" onclick="togglePreviewOriginal()" title="${previewOriginal ? 'Torna alla vista con le tue modifiche' : 'Mostra i valori originali del fornitore senza ripristinarli'}">${previewOriginal ? '🖊️ Stai visualizzando i Testi ORIGINALI' : '👁 Stai visualizzando i Testi MODIFICATI'}</button>` : ''}
       ${EDITS[idx] ? `<button class="btn warn" onclick="revertEdit()">↶ Ripristina originale</button>`:''}
-      <!-- V2.10.226: Duplica — crea una copia del prodotto come prodotto personale -->
+      <!-- V2.10.227: Duplica — crea una copia del prodotto come prodotto personale -->
       <button class="btn" style="background:var(--bg2);color:var(--fg)" onclick="duplicateProductAsPersonal(${idx})" title="Crea una copia modificabile di questo prodotto (come prodotto personale)">📋 Duplica come personale</button>
       <button class="btn primary" onclick="saveEdit()" ${previewOriginal ? 'disabled title="Disabilitato in modalità Visualizza Originale — torna alla vista modificata per salvare"' : ''}>💾 Salva modifiche</button>
     </div>
@@ -33452,7 +33452,7 @@ async function _syncShadowForService(svcOrId){
     if(idx < 0){
       const newShadow = _serviceToShadowProduct(svc);
       DATA.push(newShadow);
-      // V2.10.226: garantisco _idx univoci dopo l'inserimento del nuovo shadow.
+      // V2.10.227: garantisco _idx univoci dopo l'inserimento del nuovo shadow.
       // Previene collisioni di _idx (shadow vs prodotti personali) che facevano
       // aprire l'editor sbagliato. _reindexDATA e' idempotente e lossless.
       if(typeof _reindexDATA === 'function'){
@@ -33529,7 +33529,7 @@ async function _syncAllShadowsFromArchive(){
 
   if(added > 0 || updated > 0){
     console.info(`[servizi] sync shadow: +${added} aggiunti, ~${updated} aggiornati (no auto-remove)`);
-    // V2.10.226: dopo l'aggiunta di shadow, garantisco _idx univoci. Previene
+    // V2.10.227: dopo l'aggiunta di shadow, garantisco _idx univoci. Previene
     // collisioni di _idx (shadow vs prodotti personali) che facevano aprire
     // l'editor sbagliato. _reindexDATA e' idempotente e lossless.
     if(added > 0 && typeof _reindexDATA === 'function'){
@@ -33576,7 +33576,7 @@ async function loadServicesFromIdb(){
     if(typeof _migrateServicesToCostoVendita === 'function'){
       _migrateServicesToCostoVendita();
     }
-    // V2.10.226: segnalo eventuali servizi con prezzi sospetti (corrotti dal
+    // V2.10.227: segnalo eventuali servizi con prezzi sospetti (corrotti dal
     // vecchio bug _parseEuroNumber) con un dialog cliccabile. Ritardato di ~1.2s
     // cosi' appare quando l'interfaccia e' gia' pronta, senza sovrapporsi alle
     // schermate di caricamento iniziali. Non modifica nulla, solo diagnostica.
@@ -33630,8 +33630,8 @@ function _migrateServicesToCostoVendita(){
   }
 }
 
-/* V2.10.226: diagnostica servizi con prezzi potenzialmente corrotti dal bug
-   _parseEuroNumber (pre-V2.10.226). Quel bug moltiplicava i prezzi quando il
+/* V2.10.227: diagnostica servizi con prezzi potenzialmente corrotti dal bug
+   _parseEuroNumber (pre-V2.10.227). Quel bug moltiplicava i prezzi quando il
    valore aveva un punto decimale (es. 27.5 → 275, perche' il punto veniva
    rimosso come separatore migliaia). NON corregge nulla automaticamente: non
    c'e' modo sicuro di sapere se "275" e' un valore giusto o un "27.5" corrotto.
@@ -33651,7 +33651,7 @@ function _diagnoseSuspiciousServicePrices(){
     // E' quasi sempre un errore (un servizio si vende a piu' di quanto costa).
     if(costo > 0 && vendita > 0 && costo > vendita){
       suspects.push({
-        id: svc.id,                                  // V2.10.226: id per aprire l'editor
+        id: svc.id,                                  // V2.10.227: id per aprire l'editor
         codice: svc.codice || svc.nome || svc.id,
         nome: svc.nome || '',
         vendita: vendita,
@@ -33661,11 +33661,11 @@ function _diagnoseSuspiciousServicePrices(){
     }
   }
   if(suspects.length > 0){
-    console.warn('[servizi V2.10.226] ' + suspects.length +
+    console.warn('[servizi V2.10.227] ' + suspects.length +
       ' servizio/i con prezzi sospetti (forse corrotti dal vecchio bug _parseEuroNumber).' +
       ' Verificali e correggili a mano dall\'editor servizi:');
     suspects.forEach(s => console.warn('  • ' + s.codice + ' — ' + s.motivo));
-    // V2.10.226: invece del solo toast "vedi console", apro un dialog con la
+    // V2.10.227: invece del solo toast "vedi console", apro un dialog con la
     // lista cliccabile dei servizi sospetti. Ogni voce ha un pulsante che apre
     // direttamente l'editor di quel servizio per la correzione.
     if(typeof _showSuspiciousServicesDialog === 'function'){
@@ -33675,7 +33675,7 @@ function _diagnoseSuspiciousServicePrices(){
   return suspects;
 }
 
-/* V2.10.226: mostra un dialog con la lista dei servizi dai prezzi sospetti.
+/* V2.10.227: mostra un dialog con la lista dei servizi dai prezzi sospetti.
    Ogni riga ha un pulsante "Correggi" che apre l'editor di quel servizio. */
 function _showSuspiciousServicesDialog(suspects){
   if(!Array.isArray(suspects) || suspects.length === 0) return;
@@ -33905,7 +33905,7 @@ function serviceIncrementUsage(id){
 }
 
 /* Helper parser numerico euro.
-   V2.10.226: BUGFIX CRITICO. La versione precedente rimuoveva SEMPRE tutti i punti
+   V2.10.227: BUGFIX CRITICO. La versione precedente rimuoveva SEMPRE tutti i punti
    trattandoli come separatori di migliaia, poi convertiva la virgola in decimale.
    Ma i campi prezzo dell'editor sono <input type="number">: in JavaScript il loro
    .value usa SEMPRE il punto come separatore decimale (es. "27.5"), mai la virgola,
@@ -33994,7 +33994,7 @@ function openServiceEditor(opts){
   const ex = document.getElementById('serviceEditorModal');
   if(ex) ex.remove();
 
-  // V2.10.226: in modalita' CREAZIONE si puo' passare opts.prefill per pre-compilare
+  // V2.10.227: in modalita' CREAZIONE si puo' passare opts.prefill per pre-compilare
   // i campi (es. duplicazione di un servizio). Il servizio viene creato solo al Salva.
   const pre = (!isEdit && opts.prefill && typeof opts.prefill === 'object') ? opts.prefill : null;
   const f = {
@@ -34163,7 +34163,7 @@ function openServiceEditor(opts){
         '<button class="btn ghost" id="svcCancelBtn">Annulla</button>' +
         (isEdit ? '<button class="btn ghost" id="svcDeleteBtn" style="color:#ef4444">\ud83d\uddd1\ufe0f Elimina</button>' : '') +
         '<span style="flex:1"></span>' +
-        // V2.10.226: pulsante Duplica servizio
+        // V2.10.227: pulsante Duplica servizio
         (isEdit ? '<button class="btn" id="svcDuplicateBtn" style="background:var(--bg2);color:var(--fg)">\ud83d\udccb Duplica</button>' : '') +
         '<button class="btn primary" id="svcSaveBtn">' + (isEdit ? '\ud83d\udcbe Salva modifiche' : '\u2795 Crea servizio') + '</button>' +
       '</div>' +
@@ -34352,7 +34352,7 @@ function openServiceEditor(opts){
         toast('Errore: ' + (e.message || e), 'err');
       }
     });
-    // V2.10.226: handler Duplica servizio
+    // V2.10.227: handler Duplica servizio
     const svcDupBtn = document.getElementById('svcDuplicateBtn');
     if(svcDupBtn){
       svcDupBtn.addEventListener('click', () => {
@@ -35917,7 +35917,7 @@ async function loadQuotesArchiveFromIdb(){
       }
 
       // V2.10.88/89: migrazione retroattiva che rimuoveva il campo `image`
-      // base64 dalle righe delle versioni. DISATTIVATA da V2.10.226:
+      // base64 dalle righe delle versioni. DISATTIVATA da V2.10.227:
       //  - girava al boot, quando DATA poteva non essere ancora caricato → inefficace
       //  - usava una logica di match limitata (solo `reference`, solo standard)
       //  - e' stata superata dallo strumento manuale "Ottimizza dimensione" e dalla
@@ -36137,7 +36137,7 @@ function _computeSnapshotTotals(items){
 function _buildVersionSnapshot(noteVersione){
   // Deep clone profondo via JSON per disaccoppiare totalmente dal state runtime
   const items = JSON.parse(JSON.stringify(window._QUOTE_STATE.items || []));
-  // V2.10.226: rimuovo `image` da OGNI riga il cui prodotto sia ricostruibile
+  // V2.10.227: rimuovo `image` da OGNI riga il cui prodotto sia ricostruibile
   // da DATA tramite code/idx — vale sia per i prodotti standard del catalogo
   // sia per i prodotti PERSONALI e i SERVIZI. Motivo: l'immagine vive una volta
   // sola nel prodotto (campo image_path in DATA) e _qResolveImg la recupera da
@@ -36178,7 +36178,7 @@ function _buildVersionSnapshot(noteVersione){
     // Se p e' null (prodotto non in DATA) mantengo it.image: e' l'unica fonte.
   });
   if(strippedCount > 0){
-    console.info('[preventivi V2.10.226] snapshot versione: rimosse ' + strippedCount +
+    console.info('[preventivi V2.10.227] snapshot versione: rimosse ' + strippedCount +
       ' immagini ricostruibili da DATA (riduzione dimensione archivio).');
   }
   const settings = JSON.parse(JSON.stringify(window._QUOTE_STATE.settings || {}));
@@ -36193,7 +36193,7 @@ function _buildVersionSnapshot(noteVersione){
   };
 }
 
-/* V2.10.226: classifica l'immagine di una riga preventivo. Restituisce:
+/* V2.10.227: classifica l'immagine di una riga preventivo. Restituisce:
    - 'no-image'       : la riga non ha un'immagine incorporata
    - 'reconstructible': l'immagine c'e' e il prodotto e' ANCORA in DATA → la copia
                         base64 nella versione e' rimovibile (l'anteprima ripesca
@@ -36229,12 +36229,12 @@ function _classifyQuoteItemImage(it){
   return p ? 'reconstructible' : 'orphan';
 }
 
-/* V2.10.226: retrocompat — true solo se l'immagine e' sicuramente ricostruibile. */
+/* V2.10.227: retrocompat — true solo se l'immagine e' sicuramente ricostruibile. */
 function _quoteItemImageIsReconstructible(it){
   return _classifyQuoteItemImage(it) === 'reconstructible';
 }
 
-/* V2.10.226: analizza l'archivio preventivi. Per ogni immagine incorporata
+/* V2.10.227: analizza l'archivio preventivi. Per ogni immagine incorporata
    nelle versioni la classifica via _classifyQuoteItemImage:
    - 'reconstructible' → rimovibile (il prodotto e' in DATA)
    - 'orphan'          → da tenere (il prodotto non e' piu' in DATA)
@@ -36298,7 +36298,7 @@ function analyzeQuotesArchiveSize(){
 
   // Diagnostica in console: se ci sono molte orfane il match sta fallendo.
   if(orphanCount > 0){
-    console.warn('[preventivi V2.10.226] ' + orphanCount + ' immagini classificate ORFANE ' +
+    console.warn('[preventivi V2.10.227] ' + orphanCount + ' immagini classificate ORFANE ' +
       '(prodotto non trovato in DATA). Campioni:', orphanSamples);
   }
 
@@ -36311,7 +36311,7 @@ function analyzeQuotesArchiveSize(){
   };
 }
 
-/* V2.10.226: diagnostica approfondita dell'abbinamento riga↔prodotto.
+/* V2.10.227: diagnostica approfondita dell'abbinamento riga↔prodotto.
    Per OGNI riga di preventivo (anche senza immagine: le foto potrebbero gia'
    essere state rimosse) prova ad agganciare il prodotto in DATA e riporta
    ESATTAMENTE perche' il match riesce o fallisce.
@@ -36391,7 +36391,7 @@ function diagnoseQuoteImageMatching(maxRows){
   };
 }
 
-/* V2.10.226: pulizia retroattiva. Rimuove dalle versioni gia' salvate le foto
+/* V2.10.227: pulizia retroattiva. Rimuove dalle versioni gia' salvate le foto
    incorporate. opts.mode:
    - 'safe' (default) → rimuove solo le foto ricostruibili da DATA
    - 'all'            → rimuove TUTTE le foto incorporate (anche le orfane)
@@ -36424,13 +36424,13 @@ function cleanupQuotesArchiveImages(opts){
     if(typeof _persistQuotesArchive === 'function'){
       try { _persistQuotesArchive(); } catch(e){ console.error(e); }
     }
-    console.info('[preventivi V2.10.226] pulizia immagini (' + mode + '): rimosse ' + removed +
+    console.info('[preventivi V2.10.227] pulizia immagini (' + mode + '): rimosse ' + removed +
       ' foto, liberati ~' + Math.round(bytesFreed/1024) + ' KB.');
   }
   return { removed, bytesFreed };
 }
 
-/* V2.10.226: dialog "Ottimizza dimensione archivio". Mostra l'analisi della
+/* V2.10.227: dialog "Ottimizza dimensione archivio". Mostra l'analisi della
    dimensione (totale, immagini, ridondanti) e permette di lanciare la pulizia. */
 function openOptimizeArchiveDialog(){
   const old = document.getElementById('optimizeArchiveModal');
@@ -36582,7 +36582,7 @@ function openOptimizeArchiveDialog(){
   const closeBtn = document.getElementById('optArchCloseBtn');
   if(closeBtn) closeBtn.addEventListener('click', () => bg.remove());
 
-  // V2.10.226: pulsante diagnostica abbinamento riga↔prodotto.
+  // V2.10.227: pulsante diagnostica abbinamento riga↔prodotto.
   const diagBtn = document.getElementById('optArchDiagBtn');
   if(diagBtn){
     diagBtn.addEventListener('click', () => {
@@ -36627,7 +36627,7 @@ function openOptimizeArchiveDialog(){
   }
 }
 
-/* V2.10.226: dialog che mostra il report di diagnostica dell'abbinamento
+/* V2.10.227: dialog che mostra il report di diagnostica dell'abbinamento
    riga↔prodotto. Serve a capire perche' le foto risultano "orfane": rivela
    se DATA e' caricato, quanti prodotti personali ci sono, e per ogni riga
    di preventivo quale campo (idx/code) aggancia o perche' fallisce. */
@@ -37303,7 +37303,7 @@ function openSaveQuoteDialog(opts){
         '</section>' +
 
         // V2.10.5: Step 2 - Nome preventivo (opzionale)
-        // V2.10.226: textarea multi-riga al posto di input — permette oggetti lunghi
+        // V2.10.227: textarea multi-riga al posto di input — permette oggetti lunghi
         // (descrizioni, presentazioni) che vengono giustificati nelle stampe.
         '<section class="sq-sect" id="sqSectNome" style="opacity:0.4;pointer-events:none">' +
           '<div class="sq-sect-title"><span class="sq-sect-num">2</span> Nome / Oggetto preventivo (opzionale)</div>' +
@@ -37670,7 +37670,7 @@ function openSaveQuoteDialog(opts){
       if(typeof renderQuoteCartContent === 'function'){
         try { renderQuoteCartContent(); } catch(_){}
       }
-      // V2.10.226: aggiorno anche la barra info del carrello (cliente / nome /
+      // V2.10.227: aggiorno anche la barra info del carrello (cliente / nome /
       // versione), altrimenti dopo il salvataggio resta sul valore precedente.
       if(typeof renderQuoteCartBoundInfo === 'function'){
         try { renderQuoteCartBoundInfo(); } catch(_){}
@@ -37729,12 +37729,12 @@ function _refreshQuote_buildDiff(){
     return { notFound: [], unchanged: [], updated: [] };
   }
 
-  // V2.10.226: result.excluded raccoglie gli articoli NON selezionati nel
+  // V2.10.227: result.excluded raccoglie gli articoli NON selezionati nel
   // carrello quando esiste una selezione parziale. Non vengono confrontati
   // ne' aggiornati: restano col valore attuale.
   const result = { notFound: [], unchanged: [], updated: [], excluded: [] };
 
-  // V2.10.226: le checkbox del carrello sono VUOTE di default. Una riga e'
+  // V2.10.227: le checkbox del carrello sono VUOTE di default. Una riga e'
   // "selezionata" solo se _selectedForUpdate === true (l'utente l'ha spuntata).
   // Comportamento di "Aggiorna preventivo":
   //  - se l'utente ha spuntato ALCUNE righe → confronta solo quelle, le altre
@@ -37748,7 +37748,7 @@ function _refreshQuote_buildDiff(){
   const _applySelectionFilter = _anySelected;
 
   window._QUOTE_STATE.items.forEach((item, itemIdx) => {
-    // V2.10.226: con selezione parziale, escludo le righe NON spuntate.
+    // V2.10.227: con selezione parziale, escludo le righe NON spuntate.
     // Se nessuna riga e' spuntata, _applySelectionFilter e' false → confronto tutto.
     if(_applySelectionFilter && item && item._selectedForUpdate !== true){
       result.excluded.push({ itemIdx, item, code: item.code });
@@ -37833,7 +37833,7 @@ function _refreshQuote_buildDiff(){
   return result;
 }
 
-/* V2.10.226: applica gli aggiornamenti. `selectedItemIdxs` (opzionale) e' un
+/* V2.10.227: applica gli aggiornamenti. `selectedItemIdxs` (opzionale) e' un
    Set/array di itemIdx: se fornito, vengono aggiornati SOLO gli articoli i cui
    itemIdx sono inclusi. Se omesso (o null), vengono aggiornati tutti gli
    articoli "updated" — comportamento storico, backward-compatible. */
@@ -37848,7 +37848,7 @@ function _refreshQuote_applyAll(updateResult, selectedItemIdxs){
   }
   // Update degli items "updated"
   updateResult.updated.forEach(u => {
-    // V2.10.226: se c'e' un filtro di selezione, salto gli articoli non selezionati
+    // V2.10.227: se c'e' un filtro di selezione, salto gli articoli non selezionati
     if(filterSet && !filterSet.has(u.itemIdx)) return;
     const it = window._QUOTE_STATE.items[u.itemIdx];
     if(!it) return;
@@ -37889,7 +37889,7 @@ function openRefreshQuoteDialog(){
   const totUpdated = diff.updated.length;
   const totUnchanged = diff.unchanged.length;
   const totNotFound = diff.notFound.length;
-  const totExcluded = (diff.excluded || []).length;  // V2.10.226
+  const totExcluded = (diff.excluded || []).length;  // V2.10.227
   const totItems = totUpdated + totUnchanged + totNotFound + totExcluded;
 
   // Caso semplice: nessuna modifica trovata
@@ -37945,7 +37945,7 @@ function openRefreshQuoteDialog(){
       return (
         '<div class="rq-update-row" style="padding:12px 14px;border:1px solid rgba(1,120,212,0.3);border-radius:8px;margin-bottom:10px;background:rgba(1,120,212,0.04)">' +
           '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
-            // V2.10.226: checkbox di selezione per riga (selezionata di default)
+            // V2.10.227: checkbox di selezione per riga (selezionata di default)
             '<label style="display:inline-flex;align-items:center;cursor:pointer;flex-shrink:0" title="Includi questo articolo nell\'aggiornamento">' +
               '<input type="checkbox" class="rq-row-check" data-item-idx="' + u.itemIdx + '" checked ' +
                 'style="width:16px;height:16px;cursor:pointer;accent-color:#0178d4;margin:0">' +
@@ -37964,7 +37964,7 @@ function openRefreshQuoteDialog(){
           '<div style="font-size:12px;font-weight:700;color:#0178d4;text-transform:uppercase;letter-spacing:.5px">' +
             '🔄 ' + totUpdated + ' articol' + (totUpdated === 1 ? 'o' : 'i') + ' da aggiornare' +
           '</div>' +
-          // V2.10.226: controlli di selezione massiva
+          // V2.10.227: controlli di selezione massiva
           '<span style="flex:1"></span>' +
           '<button type="button" id="rqSelectAll" class="btn small ghost" style="padding:4px 10px;font-size:11px">Seleziona tutti</button>' +
           '<button type="button" id="rqSelectNone" class="btn small ghost" style="padding:4px 10px;font-size:11px">Deseleziona tutti</button>' +
@@ -38022,7 +38022,7 @@ function openRefreshQuoteDialog(){
       '</section>';
   }
 
-  // ── V2.10.226: Sezione "esclusi dalla selezione nel carrello" (collassata) ──
+  // ── V2.10.227: Sezione "esclusi dalla selezione nel carrello" (collassata) ──
   let excludedHtml = '';
   if(totExcluded > 0){
     const rows = (diff.excluded || []).map(ex =>
@@ -38079,7 +38079,7 @@ function openRefreshQuoteDialog(){
     const applyBtn = document.getElementById('rqApplyBtn');
     const checks = () => Array.from(bg.querySelectorAll('.rq-row-check'));
 
-    // V2.10.226: aggiorna il testo del pulsante col numero di articoli selezionati,
+    // V2.10.227: aggiorna il testo del pulsante col numero di articoli selezionati,
     // e lo disabilita se non c'e' nessuna selezione.
     const refreshApplyBtn = () => {
       const selected = checks().filter(c => c.checked).length;
@@ -38147,12 +38147,12 @@ function openRefreshQuoteDialog(){
    con tag esoterici perche' la toolbar usa document.execCommand che produce
    solo tag standard (b, i, u, ol, ul, li, span con style="color/background").
    
-   V2.10.226: aggiunto helper htmlToTextRuns() per parsing HTML in strutture
+   V2.10.227: aggiunto helper htmlToTextRuns() per parsing HTML in strutture
    di "runs" usate da PDF jsPDF e Word docx. Senza questo, il vecchio strip-tag
    buttava via tutti gli stili (bold/dimensioni/colori) negli export.
    ============================================================================ */
 
-/* V2.10.226: parsa una stringa HTML (prodotta dal nostro editor contentEditable)
+/* V2.10.227: parsa una stringa HTML (prodotta dal nostro editor contentEditable)
    in un array di paragrafi, ognuno con un array di "runs". Ogni run e' un pezzo
    di testo continuo con uno stile coerente:
      { text, bold, italic, underline, strike, fontSize, color, highlight }
@@ -38503,7 +38503,7 @@ function openFreeTextDialog(){
   tb.appendChild(tbBtn('strikeThrough', '<s>B</s>', 'Barrato'));
   tb.appendChild(tbSep());
 
-  // V2.10.226: dropdown dimensione font.
+  // V2.10.227: dropdown dimensione font.
   // execCommand('fontSize') produce <font size="N"> (scala 1-7 obsoleta) che non
   // viene rispettata uniformemente in PDF/Word. Usiamo wrap manuale con
   // <span style="font-size:Xpt"> che e' stabile e parsabile dal nostro htmlToTextRuns.
@@ -38580,7 +38580,7 @@ function openFreeTextDialog(){
   tb.appendChild(tbBtn('insertUnorderedList', '\u2022 \u2022', 'Elenco puntato'));
   tb.appendChild(tbBtn('insertOrderedList', '1.', 'Elenco numerato'));
   tb.appendChild(tbSep());
-  // V2.10.226: pulsanti allineamento con icone distinte (SVG inline) + aggiunto Giustifica.
+  // V2.10.227: pulsanti allineamento con icone distinte (SVG inline) + aggiunto Giustifica.
   // Prima usavo U+2261 sia per left che per right (stessa icona): non si distinguevano.
   // Ora 4 icone chiare: ≡ left, ≡ center, ≡ right, ☰ justify (linee tutte lunghe uguali).
   // Uso piccoli SVG inline per simbologia tipografica standard.
@@ -38880,7 +38880,7 @@ function openQuotesArchiveSection(){
         '<div id="qaTableWrap" style="flex:1;overflow:auto;padding:0"></div>' +
       '</div>' +
       '<div class="modal-foot">' +
-        // V2.10.226: strumento di ottimizzazione dimensione archivio (rimuove
+        // V2.10.227: strumento di ottimizzazione dimensione archivio (rimuove
         // immagini ridondanti dalle versioni — risolve l'errore "payload too large").
         '<button class="btn small ghost" id="qaOptimizeBtn" type="button" title="Analizza e riduci la dimensione dell\u0027archivio preventivi" style="font-size:12px">📦 Ottimizza dimensione</button>' +
         '<span style="flex:1"></span>' +
@@ -38909,7 +38909,7 @@ function openQuotesArchiveSection(){
     renderQuotesArchiveTable();
   });
   document.getElementById('qaManageStatiBtn').addEventListener('click', openManageStatiDialog);
-  // V2.10.226: handler "Ottimizza dimensione" — apre il dialog di analisi/pulizia.
+  // V2.10.227: handler "Ottimizza dimensione" — apre il dialog di analisi/pulizia.
   (function(){
     const optBtn = document.getElementById('qaOptimizeBtn');
     if(optBtn){
@@ -39230,7 +39230,7 @@ function openQuoteDetailDialog(quoteId){
         if(document.getElementById('quotesArchiveModal')){
           renderQuotesArchiveTable();
         }
-        // V2.10.226: BUGFIX — aggiorno anche la barra info del carrello, altrimenti
+        // V2.10.227: BUGFIX — aggiorno anche la barra info del carrello, altrimenti
         // restava "congelata" sul vecchio nome (es. "(nessun nome assegnato)") mentre
         // l'export PDF mostrava gia' il nome aggiornato. Le due viste leggono lo stesso
         // quote.nome ma la barra non veniva re-renderizzata dopo il salvataggio.
@@ -39287,7 +39287,7 @@ function openQuoteDetailDialog(quoteId){
       if(document.getElementById('quotesArchiveModal')){
         renderQuotesArchiveTable();
       }
-      // V2.10.226: aggiorno la barra info del carrello — mostra anche lo stato
+      // V2.10.227: aggiorno la barra info del carrello — mostra anche lo stato
       // del preventivo (badge), che altrimenti resterebbe sul valore precedente.
       if(typeof renderQuoteCartBoundInfo === 'function'){
         try { renderQuoteCartBoundInfo(); } catch(_){}
@@ -39737,7 +39737,7 @@ function getDisplayCode(item){
   return resolveDisplayCode(item.code);
 }
 
-/* V2.10.226: risoluzione UNIFICATA del codice da mostrare a partire da una
+/* V2.10.227: risoluzione UNIFICATA del codice da mostrare a partire da una
    stringa di codice grezza. Centralizza la logica che prima era solo dentro
    getDisplayCode (che lavorava su item.code). Da usare ovunque si mostri il
    codice di un prodotto/servizio nella UI, per non far mai "trapelare" i nomi
@@ -39884,7 +39884,7 @@ function removeFromQuoteCart(code){
   }
 }
 
-/* V2.10.226: elimina dal carrello le righe SELEZIONATE con le checkbox.
+/* V2.10.227: elimina dal carrello le righe SELEZIONATE con le checkbox.
    Le checkbox sono vuote di default: una riga e' selezionata SOLO se
    _selectedForUpdate === true (l'utente l'ha spuntata esplicitamente).
    Restituisce il numero di righe rimosse. Non chiede conferma: la conferma
@@ -39909,7 +39909,7 @@ function deleteSelectedQuoteRows(){
   return removed;
 }
 
-/* V2.10.226: conta le righe SELEZIONATE con le checkbox del carrello.
+/* V2.10.227: conta le righe SELEZIONATE con le checkbox del carrello.
    Selezionata = _selectedForUpdate === true (default checkbox vuote). */
 function countSelectedQuoteRows(){
   if(!window._QUOTE_STATE || !Array.isArray(window._QUOTE_STATE.items)) return 0;
@@ -40097,7 +40097,7 @@ function _normDiscountPct(v){
 }
 
 /* ============================================================================
-   V2.10.226: CRUSCOTTO GRAFICI — analisi statistica del preventivo.
+   V2.10.227: CRUSCOTTO GRAFICI — analisi statistica del preventivo.
 
    computeQuoteAnalytics() elabora le righe del carrello e produce tutte le
    metriche e aggregazioni per i grafici. Tutto coerente con computeQuoteTotals:
@@ -40188,11 +40188,11 @@ function computeQuoteAnalytics(){
       g.ricaricoPct = (g.costo > 0)
         ? ((g.vendita - g.costo) / g.costo * 100) : null;
       g.quotaVendita = (tot.vendita > 0) ? (g.vendita / tot.vendita * 100) : 0;
-      // V2.10.226: sconto medio del gruppo, ponderato sul valore di listino:
+      // V2.10.227: sconto medio del gruppo, ponderato sul valore di listino:
       // (listino - vendita) / listino * 100. Coerente con tot.scontoMedioPct.
       g.scontoPct = (g.listino > 0)
         ? ((g.listino - g.vendita) / g.listino * 100) : null;
-      // V2.10.226: il gruppo e' "servizio" se tutte le sue righe lo sono.
+      // V2.10.227: il gruppo e' "servizio" se tutte le sue righe lo sono.
       g.isService = (g.righeServizio > 0 && g.righeProdotto === 0);
     });
     arr.sort((a, b) => b.vendita - a.vendita);  // piu' alto fatturato in cima
@@ -40232,10 +40232,10 @@ function computeQuoteAnalytics(){
   };
 }
 
-/* V2.10.226: helper per il cruscotto grafici. ----------------------------- */
+/* V2.10.227: helper per il cruscotto grafici. ----------------------------- */
 
 // Formattazioni coerenti con l'app (it-IT)
-// V2.10.226: useGrouping:'always' forza il separatore di migliaia (.) anche
+// V2.10.227: useGrouping:'always' forza il separatore di migliaia (.) anche
 // per numeri sotto 10.000 — stessa convenzione di fmtPrice. Senza, alcune
 // implementazioni rendono "6600,00" invece di "6.600,00".
 function _qaEuro(n){
@@ -40351,7 +40351,7 @@ function _qaBarsH(data, valueFmt, opts){
   '</div>';
 }
 
-/* V2.10.226: grafico "Margine per riga" con scala orizzontale 0-100%.
+/* V2.10.227: grafico "Margine per riga" con scala orizzontale 0-100%.
    Variante scelta: griglia con linee tratteggiate ogni 10%, etichette d'asse
    in alto, bande colorate di sfondo (rosso <10 / arancio 10-20 / giallo 20-30 /
    verde >=30), barre con valore SEMPRE all'esterno (leggibile anche per barre
@@ -40413,7 +40413,7 @@ function _qaMarginChart(rows){
 
   // --- Colonna CODICI (a sinistra, nel contenitore esterno) ---
   // Posizionata in [0 .. LABEL_W], allineata a destra cosi' "tocca" le barre.
-  // V2.10.226: i servizi hanno un badge "SERV" prima del codice, per
+  // V2.10.227: i servizi hanno un badge "SERV" prima del codice, per
   // distinguerli dai prodotti senza toccare il colore-semaforo della barra.
   let codesHtml = '';
   rows.forEach((r, i) => {
@@ -40456,7 +40456,7 @@ function _qaMarginChart(rows){
       'box-shadow:0 1px 2px rgba(0,0,0,0.12)"></div>';
   });
 
-  // --- Separatori orizzontali fra le righe (V2.10.226) ---
+  // --- Separatori orizzontali fra le righe (V2.10.227) ---
   // Linee sottili e tenui sotto ogni riga, estese per tutta la larghezza
   // (colonna codici + area barre + valori). Nessuna linea sotto l'ultima riga.
   let sepHtml = '';
@@ -40498,7 +40498,7 @@ function _qaCard(title, bodyHtml, opts){
   '</div>';
 }
 
-/* V2.10.226: dialog cruscotto grafici del preventivo. */
+/* V2.10.227: dialog cruscotto grafici del preventivo. */
 function openQuoteChartsDialog(){
   const old = document.getElementById('quoteChartsModal');
   if(old) old.remove();
@@ -40531,7 +40531,7 @@ function openQuoteChartsDialog(){
   const t = A.tot;
 
   // --- KPI cards in alto ---
-  // V2.10.226: struttura a due colonne Prodotti/Servizi sotto il numero,
+  // V2.10.227: struttura a due colonne Prodotti/Servizi sotto il numero,
   // sul modello delle KPI card della vista ANALISI del carrello.
   const kpi = (label, value, color, opts) => {
     opts = opts || {};
@@ -40570,13 +40570,15 @@ function openQuoteChartsDialog(){
   };
 
   const kpiRow = (function(){
-    // V2.10.226: split prodotti/servizi a due colonne per le metriche
+    // V2.10.227: split prodotti/servizi a due colonne per le metriche
     // che hanno una componente materiali e una servizi distinte.
     const gP = A.byType.find(g => g.key === 'Prodotti');
     const gS = A.byType.find(g => g.key === 'Servizi');
     // helper: valore formattato del gruppo o "—" se il gruppo non esiste
     const sp = (g, field, fmt) => (g && g[field] != null) ? fmt(g[field]) : '\u2014';
     return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">' +
+      kpi('Totale listino', _qaEuro(t.listino), '#64748b', { split:{
+        prod: sp(gP,'listino',_qaEuro), serv: sp(gS,'listino',_qaEuro) } }) +
       kpi('Totale vendita', _qaEuro(t.vendita), '#00a87f', { split:{
         prod: sp(gP,'vendita',_qaEuro), serv: sp(gS,'vendita',_qaEuro) } }) +
       kpi('Costo acquisto', _qaEuro(t.costo), '#e74c3c', { split:{
@@ -40646,7 +40648,7 @@ function openQuoteChartsDialog(){
     '</div>', { icon:'\uD83C\uDFF7\uFE0F' });
 
   // --- Fatturato per marca e categoria: tabelle raggruppate Prodotti/Servizi ---
-  // V2.10.226: divise per tipo con intestazione di gruppo e subtotale, come
+  // V2.10.227: divise per tipo con intestazione di gruppo e subtotale, come
   // "Dettaglio per marca". Ogni riga ha valore, quota % e mini-barra.
   const _qaRankTable = (data, headLabel) => {
     const prod = data.filter(d => !d.isService);
@@ -40744,7 +40746,7 @@ function openQuoteChartsDialog(){
     { icon:'\uD83D\uDCCA' });
 
   // --- Tabella aggregata per marca ---
-  // V2.10.226: tabella "Dettaglio per marca" RAGGRUPPATA per tipo.
+  // V2.10.227: tabella "Dettaglio per marca" RAGGRUPPATA per tipo.
   // Blocco Prodotti (marche-prodotto ordinate per fatturato) con subtotale,
   // poi blocco Servizi con subtotale, infine il totale generale.
   const brandProdotti = A.byBrand.filter(g => !g.isService);
@@ -40924,7 +40926,7 @@ function openQuoteChartsDialog(){
   const cb = document.getElementById('qChartsCloseBtn');
   if(cb) cb.addEventListener('click', () => bg.remove());
 
-  // V2.10.226: export PDF del cruscotto analisi
+  // V2.10.227: export PDF del cruscotto analisi
   const pdfBtn = document.getElementById('qChartsPdfBtn');
   if(pdfBtn){
     pdfBtn.addEventListener('click', () => {
@@ -40940,7 +40942,7 @@ function openQuoteChartsDialog(){
   }
 }
 
-/* V2.10.226: esporta il cruscotto di analisi in un PDF A4 orizzontale.
+/* V2.10.227: esporta il cruscotto di analisi in un PDF A4 orizzontale.
    Strumento INTERNO (analisi marginalita'), non destinato al cliente.
    Disegna i grafici direttamente con le primitive jsPDF (no conversione SVG):
    piu' nitido e affidabile. Usa autoTable per le tabelle dettagliate. */
@@ -40989,7 +40991,7 @@ function exportQuoteAnalyticsPdf(A){
   doc.setFont('helvetica','bold'); doc.setFontSize(15);
   doc.text('Analisi del preventivo', M+14, y+19);
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  // V2.10.226: il sottotitolo (numero + nome + cliente) puo' essere molto lungo.
+  // V2.10.227: il sottotitolo (numero + nome + cliente) puo' essere molto lungo.
   // Lo tronco alla larghezza disponibile per non sovrapporlo alla data a destra.
   const dataStr = 'Generato il ' + oggi + '   \u2022   Documento interno';
   doc.setFontSize(8);
@@ -41009,12 +41011,14 @@ function exportQuoteAnalyticsPdf(A){
   y += 44 + 16;
 
   // ---- KPI cards ----
-  // V2.10.226: struttura a due colonne Prodotti/Servizi come il cruscotto a
+  // V2.10.227: struttura a due colonne Prodotti/Servizi come il cruscotto a
   // video. jsPDF non rende le emoji: uso piccoli quadratini-marcatore colorati.
   const _gP = A.byType.find(g => g.key === 'Prodotti');
   const _gS = A.byType.find(g => g.key === 'Servizi');
   const _spv = (g, field, fmt) => (g && g[field] != null) ? fmt(g[field]) : '\u2014';
   const kpis = [
+    { l:'Totale listino', v:_qaEuro(t.listino), c:[100,116,139],
+      split:{ prod:_spv(_gP,'listino',_qaEuro), serv:_spv(_gS,'listino',_qaEuro) } },
     { l:'Totale vendita', v:_qaEuro(t.vendita), c:[0,168,127],
       split:{ prod:_spv(_gP,'vendita',_qaEuro), serv:_spv(_gS,'vendita',_qaEuro) } },
     { l:'Costo acquisto', v:_qaEuro(t.costo), c:[231,76,60],
@@ -41081,7 +41085,7 @@ function exportQuoteAnalyticsPdf(A){
   y += kpiH + 18;
 
   // ---- Due DONUT affiancati: Prodotti vs Servizi e Composizione per marca ----
-  // V2.10.226: portati nel PDF i due donut del cruscotto a video. Disegnati
+  // V2.10.227: portati nel PDF i due donut del cruscotto a video. Disegnati
   // con primitive jsPDF: cerchio esterno, foro centrale, fette come settori
   // (poligoni di triangolini). Niente conversione da SVG.
   const _pdfDonut = (cx, cy, rOut, rIn, segs) => {
@@ -41204,7 +41208,7 @@ function exportQuoteAnalyticsPdf(A){
   y += donutBlockH;
 
   // ---- Due TABELLE affiancate: fatturato per marca e per categoria ----
-  // V2.10.226: tabelle raggruppate per tipo (Prodotti / Servizi), ognuna con
+  // V2.10.227: tabelle raggruppate per tipo (Prodotti / Servizi), ognuna con
   // intestazione di gruppo e riga di subtotale. Coerente con "Dettaglio per marca".
   const half = (CW - 20) / 2;
 
@@ -41280,7 +41284,7 @@ function exportQuoteAnalyticsPdf(A){
   y = Math.max(yA, yB) + 18;
 
   // ---- Distribuzione margine: TABELLA invece di istogramma sciolto ----
-  // V2.10.226: tabella chiara con fascia, conteggio righe, quota e fatturato.
+  // V2.10.227: tabella chiara con fascia, conteggio righe, quota e fatturato.
   const distColors = [[231,76,60],[230,126,34],[255,182,39],[26,188,156],[0,168,127]];
   const distTotRighe = A.marginBuckets.reduce((s,b) => s + b.count, 0) || 1;
   const distBody = A.marginBuckets.map(b => [
@@ -41289,7 +41293,7 @@ function exportQuoteAnalyticsPdf(A){
     _qaPct(b.count / distTotRighe * 100),
     _qaEuro(b.vendita),
   ]);
-  // V2.10.226: stimo l'altezza dell'intero blocco (titolo + intestazione +
+  // V2.10.227: stimo l'altezza dell'intero blocco (titolo + intestazione +
   // righe). Se non ci sta nella pagina corrente, lo mando TUTTO a pagina
   // nuova: cosi' titolo e tabella non si separano mai.
   const distTableEstH = 14 + 22 + (distBody.length + 1) * 19;
@@ -41331,15 +41335,15 @@ function exportQuoteAnalyticsPdf(A){
   y = doc.lastAutoTable.finalY + 18;
 
   // ---- Tabella dettaglio per marca (autoTable) ----
-  // V2.10.226: rowPageBreak 'avoid' impedisce che la tabella si spezzi a meta';
+  // V2.10.227: rowPageBreak 'avoid' impedisce che la tabella si spezzi a meta';
   // se non ci sta nella pagina corrente, parte da una pagina nuova intera.
-  // V2.10.226: ogni cella del totale come oggetto con halign ESPLICITO.
+  // V2.10.227: ogni cella del totale come oggetto con halign ESPLICITO.
   // autoTable non propaga sempre columnStyles.halign al piede: forzandolo qui
   // le colonne del TOTALE restano allineate come quelle del corpo.
   const _fc = (content, halign, extra) => Object.assign(
     { content: content, styles: { halign: halign } }, extra || {});
 
-  // V2.10.226: tabella PDF raggruppata per tipo (Prodotti / Servizi).
+  // V2.10.227: tabella PDF raggruppata per tipo (Prodotti / Servizi).
   const _pdfBrandProdotti = A.byBrand.filter(g => !g.isService);
   const _pdfBrandServizi  = A.byBrand.filter(g => g.isService);
   const _pdfSubtot = (gruppi) => {
@@ -41451,7 +41455,7 @@ function exportQuoteAnalyticsPdf(A){
   });
 
   // ---- Tabella righe piu' redditizie ----
-  // V2.10.226: la tabella non deve spezzarsi; codice su una riga sola
+  // V2.10.227: la tabella non deve spezzarsi; codice su una riga sola
   // (font ridotto + colonna larga), descrizione troncata a parola intera.
   let afterY = doc.lastAutoTable.finalY + 18;
   const gainEstH = 26 + (Math.min(A.rowsByGuadagno.length, 12) + 1) * 20;
@@ -42049,11 +42053,11 @@ function openQuoteCart(){
         // V2.10.24: pulsante "Inserisci Testo Libero" - apre dialog di scelta posizione + editor WYSIWYG
         '<button class="btn small" id="quoteCartFreeTextBtn" type="button" title="Inserisci testo libero personalizzato (presentazione iniziale o note finali)" style="font-size:13px;background:#0178d4;color:#fff;border-color:#0178d4">✏️ Inserisci Testo Libero</button>' +
         '<button class="btn small primary" id="quoteCartAddServiceBtn" type="button" title="Aggiungi una nuova riga al preventivo (prodotti personali o servizi)" style="font-size:13px">➕ Aggiungi Riga</button>' +
-        // V2.10.226: pulsante "Elimina righe" - cancella le righe spuntate con le
+        // V2.10.227: pulsante "Elimina righe" - cancella le righe spuntate con le
         // checkbox del carrello (stesso meccanismo di selezione di "Aggiorna preventivo").
         '<button class="btn small" id="quoteCartDeleteRowsBtn" type="button" title="Elimina le righe selezionate con le checkbox" style="font-size:13px;background:#ef4444;color:#fff;border-color:#ef4444">🗑️ Elimina righe</button>' +
         '<button class="btn small ghost" id="quoteCartSettingsBtn" type="button" title="Modalità preventivo e descrizione" style="font-size:13px">⚙️ Impostazioni preventivo</button>' +
-        // V2.10.226: pulsante "Grafici" — apre il cruscotto di analisi statistica
+        // V2.10.227: pulsante "Grafici" — apre il cruscotto di analisi statistica
         // del preventivo (composizione per marca/categoria, margini, sconti, ecc.).
         '<button class="btn small" id="quoteCartChartsBtn" type="button" title="Analisi statistica del preventivo con grafici" style="font-size:13px;background:#7c3aed;color:#fff;border-color:#7c3aed">📊 Grafici</button>' +
         '<button class="btn small ghost" id="quoteCartPrintSettingsBtn" type="button" title="Cosa includere nelle esportazioni" style="font-size:13px">🖨️ Impostazioni di stampa</button>' +
@@ -42099,7 +42103,7 @@ function openQuoteCart(){
     bg.remove();
   });
   document.getElementById('quoteCartSettingsBtn').addEventListener('click', () => openQuoteSettingsDialog());
-  // V2.10.226: handler pulsante "Grafici" — cruscotto analisi statistica
+  // V2.10.227: handler pulsante "Grafici" — cruscotto analisi statistica
   (function(){
     const cBtn = document.getElementById('quoteCartChartsBtn');
     if(cBtn){
@@ -42116,7 +42120,7 @@ function openQuoteCart(){
   document.getElementById('quoteCartFreeTextBtn').addEventListener('click', () => openFreeTextDialog());
   // V2.9.12: handler pulsante "Aggiungi Servizi"
   document.getElementById('quoteCartAddServiceBtn').addEventListener('click', () => openAddRowChoiceDialog());
-  // V2.10.226: handler pulsante "Elimina righe" — cancella le righe selezionate
+  // V2.10.227: handler pulsante "Elimina righe" — cancella le righe selezionate
   // con le checkbox del carrello, previa conferma.
   (function(){
     const delBtn = document.getElementById('quoteCartDeleteRowsBtn');
@@ -42885,8 +42889,8 @@ function renderQuoteCartContent(){
             '<span class="qcart-drag-handle" title="Trascina per riordinare" style="display:inline-block;cursor:grab;color:var(--fg3);font-size:14px;padding:0 4px;margin-right:4px;line-height:1">⋮⋮</span>' +
             (i + 1) +
           '</td>' +
-          // V2.10.226: checkbox di selezione per "Aggiorna preventivo".
-          // V2.10.226: checkbox spuntata SOLO se _selectedForUpdate===true (default: vuote).
+          // V2.10.227: checkbox di selezione per "Aggiorna preventivo".
+          // V2.10.227: checkbox spuntata SOLO se _selectedForUpdate===true (default: vuote).
           '<td style="text-align:center">' +
             '<input type="checkbox" class="qcart-update-check" data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" ' +
               (it._selectedForUpdate === true ? 'checked' : '') + ' ' +
@@ -42946,7 +42950,7 @@ function renderQuoteCartContent(){
         '<thead>' +
           '<tr>' +
             '<th>Riga</th>' +  // V2.7.9: rinominato (era #)
-            // V2.10.226: colonna checkbox "Aggiorna" con select-all nell'header
+            // V2.10.227: colonna checkbox "Aggiorna" con select-all nell'header
             '<th style="text-align:center" title="Seleziona / deseleziona tutte le righe (per Aggiorna o Elimina)">' +
               '<input type="checkbox" id="qcartUpdateCheckAll" ' +
                 'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0" ' +
@@ -43013,7 +43017,7 @@ function renderQuoteCartContent(){
             '<span class="qcart-drag-handle" title="Trascina per riordinare" style="display:inline-block;cursor:grab;color:var(--fg3);font-size:14px;padding:0 4px;margin-right:4px;line-height:1">⋮⋮</span>' +
             (i + 1) +
           '</td>' +
-          // V2.10.226: checkbox di selezione per "Aggiorna preventivo".
+          // V2.10.227: checkbox di selezione per "Aggiorna preventivo".
           '<td style="text-align:center">' +
             '<input type="checkbox" class="qcart-update-check" data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" ' +
               (it._selectedForUpdate === true ? 'checked' : '') + ' ' +
@@ -43048,9 +43052,9 @@ function renderQuoteCartContent(){
               : '—')) +
           '</td>' +
           // V2.7.1: Sequenza colonne: PVP unit. → Sconto → Netto unit. → Sc. Cliente → Prezzo Vendita → Margine.
-          // V2.10.226: cella "Netto ACQ" colorata di rosso (#dc2626) per evidenziare il costo d'acquisto.
+          // V2.10.227: cella "Netto ACQ" colorata di rosso (#dc2626) per evidenziare il costo d'acquisto.
           '<td class="num" style="color:#dc2626;font-weight:600">' + (isZeroQty ? _dash : (it.netto != null ? _qFmtEur(it.netto) : '—')) + '</td>' +
-          // V2.10.226: colonna "Tot. Netto ACQ" rimossa su richiesta utente.
+          // V2.10.227: colonna "Tot. Netto ACQ" rimossa su richiesta utente.
           // V2.5.9 / V2.6.2: cella "Sc. Cliente" EDITABILE anche in Modalità Analisi.
           // Stesso modello dati (it.discountPct) e stessa persistenza dell'input
           // in Modalità Cliente: cambiando modalità Cliente↔Analisi il valore
@@ -43099,7 +43103,7 @@ function renderQuoteCartContent(){
         '<thead>' +
           '<tr>' +
             '<th>Riga</th>' +  // V2.7.8: rinominato (era #)
-            // V2.10.226: colonna checkbox "Aggiorna" con select-all nell'header
+            // V2.10.227: colonna checkbox "Aggiorna" con select-all nell'header
             '<th style="text-align:center" title="Seleziona / deseleziona tutte le righe (per Aggiorna o Elimina)">' +
               '<input type="checkbox" id="qcartUpdateCheckAll" ' +
                 'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0" ' +
@@ -43149,7 +43153,7 @@ function renderQuoteCartContent(){
       renderQuoteCartContent();
     });
   });
-  // V2.10.226: handler checkbox di selezione per "Aggiorna preventivo".
+  // V2.10.227: handler checkbox di selezione per "Aggiorna preventivo".
   // Lo stato e' salvato su it._selectedForUpdate e persiste nel _QUOTE_STATE.
   // Non serve re-render: la checkbox aggiorna solo il flag.
   const _qcartUpdateChecks = () => Array.from(container.querySelectorAll('.qcart-update-check'));
@@ -43191,7 +43195,7 @@ function renderQuoteCartContent(){
     });
     _syncQcartCheckAll();  // stato iniziale
   }
-  // V2.10.226: handler ".qcart-remove" rimosso — la X di cancellazione riga non
+  // V2.10.227: handler ".qcart-remove" rimosso — la X di cancellazione riga non
   // esiste più. La cancellazione avviene ora dal pulsante "Elimina righe" in
   // toolbar, sulle righe selezionate con le checkbox. La funzione
   // removeFromQuoteCart() resta definita come API riutilizzabile.
@@ -45035,7 +45039,7 @@ async function exportQuoteDocx(options){
     const mk = (text, opts) => new TextRun(Object.assign({ font: 'Calibri', size: 19 }, opts || {}, { text }));
     const para = (children, opts) => new Paragraph(Object.assign({ children: Array.isArray(children) ? children : [children] }, opts || {}));
 
-    // V2.10.226: converte HTML formattato (output dell'editor testo libero) in array
+    // V2.10.227: converte HTML formattato (output dell'editor testo libero) in array
     // di Paragraph docx, preservando bold/italic/underline/strike/font-size/color/highlight.
     // baseOpts: opzioni di default applicate a OGNI run (es. color: TEXT_MID, size: 22 = 11pt).
     // paraOpts: opzioni di default applicate a OGNI paragraph (es. alignment JUSTIFIED, spacing).
@@ -45184,7 +45188,7 @@ async function exportQuoteDocx(options){
       if(_quoteCliente.codiceFiscale){
         destInner.push(para(mk('C.F.: ' + _quoteCliente.codiceFiscale, { color: '4B5563', size: 18 })));
       }
-      // V2.10.226: indirizzo e CAP/Citta/Provincia su righe separate (non piu' uniti
+      // V2.10.227: indirizzo e CAP/Citta/Provincia su righe separate (non piu' uniti
       // con virgola). Migliora leggibilita' di intestazioni lunghe.
       if(_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()){
         destInner.push(para(mk(_quoteCliente.indirizzo.trim(), { color: TEXT_MID, size: 19 }), { spacing: { before: 100 } }));
@@ -45194,7 +45198,7 @@ async function exportQuoteDocx(options){
         destInner.push(para(mk(_quoteCliente.capCitta.trim(), { color: TEXT_MID, size: 19 }),
           beforeSpacing ? { spacing: beforeSpacing } : {}));
       }
-      // V2.10.226: blocco riferimento completo (nome bold + ruolo italics + telefono + email)
+      // V2.10.227: blocco riferimento completo (nome bold + ruolo italics + telefono + email)
       // visibile sempre quando i campi sono valorizzati. Aggregato sotto il nome con spacing
       // minore (60) per percezione di gruppo coerente.
       if(_quoteCliente.persRiferimento){
@@ -45205,7 +45209,7 @@ async function exportQuoteDocx(options){
         if(_quoteCliente.ruoloRiferimento){
           destInner.push(para(mk(_quoteCliente.ruoloRiferimento, { color: TEXT_MUTED, italics: true, size: 17 }), { spacing: { before: 30 } }));
         }
-        // V2.10.226: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
+        // V2.10.227: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
         // con fallback ai campi telefono/email del cliente generale se mancano.
         const _refTel = _quoteCliente.telRiferimento || _quoteCliente.telefono || '';
         const _refMail = _quoteCliente.emailRiferimento || _quoteCliente.email || '';
@@ -45288,7 +45292,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // CARD OGGETTO (border-left blu su sfondo CARD_BG)
     // =====================================================
-    // V2.10.226: testo Oggetto multi-paragrafo (split su \n) + giustificato.
+    // V2.10.227: testo Oggetto multi-paragrafo (split su \n) + giustificato.
     // Era una sola riga, ora supporta descrizioni lunghe inserite nella textarea UI.
     let oggettoTable = null;
     if(_quoteNome){
@@ -45326,7 +45330,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // TESTO LIBERO HEADER (se presente)
     // =====================================================
-    // V2.10.226: ora preserva la formattazione completa (bold, italic, underline,
+    // V2.10.227: ora preserva la formattazione completa (bold, italic, underline,
     // strike, font-size, color, highlight) tramite htmlToTextRuns + htmlToDocxParagraphs.
     let headerFreeText = null;
     if(SETTINGS_QFT.header){
@@ -45677,7 +45681,7 @@ async function exportQuoteDocx(options){
     // =====================================================
     // TESTO LIBERO FOOTER (se presente)
     // =====================================================
-    // V2.10.226: stesso approccio dell'header, formattazione preservata.
+    // V2.10.227: stesso approccio dell'header, formattazione preservata.
     let footerFreeText = null;
     if(SETTINGS_QFT.footer){
       const footerParas = htmlToDocxParagraphs(
@@ -46274,7 +46278,7 @@ async function exportQuoteWord(){
         '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:30pt;padding-top:14pt;border-top:1pt solid #e5e7eb;font-size:9pt;color:#9ca3af;line-height:1.6}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:10pt 14pt;margin-top:18pt;font-size:10pt;color:#0c4a6e}' +
-        // V2.10.226: regole specifiche per il testo libero (header/footer) — garantiscono
+        // V2.10.227: regole specifiche per il testo libero (header/footer) — garantiscono
         // che il <b>/<strong>, <i>/<em>, <u>, <s>, e <span style="font-size:..."> inline
         // dell'editor vengano onorati anche in Word .doc (che ha un parser HTML "vintage"
         // e a volte ignora gli stili inline se sovrascritti da regole generiche).
@@ -46327,16 +46331,16 @@ async function exportQuoteWord(){
               '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:Calibri,monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
-              // V2.10.226: indirizzo e CAP/Citta/Provincia su righe separate (era unito da virgola)
+              // V2.10.227: indirizzo e CAP/Citta/Provincia su righe separate (era unito da virgola)
               (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim() ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml(_quoteCliente.indirizzo.trim()) + '</div>' : '') +
               (_quoteCliente.capCitta && _quoteCliente.capCitta.trim() ? '<div style="font-size:9.5pt;color:#374151;line-height:1.4' + ((!_quoteCliente.indirizzo || !_quoteCliente.indirizzo.trim()) ? ';margin-top:5pt' : '') + '">' + escapeHtml(_quoteCliente.capCitta.trim()) + '</div>' : '') +
-              // V2.10.226: blocco riferimento completo (nome bold + ruolo + telefono + email)
+              // V2.10.227: blocco riferimento completo (nome bold + ruolo + telefono + email)
               // raggruppato in un unico blocco separato da bordo tratteggiato.
               (_quoteCliente.persRiferimento ? (
                 '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
                   'Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' +
                   (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') +
-                  // V2.10.226: telefono/email del REFERENTE con fallback ai campi cliente
+                  // V2.10.227: telefono/email del REFERENTE con fallback ai campi cliente
                   ((_quoteCliente.telRiferimento || _quoteCliente.telefono) ? '<br><span style="color:#6b7280">Tel: ' + escapeHtml(_quoteCliente.telRiferimento || _quoteCliente.telefono) + '</span>' : '') +
                   ((_quoteCliente.emailRiferimento || _quoteCliente.email) ? '<br><span style="color:#6b7280">Email: ' + escapeHtml(_quoteCliente.emailRiferimento || _quoteCliente.email) + '</span>' : '') +
                 '</div>'
@@ -46356,7 +46360,7 @@ async function exportQuoteWord(){
         '</div>' +
       '</div>' +
       // V2.10.15: riga OGGETTO con card laterale + accento ambra (Variante B - elegante e armoniosa)
-      // V2.10.226: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
+      // V2.10.227: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
       // della textarea e wrappare automaticamente i testi lunghi multi-riga.
       (_quoteNome ? (
         '<div style="margin:0 32pt;padding:8pt 16pt;background:#fafaf9;border-left:4pt solid #0178d4;border-radius:2pt;display:flex;flex-direction:column;gap:2pt">' +
@@ -46365,7 +46369,7 @@ async function exportQuoteWord(){
         '</div>'
       ) : '') +
       // V2.10.24: testo libero header (sotto card OGGETTO) - HTML formattato dall'utente. V2.10.26: distanza maggiore + giustificato
-      // V2.10.226: usa classe .qft-block per garantire che bold/italic/font-size inline siano onorati in Word .doc
+      // V2.10.227: usa classe .qft-block per garantire che bold/italic/font-size inline siano onorati in Word .doc
       ((SETTINGS_QFT && SETTINGS_QFT.header) ? (
         '<div class="qft-block" style="margin:18pt 32pt 0 32pt;padding:0 4pt;font-size:11pt">' +
           SETTINGS_QFT.header +
@@ -46385,7 +46389,7 @@ async function exportQuoteWord(){
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
-        // V2.10.226: usa classe .qft-block (vedi commento header)
+        // V2.10.227: usa classe .qft-block (vedi commento header)
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
           '<div class="qft-block" style="margin-top:18pt;padding:0 4pt;font-size:11pt">' +
             SETTINGS_QFT.footer +
@@ -46666,8 +46670,8 @@ async function exportQuotePdfNative(options){
       return cy;
     };
 
-    /* V2.10.226: render PDF di paragrafi "rich" (con runs di stili misti).
-       Page-break automatico (V2.10.226): quando il testo libero supera il margine
+    /* V2.10.227: render PDF di paragrafi "rich" (con runs di stili misti).
+       Page-break automatico (V2.10.227): quando il testo libero supera il margine
        inferiore della pagina, fluisce automaticamente sulla pagina successiva invece
        di essere troncato (comportamento simile a Word/docx).
        Input: array di paragrafi nel formato di htmlToTextRuns:
@@ -46692,7 +46696,7 @@ async function exportQuotePdfNative(options){
       defAlign = defAlign || 'justify';
       const PARAGRAPH_GAP = 4;   // spazio extra fra paragrafi
       let cy = y;
-      // V2.10.226: helper interno per page-break. Se pageBreakOpts attivo, controlla se
+      // V2.10.227: helper interno per page-break. Se pageBreakOpts attivo, controlla se
       // la prossima riga di altezza `lineH` ci sta. In caso contrario fa onNewPage + reset cy.
       const checkPageBreak = (lineH) => {
         if(!pageBreakOpts) return;
@@ -46711,7 +46715,7 @@ async function exportQuotePdfNative(options){
         let prefix = p.listMarker ? p.listMarker : '';
         // Se paragrafo vuoto, salto con piccolo gap
         if(runs.length === 0 && !prefix){
-          // V2.10.226: anche i paragrafi vuoti possono superare il margine
+          // V2.10.227: anche i paragrafi vuoti possono superare il margine
           checkPageBreak(defSize * 1.2);
           cy += defSize * 1.2;
           continue;
@@ -46785,7 +46789,7 @@ async function exportQuotePdfNative(options){
           // Calcolo altezza riga = max fontSize della riga * 1.25
           const maxFontSize = line.reduce((m, tk) => Math.max(m, tk.fontSize), defSize);
           const lineH = maxFontSize * 1.25;
-          // V2.10.226: page-break check PRIMA di disegnare la riga.
+          // V2.10.227: page-break check PRIMA di disegnare la riga.
           // Se la riga non sta piu' nello spazio rimanente, vado a nuova pagina.
           checkPageBreak(lineH);
           // Baseline = cy + maxFontSize (cy e' top della riga)
@@ -46969,7 +46973,7 @@ async function exportQuotePdfNative(options){
         doc.text('C.F.: ' + _quoteCliente.codiceFiscale, colRightX + padX, measureY + 4);
         measureY += 12;
       }
-      // V2.10.226: indirizzo e CAP/Citta/Provincia su righe separate.
+      // V2.10.227: indirizzo e CAP/Citta/Provincia su righe separate.
       if(_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim()){
         setText(9.5, 'normal', COL.textMid);
         const lines = wrapText(_quoteCliente.indirizzo.trim(), colRightW - 2 * padX, 9.5, 'normal');
@@ -46980,7 +46984,7 @@ async function exportQuotePdfNative(options){
         const lines = wrapText(_quoteCliente.capCitta.trim(), colRightW - 2 * padX, 9.5, 'normal');
         lines.forEach(line => { doc.text(line, colRightX + padX, measureY + 4); measureY += 12; });
       }
-      // V2.10.226: blocco riferimento completo — nome + ruolo + telefono + email
+      // V2.10.227: blocco riferimento completo — nome + ruolo + telefono + email
       // sempre raggruppati sotto a "Alla c.a." (anziche' telefono/email come blocco a se')
       if(_quoteCliente.persRiferimento){
         measureY += 4;
@@ -46995,7 +46999,7 @@ async function exportQuotePdfNative(options){
           doc.text(_quoteCliente.ruoloRiferimento, colRightX + padX, measureY + 4);
           measureY += 11;
         }
-        // V2.10.226: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
+        // V2.10.227: telefono/email del REFERENTE (telRiferimento/emailRiferimento),
         // con fallback ai campi telefono/email del cliente generale.
         const _refTel = _quoteCliente.telRiferimento || _quoteCliente.telefono || '';
         const _refMail = _quoteCliente.emailRiferimento || _quoteCliente.email || '';
@@ -47057,7 +47061,7 @@ async function exportQuotePdfNative(options){
     cursorY = Math.max(leftY, rightY) + 18;
 
     // === CARD OGGETTO ===
-    // V2.10.226: testo Oggetto multi-riga giustificato (era una sola riga troncata).
+    // V2.10.227: testo Oggetto multi-riga giustificato (era una sola riga troncata).
     // Calcolo altezza in base alle righe wrappate, gestisco anche eventuali \n inseriti
     // dall'utente nella textarea. Giustificazione tramite drawJustifiedText (V2.10.186).
     if(_quoteNome){
@@ -47104,9 +47108,9 @@ async function exportQuotePdfNative(options){
     }
 
     // === TESTO LIBERO HEADER ===
-    // V2.10.226: parsing HTML completo con preservazione di bold/italic/underline/strike/
+    // V2.10.227: parsing HTML completo con preservazione di bold/italic/underline/strike/
     // font-size/color/highlight. drawRichRunsParagraphs gestisce layout multi-stile.
-    // Page-break automatico (V2.10.226): se il testo eccede la pagina, fluisce sulla successiva.
+    // Page-break automatico (V2.10.227): se il testo eccede la pagina, fluisce sulla successiva.
     if(SETTINGS_QFT.header){
       const paras = (typeof htmlToTextRuns === 'function') ? htmlToTextRuns(SETTINGS_QFT.header) : [];
       if(paras.length > 0){
@@ -47635,7 +47639,7 @@ async function exportQuotePdfNative(options){
     }
 
     // === TESTO LIBERO FOOTER ===
-    // V2.10.226: vedi commento header. drawRichRunsParagraphs gestisce nativamente
+    // V2.10.227: vedi commento header. drawRichRunsParagraphs gestisce nativamente
     // bold/italic/dimensioni/colori/evidenziatore + page-break automatico (il render
     // verifica riga per riga se serve nuova pagina, quindi non serve piu' la stima
     // a-priori).
@@ -47997,7 +48001,7 @@ async function exportQuotePdf(){
         '.totals-table tr.grand-sm td.val{color:#0178d4}' +
         '.footer{margin-top:22pt;padding-top:10pt;border-top:1pt solid #e5e7eb;font-size:8pt;color:#9ca3af;line-height:1.5}' +
         '.notes{background:#e0f2fe;border-left:3pt solid #0178d4;padding:8pt 12pt;margin-top:14pt;font-size:9pt;color:#0c4a6e}' +
-        // V2.10.226: regole per testo libero (vedi spiegazione nel docx export)
+        // V2.10.227: regole per testo libero (vedi spiegazione nel docx export)
         '.qft-block{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#374151;line-height:1.6;text-align:justify}' +
         '.qft-block b,.qft-block strong{font-weight:bold !important}' +
         '.qft-block i,.qft-block em{font-style:italic !important}' +
@@ -48097,15 +48101,15 @@ async function exportQuotePdf(){
               '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
-              // V2.10.226: indirizzo e CAP/Citta/Provincia su righe separate
+              // V2.10.227: indirizzo e CAP/Citta/Provincia su righe separate
               (_quoteCliente.indirizzo && _quoteCliente.indirizzo.trim() ? '<div style="font-size:9.5pt;color:#374151;margin-top:5pt;line-height:1.4">' + escapeHtml(_quoteCliente.indirizzo.trim()) + '</div>' : '') +
               (_quoteCliente.capCitta && _quoteCliente.capCitta.trim() ? '<div style="font-size:9.5pt;color:#374151;line-height:1.4' + ((!_quoteCliente.indirizzo || !_quoteCliente.indirizzo.trim()) ? ';margin-top:5pt' : '') + '">' + escapeHtml(_quoteCliente.capCitta.trim()) + '</div>' : '') +
-              // V2.10.226: blocco riferimento completo (nome + ruolo + telefono + email raggruppati)
+              // V2.10.227: blocco riferimento completo (nome + ruolo + telefono + email raggruppati)
               (_quoteCliente.persRiferimento ? (
                 '<div style="font-size:9pt;color:#4b5563;margin-top:6pt;padding-top:5pt;border-top:1pt dashed #d1d5db;line-height:1.5">' +
                   'Alla c.a. <b style="color:#1f2937">' + escapeHtml(_quoteCliente.persRiferimento) + '</b>' +
                   (_quoteCliente.ruoloRiferimento ? '<br><span style="color:#6b7280;font-style:italic">' + escapeHtml(_quoteCliente.ruoloRiferimento) + '</span>' : '') +
-                  // V2.10.226: telefono/email del REFERENTE con fallback ai campi cliente
+                  // V2.10.227: telefono/email del REFERENTE con fallback ai campi cliente
                   ((_quoteCliente.telRiferimento || _quoteCliente.telefono) ? '<br><span style="color:#6b7280">Tel: ' + escapeHtml(_quoteCliente.telRiferimento || _quoteCliente.telefono) + '</span>' : '') +
                   ((_quoteCliente.emailRiferimento || _quoteCliente.email) ? '<br><span style="color:#6b7280">Email: ' + escapeHtml(_quoteCliente.emailRiferimento || _quoteCliente.email) + '</span>' : '') +
                 '</div>'
@@ -48124,7 +48128,7 @@ async function exportQuotePdf(){
         '</div>' +
       '</div>' +
       // V2.10.15: riga OGGETTO con card laterale + accento ambra (Variante B - elegante e armoniosa)
-      // V2.10.226: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
+      // V2.10.227: testo Oggetto giustificato + white-space:pre-wrap per rispettare i \n
       // della textarea e wrappare automaticamente i testi lunghi multi-riga.
       (_quoteNome ? (
         '<div style="margin:0 24pt;padding:8pt 16pt;background:#fafaf9;border-left:4pt solid #0178d4;border-radius:2pt;display:flex;flex-direction:column;gap:2pt">' +
@@ -48133,7 +48137,7 @@ async function exportQuotePdf(){
         '</div>'
       ) : '') +
       // V2.10.24: testo libero header (sotto card OGGETTO) - HTML formattato dall'utente. V2.10.26: distanza maggiore + giustificato
-      // V2.10.226: usa classe .qft-block (vedi commento header)
+      // V2.10.227: usa classe .qft-block (vedi commento header)
       ((SETTINGS_QFT && SETTINGS_QFT.header) ? (
         '<div class="qft-block" style="margin:18pt 24pt 0 24pt;padding:0 4pt;font-size:11pt">' +
           SETTINGS_QFT.header +
@@ -48153,7 +48157,7 @@ async function exportQuotePdf(){
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
-        // V2.10.226: usa classe .qft-block (vedi commento header)
+        // V2.10.227: usa classe .qft-block (vedi commento header)
         ((SETTINGS_QFT && SETTINGS_QFT.footer) ? (
           '<div class="qft-block" style="margin-top:18pt;padding:0 4pt;font-size:11pt">' +
             SETTINGS_QFT.footer +
@@ -50852,21 +50856,21 @@ async function init(){
   if(savedData && savedData.length>0){
     DATA = savedData;
     EDITS = savedEdits || {};
-    // V2.10.226: riparazione _idx duplicati. DEVE avvenire PRIMA della migrazione
+    // V2.10.227: riparazione _idx duplicati. DEVE avvenire PRIMA della migrazione
     // EDITS sotto (che usa p._idx come chiave). Gli _idx duplicati causavano
     // l'apertura dell'editor sbagliato (es. "Modifica prodotto personale" su un
     // servizio). _reindexDATA riassegna _idx = posizione array, univoci. Idempotente.
     try {
       if(typeof _hasDuplicateIdx === 'function' && _hasDuplicateIdx()){
         const _fixed = (typeof _reindexDATA === 'function') ? _reindexDATA() : 0;
-        console.info('[migrazione V2.10.226] _idx duplicati rilevati — reindicizzati',
+        console.info('[migrazione V2.10.227] _idx duplicati rilevati — reindicizzati',
           _fixed, 'record');
         if(typeof idbSet === 'function'){
           Promise.resolve(idbSet('data', 'main', DATA)).catch(() => {});
         }
       }
     } catch(_){}
-    // V2.10.226: migrazione difensiva — rimuovo override EDITS agganciati per errore
+    // V2.10.227: migrazione difensiva — rimuovo override EDITS agganciati per errore
     // a prodotti personali. I personali si editano direttamente su `item`; un EDITS
     // residuo (es. dopo riuso di _idx fra reload) farebbe sì che getField() mostri
     // valori vecchi (es. prezzo di listino) ignorando quelli salvati. Idempotente.
@@ -50879,7 +50883,7 @@ async function init(){
         }
       });
       if(_personalEditsCleaned > 0){
-        console.info('[migrazione V2.10.226] rimossi', _personalEditsCleaned,
+        console.info('[migrazione V2.10.227] rimossi', _personalEditsCleaned,
           'override EDITS stantii da prodotti personali');
         if(typeof idbSet === 'function'){
           Promise.resolve(idbSet('edits', 'main', EDITS)).catch(() => {});
@@ -50952,7 +50956,7 @@ async function init(){
   try {
     driveInit();
     // V2.10.103: se modalità locale ON, fa UN safety pull (asincrono) e NON avvia polling.
-    // V2.10.226: il safety pull viene eseguito solo se localAutoPull è ON (default).
+    // V2.10.227: il safety pull viene eseguito solo se localAutoPull è ON (default).
     // Se l'utente ha disattivato il pull automatico, deve cliccare ☁️⬇ Importa da Drive.
     // Altrimenti: comportamento auto storico.
     if(DRIVE_STATE.localMode){
