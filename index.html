@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.265</title>
+<title>Gestione Prodotti V2.10.266</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8425,7 +8425,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.265</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.266</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8949,7 +8949,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.265');
+console.info('[bootstrap] script avvio — V2.10.266');
 
 window.openStatsDashboard = function(){
   try {
@@ -10379,7 +10379,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.265';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.266';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -34839,7 +34839,9 @@ function showDiscountTree(){
         // (Listino / Sconto / Netto invece di Min / Media / Max)
         html += renderItemHeaderRow(level+1);
         itemsList.forEach(item=>{
-          html += renderItemRow(item, level+1);
+          // V2.10.265: passo il pathKey della Categoria genitore così renderItemRow
+          // può calcolare lo sconto effettivo ereditato (cascata da Marca/Macrocat/Cat).
+          html += renderItemRow(item, level+1, pathKey);
         });
       }
     }
@@ -34873,7 +34875,11 @@ function showDiscountTree(){
   // Rendering di una riga articolo (foglia finale).
   // Non ha statistiche aggregate ma dati del singolo prodotto.
   // La colonna "N." è lasciata vuota: è implicito che sia 1 (un singolo articolo).
-  const renderItemRow = (item, level) => {
+  // V2.10.265: parentPath = pathKey della Categoria genitore (Marca/Macrocat/Cat).
+  // Lo uso per calcolare lo sconto effettivo ereditato dalla cascata. Coerente
+  // con getEffectiveProductPrices: il prodotto applica l'adjArr del livello più
+  // specifico disponibile (Categoria > Macrocat > Marca) — niente composizione tra livelli.
+  const renderItemRow = (item, level, parentPath) => {
     const isAltRow = rowIdx % 2 === 1;
     rowIdx++;
     const indent = level * 22;
@@ -34883,16 +34889,55 @@ function showDiscountTree(){
     // V2.5.3: in edit mode aggiungo 6 celle vuote per allineamento
     const editMode = window._DISCOUNT_TREE_EDIT_MODE === true;
     const adjBlank = editMode ? '<td colspan="6" class="tree-adj-na" style="border-left:1px dashed var(--border)"></td>' : '';
+
+    // V2.10.265: cascata ereditata dalla Categoria genitore.
+    // L'Analisi Scontistiche permette di impostare sconti aggiuntivi solo a livello
+    // Marca/Macrocat/Categoria (level 0/1/2); gli articoli non hanno sconti propri qui.
+    // Quindi l'articolo applica sempre quello che eredita dal padre più specifico
+    // disponibile, coerente con getEffectiveProductPrices.
+    let adjArr = [0,0,0,0,0,0];
+    let isInherited = false;
+    if(parentPath){
+      const info = getInheritedAdjForNode(2, parentPath);
+      if(info.hasAny){ adjArr = info.adjArr; isInherited = true; }
+    }
+    const hasAdjEff = isInherited;
+
+    let scontoCell, nettoCell;
+    if(hasAdjEff){
+      const effSconto = applyCascadingDiscount(item.sconto, adjArr);
+      // Netto effettivo: ricalcolato dal listino con lo sconto effettivo
+      const effNetto = item.listino * (1 - effSconto / 100);
+      // Stile sempre "ereditato" (verde tenue corsivo) perché qui non esiste un
+      // sconto "proprio" del singolo articolo: il valore deriva sempre dalla cascata.
+      const effStyle = 'font-size:11px;font-weight:600;color:#22c55e;font-style:italic;margin-top:1px;opacity:.92';
+      scontoCell =
+        '<td class="tree-sc tree-item-disc">' +
+          '<div class="tree-sc-original tree-sc-faded">' + fmtDiscount(item.sconto) + '</div>' +
+          '<div class="tree-sc-effective" style="' + effStyle + '">' + fmtDiscount(effSconto) + '</div>' +
+        '</td>';
+      nettoCell =
+        '<td class="tree-sc tree-item-price">' +
+          '<div class="tree-sc-original tree-sc-faded">€ ' + fmtPrice(item.netto) + '</div>' +
+          '<div class="tree-sc-effective" style="' + effStyle + '">€ ' + fmtPrice(effNetto) + '</div>' +
+        '</td>';
+    } else {
+      scontoCell = '<td class="tree-sc tree-item-disc">' + fmtDiscount(item.sconto) + '</td>';
+      nettoCell = '<td class="tree-sc tree-item-price">€ ' + fmtPrice(item.netto) + '</td>';
+    }
+
+    const rowExtraCls = isInherited ? ' tree-has-adj-inherited' : '';
+
     return `
-      <tr class="discount-tree-row tree-item-row${altClass}" data-level="3">
+      <tr class="discount-tree-row tree-item-row${altClass}${rowExtraCls}" data-level="3">
         <td style="padding-left:${10+indent}px;white-space:nowrap">
           <span class="tree-icon" style="color:var(--fg3)">▸</span>
           <span class="tree-item-code">${escapeHtml(item.code)}</span>${eanHtml}
         </td>
         <td class="tree-num"></td>
         <td class="tree-sc tree-item-price">€ ${fmtPrice(item.listino)}</td>
-        <td class="tree-sc tree-item-disc">${fmtDiscount(item.sconto)}</td>
-        <td class="tree-sc tree-item-price">€ ${fmtPrice(item.netto)}</td>
+        ${scontoCell}
+        ${nettoCell}
         <td class="tree-sc">—</td>
         ${adjBlank}
       </tr>
@@ -39461,7 +39506,17 @@ async function loadQuotesArchiveFromIdb(){
                 p = window.DATA[it.idx];
               }
               if(!p && it.code){
-                p = window.DATA.find(x => x && (x.reference === it.code || (typeof getField === 'function' && getField(x, 'reference') === it.code)));
+                // V2.10.266: il code dell'item è il `name` del prodotto (getField(p,'name')),
+                // non la `reference`. Match prima per name, poi per reference come fallback.
+                const target = String(it.code).trim();
+                p = window.DATA.find(x => {
+                  if(!x) return false;
+                  const nameVal = (typeof getField === 'function') ? getField(x, 'name') : x.name;
+                  if(String(nameVal || '').trim() === target) return true;
+                  const refVal = (typeof getField === 'function') ? getField(x, 'reference') : x.reference;
+                  if(String(refVal || '').trim() === target) return true;
+                  return false;
+                });
               }
               if(p){
                 const isPersonal = p.isPersonal === true;
@@ -43268,13 +43323,33 @@ function _qResolveImg(item){
   // V2.10.88: fallback — ricostruisci da DATA[idx] o da code. Questo permette ai
   // preventivi salvati senza image (riduzione dimensioni storage) di mostrare
   // comunque l'immagine sia in anteprima che in export Word/PDF.
+  // V2.10.266 FIX: il code dell'item proviene da `addToQuoteCart` che usa
+  // getField(p, 'name'). La precedente lookup usava 'reference' ed era SEMPRE
+  // a vuoto, lasciando i preventivi sgravati di item.image dalla migrazione
+  // V2.10.89 senza immagine nel DOCX/PDF. Ora cerco prima per 'name' (campo
+  // canonico per il code) e poi per 'reference' come fallback di robustezza.
   if(Array.isArray(window.DATA)){
     let p = null;
     if(item.idx != null && window.DATA[item.idx]){
       p = window.DATA[item.idx];
-    } else if(item.code){
+      // Sanity check: l'idx potrebbe essere disallineato dopo re-import del catalogo.
+      // Se il code del prodotto trovato non corrisponde all'item.code, cerco per code.
+      if(p && item.code){
+        const pName = (typeof getField === 'function') ? getField(p, 'name') : p.name;
+        if(String(pName || '').trim() !== String(item.code).trim()) p = null;
+      }
+    }
+    if(!p && item.code){
       // Lookup per codice (più lento ma robusto a re-import del catalogo)
-      p = window.DATA.find(x => x && (getField(x, 'reference') === item.code || x.reference === item.code));
+      const target = String(item.code).trim();
+      p = window.DATA.find(x => {
+        if(!x) return false;
+        const nameVal = (typeof getField === 'function') ? getField(x, 'name') : x.name;
+        if(String(nameVal || '').trim() === target) return true;
+        const refVal = (typeof getField === 'function') ? getField(x, 'reference') : x.reference;
+        if(String(refVal || '').trim() === target) return true;
+        return false;
+      });
     }
     if(p){
       const raw = (typeof getField === 'function') ? (getField(p, 'image_path') || '') : (p.image_path || '');
