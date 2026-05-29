@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.264</title>
+<title>Gestione Prodotti V2.10.265</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7042,6 +7042,25 @@ body.theme-light .discount-tree-row.tree-has-adj{
   background: rgba(1,120,212,0.12) !important;
 }
 
+/* V2.10.265: evidenziazione "ereditato" — più tenue del sconto proprio.
+   Bordo verde tratteggiato + sfondo verde tenuissimo, per distinguere a
+   colpo d'occhio una riga che riceve lo sconto effettivo dal padre più
+   prossimo nell'albero (non da un sconto suo proprio). */
+.discount-tree-row.tree-has-adj-inherited{
+  background: rgba(34,197,94,0.04) !important;
+  position: relative;
+}
+.discount-tree-row.tree-has-adj-inherited > td:first-child{
+  border-left: 3px dashed #22c55e;
+  padding-left: 7px !important;
+}
+body.theme-light .discount-tree-row.tree-has-adj-inherited{
+  background: rgba(34,197,94,0.055) !important;
+}
+.discount-tree-row.tree-has-adj-inherited:hover{
+  background: rgba(34,197,94,0.10) !important;
+}
+
 /* Badge "+N" accanto al nome del nodo, indica quanti sconti aggiuntivi sono attivi */
 /* V2.8.2: badge viola (#7c3aed) per coerenza con la pillola "Sc. X% ★" gia'
    usata in galleria/lista (V2.5.5) per indicare gli sconti aggiuntivi a cascata.
@@ -8406,7 +8425,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.264</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.265</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8930,7 +8949,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.264');
+console.info('[bootstrap] script avvio — V2.10.265');
 
 window.openStatsDashboard = function(){
   try {
@@ -10360,7 +10379,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.264';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.265';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -33027,6 +33046,45 @@ function getAdjForNode(level, pathKey){
   return out;
 }
 
+/* V2.10.265 — Lookup gerarchica degli sconti aggiuntivi per il DISPLAY.
+   Restituisce l'adjArr del livello PIÙ SPECIFICO disponibile risalendo l'albero:
+     • prima il nodo stesso (level/pathKey)
+     • poi il padre (level-1, path troncato all'ultimo '/')
+     • poi il nonno (level-2)
+   Allineata a getEffectiveProductPrices: i prodotti applicano l'adjArr del
+   livello più specifico disponibile (NO composizione tra livelli), quindi la
+   UI deve mostrare lo stesso valore che il prodotto riceverà.
+
+   Restituisce: { adjArr, sourceLevel, sourcePath, isOwn, isInherited, hasAny }
+     • isOwn        = sconto definito sul nodo stesso
+     • isInherited  = sconto ereditato da un padre/nonno
+     • sourceLevel  = il livello da cui proviene lo sconto (0..2) o -1 se nessuno
+*/
+function getInheritedAdjForNode(level, pathKey){
+  if(level < 0 || level > 2 || !pathKey){
+    return { adjArr:[0,0,0,0,0,0], sourceLevel:-1, sourcePath:null, isOwn:false, isInherited:false, hasAny:false };
+  }
+  // 1) prova il nodo stesso
+  const own = getAdjForNode(level, pathKey);
+  if(own.some(x => x > 0)){
+    return { adjArr:own, sourceLevel:level, sourcePath:pathKey, isOwn:true, isInherited:false, hasAny:true };
+  }
+  // 2) risalgo i padri (troncando il path all'ultimo '/')
+  let curLevel = level - 1;
+  let curPath = pathKey;
+  while(curLevel >= 0){
+    const idx = curPath.lastIndexOf('/');
+    if(idx < 0) break; // niente padre raggiungibile
+    curPath = curPath.substring(0, idx);
+    const parentAdj = getAdjForNode(curLevel, curPath);
+    if(parentAdj.some(x => x > 0)){
+      return { adjArr:parentAdj, sourceLevel:curLevel, sourcePath:curPath, isOwn:false, isInherited:true, hasAny:true };
+    }
+    curLevel--;
+  }
+  return { adjArr:[0,0,0,0,0,0], sourceLevel:-1, sourcePath:null, isOwn:false, isInherited:false, hasAny:false };
+}
+
 // Imposta uno sconto specifico (slotIdx 0..5) per un nodo. Salva su localStorage.
 function setAdjForNode(level, pathKey, slotIdx, value){
   if(slotIdx < 0 || slotIdx > 5) return;
@@ -33890,36 +33948,15 @@ function updateRowStatsAfterAdj(level, path, inputEl){
   // Risalgo al <tr> che contiene questo input
   const tr = inputEl.closest('tr.discount-tree-row');
   if(!tr) return;
-  // Leggo i valori originali dagli attributi data-* che renderRow ha salvato
-  const origMin = parseFloat(tr.dataset.origMin);
-  const origAvg = parseFloat(tr.dataset.origAvg);
-  const origMax = parseFloat(tr.dataset.origMax);
-  const origWeighted = parseFloat(tr.dataset.origWeighted);
-  const adj = getAdjForNode(level, path);
-  const newMin = applyCascadingDiscount(origMin, adj);
-  const newAvg = applyCascadingDiscount(origAvg, adj);
-  const newMax = applyCascadingDiscount(origMax, adj);
-  const newWeighted = applyCascadingDiscount(origWeighted, adj);
-  // Aggiorno le celle (selettori interni per evitare collisioni)
-  const minCell  = tr.querySelector('.tree-sc-min .tree-sc-effective');
-  const avgCell  = tr.querySelector('.tree-sc-avg .tree-sc-effective');
-  const maxCell  = tr.querySelector('.tree-sc-max .tree-sc-effective');
-  const weiCell  = tr.querySelector('.tree-sc-wei .tree-sc-effective');
-  const hasAnyAdj = adj.some(x => x > 0);
-  if(minCell) minCell.textContent = hasAnyAdj ? fmtDiscount(newMin) : '';
-  if(avgCell) avgCell.textContent = hasAnyAdj ? fmtDiscount(newAvg) : '';
-  if(maxCell) maxCell.textContent = hasAnyAdj ? fmtDiscount(newMax) : '';
-  if(weiCell) weiCell.textContent = hasAnyAdj ? fmtDiscount(newWeighted) : '';
-  // Evidenziazione visiva: aggiungi/rimuovi classe `tree-has-adj`
-  if(hasAnyAdj){
-    tr.classList.add('tree-has-adj');
-  } else {
-    tr.classList.remove('tree-has-adj');
-  }
+  // V2.10.265: il refresh della riga corrente è ora delegato a _refreshTreeRowDisplay,
+  // che gestisce in modo uniforme sia il caso "sconto proprio" sia "ereditato".
+  _refreshTreeRowDisplay(tr);
 
   // V2.8.1: aggiorno il badge accanto al nome del nodo senza re-renderizzare.
   // Sostituisco il vecchio badge (qualsiasi tipo) con la nuova versione
   // calcolata in base allo stato attuale di adj.
+  const adj = getAdjForNode(level, path);
+  const hasAnyAdj = adj.some(x => x > 0);
   var keyEl = tr.querySelector('.tree-key');
   if(keyEl){
     // Rimuovo eventuali badge esistenti accanto al nome
@@ -33950,6 +33987,21 @@ function updateRowStatsAfterAdj(level, path, inputEl){
     if(newBadgeHtml){
       keyEl.insertAdjacentHTML('afterend', newBadgeHtml);
     }
+  }
+
+  // V2.10.265: aggiorno il DISPLAY dei discendenti del nodo modificato che
+  // ereditano da esso (cioè non hanno sconti propri). Tutti i discendenti
+  // presenti nel DOM hanno data-path che inizia con `path + '/'`. Per ognuno,
+  // _refreshTreeRowDisplay ricalcola autonomamente cosa mostrare (proprio,
+  // ereditato, niente) usando getInheritedAdjForNode.
+  try {
+    const descSelector = 'tr.discount-tree-row[data-path^="' + CSS.escape(path) + '/"]';
+    const descendants = document.querySelectorAll(descSelector);
+    descendants.forEach(function(dTr){
+      _refreshTreeRowDisplay(dTr);
+    });
+  } catch(e){
+    console.warn('[disc-tree] aggiornamento discendenti fallito:', e);
   }
 
   // V2.8.1: aggiorno anche i badge dei nodi parent (Marca, Macrocat) che potrebbero
@@ -33994,6 +34046,67 @@ function updateRowStatsAfterAdj(level, path, inputEl){
     });
   } catch(e){
     console.warn('[disc-tree] aggiornamento badge parent fallito:', e);
+  }
+}
+
+/* V2.10.265 — Helper: aggiorna IN-PLACE il display delle 4 colonne statistiche
+   di una singola riga albero, applicando la lookup gerarchica per gli sconti.
+   - Se il nodo ha sconti propri: mostra valori effettivi in stile "proprio".
+   - Se non ha sconti propri ma li eredita da un padre/nonno: mostra valori
+     effettivi in stile "ereditato" (verde tenue + corsivo).
+   - Se non ha niente: pulisce le celle effective.
+   Aggiorna anche le classi tree-has-adj / tree-has-adj-inherited di conseguenza.
+   Idempotente: può essere chiamata ripetutamente senza side-effects. */
+function _refreshTreeRowDisplay(tr){
+  if(!tr || !tr.dataset) return;
+  const level = parseInt(tr.dataset.level || '-1', 10);
+  const path = tr.dataset.path;
+  if(level < 0 || level > 2 || !path) return;  // solo righe gerarchiche con path
+  const origMin = parseFloat(tr.dataset.origMin);
+  const origAvg = parseFloat(tr.dataset.origAvg);
+  const origMax = parseFloat(tr.dataset.origMax);
+  const origWei = parseFloat(tr.dataset.origWeighted);
+  if([origMin, origAvg, origMax, origWei].some(isNaN)) return;
+
+  const info = getInheritedAdjForNode(level, path);
+  const minCell = tr.querySelector('.tree-sc-min .tree-sc-effective');
+  const avgCell = tr.querySelector('.tree-sc-avg .tree-sc-effective');
+  const maxCell = tr.querySelector('.tree-sc-max .tree-sc-effective');
+  const weiCell = tr.querySelector('.tree-sc-wei .tree-sc-effective');
+  const origCells = tr.querySelectorAll('.tree-sc-original');
+
+  if(info.hasAny){
+    const newMin = applyCascadingDiscount(origMin, info.adjArr);
+    const newAvg = applyCascadingDiscount(origAvg, info.adjArr);
+    const newMax = applyCascadingDiscount(origMax, info.adjArr);
+    const newWei = applyCascadingDiscount(origWei, info.adjArr);
+    if(minCell) minCell.textContent = fmtDiscount(newMin);
+    if(avgCell) avgCell.textContent = fmtDiscount(newAvg);
+    if(maxCell) maxCell.textContent = fmtDiscount(newMax);
+    if(weiCell) weiCell.textContent = fmtDiscount(newWei);
+    // Applico lo stile inline al valore effettivo in base a proprio/ereditato
+    const effStyle = info.isInherited
+      ? 'font-size:11px;font-weight:600;color:#22c55e;font-style:italic;margin-top:1px;opacity:.92'
+      : 'font-size:11px;font-weight:700;color:#16a34a;margin-top:1px';
+    [minCell, avgCell, maxCell, weiCell].forEach(c => { if(c) c.setAttribute('style', effStyle); });
+    // Il valore originale diventa fade (mostriamo entrambi)
+    origCells.forEach(c => c.classList.add('tree-sc-faded'));
+    // Classi sulla riga
+    if(info.isOwn){
+      tr.classList.add('tree-has-adj');
+      tr.classList.remove('tree-has-adj-inherited');
+    } else {
+      tr.classList.remove('tree-has-adj');
+      tr.classList.add('tree-has-adj-inherited');
+    }
+  } else {
+    if(minCell){ minCell.textContent = ''; minCell.removeAttribute('style'); }
+    if(avgCell){ avgCell.textContent = ''; avgCell.removeAttribute('style'); }
+    if(maxCell){ maxCell.textContent = ''; maxCell.removeAttribute('style'); }
+    if(weiCell){ weiCell.textContent = ''; weiCell.removeAttribute('style'); }
+    origCells.forEach(c => c.classList.remove('tree-sc-faded'));
+    tr.classList.remove('tree-has-adj');
+    tr.classList.remove('tree-has-adj-inherited');
   }
 }
 
@@ -34599,26 +34712,44 @@ function showDiscountTree(){
     // e solo quando window._DISCOUNT_TREE_EDIT_MODE === true.
     const editMode = window._DISCOUNT_TREE_EDIT_MODE === true;
     const isHierarchical = level <= 2;
+    // V2.10.265: distinguo lo sconto PROPRIO del nodo (per le caselle edit e il
+    // badge sul nome) dallo sconto EFFETTIVO usato sul display delle statistiche
+    // (= il più specifico disponibile ereditato dai padri, coerente con la
+    // logica che applica getEffectiveProductPrices ai singoli prodotti).
     const adjArr = isHierarchical ? getAdjForNode(level, pathKey) : [0,0,0,0,0,0];
     const hasAdj = isHierarchical && adjArr.some(x => x > 0);
-    // Sconti effettivi dopo cascata (= valori originali se hasAdj === false)
-    const effMin = hasAdj ? applyCascadingDiscount(node.stats.minSc, adjArr) : node.stats.minSc;
-    const effAvg = hasAdj ? applyCascadingDiscount(node.stats.avgSc, adjArr) : node.stats.avgSc;
-    const effMax = hasAdj ? applyCascadingDiscount(node.stats.maxSc, adjArr) : node.stats.maxSc;
-    const effWeighted = hasAdj ? applyCascadingDiscount(node.stats.weightedSc, adjArr) : node.stats.weightedSc;
+    const inheritedInfo = isHierarchical ? getInheritedAdjForNode(level, pathKey) : { adjArr:[0,0,0,0,0,0], hasAny:false, isOwn:false, isInherited:false, sourceLevel:-1, sourcePath:null };
+    const effAdjArr = inheritedInfo.adjArr;
+    const hasAdjEff = inheritedInfo.hasAny;
+    const isInheritedDisplay = inheritedInfo.isInherited;
+    // Sconti effettivi dopo cascata. Se ha sconti propri o ereditati uso effAdjArr,
+    // altrimenti restano i valori originali.
+    const effMin = hasAdjEff ? applyCascadingDiscount(node.stats.minSc, effAdjArr) : node.stats.minSc;
+    const effAvg = hasAdjEff ? applyCascadingDiscount(node.stats.avgSc, effAdjArr) : node.stats.avgSc;
+    const effMax = hasAdjEff ? applyCascadingDiscount(node.stats.maxSc, effAdjArr) : node.stats.maxSc;
+    const effWeighted = hasAdjEff ? applyCascadingDiscount(node.stats.weightedSc, effAdjArr) : node.stats.weightedSc;
 
     let rowClass = `discount-tree-row lvl-${level}`;
     if(level === 0) rowClass += ' tree-brand-row';
     if(isAltRow) rowClass += ' tree-alt-row';
-    if(hasAdj) rowClass += ' tree-has-adj';  // V2.5.3: evidenziazione arancio
+    if(hasAdj) rowClass += ' tree-has-adj';  // V2.5.3: evidenziazione arancio (sconto proprio)
+    // V2.10.265: evidenziazione differenziata per sconto EREDITATO dal padre.
+    // Non sovrascrive tree-has-adj (le due classi sono mutuamente esclusive perché
+    // hasAdj implica isOwn, mentre isInheritedDisplay implica !hasAdj).
+    if(isInheritedDisplay) rowClass += ' tree-has-adj-inherited';
 
     // V2.5.3: helper per renderizzare una cella statistica con valore originale
     // e (opzionalmente) valore effettivo dopo cascata. La cella ha classi specifiche
     // (tree-sc-min/avg/max/wei) per permettere a updateRowStatsAfterAdj di trovarle.
+    // V2.10.265: lo stile del valore effettivo differisce tra proprio (verde pieno)
+    // ed ereditato (verde tenue + corsivo) per chiarire che la riga eredita dal padre.
     const scCell = (cls, origValue, effValue, extraCls) => {
-      const showEff = hasAdj;  // mostro la riga "effettiva" solo se ci sono sconti
+      const showEff = hasAdjEff;  // mostro la riga "effettiva" se ha sconti propri O ereditati
+      const effStyle = isInheritedDisplay
+        ? 'font-size:11px;font-weight:600;color:#22c55e;font-style:italic;margin-top:1px;opacity:.92'
+        : 'font-size:11px;font-weight:700;color:#16a34a;margin-top:1px';
       const effHtml = showEff
-        ? '<div class="tree-sc-effective" style="font-size:11px;font-weight:700;color:#16a34a;margin-top:1px">' + fmtDiscount(effValue) + '</div>'
+        ? '<div class="tree-sc-effective" style="' + effStyle + '">' + fmtDiscount(effValue) + '</div>'
         : '<div class="tree-sc-effective"></div>';  // placeholder vuoto per slot dom stabile
       return '<td class="tree-sc ' + cls + (extraCls ? ' ' + extraCls : '') + '">' +
         '<div class="tree-sc-original' + (showEff ? ' tree-sc-faded' : '') + '">' + fmtDiscount(origValue) + '</div>' +
