@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.266</title>
+<title>Gestione Prodotti V2.10.267</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8425,7 +8425,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.266</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.267</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8949,7 +8949,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.266');
+console.info('[bootstrap] script avvio — V2.10.267');
 
 window.openStatsDashboard = function(){
   try {
@@ -10379,7 +10379,7 @@ function translateText(s){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.266';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.267';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -30278,8 +30278,9 @@ function _splVerifyMargins(listId, criteria){
       prezzoVend: m.prezzoVend, marginePct: mp, hasExtraAcq: m.hasExtraAcq,
     });
   });
-  // Ordino per margine crescente: le anomalie peggiori (margine più basso) in cima.
-  out.sort((a, b) => a.marginePct - b.marginePct);
+  // V2.10.267: NON ordino qui — l'ordinamento è gestito da _splVerifyResultsHtml
+  // in base a window._SPL_VERIFY.sortBy/sortDir, così l'utente può cambiare
+  // criterio senza rifare la ricerca. Default iniziale = margine asc (peggiori in cima).
   return out;
 }
 
@@ -30301,7 +30302,8 @@ function openSplVerifyDialog(){
   if(!l) return;
 
   // Stato iniziale (preserva l'ultima ricerca se si riapre nella stessa sessione).
-  if(!window._SPL_VERIFY) window._SPL_VERIFY = { mode: 'lt', x: '10', y: '20', results: null, ran: false };
+  // V2.10.267: aggiunti sortBy/sortDir per ordinare la lista risultati.
+  if(!window._SPL_VERIFY) window._SPL_VERIFY = { mode: 'lt', x: '10', y: '20', results: null, ran: false, sortBy: 'marginePct', sortDir: 'asc' };
 
   const ex = document.getElementById('splVerifyModal');
   if(ex) ex.remove();
@@ -30424,11 +30426,88 @@ function _splVerifyResultsHtml(){
     '€ ' + x.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   const _fmtPct = (x) => (x == null) ? '—' : x.toFixed(1).replace('.', ',') + '%';
 
-  let html = '<div style="padding:10px 16px;font-size:12px;color:var(--fg2);border-bottom:1px solid var(--border);background:var(--bg3)">' +
+  // V2.10.267: applica l'ordinamento dinamico in base a sortBy/sortDir.
+  // I sort sono stabili (Array.prototype.sort è stabile dal 2019).
+  // - Per i campi stringa (code, brand, cp, cat) ordino con localeCompare (italiano, numerico, case-insensitive).
+  // - Per i campi numerici, i null/undefined vanno sempre in fondo (sia asc sia desc).
+  const sortBy = v.sortBy || 'marginePct';
+  const sortDir = (v.sortDir === 'desc') ? 'desc' : 'asc';
+  const STRING_FIELDS = { code:1, brand:1, cp:1, cat:1 };
+  const collator = new Intl.Collator('it', { sensitivity:'base', numeric:true });
+  const sorted = res.slice().sort((a, b) => {
+    const va = a[sortBy], vb = b[sortBy];
+    let cmp;
+    if(STRING_FIELDS[sortBy]){
+      cmp = collator.compare(String(va || ''), String(vb || ''));
+    } else {
+      const na = (va == null || !isFinite(va)) ? null : Number(va);
+      const nb = (vb == null || !isFinite(vb)) ? null : Number(vb);
+      if(na == null && nb == null) cmp = 0;
+      else if(na == null) cmp = 1;   // null sempre in fondo
+      else if(nb == null) cmp = -1;
+      else cmp = na - nb;
+    }
+    return sortDir === 'desc' ? -cmp : cmp;
+  });
+
+  // Etichetta human-readable del campo attualmente selezionato (per il messaggio di intestazione).
+  const SORT_LABELS = {
+    code:'Codice articolo', brand:'Marca', cp:'Macrocategoria', cat:'Categoria',
+    listino:'Listino', scAcq:'Sconto acquisto', scVend:'Sconto vendita',
+    prezzoVend:'Prezzo vendita', marginePct:'Margine',
+  };
+  const dirLabel = sortDir === 'asc'
+    ? (STRING_FIELDS[sortBy] ? 'A→Z' : 'crescente')
+    : (STRING_FIELDS[sortBy] ? 'Z→A' : 'decrescente');
+
+  // ─── Toolbar di sort: una pillola per ogni colonna ordinabile ────────
+  // Click su una pillola: se è già la colonna attiva, alterna asc/desc;
+  // altrimenti la attiva nella direzione di default (crescente per stringhe e per
+  // margine/sc.vend, decrescente per listino/prezzo dove "più alto" è di solito più utile).
+  const sortBtn = (field, label, defaultDir) => {
+    const active = sortBy === field;
+    const dirIcon = active ? (sortDir === 'asc' ? '↑' : '↓') : '↕';
+    const isStr = !!STRING_FIELDS[field];
+    const baseStyle =
+      'display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:14px;' +
+      'font-size:11.5px;font-weight:600;cursor:pointer;user-select:none;white-space:nowrap;' +
+      'transition:all .12s;border:1px solid var(--border)';
+    const style = active
+      ? baseStyle + ';background:#0ea5e9;color:#fff;border-color:#0ea5e9'
+      : baseStyle + ';background:var(--bg2);color:var(--fg2)';
+    const tip = active
+      ? 'Ordina ' + (sortDir === 'asc' ? (isStr ? 'Z→A' : 'decrescente') : (isStr ? 'A→Z' : 'crescente')) + ' (clicca per invertire)'
+      : 'Ordina per ' + label + ' (' + (defaultDir === 'desc' ? (isStr ? 'Z→A' : 'decrescente') : (isStr ? 'A→Z' : 'crescente')) + ')';
+    return '<span class="spl-verify-sort-btn" style="' + style + '" ' +
+      'onclick="_splVerifySetSort(\'' + field + '\', \'' + defaultDir + '\')" ' +
+      'title="' + escapeAttr(tip) + '">' +
+        '<span>' + escapeHtml(label) + '</span>' +
+        '<span style="font-size:11px;opacity:' + (active ? '1' : '.6') + ';font-weight:700">' + dirIcon + '</span>' +
+      '</span>';
+  };
+
+  const toolbar =
+    '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 16px;' +
+      'border-bottom:1px solid var(--border);background:var(--bg3)">' +
+      '<span style="font-size:10.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-right:6px">Ordina per</span>' +
+      sortBtn('code',       'Codice',     'asc')  +
+      sortBtn('brand',      'Marca',      'asc')  +
+      sortBtn('cp',         'Macrocat.',  'asc')  +
+      sortBtn('cat',        'Categoria',  'asc')  +
+      sortBtn('listino',    'Listino',    'desc') +
+      sortBtn('scAcq',      'Sc. acq.',   'desc') +
+      sortBtn('scVend',     'Sc. vend.',  'asc')  +
+      sortBtn('prezzoVend', 'Prezzo',     'desc') +
+      sortBtn('marginePct', 'Margine',    'asc')  +
+    '</div>';
+
+  let html = toolbar;
+  html += '<div style="padding:10px 16px;font-size:12px;color:var(--fg2);border-bottom:1px solid var(--border);background:var(--bg3)">' +
     '<strong>' + res.length + '</strong> prodott' + (res.length === 1 ? 'o' : 'i') +
-    ' — ordinati dal margine più basso. Modifica lo sconto di vendita per correggere.</div>';
+    ' — ordinati per <strong>' + escapeHtml(SORT_LABELS[sortBy] || sortBy) + '</strong> ' + dirLabel +
+    '. Modifica lo sconto di vendita per correggere.</div>';
   html += '<table style="width:100%;border-collapse:collapse;font-size:12.5px">';
-  res.forEach((r, i) => {
+  sorted.forEach((r, i) => {
     const bg = (i % 2 === 1) ? 'background:rgba(127,127,127,0.04);' : '';
     const margColor = _splMarginColor(r.marginePct);
     const scAcqColor = _splScontoAcqColor(r.hasExtraAcq);
@@ -30466,6 +30545,23 @@ function _splVerifyResultsHtml(){
   });
   html += '</table>';
   return html;
+}
+
+/* V2.10.267 — Click su una pillola di sort. Se è già la colonna attiva,
+   alterna la direzione asc↔desc. Altrimenti attiva la colonna nella sua
+   direzione di default (passata dal chiamante: 'asc' per stringhe/sconto
+   vendita/margine, 'desc' per importi e sconti acquisto). Solo refresh
+   del display, niente ri-esecuzione della ricerca. */
+function _splVerifySetSort(field, defaultDir){
+  const v = window._SPL_VERIFY;
+  if(!v) return;
+  if(v.sortBy === field){
+    v.sortDir = (v.sortDir === 'asc') ? 'desc' : 'asc';
+  } else {
+    v.sortBy = field;
+    v.sortDir = (defaultDir === 'desc') ? 'desc' : 'asc';
+  }
+  _splVerifyRefresh();
 }
 
 /* Modifica dello sconto vendita di un articolo dalla lista risultati.
