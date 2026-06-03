@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.267</title>
+<title>Gestione Prodotti V2.10.275</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -4311,7 +4311,11 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
    ========== */
 .hover-preview-panel{
   position:fixed;
-  z-index:500;
+  /* V2.10.275: z-index 1000 (era 500) per assicurare visibilità sopra modali
+     annidate. La modale "Prodotti Correlati" usa z=600, l'editor usa z=550;
+     l'hover-preview deve poter apparire SOPRA entrambe. Resta sotto a confirm
+     dialog globali (z=9000) e spl-ov-top (z=9100). */
+  z-index:1000;
   /* La larghezza è impostata inline in JS in base al numero di colonne attive
      (1 col = 420px ... 4 col = 1680px). Il max-width qui sotto fa da safety net. */
   max-width:calc(100vw - 24px);
@@ -4884,6 +4888,24 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
 .card-meta{display:flex;justify-content:space-between;align-items:center}
 .card-category{font-size:13px;color:var(--fg3);line-height:1.2}
 .card-brand{font-size:13px;color:#0078D4;text-transform:uppercase;letter-spacing:1px;font-weight:700;line-height:1.2}
+
+/* V2.10.268 — elementi cliccabili sulle card che attivano il filtro corrispondente.
+   Usano la classe .card-filter-link. Hover: sottolineatura + colore leggermente più
+   acceso. Non cambio la dimensione del testo per evitare reflow. */
+.card-filter-link{
+  cursor: pointer;
+  transition: color .12s, text-decoration-color .12s;
+  text-decoration: underline transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.card-filter-link:hover{
+  text-decoration-color: currentColor;
+}
+.card-brand.card-filter-link:hover{ color:#005a9e; }
+body:not(.theme-light) .card-brand.card-filter-link:hover{ color:#7ec3eb; }
+.card-macrocat.card-filter-link:hover,
+.card-category.card-filter-link:hover{ color: var(--fg); }
 /* Cella "Marca" nella tabella: stesso blu Windows del marchio nelle card (coerenza) */
 .tbl td[data-brand]{color:#0078D4}
 /* Tema scuro: blu Windows leggermente più luminoso (hover-state Fluent) per contrasto migliore su fondo scuro */
@@ -8425,7 +8447,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.267</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.275</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8697,15 +8719,14 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <div class="topbar-divider" aria-hidden="true"></div>
 
     <div class="view-toggle topbar-views">
-      <button id="vwGal" class="active" onclick="setView('gallery')" title="Vista galleria" aria-label="Vista galleria">
-        <svg viewBox="0 0 24 24">
-          <rect x="3" y="3" width="7" height="7" rx="1"/>
-          <rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/>
-          <rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
-      </button>
-      <button id="vwTbl" onclick="setView('table')" title="Vista tabella" aria-label="Vista tabella">
+      <!--
+        V2.10.272 — Pulsante unico toggle vista. L'icona mostrata è quella della
+        vista di DESTINAZIONE (dove l'utente andrà al click), non quella attiva.
+        Es: se sei in galleria, vedi l'icona "tabella" perché il click ti porta lì.
+        setView() aggiorna l'innerHTML del pulsante a ogni cambio vista.
+        Default DOM = vista galleria attiva → icona iniziale "tabella" (3 righe).
+      -->
+      <button id="vwToggle" class="active" onclick="setView(VIEW==='gallery'?'table':'gallery')" title="Passa a vista tabella" aria-label="Cambia tipo di vista">
         <svg viewBox="0 0 24 24">
           <line x1="4" y1="6" x2="20" y2="6"/>
           <line x1="4" y1="12" x2="20" y2="12"/>
@@ -8949,7 +8970,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.267');
+console.info('[bootstrap] script avvio — V2.10.275');
 
 window.openStatsDashboard = function(){
   try {
@@ -10307,7 +10328,10 @@ const PRODUCT_CODE_RE = /\b[A-Z][A-Z0-9]*(?:[-/.][A-Z0-9]+){1,}[A-Z0-9]?\b/g;
 // V2.2.21: prima di tradurre, protegge codici prodotto (UPPERCASE con trattini)
 // e nomi propri noti (Western Digital, ecc.) sostituendoli con placeholder.
 // Dopo la traduzione, rimette gli originali. Preserva il formato esatto.
-function translateTextPlain(s){
+// V2.10.273: aggiunto parametro tracker opzionale per il report visivo della
+// ritraduzione. Quando passato, ogni sostituzione effettiva incrementa il conteggio
+// in tracker.phrases[es→it] / tracker.words[es→it]. Niente effetto se tracker=null.
+function translateTextPlain(s, tracker){
   if(!s || typeof s !== 'string') return s;
 
   // STEP 1: Proteggi codici prodotto + nomi propri con placeholder univoci.
@@ -10348,13 +10372,30 @@ function translateTextPlain(s){
   if(_phrasesRegex){
     out = out.replace(_phrasesRegex, m => {
       const tr = _phrasesMap[m.toLowerCase()];
-      return tr ? matchCase(m, tr) : m;
+      if(tr){
+        // V2.10.273: traccia la sostituzione per il report (lower-case sull'origine)
+        if(tracker){
+          const key = m.toLowerCase();
+          tracker.phrases[key] = (tracker.phrases[key] || 0) + 1;
+          tracker.phrasesTranslated[key] = tr;
+        }
+        return matchCase(m, tr);
+      }
+      return m;
     });
   }
   if(_wordsRegex){
     out = out.replace(_wordsRegex, m => {
       const tr = _wordsMap[m.toLowerCase()];
-      return tr ? matchCase(m, tr) : m;
+      if(tr){
+        if(tracker){
+          const key = m.toLowerCase();
+          tracker.words[key] = (tracker.words[key] || 0) + 1;
+          tracker.wordsTranslated[key] = tr;
+        }
+        return matchCase(m, tr);
+      }
+      return m;
     });
   }
 
@@ -10365,21 +10406,22 @@ function translateTextPlain(s){
 }
 
 // Traduce una stringa che PUÒ contenere HTML: isola i tag, traduce solo il testo tra tag.
-function translateText(s){
+// V2.10.273: tracker opzionale come secondo argomento (propagato a translateTextPlain).
+function translateText(s, tracker){
   if(!s || typeof s !== 'string') return s;
   // Se non contiene < è testo semplice
-  if(s.indexOf('<') === -1) return translateTextPlain(s);
+  if(s.indexOf('<') === -1) return translateTextPlain(s, tracker);
   // Separiamo i tag dal testo con regex e traduciamo solo le parti testuali
   const parts = s.split(/(<[^>]+>)/);
   return parts.map(p=>{
     if(p.startsWith('<') && p.endsWith('>')) return p; // tag invariato
-    return translateTextPlain(p);
+    return translateTextPlain(p, tracker);
   }).join('');
 }
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.267';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.275';  // versione dell'app, visualizzata nell'header
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -24268,6 +24310,56 @@ function resetAllFilters(){
   toast(`Reset di ${active.length} filtr${active.length===1?'o':'i'}: ${active.join(', ')}`, 'ok', 2500);
 }
 
+/* V2.10.268 — Escape per stringa JS dentro un attributo HTML (es. onclick="fn('VALORE')").
+   JSON.stringify produce una stringa JS valida; poi sostituisco le doppie virgolette
+   con &quot; per renderla safe nell'attributo HTML (che è delimitato da "). */
+function _attrJsArg(s){
+  return JSON.stringify(String(s == null ? '' : s)).replace(/"/g, '&quot;');
+}
+
+/* V2.10.268 — Filtro rapido da click sulla card (Marca / Macrocategoria / Categoria).
+   Imposta un solo valore nel Set del filtro indicato (non additivo: rimpiazza
+   l'eventuale selezione esistente di QUEL filtro), preservando gli altri filtri
+   già attivi. Questo permette di restringere progressivamente:
+     - Click su brand "AJAX" → filtra solo AJAX
+     - Click poi su categoria "Accessori" → filtra AJAX + Accessori
+   Se l'utente clicca su un valore che era GIÀ l'unico selezionato per quel filtro,
+   il filtro viene azzerato (toggle off): comodo per "deselezionare" col click stesso.
+
+   key può essere: 'brand' | 'catParent' | 'cat'. */
+function filterToSingleField(key, value){
+  if(typeof MS_FILTERS === 'undefined' || !MS_FILTERS[key]) return;
+  const v = String(value || '').trim();
+  if(!v) return;
+  const f = MS_FILTERS[key];
+  // Toggle-off: se il filtro contiene già SOLO questo valore, lo rimuovo.
+  const isSingleSame = (f.selected.size === 1 && f.selected.has(v));
+  f.selected.clear();
+  if(!isSingleSame){
+    f.selected.add(v);
+  }
+  // Aggiorno la UI dei filtri
+  if(typeof refreshFilterOptions === 'function')   refreshFilterOptions();
+  if(typeof renderInlineTags === 'function')       renderInlineTags(key);
+  if(typeof renderSidebarFilterPills === 'function') renderSidebarFilterPills();
+  if(typeof msClose === 'function')                msClose();
+  // Apro la sidebar dei filtri se è chiusa, così l'utente vede il filtro attivo
+  // (best-effort: solo se la sidebar e la funzione esistono).
+  try {
+    const grp = document.querySelector('.sb-group-head[data-group="filters"]');
+    if(grp && grp.getAttribute('aria-expanded') === 'false' && typeof toggleSbGroup === 'function'){
+      toggleSbGroup('filters');
+    }
+  } catch(_){}
+  // Ri-applica e dà feedback
+  if(typeof applyFilters === 'function') applyFilters();
+  if(typeof toast === 'function'){
+    const label = (f.label || key);
+    if(isSingleSame) toast('Filtro ' + label + ' rimosso', 'info', 1800);
+    else             toast('Filtro: ' + label + ' = ' + v, 'ok', 1800);
+  }
+}
+
 // Toggle visibilità della barra dei filtri
 // Usato dal pulsante "👁️‍🗨️ Nascondi Filtri" / "👁️‍🗨️ Visualizza Filtri"
 function toggleFiltersVisibility(){
@@ -24716,16 +24808,26 @@ function renderGallery(main, list){
       </div>
       <div class="card-body">
         <div class="card-brand-row">
-          <div class="card-brand">${highlightPlain(brand)}</div>
+          ${brand ? `<div class="card-brand card-filter-link" onclick="event.stopPropagation();filterToSingleField('brand', ${_attrJsArg(brand)})" title="Filtra catalogo per marca: ${escapeAttr(String(brand))}">${highlightPlain(brand)}</div>` : `<div class="card-brand">${highlightPlain(brand)}</div>`}
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             ${descIcon}
             ${renderStockPair(itLvl, esLvl, true, 'sp-inline')}
           </div>
         </div>
         <div class="card-name">${highlightPlain(name)}</div>
-        <div class="card-macrocat">${highlightPlain(getField(p,'category_parent')||'')}</div>
+        ${(() => {
+          // V2.10.268: macrocategoria cliccabile (filtra per "Macrocategoria")
+          const _cp = getField(p,'category_parent') || '';
+          if(!_cp) return `<div class="card-macrocat"></div>`;
+          return `<div class="card-macrocat card-filter-link" onclick="event.stopPropagation();filterToSingleField('catParent', ${_attrJsArg(_cp)})" title="Filtra catalogo per macrocategoria: ${escapeAttr(String(_cp))}">${highlightPlain(_cp)}</div>`;
+        })()}
         <div class="card-meta">
-          <span class="card-category">${highlightPlain(getField(p,'category')||'')}</span>
+          ${(() => {
+            // V2.10.268: categoria cliccabile (filtra per "Categoria")
+            const _cat = getField(p,'category') || '';
+            if(!_cat) return `<span class="card-category"></span>`;
+            return `<span class="card-category card-filter-link" onclick="event.stopPropagation();filterToSingleField('cat', ${_attrJsArg(_cat)})" title="Filtra catalogo per categoria: ${escapeAttr(String(_cat))}">${highlightPlain(_cat)}</span>`;
+          })()}
           ${priceBlock}
         </div>
       </div>`;
@@ -24937,13 +25039,29 @@ function renderTable(main, list){
     </span>`;
     const rowActionsCell = `<span class="row-actions">${rowEyeIcon}${rowDescIcon}</span>${renderStockPair(stockIT(p), stockES(p), true, 'sp-inline')}`;
 
+    // V2.10.269: rendo le celle Marca/Macrocategoria/Categoria cliccabili per
+    // attivare il filtro corrispondente (stesso comportamento delle card).
+    // L'attributo data-filter-link impedisce al dblclick della riga di aprire l'editor.
+    const _brandRow = getField(p,'brand') || '';
+    const _cpRow    = getField(p,'category_parent') || '';
+    const _catRow   = getField(p,'category') || '';
+    const _brandCell = _brandRow
+      ? `<td data-brand data-filter-link class="card-filter-link" style="font-weight:700" onclick="event.stopPropagation();filterToSingleField('brand', ${_attrJsArg(_brandRow)})" title="Filtra catalogo per marca: ${escapeAttr(String(_brandRow))}">${highlightPlain(_brandRow)}</td>`
+      : `<td data-brand style="font-weight:700"></td>`;
+    const _cpCell = _cpRow
+      ? `<td data-filter-link class="card-filter-link" style="color:var(--fg2);font-size:12px" onclick="event.stopPropagation();filterToSingleField('catParent', ${_attrJsArg(_cpRow)})" title="Filtra catalogo per macrocategoria: ${escapeAttr(String(_cpRow))}">${highlightPlain(_cpRow)}</td>`
+      : `<td style="color:var(--fg2);font-size:12px"></td>`;
+    const _catCell = _catRow
+      ? `<td data-filter-link class="card-filter-link" onclick="event.stopPropagation();filterToSingleField('cat', ${_attrJsArg(_catRow)})" title="Filtra catalogo per categoria: ${escapeAttr(String(_catRow))}">${highlightPlain(_catRow)}</td>`
+      : `<td></td>`;
+
     tr.innerHTML = `
       <td>${img? `<img class="tbl-img" loading="lazy" src="${img}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder-mini',textContent:'—'}))">` : '<div class="placeholder-mini">—</div>'}</td>
       <td><span style="display:inline-flex;align-items:center;white-space:nowrap">${rowActionsCell}</span></td>
       <td style="min-width:280px">${highlightPlain(typeof resolveDisplayCode === 'function' ? resolveDisplayCode(getField(p,'name')) : getField(p,'name'))}${inlineBadge}</td>
-      <td data-brand style="font-weight:700">${highlightPlain(getField(p,'brand'))}</td>
-      <td style="color:var(--fg2);font-size:12px">${highlightPlain(getField(p,'category_parent')||'')}</td>
-      <td>${highlightPlain(getField(p,'category')||'')}</td>
+      ${_brandCell}
+      ${_cpCell}
+      ${_catCell}
       <td style="font-family:monospace;font-size:11px;color:var(--fg3)">${highlightPlain(getField(p,'ean')||'')}</td>
       ${priceCells}`;
     // V2.2.42: nuova UX di apertura.
@@ -24979,8 +25097,11 @@ function renderTable(main, list){
     tr.addEventListener('dblclick', (e) => {
       // Ignora se il target è un elemento interattivo specifico
       // (l'immagine ha già il suo handler con stopPropagation)
+      // V2.10.269: anche le celle con [data-filter-link] (Marca/Macrocat/Cat cliccabili
+      // per filtrare) non aprono l'editor sul dblclick: il loro click singolo applica
+      // già il filtro, il dblclick sarebbe ambiguo.
       const t = e.target;
-      if(t && t.closest && t.closest('a,button,input,select,textarea,.row-eye')) return;
+      if(t && t.closest && t.closest('a,button,input,select,textarea,.row-eye,[data-filter-link]')) return;
       // Evita selezione del testo dovuta al doppio click
       if(window.getSelection){ const sel = window.getSelection(); if(sel) sel.removeAllRanges(); }
       e.preventDefault();
@@ -26668,37 +26789,238 @@ function renderRelatedList(){
           <div class="card-brand">—</div>
           <div class="card-name" style="font-family:monospace;font-size:12px">${escapeHtml(code)}</div>
         </div>
-        ${isLinked ? `<button class="btn small warn" style="position:absolute;top:6px;right:6px;padding:3px 8px;font-size:10px" onclick="event.stopPropagation();removeRelated('${escapeJs(code)}')">✕</button>`:''}
+        ${isLinked ? `<button class="btn small warn" style="position:absolute;top:6px;left:6px;padding:3px 8px;font-size:10px" onclick="event.stopPropagation();removeRelated('${escapeJs(code)}')">✕</button>`:''}
       `;
     } else {
       const img = imgUrl(getField(product,'image_path'));
       const pvp = getField(product,'PVP') || getField(product,'precio_venta_cliente_final');
       const rItLvl = stockIT(product);
       const rEsLvl = stockES(product);
+      // V2.10.270 — Blocco prezzi coerente con la card del catalogo principale:
+      // rispetta SETTINGS.showDiscount (toggle sconti) e la modalità prezzo
+      // (acquisto/vendita) corrente. Stessa logica di renderCard.
+      const _relShowDisc = (typeof SETTINGS !== 'undefined' && SETTINGS.showDiscount);
+      const _relNetto = getField(product, 'precio_neto_compra');
+      const _relEff = (typeof getEffectiveProductPrices === 'function') ? getEffectiveProductPrices(product) : null;
+      const _relShowEff = _relEff && _relEff.hasAdj;
+      const _relEffNetto = _relShowEff ? _relEff.nettoEff : priceNum(_relNetto);
+      const _relDiscOrig = (typeof computeDiscount === 'function') ? computeDiscount(pvp, _relNetto) : null;
+      const _relEffDisc  = _relShowEff ? _relEff.scEff : _relDiscOrig;
+      const _relIsSaleMode = (typeof getPriceMode === 'function') && getPriceMode() === 'vendita';
+      let _relSaleInfo = null;
+      if(_relIsSaleMode){
+        const _relActiveId = (typeof getActiveSplId === 'function') ? getActiveSplId() : null;
+        if(_relActiveId && typeof splGetEffectiveSaleDiscount === 'function'){
+          _relSaleInfo = splGetEffectiveSaleDiscount(product, _relActiveId);
+        }
+      }
+      let _relPriceBlock = '';
+      if(priceNum(pvp)){
+        if(_relShowDisc && _relIsSaleMode && _relSaleInfo){
+          // ── Modalità VENDITA ──
+          const _scV = _relSaleInfo.scontoEff;
+          const _prezzoV = priceNum(pvp) * (1 - _scV / 100);
+          let _vTip = _relSaleInfo.hasAdj
+            ? ('Sconto di vendita specifico (' + (_relSaleInfo.adjPath || '') + ')\nBase: ' + fmtDiscount(_relSaleInfo.scontoBase) + '\nApplicato: ' + fmtDiscount(_relSaleInfo.scontoEff))
+            : ('Sconto di vendita base del listino: ' + fmtDiscount(_relSaleInfo.scontoBase));
+          _relPriceBlock = `
+            <div class="card-prices card-prices-sale${_relSaleInfo.hasAdj ? ' has-cascade-adj' : ''}" title="${escapeAttr(_vTip)}">
+              <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_prezzoV)}</span>
+              <span class="card-discount${_relSaleInfo.hasAdj ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_scV)}${_relSaleInfo.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span>' : ''}</span>
+              <span class="card-price card-listino-neutral"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
+            </div>`;
+        } else if(_relShowDisc){
+          // ── Modalità ACQUISTO ──
+          let _adjTip = '';
+          if(_relShowEff && _relEff){
+            const slots = _relEff.adjArr.filter(x => x > 0).map(x => fmtDiscount(x)).join(' · ');
+            _adjTip = 'Sconti aggiuntivi (' + _relEff.adjPath + '): ' + slots +
+                      '\nSc. originale: ' + fmtDiscount(_relEff.scOrig) +
+                      '\nSc. effettivo: ' + fmtDiscount(_relEff.scEff);
+          }
+          _relPriceBlock = `
+            <div class="card-prices${_relShowEff ? ' has-cascade-adj' : ''}"${_adjTip ? ` title="${escapeAttr(_adjTip)}"` : ''}>
+              ${priceNum(_relEffNetto) ? `<span class="card-price card-netto-green"><span class="card-price-label">Netto</span> € ${fmtPrice(_relEffNetto)}</span>` : ''}
+              ${_relEffDisc !== null ? `<span class="card-discount${_relShowEff ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_relEffDisc)}${_relShowEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span>' : ''}</span>` : ''}
+              <span class="card-price card-listino-neutral"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
+            </div>`;
+        } else {
+          // ── Sconti OFF: solo listino ──
+          _relPriceBlock = `
+            <div class="card-prices">
+              <span class="card-price"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
+            </div>`;
+        }
+      }
+      // V2.10.270 — Link cliccabili su brand/macrocat/cat (coerenza con card catalogo).
+      // L'attributo data-filter-link impedisce il click sulla card stessa (che apre il prodotto).
+      const _relBrand = getField(product, 'brand') || '';
+      const _relCp    = getField(product, 'category_parent') || '';
+      const _relCat   = getField(product, 'category') || '';
+      const _relBrandHtml = _relBrand
+        ? `<div class="card-brand card-filter-link" data-filter-link onclick="event.stopPropagation();filterToSingleField('brand', ${_attrJsArg(_relBrand)})" title="Filtra catalogo per marca: ${escapeAttr(String(_relBrand))}">${escapeHtml(_relBrand)}</div>`
+        : `<div class="card-brand">—</div>`;
+      const _relCpHtml = _relCp
+        ? `<div class="card-macrocat card-filter-link" data-filter-link onclick="event.stopPropagation();filterToSingleField('catParent', ${_attrJsArg(_relCp)})" title="Filtra catalogo per macrocategoria: ${escapeAttr(String(_relCp))}">${escapeHtml(_relCp)}</div>`
+        : `<div class="card-macrocat"></div>`;
+      const _relCatHtml = _relCat
+        ? `<span class="card-category card-filter-link" data-filter-link onclick="event.stopPropagation();filterToSingleField('cat', ${_attrJsArg(_relCat)})" title="Filtra catalogo per categoria: ${escapeAttr(String(_relCat))}">${escapeHtml(_relCat)}</span>`
+        : `<span class="card-category"></span>`;
+      // V2.10.274 — Replica completa della card galleria: badge stato NUOVO/SCATALOGATO/
+      // PERSONALE/SERVIZIO, badge extra-images/related-count, icona descrizione breve,
+      // icona occhio (hover-preview), pulsante P (preventivo). Tutti gli handler interattivi
+      // chiamano event.stopPropagation() per non triggerare card.onclick (apre prodotto).
+      const _relIsNew = !!product._isNew;
+      const _relIsObsolete = !!product._obsoleteSince;
+      let _relStateBadge = '';
+      if(_relIsObsolete){
+        _relStateBadge = '<span class="card-state-badge state-obsolete" title="Articolo non più presente nell\'ultimo file importato">⚠️ SCATALOGATO</span>';
+      } else if(_relIsNew){
+        _relStateBadge = '<span class="card-state-badge state-new" title="Articolo aggiunto con l\'ultimo import">🆕 NUOVO</span>';
+      }
+      if(product.isService === true){
+        _relStateBadge += '<span class="card-state-badge state-service" title="Servizio del catalogo">🔧 SERVIZIO</span>';
+      } else if(product.isPersonal === true){
+        _relStateBadge += '<span class="card-state-badge state-personal" title="Prodotto personale creato manualmente">⭐ PERSONALE</span>';
+      }
+      const _relExtras = product.extra_images || (typeof parseExtraImages === 'function' ? parseExtraImages(product.extra_images_paths) : null);
+      const _relNExtras = (_relExtras && _relExtras.full) ? _relExtras.full.length : 0;
+      const _relNRelated = (typeof parseRelatedList === 'function')
+        ? parseRelatedList(getField(product, 'related_products')).length
+        : 0;
+      const _relShortDesc = getField(product, 'short_description') || getField(product, 'short_description_html') || '';
+      const _relHasDesc = _relShortDesc && String(_relShortDesc).trim().length > 0;
+      const _relDescIcon = `<span class="card-desc-icon${_relHasDesc ? '' : ' no-desc'}" data-idx="${product._idx}" ${_relHasDesc ? `onmouseenter="_cardDescTooltipShow(this)" onmouseleave="_cardDescTooltipHide()"` : ''} title="${_relHasDesc ? 'Descrizione breve' : 'Nessuna descrizione disponibile'}" aria-label="Mostra descrizione breve">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="8" y1="13" x2="16" y2="13"/>
+          <line x1="8" y1="17" x2="14" y2="17"/>
+        </svg>
+      </span>`;
       card.innerHTML = `
         <div class="card-img">
+          ${_relStateBadge}
           ${img? `<img loading="lazy" src="${escapeAttr(img)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder',textContent:'NO IMG'}))">` : '<div class="placeholder">NO IMG</div>'}
+          <span class="eye-trigger" role="button" tabindex="-1" aria-label="Mostra dettagli prodotto" title="Mostra dettagli prodotto">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </span>
+          <button class="quote-trigger" type="button" data-product-idx="${product._idx}" aria-label="Aggiungi al preventivo" title="Aggiungi al preventivo">P</button>
+          ${_relNExtras>0?`<span class="extra-count">📷 ${_relNExtras}</span>`:''}
+          ${_relNRelated>0?`<span class="related-count">🔗 ${_relNRelated}</span>`:''}
         </div>
         <div class="card-body">
           <div class="card-brand-row">
-            <div class="card-brand">${escapeHtml(getField(product,'brand'))}</div>
-            ${product.isPersonal === true ? '' : renderStockPair(rItLvl, rEsLvl, true, 'sp-inline')}
+            ${_relBrandHtml}
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+              ${_relDescIcon}
+              ${product.isPersonal === true ? '' : renderStockPair(rItLvl, rEsLvl, true, 'sp-inline')}
+            </div>
           </div>
           <div class="card-name">${escapeHtml(getField(product,'name'))}</div>
-          <div class="card-macrocat">${escapeHtml(getField(product,'category_parent')||'')}</div>
+          ${_relCpHtml}
           <div class="card-meta">
-            <span class="card-category">${escapeHtml(getField(product,'category')||'')}</span>
-            ${pvp?`<span class="card-price">€ ${fmtPrice(pvp)}</span>`:''}
+            ${_relCatHtml}
           </div>
+          ${_relPriceBlock}
         </div>
-        <button class="btn small ${isLinked?'warn':'success'}" style="position:absolute;top:6px;right:6px;padding:4px 8px;font-size:10px;z-index:2" onclick="event.stopPropagation();${isLinked?`removeRelated('${escapeJs(code)}')`:`addRelated('${escapeJs(code)}')`}">${isLinked?'✕ Rimuovi':'+ Aggiungi'}</button>
+        <button class="btn small ${isLinked?'warn':'success'}" data-related-action="${isLinked?'remove':'add'}" data-related-code="${escapeAttr(code)}" style="position:absolute;top:6px;left:6px;padding:4px 8px;font-size:10px;z-index:3" onclick="event.stopPropagation();${isLinked?`removeRelated('${escapeJs(code)}')`:`addRelated('${escapeJs(code)}')`}">${isLinked?'✕ Rimuovi':'+ Aggiungi'}</button>
       `;
-      card.onclick = ()=>{
+
+      // V2.10.274 — Handler card.onclick: apre il prodotto correlato, ma ignora
+      // i click sugli elementi interattivi sovrapposti (filter-link, eye, quote,
+      // descIcon, pulsante rimuovi). Aggiungi anche [data-related-action] per il
+      // pulsante in alto a destra.
+      card.onclick = (e)=>{
+        if(e && e.target && e.target.closest && e.target.closest(
+          '[data-filter-link],.eye-trigger,.quote-trigger,.card-desc-icon,[data-related-action]'
+        )) return;
         // Apre il prodotto correlato chiudendo la modale related
         document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
         CURRENT_EDIT = null;
         setTimeout(()=>openEditor(product._idx), 50);
       };
+
+      // V2.10.274 — Eye-trigger (hover-preview con dettagli tecnici)
+      const _relEyeEl = card.querySelector('.eye-trigger');
+      if(_relEyeEl){
+        _relEyeEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          const hp = window._hoverPreview;
+          if(hp && hp.panel && hp.currentIdx !== product._idx) return;
+          if(hp && hp.panel && hp.currentIdx === product._idx) return;
+          if(hp && hp.timer){ clearTimeout(hp.timer); hp.timer = null; }
+          if(hp && hp.closeTimer){ clearTimeout(hp.closeTimer); hp.closeTimer = null; }
+          if(typeof showHoverPreview === 'function'){
+            showHoverPreview(_relEyeEl, product._idx, e.clientX, e.clientY);
+          }
+        });
+      }
+
+      // V2.10.274 — Quote-trigger (apri dialog quantità per preventivo)
+      const _relQuoteEl = card.querySelector('.quote-trigger');
+      if(_relQuoteEl){
+        try {
+          const _relCode = String(getField(product, 'name') || '').trim();
+          if(_relCode && window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)){
+            if(window._QUOTE_STATE.items.some(it => it.code === _relCode)){
+              _relQuoteEl.classList.add('in-cart');
+            }
+          }
+        } catch(_){}
+        _relQuoteEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          if(typeof openQuoteAddDialog === 'function'){
+            openQuoteAddDialog(product._idx);
+          }
+        });
+      }
+
+      // V2.10.274 — Click sulla foto: lightbox; dblclick foto: apri editor (come galleria).
+      // ATTENZIONE: nella galleria il dblclick sulla foto apre l'editor del prodotto;
+      // qui invece deve aprire il prodotto correlato come fa card.onclick, ma per
+      // coerenza UX manteniamo lo stesso pattern: dblclick foto → apri editor del prodotto.
+      const _relCardImgEl = card.querySelector('.card-img');
+      if(_relCardImgEl){
+        let _relImgClickTimer = null;
+        _relCardImgEl.addEventListener('click', (e) => {
+          if(e.target && e.target.closest && (
+              e.target.closest('.eye-trigger') ||
+              e.target.closest('.card-desc-icon') ||
+              e.target.closest('.quote-trigger') ||
+              e.target.closest('[data-related-action]')
+          )) return;
+          const imgEl = _relCardImgEl.querySelector('img');
+          if(!imgEl) return;
+          if(_relImgClickTimer){ clearTimeout(_relImgClickTimer); _relImgClickTimer = null; }
+          // Stop propagation così card.onclick non triggerera l'apertura del prodotto
+          // (l'utente sta zoomando la foto, non aprendo il prodotto).
+          e.stopPropagation();
+          _relImgClickTimer = setTimeout(() => {
+            _relImgClickTimer = null;
+            if(typeof openProductImageLightbox === 'function'){
+              openProductImageLightbox(imgEl.src, _relExtras);
+            }
+          }, 250);
+        });
+        _relCardImgEl.addEventListener('dblclick', (e) => {
+          if(e.target && e.target.closest && (
+              e.target.closest('.eye-trigger') ||
+              e.target.closest('.card-desc-icon')
+          )) return;
+          if(_relImgClickTimer){ clearTimeout(_relImgClickTimer); _relImgClickTimer = null; }
+          e.preventDefault();
+          e.stopPropagation();
+          // Doppio click sulla foto = apri editor del prodotto correlato.
+          document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
+          CURRENT_EDIT = null;
+          setTimeout(()=>openEditor(product._idx), 50);
+        });
+        _relCardImgEl.style.cursor = 'zoom-in';
+        _relCardImgEl.title = 'Click: ingrandisci immagine — Doppio click: apri scheda di modifica';
+      }
     }
     grid.appendChild(card);
   });
@@ -28052,6 +28374,7 @@ async function retranslate(){
     body: [
       'L\'operazione è <strong>idempotente</strong>: le frasi già italiane non vengono toccate.',
       'Le tue modifiche manuali sui prodotti sono <strong>preservate</strong>.',
+      'Al termine verrà mostrato un report degli interventi applicati.',
     ],
     confirmLabel: 'Ritraduci',
   });
@@ -28071,18 +28394,33 @@ async function retranslate(){
                       'specifications','content'];
   let changed = 0;
 
+  // V2.10.273: tracker per il report visivo.
+  // Struttura:
+  //   phrases: { esLower: count }            — quante volte è stata sostituita
+  //   phrasesTranslated: { esLower: itValue } — la traduzione applicata
+  //   words: idem per le parole singole
+  //   totalSubstitutions: somma totale
+  const tracker = {
+    phrases: {},
+    phrasesTranslated: {},
+    words: {},
+    wordsTranslated: {},
+    totalSubstitutions: 0,
+    productsTouched: 0,
+  };
+
   for(let i=0; i<DATA.length; i++){
     const p = DATA[i];
     let any = false;
     textFields.forEach(f=>{
       const orig = p[f]||'';
-      const tr = translateText(orig);
+      const tr = translateText(orig, tracker);
       if(tr !== orig){ p[f] = tr; any = true; }
     });
     if(p.params){
       Object.keys(p.params).forEach(k=>{
         const v = p.params[k];
-        const nv = translateText(v);
+        const nv = translateText(v, tracker);
         if(nv !== v){ p.params[k] = nv; any = true; }
       });
     }
@@ -28093,13 +28431,119 @@ async function retranslate(){
     }
   }
 
+  // Calcola il totale delle sostituzioni
+  tracker.totalSubstitutions =
+    Object.values(tracker.phrases).reduce((a,b)=>a+b, 0) +
+    Object.values(tracker.words).reduce((a,b)=>a+b, 0);
+  tracker.productsTouched = changed;
+
   await idbSet('data','main',DATA);
   // V2.2.26: invalida cache ricerca (i testi sono stati riscritti dal dizionario)
   rebuildAllSearchHay();
   hideLoader();
   populateFilters();
   applyFilters();
-  toast(`Tradotti ${changed} prodotti`);
+
+  // V2.10.273: mostra il report visivo invece del semplice toast.
+  showRetranslateReport(tracker);
+}
+
+/* V2.10.273 — Report visivo della ritraduzione.
+   Mostra in un dialog modale: totali (prodotti toccati, sostituzioni totali,
+   frasi uniche, parole uniche) + due tabelle ordinate per frequenza decrescente
+   (Frasi sostituite, Parole sostituite). Ogni riga: testo ES → testo IT × N volte.
+   Stesso stile dei dialog dell'app (.spl-ov / .spl-dlg). */
+function showRetranslateReport(tracker){
+  const ex = document.getElementById('retranslateReportModal');
+  if(ex) ex.remove();
+
+  const phrasesList = Object.keys(tracker.phrases)
+    .map(k => ({ es: k, it: tracker.phrasesTranslated[k] || '', count: tracker.phrases[k] }))
+    .sort((a,b) => b.count - a.count || a.es.localeCompare(b.es, 'it'));
+  const wordsList = Object.keys(tracker.words)
+    .map(k => ({ es: k, it: tracker.wordsTranslated[k] || '', count: tracker.words[k] }))
+    .sort((a,b) => b.count - a.count || a.es.localeCompare(b.es, 'it'));
+
+  const _esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s||''));
+  const _fmt = (n) => Number(n).toLocaleString('it-IT');
+
+  // Card statistiche
+  const statCard = (icon, value, label, color) =>
+    '<div style="flex:1;min-width:140px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:4px">' +
+      '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:20px">' + icon + '</span>' +
+        '<span style="font-size:22px;font-weight:800;color:' + color + ';font-variant-numeric:tabular-nums">' + _fmt(value) + '</span>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;font-weight:700">' + label + '</div>' +
+    '</div>';
+
+  // Tabella per una lista (es → it × count)
+  const buildTable = (list, emptyMsg) => {
+    if(list.length === 0){
+      return '<div style="padding:24px;text-align:center;color:var(--fg3);font-size:13px;font-style:italic">' + emptyMsg + '</div>';
+    }
+    let rows = '';
+    list.forEach((r, i) => {
+      const bg = (i % 2 === 1) ? 'background:rgba(127,127,127,0.04);' : '';
+      rows +=
+        '<tr style="' + bg + 'border-bottom:1px solid var(--border)">' +
+          '<td style="padding:6px 12px;font-size:12.5px;color:var(--fg2);font-family:monospace">' + _esc(r.es) + '</td>' +
+          '<td style="padding:6px 6px;font-size:12px;color:var(--fg3);text-align:center;width:30px">→</td>' +
+          '<td style="padding:6px 12px;font-size:12.5px;color:var(--fg);font-weight:600;font-family:monospace">' + _esc(r.it) + '</td>' +
+          '<td style="padding:6px 12px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">' +
+            '<span style="background:#0ea5e9;color:#fff;padding:2px 9px;border-radius:11px;font-size:11px;font-weight:700">× ' + _fmt(r.count) + '</span>' +
+          '</td>' +
+        '</tr>';
+    });
+    return '<table style="width:100%;border-collapse:collapse">' + rows + '</table>';
+  };
+
+  // Header sezione collassabile
+  const sectionHead = (id, icon, title, count, totalSubs) =>
+    '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg3);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1">' +
+      '<span style="font-size:16px">' + icon + '</span>' +
+      '<span style="font-size:13px;font-weight:700;color:var(--fg)">' + title + '</span>' +
+      '<span style="font-size:11px;color:var(--fg3);background:var(--bg2);padding:2px 9px;border-radius:11px;border:1px solid var(--border)">' +
+        _fmt(count) + ' unich' + (count === 1 ? 'a' : 'e') + ' · ' + _fmt(totalSubs) + ' sostituzion' + (totalSubs === 1 ? 'e' : 'i') +
+      '</span>' +
+    '</div>';
+
+  const totalPhraseSubs = Object.values(tracker.phrases).reduce((a,b)=>a+b, 0);
+  const totalWordSubs   = Object.values(tracker.words).reduce((a,b)=>a+b, 0);
+
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="spl-ov spl-ov-top" id="retranslateReportModal">' +
+      '<div class="spl-dlg" style="max-width:880px;width:96%;max-height:90vh;display:flex;flex-direction:column">' +
+        '<div class="spl-dlg-head">' +
+          '<h3>📊 Report ritraduzione ES → IT</h3>' +
+          '<button class="btn" onclick="document.getElementById(\'retranslateReportModal\').remove()" style="padding:4px 10px">✕</button>' +
+        '</div>' +
+        '<div style="padding:16px 18px;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0">' +
+          '<div style="display:flex;flex-wrap:wrap;gap:10px">' +
+            statCard('📦', tracker.productsTouched, 'Prodotti modificati', '#0ea5e9') +
+            statCard('🔁', tracker.totalSubstitutions, 'Sostituzioni totali', '#16a34a') +
+            statCard('📝', Object.keys(tracker.phrases).length, 'Frasi uniche', '#a855f7') +
+            statCard('🔤', Object.keys(tracker.words).length, 'Parole uniche', '#f59e0b') +
+          '</div>' +
+          (tracker.totalSubstitutions === 0
+            ? '<div style="margin-top:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:12.5px;color:var(--fg2);text-align:center">' +
+                '✅ Nessuna sostituzione necessaria: il catalogo è già completamente tradotto in italiano.' +
+              '</div>'
+            : '<div style="margin-top:12px;font-size:11.5px;color:var(--fg3);font-style:italic;line-height:1.5">' +
+                'Ogni voce mostra: <strong>testo originale (ES)</strong> → <strong>testo applicato (IT)</strong> e il numero di volte sostituito nel catalogo. Le voci sono ordinate per frequenza decrescente.' +
+              '</div>'
+          ) +
+        '</div>' +
+        '<div style="flex:1;overflow:auto;padding:0">' +
+          sectionHead('phrasesSection', '📝', 'Frasi sostituite', Object.keys(tracker.phrases).length, totalPhraseSubs) +
+          buildTable(phrasesList, 'Nessuna frase sostituita.') +
+          sectionHead('wordsSection', '🔤', 'Parole sostituite', Object.keys(tracker.words).length, totalWordSubs) +
+          buildTable(wordsList, 'Nessuna parola sostituita.') +
+        '</div>' +
+        '<div style="padding:12px 18px;border-top:1px solid var(--border);background:var(--bg3);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0">' +
+          '<button class="btn" onclick="document.getElementById(\'retranslateReportModal\').remove()" style="padding:8px 18px;font-weight:700">Chiudi</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>');
 }
 
 /* ========== DIZIONARIO TESTI (frasi + parole) ========== */
@@ -31761,6 +32205,21 @@ function collectSearchTerms(){
             terms.add(v.toLowerCase());
           }
         }
+      });
+    });
+  }
+
+  // V2.10.271: 3) Filtri Marca / Macrocategoria / Categoria (multi-select sidebar).
+  // I valori esatti selezionati vengono aggiunti come termini di highlight, così
+  // l'utente vede subito quali dati delle card corrispondono al filtro attivo
+  // (stesso colore verde acido usato per la ricerca testuale).
+  if(typeof MS_FILTERS !== 'undefined'){
+    ['brand','catParent','cat'].forEach(k => {
+      const f = MS_FILTERS[k];
+      if(!f || !f.selected) return;
+      f.selected.forEach(v => {
+        const t = String(v || '').trim();
+        if(t.length >= HIGHLIGHT_MIN_LEN) terms.add(t.toLowerCase());
       });
     });
   }
@@ -45790,7 +46249,9 @@ function openQuoteAddDialog(productIdx){
 
   const bg = document.createElement('div');
   bg.className = 'modal-bg';
-  bg.style.zIndex = '500';
+  // V2.10.275: z-index 1000 (era 500) — deve apparire SOPRA al pannello "Prodotti
+  // Correlati" (z=600) quando il dialog viene invocato dalle card correlate.
+  bg.style.zIndex = '1000';
   bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
 
   bg.innerHTML =
@@ -53211,8 +53672,32 @@ async function confirmReset(){
 
 function setView(v){
   VIEW = v;
-  document.getElementById('vwGal').classList.toggle('active', v==='gallery');
-  document.getElementById('vwTbl').classList.toggle('active', v==='table');
+  // V2.10.272: pulsante toggle unico — l'icona mostrata è quella della vista
+  // OPPOSTA (dove l'utente andrà al prossimo click). Aggiorno innerHTML + title.
+  const btn = document.getElementById('vwToggle');
+  if(btn){
+    btn.classList.add('active');  // sempre acceso: indica che una vista è selezionata
+    if(v === 'gallery'){
+      // sono in galleria → mostro icona "tabella" (3 linee orizzontali), click → tabella
+      btn.innerHTML =
+        '<svg viewBox="0 0 24 24">' +
+          '<line x1="4" y1="6" x2="20" y2="6"/>' +
+          '<line x1="4" y1="12" x2="20" y2="12"/>' +
+          '<line x1="4" y1="18" x2="20" y2="18"/>' +
+        '</svg>';
+      btn.title = 'Passa a vista tabella';
+    } else {
+      // sono in tabella → mostro icona "galleria" (4 quadrati), click → galleria
+      btn.innerHTML =
+        '<svg viewBox="0 0 24 24">' +
+          '<rect x="3" y="3" width="7" height="7" rx="1"/>' +
+          '<rect x="14" y="3" width="7" height="7" rx="1"/>' +
+          '<rect x="3" y="14" width="7" height="7" rx="1"/>' +
+          '<rect x="14" y="14" width="7" height="7" rx="1"/>' +
+        '</svg>';
+      btn.title = 'Passa a vista galleria';
+    }
+  }
   render();
 }
 
