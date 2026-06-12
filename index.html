@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.275</title>
+<title>Gestione Prodotti V2.10.281</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8447,7 +8447,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.275</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.281</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8970,7 +8970,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.275');
+console.info('[bootstrap] script avvio — V2.10.281');
 
 window.openStatsDashboard = function(){
   try {
@@ -10421,7 +10421,8 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.275';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.281';  // versione dell'app, visualizzata nell'header
+window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
 
@@ -12025,6 +12026,14 @@ const SETTINGS_DEFAULT = {
     email: '',
     sitoWeb: '',
   },
+  // V2.10.281: URL di un proxy CORS personalizzato (es. Cloudflare Worker proprio).
+  // Quando impostato, viene tentato come PRIMA opzione nel fetch immagini per
+  // PDF/DOCX export, prima dei proxy pubblici (instabili). Il proxy deve accettare
+  // il parametro ?url=<URL_OBIETTIVO> e tornare il contenuto con header
+  // Access-Control-Allow-Origin:* — pattern standard.
+  // Esempio: 'https://miopr0xy.miottoadmin.workers.dev/?url='
+  // Lasciare vuoto per usare solo i proxy pubblici (sconsigliato, instabili).
+  customCorsProxy: '',
 };
 let SETTINGS = Object.assign({}, SETTINGS_DEFAULT);
 
@@ -43875,46 +43884,661 @@ function _qResolveImg(item){
     if(raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw;
     return (typeof imgUrl === 'function') ? imgUrl(raw) : raw;
   }
-  // V2.10.88: fallback — ricostruisci da DATA[idx] o da code. Questo permette ai
-  // preventivi salvati senza image (riduzione dimensioni storage) di mostrare
-  // comunque l'immagine sia in anteprima che in export Word/PDF.
-  // V2.10.266 FIX: il code dell'item proviene da `addToQuoteCart` che usa
-  // getField(p, 'name'). La precedente lookup usava 'reference' ed era SEMPRE
-  // a vuoto, lasciando i preventivi sgravati di item.image dalla migrazione
-  // V2.10.89 senza immagine nel DOCX/PDF. Ora cerco prima per 'name' (campo
-  // canonico per il code) e poi per 'reference' come fallback di robustezza.
+  // V2.10.88: fallback — ricostruisci da DATA[idx] o da code.
+  // V2.10.266: lookup primaria per 'name' con fallback su 'reference'.
+  // V2.10.276: aggiunto fallback su p.image (data URL prodotti personali).
+  // V2.10.277: il sanity-check e i lookup vengono fatti contro tutti i campi
+  // candidati con normalizzazione (trim + case-insensitive) per essere robusti a:
+  //   - re-import del catalogo (idx disallineati)
+  //   - modifiche utente al nome via editor (EDITS sovrascrive getField)
+  //   - codici che combaciano via reference invece che name
+  // Per ogni prodotto p in DATA confronto item.code contro QUATTRO candidati:
+  // (p.name canonico raw), (getField name = name+edits), (p.reference canonico),
+  // (getField reference). Basta UN match per considerare il prodotto associato.
+  const itemCode = String(item.code || '').trim();
+  const itemCodeLow = itemCode.toLowerCase();
+  const _matchesCode = (x) => {
+    if(!x || !itemCode) return false;
+    // 4 candidati: raw + via getField, per name e reference
+    const cands = [];
+    if(x.name != null) cands.push(String(x.name).trim().toLowerCase());
+    if(typeof getField === 'function'){
+      const fn = getField(x, 'name');
+      if(fn != null) cands.push(String(fn).trim().toLowerCase());
+    }
+    if(x.reference != null) cands.push(String(x.reference).trim().toLowerCase());
+    if(typeof getField === 'function'){
+      const fr = getField(x, 'reference');
+      if(fr != null) cands.push(String(fr).trim().toLowerCase());
+    }
+    return cands.includes(itemCodeLow);
+  };
+
   if(Array.isArray(window.DATA)){
     let p = null;
+    // 1) Match per idx (più veloce) con sanity check tollerante
     if(item.idx != null && window.DATA[item.idx]){
-      p = window.DATA[item.idx];
-      // Sanity check: l'idx potrebbe essere disallineato dopo re-import del catalogo.
-      // Se il code del prodotto trovato non corrisponde all'item.code, cerco per code.
-      if(p && item.code){
-        const pName = (typeof getField === 'function') ? getField(p, 'name') : p.name;
-        if(String(pName || '').trim() !== String(item.code).trim()) p = null;
+      const candidate = window.DATA[item.idx];
+      if(_matchesCode(candidate)){
+        p = candidate;
       }
     }
-    if(!p && item.code){
-      // Lookup per codice (più lento ma robusto a re-import del catalogo)
-      const target = String(item.code).trim();
-      p = window.DATA.find(x => {
-        if(!x) return false;
-        const nameVal = (typeof getField === 'function') ? getField(x, 'name') : x.name;
-        if(String(nameVal || '').trim() === target) return true;
-        const refVal = (typeof getField === 'function') ? getField(x, 'reference') : x.reference;
-        if(String(refVal || '').trim() === target) return true;
-        return false;
-      });
+    // 2) Fallback: scan completo del catalogo per code (lookup robusto a re-import)
+    if(!p && itemCode){
+      p = window.DATA.find(x => _matchesCode(x));
     }
     if(p){
-      const raw = (typeof getField === 'function') ? (getField(p, 'image_path') || '') : (p.image_path || '');
+      // V2.10.276 — Lookup robusto: prima image_path (prodotti standard Visiotech),
+      // poi image (data URL base64 dei prodotti personali come AKUVOX). Senza il
+      // secondo fallback, i prodotti personali con sola data URL — soprattutto
+      // dopo che la migrazione V2.10.263 ha tolto `it.image` perché classificata
+      // "reconstructible" — restavano senza immagine nel DOCX/PDF.
+      // V2.10.277: leggo direttamente i campi raw oltre che via getField, perché
+      // l'utente potrebbe aver editato campi non-immagine (e in tal caso il
+      // canonico image_path/image va comunque usato).
+      let raw = '';
+      if(typeof getField === 'function'){
+        raw = getField(p, 'image_path') || '';
+        if(!raw) raw = getField(p, 'image') || '';
+      }
+      if(!raw) raw = p.image_path || '';
+      if(!raw) raw = p.image || '';
       if(raw){
         if(raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw;
         return (typeof imgUrl === 'function') ? imgUrl(raw) : raw;
       }
     }
+    // V2.10.277: log diagnostico quando la risoluzione fallisce in modo silente.
+    // Aiuta a capire al volo cosa sta succedendo (apri console F12).
+    if(itemCode && typeof console !== 'undefined' && console.warn){
+      console.warn('[_qResolveImg] Impossibile risolvere immagine per code="' + itemCode +
+        '" idx=' + item.idx + ' — prodotto', (p ? 'trovato ma senza image_path/image' : 'non trovato in DATA'));
+    }
   }
   return '';
+}
+
+/* V2.10.278 — DIAGNOSTICA IMMAGINI PREVENTIVO
+   Funzione di debug visiva che mostra esattamente cosa sta succedendo a ogni
+   articolo del preventivo corrente. Per ogni item:
+     - code, idx, ha item.image?, lunghezza item.image
+     - prodotto trovato in DATA?, via quale match (idx/name/reference)
+     - image_path raw (da p.image_path canonico)
+     - image_path via getField (con eventuali EDITS applicati)
+     - image (data URL) raw e via getField
+     - URL finale che _qResolveImg ritorna
+     - motivo di eventuale fallimento
+   Mostra anche un riepilogo aggregato e permette di copiare il report. */
+function _qDiagnosticaImmagini(){
+  const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items))
+    ? window._QUOTE_STATE.items : [];
+  const dataLen = Array.isArray(window.DATA) ? window.DATA.length : 0;
+  const rows = items.map((it, idx) => {
+    const code = String(it.code || '').trim();
+    const codeLow = code.toLowerCase();
+    // Check caratteri invisibili nel code (BOM, zero-width, NBSP, ecc.)
+    const hasInvisible = /[\u00A0\u200B-\u200F\uFEFF]/.test(it.code || '');
+    const itemHasImage = !!it.image;
+    const itemImageLen = it.image ? String(it.image).length : 0;
+    const itemImageType = it.image
+      ? (String(it.image).startsWith('data:') ? 'data URL'
+         : String(it.image).startsWith('http') ? 'http URL'
+         : 'path')
+      : '—';
+
+    // Replico la logica di _qResolveImg per capire cosa fa
+    let matchType = 'no-match', p = null, idxValido = false;
+    if(Array.isArray(window.DATA)){
+      const _matchesCode = (x) => {
+        if(!x || !code) return false;
+        const cands = [];
+        if(x.name != null) cands.push(String(x.name).trim().toLowerCase());
+        if(typeof getField === 'function'){
+          const fn = getField(x, 'name');
+          if(fn != null) cands.push(String(fn).trim().toLowerCase());
+        }
+        if(x.reference != null) cands.push(String(x.reference).trim().toLowerCase());
+        if(typeof getField === 'function'){
+          const fr = getField(x, 'reference');
+          if(fr != null) cands.push(String(fr).trim().toLowerCase());
+        }
+        return cands.includes(codeLow);
+      };
+      if(it.idx != null && window.DATA[it.idx]){
+        idxValido = true;
+        if(_matchesCode(window.DATA[it.idx])){
+          p = window.DATA[it.idx];
+          matchType = 'idx';
+        }
+      }
+      if(!p && code){
+        const found = window.DATA.find(x => _matchesCode(x));
+        if(found){ p = found; matchType = 'scan-by-code'; }
+      }
+    }
+
+    let imagePathRaw = '', imagePathGet = '', imageRaw = '', imageGet = '';
+    if(p){
+      imagePathRaw = p.image_path || '';
+      imageRaw = p.image || '';
+      if(typeof getField === 'function'){
+        imagePathGet = getField(p, 'image_path') || '';
+        imageGet = getField(p, 'image') || '';
+      }
+    }
+    const resolvedUrl = _qResolveImg(it);
+    let reason = '';
+    if(!resolvedUrl){
+      if(!code) reason = 'item senza code';
+      else if(!Array.isArray(window.DATA) || dataLen === 0) reason = 'DATA vuoto/non caricato';
+      else if(!p) reason = 'prodotto NON TROVATO in DATA (né per idx né per code)';
+      else if(!imagePathRaw && !imagePathGet && !imageRaw && !imageGet) reason = 'prodotto trovato ma TUTTI i campi image vuoti';
+      else reason = 'altro';
+    }
+    return {
+      idx, code, hasInvisible, itemIdx: (it.idx == null ? '—' : it.idx), idxValido,
+      itemHasImage, itemImageLen, itemImageType,
+      matchType, foundInData: !!p,
+      pName: p ? (p.name || '') : '',
+      pNameGet: (p && typeof getField === 'function') ? (getField(p, 'name') || '') : '',
+      imagePathRaw, imagePathGet, imageRaw: imageRaw ? imageRaw.substring(0,40)+'…' : '',
+      imageGet: imageGet ? imageGet.substring(0,40)+'…' : '',
+      resolvedUrl: resolvedUrl ? (resolvedUrl.length > 80 ? resolvedUrl.substring(0,80)+'…' : resolvedUrl) : '',
+      reason,
+    };
+  });
+  const totals = {
+    total: rows.length,
+    risolti: rows.filter(r => r.resolvedUrl).length,
+    nonRisolti: rows.filter(r => !r.resolvedUrl).length,
+    dataLen,
+    dataAvailable: Array.isArray(window.DATA) && dataLen > 0,
+  };
+  return { rows, totals };
+}
+
+/* V2.10.278 — Dialog modale con tabella diagnostica + pulsante copia report.
+   L'utente può eseguirla dal pulsante "🔍 Diagnostica immagini" nel dialog
+   anteprima del preventivo, o da console: openImageDiagnosticDialog(). */
+function openImageDiagnosticDialog(){
+  const ex = document.getElementById('imgDiagModal');
+  if(ex) ex.remove();
+  const { rows, totals } = _qDiagnosticaImmagini();
+  const _esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
+  const _color = (cond, ok, ko) => cond ? ok : ko;
+
+  // Build header riepilogativo
+  const statBox = (label, val, color) =>
+    '<div style="flex:1;min-width:120px;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px">' +
+      '<div style="font-size:11px;color:var(--fg3);text-transform:uppercase;font-weight:700;letter-spacing:.5px">' + label + '</div>' +
+      '<div style="font-size:22px;font-weight:800;color:' + color + ';font-variant-numeric:tabular-nums">' + val + '</div>' +
+    '</div>';
+
+  // Build tabella
+  let tableRows = '';
+  rows.forEach(r => {
+    const ok = !!r.resolvedUrl;
+    const bg = ok ? 'rgba(16,185,129,.05)' : 'rgba(239,68,68,.07)';
+    const status = ok ? '✅' : '❌';
+    tableRows +=
+      '<tr style="background:' + bg + ';border-bottom:1px solid var(--border)">' +
+        '<td style="padding:6px 10px;text-align:center;font-size:14px">' + status + '</td>' +
+        '<td style="padding:6px 10px;font-family:monospace;font-size:12px;font-weight:700;color:var(--fg)">' + _esc(r.code) +
+          (r.hasInvisible ? ' <span style="color:#dc2626;font-size:10px" title="Contiene caratteri Unicode invisibili (NBSP/BOM/zero-width)">⚠️ chars invisibili</span>' : '') +
+        '</td>' +
+        '<td style="padding:6px 10px;text-align:center;font-variant-numeric:tabular-nums;font-size:11px">' + _esc(r.itemIdx) + '</td>' +
+        '<td style="padding:6px 10px;text-align:center;font-size:11px">' +
+          (r.foundInData
+            ? '<span style="background:#10b981;color:#fff;padding:2px 7px;border-radius:8px;font-weight:600">' + _esc(r.matchType) + '</span>'
+            : '<span style="background:#ef4444;color:#fff;padding:2px 7px;border-radius:8px;font-weight:600">NO</span>') +
+        '</td>' +
+        '<td style="padding:6px 10px;font-family:monospace;font-size:10.5px;color:var(--fg2);word-break:break-all;max-width:280px">' + _esc(r.imagePathRaw) +
+          (r.imagePathGet && r.imagePathGet !== r.imagePathRaw ? '<br><span style="color:#a855f7" title="Valore via getField (con EDITS)">→ ' + _esc(r.imagePathGet) + '</span>' : '') +
+        '</td>' +
+        '<td style="padding:6px 10px;font-family:monospace;font-size:10.5px;color:' + (ok ? '#10b981' : '#ef4444') + ';word-break:break-all;max-width:320px">' +
+          _esc(r.resolvedUrl || ('— ' + r.reason)) +
+        '</td>' +
+      '</tr>';
+  });
+
+  // Build report testuale per copia
+  const reportTxt = [
+    'DIAGNOSTICA IMMAGINI PREVENTIVO',
+    '─────────────────────────────────',
+    'Versione: ' + (window.APP_VERSION || '?'),
+    'Articoli totali: ' + totals.total,
+    'Immagini risolte: ' + totals.risolti,
+    'Immagini non risolte: ' + totals.nonRisolti,
+    'DATA caricato: ' + (totals.dataAvailable ? 'SI (' + totals.dataLen + ' prodotti)' : 'NO'),
+    '',
+    'DETTAGLIO PER ARTICOLO:',
+  ];
+  rows.forEach((r, i) => {
+    reportTxt.push('');
+    reportTxt.push('[' + (i+1) + '] code="' + r.code + '"' + (r.hasInvisible ? ' [HAS_INVISIBLE_CHARS]' : ''));
+    reportTxt.push('    item.idx=' + r.itemIdx + ' (' + (r.idxValido ? 'valido' : 'fuori range') + ')');
+    reportTxt.push('    item.image=' + (r.itemHasImage ? r.itemImageType + ' (' + r.itemImageLen + ' chars)' : 'assente'));
+    reportTxt.push('    trovato in DATA via: ' + (r.foundInData ? r.matchType : 'NON TROVATO'));
+    if(r.foundInData){
+      reportTxt.push('    p.name="' + r.pName + '"' + (r.pNameGet && r.pNameGet !== r.pName ? ' getField="' + r.pNameGet + '"' : ''));
+      reportTxt.push('    p.image_path="' + r.imagePathRaw + '"' + (r.imagePathGet !== r.imagePathRaw ? ' getField="' + r.imagePathGet + '"' : ''));
+      if(r.imageRaw) reportTxt.push('    p.image=' + r.imageRaw);
+      if(r.imageGet) reportTxt.push('    getField(image)=' + r.imageGet);
+    }
+    reportTxt.push('    URL FINALE: ' + (r.resolvedUrl ? r.resolvedUrl : '— ' + r.reason));
+  });
+  const reportTxtStr = reportTxt.join('\n');
+
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="spl-ov spl-ov-top" id="imgDiagModal" style="z-index:11000">' +
+      '<div class="spl-dlg" style="max-width:1180px;width:96%;max-height:92vh;display:flex;flex-direction:column">' +
+        '<div class="spl-dlg-head">' +
+          '<h3>🔍 Diagnostica immagini preventivo</h3>' +
+          '<button class="btn" onclick="document.getElementById(\'imgDiagModal\').remove()" style="padding:4px 10px">✕</button>' +
+        '</div>' +
+        '<div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0">' +
+          '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">' +
+            statBox('Articoli totali', totals.total, 'var(--fg)') +
+            statBox('Immagini risolte', totals.risolti, '#10b981') +
+            statBox('Non risolte', totals.nonRisolti, _color(totals.nonRisolti === 0, '#10b981', '#ef4444')) +
+            statBox('DATA caricato', totals.dataAvailable ? totals.dataLen : 'NO', _color(totals.dataAvailable, '#10b981', '#ef4444')) +
+          '</div>' +
+          '<div style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--fg2)">' +
+            '<button class="btn" id="diagCopyBtn" style="padding:6px 12px;background:#0ea5e9;color:#fff;border-color:#0ea5e9">📋 Copia report testuale</button>' +
+            /* V2.10.280: pulsante "Test caricamento" che verifica LIVE ogni URL */
+            '<button class="btn" id="diagTestBtn" style="padding:6px 12px;background:#16a34a;color:#fff;border-color:#16a34a">▶️ Test caricamento immagini (live)</button>' +
+            '<span style="color:var(--fg3)">Incolla il contenuto in chat per inviarlo all\'assistente.</span>' +
+          '</div>' +
+          /* V2.10.280: contenitore risultati test */
+          '<div id="diagTestResults" style="margin-top:12px;display:none"></div>' +
+        '</div>' +
+        '<div style="flex:1;overflow:auto">' +
+          '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+            '<thead style="position:sticky;top:0;background:var(--bg3);z-index:1">' +
+              '<tr style="border-bottom:2px solid var(--border)">' +
+                '<th style="padding:8px 10px;font-size:10.5px;text-transform:uppercase;text-align:center;color:var(--fg3);font-weight:700">OK</th>' +
+                '<th style="padding:8px 10px;font-size:10.5px;text-transform:uppercase;text-align:left;color:var(--fg3);font-weight:700">Code</th>' +
+                '<th style="padding:8px 10px;font-size:10.5px;text-transform:uppercase;text-align:center;color:var(--fg3);font-weight:700">idx</th>' +
+                '<th style="padding:8px 10px;font-size:10.5px;text-transform:uppercase;text-align:center;color:var(--fg3);font-weight:700">Trovato in DATA</th>' +
+                '<th style="padding:8px 10px;font-size:10.5px;text-transform:uppercase;text-align:left;color:var(--fg3);font-weight:700">image_path</th>' +
+                '<th style="padding:8px 10px;font-size:10.5px;text-transform:uppercase;text-align:left;color:var(--fg3);font-weight:700">URL risolto / Errore</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' + tableRows + '</tbody>' +
+          '</table>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+
+  // Copia report negli appunti
+  const copyBtn = document.getElementById('diagCopyBtn');
+  if(copyBtn){
+    copyBtn.addEventListener('click', () => {
+      try {
+        navigator.clipboard.writeText(reportTxtStr).then(() => {
+          if(typeof toast === 'function') toast('Report copiato negli appunti', 'ok', 2200);
+        }).catch(() => {
+          // Fallback: textarea + execCommand
+          const ta = document.createElement('textarea');
+          ta.value = reportTxtStr;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); } catch(_){}
+          document.body.removeChild(ta);
+          if(typeof toast === 'function') toast('Report copiato (fallback)', 'ok', 2200);
+        });
+      } catch(e){
+        if(typeof toast === 'function') toast('Impossibile copiare: ' + e.message, 'err', 3000);
+      }
+    });
+  }
+
+  // V2.10.280: Pulsante "Test caricamento immagini (live)"
+  // Esegue per ogni URL tutti i metodi (img direct + fetch CORS + ogni proxy)
+  // e mostra una matrice di esiti.
+  const testBtn = document.getElementById('diagTestBtn');
+  if(testBtn){
+    testBtn.addEventListener('click', async () => {
+      testBtn.disabled = true;
+      testBtn.textContent = '⏳ Test in corso...';
+      const resultsDiv = document.getElementById('diagTestResults');
+      resultsDiv.style.display = 'block';
+      // Estraggo gli URL univoci dalle righe risolte
+      const urlsToTest = [];
+      const seen = new Set();
+      rows.forEach(r => {
+        if(r.resolvedUrl && !r.resolvedUrl.startsWith('data:')){
+          // Ricostruisco URL completo dal item originale (resolvedUrl è troncato)
+          const it = window._QUOTE_STATE.items[r.idx];
+          if(it){
+            const full = _qResolveImg(it);
+            if(full && !seen.has(full)){ seen.add(full); urlsToTest.push({ code: r.code, url: full }); }
+          }
+        }
+      });
+      if(urlsToTest.length === 0){
+        resultsDiv.innerHTML = '<div style="padding:12px;color:var(--fg3);text-align:center">Nessun URL HTTP da testare.</div>';
+        testBtn.disabled = false;
+        testBtn.textContent = '▶️ Test caricamento immagini (live)';
+        return;
+      }
+      // Metodi di test
+      const methods = [
+        { name: 'img direct', test: async (u) => new Promise((res) => {
+          const img = new Image();
+          const t = setTimeout(() => { res({ ok:false, info:'timeout' }); }, 8000);
+          img.onload = () => { clearTimeout(t); res({ ok:true, info:img.naturalWidth+'×'+img.naturalHeight }); };
+          img.onerror = () => { clearTimeout(t); res({ ok:false, info:'load error' }); };
+          img.src = u;
+        })},
+        { name: 'fetch CORS', test: async (u) => {
+          try {
+            const r = await _qFetchWithTimeout(u, 6000);
+            if(!r.ok) return { ok:false, info:'HTTP '+r.status };
+            const buf = await r.arrayBuffer();
+            return { ok:true, info:Math.round(buf.byteLength/1024)+'KB' };
+          } catch(e){ return { ok:false, info:(e.message||'CORS').substring(0,40) }; }
+        }},
+        { name: 'allorigins',   test: async (u) => _testProxyLive('https://api.allorigins.win/raw?url=' + encodeURIComponent(u)) },
+        { name: 'codetabs',     test: async (u) => _testProxyLive('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)) },
+        { name: 'corsproxy.io', test: async (u) => _testProxyLive('https://corsproxy.io/?' + encodeURIComponent(u)) },
+        { name: 'thingproxy',   test: async (u) => _testProxyLive('https://thingproxy.freeboard.io/fetch/' + u) },
+        { name: 'corsproxy.org', test: async (u) => _testProxyLive('https://corsproxy.org/?' + encodeURIComponent(u)) },
+        { name: 'cors-anywhere-worker', test: async (u) => _testProxyLive('https://cors-anywhere.azm.workers.dev/?' + u) },
+      ];
+
+      // Test solo la prima immagine contro tutti i metodi (per risparmiare tempo);
+      // poi test rapido `<img>` direct per le altre (solo per vedere se il browser
+      // riesce a visualizzarle).
+      const sample = urlsToTest[0];
+      resultsDiv.innerHTML =
+        '<div style="padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px">' +
+          '<div style="font-size:11.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">' +
+            'Test in corso su <span style="color:var(--fg);font-family:monospace">' + (typeof escapeHtml === 'function' ? escapeHtml(sample.code) : sample.code) + '</span>' +
+          '</div>' +
+          '<div id="diagTestRows"></div>' +
+        '</div>';
+      const rowsEl = document.getElementById('diagTestRows');
+      const liveReport = ['', '═══ TEST CARICAMENTO LIVE ═══', 'URL: ' + sample.url, ''];
+      for(const m of methods){
+        const rowId = 'diag-test-' + m.name.replace(/[^a-z]/gi, '');
+        rowsEl.insertAdjacentHTML('beforeend',
+          '<div id="' + rowId + '" style="display:flex;align-items:center;gap:10px;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border)">' +
+            '<span style="width:140px;font-family:monospace;font-weight:600">' + m.name + '</span>' +
+            '<span class="diag-status" style="color:var(--fg3)">⏳ ...</span>' +
+          '</div>'
+        );
+        const r = await m.test(sample.url);
+        const statusEl = document.querySelector('#' + rowId + ' .diag-status');
+        if(r.ok){
+          statusEl.innerHTML = '<span style="color:#16a34a;font-weight:700">✅ OK</span> <span style="color:var(--fg3)">(' + r.info + ')</span>';
+          liveReport.push('  ✅ ' + m.name.padEnd(28) + ' → OK (' + r.info + ')');
+        } else {
+          statusEl.innerHTML = '<span style="color:#ef4444;font-weight:700">❌ FAIL</span> <span style="color:var(--fg3)">(' + r.info + ')</span>';
+          liveReport.push('  ❌ ' + m.name.padEnd(28) + ' → ' + r.info);
+        }
+      }
+      // Test rapido `<img>` direct per le altre immagini
+      if(urlsToTest.length > 1){
+        liveReport.push('', '── Test <img> direct per le altre ' + (urlsToTest.length - 1) + ' immagini ──');
+        rowsEl.insertAdjacentHTML('beforeend',
+          '<div style="margin-top:14px;padding-top:10px;border-top:2px solid var(--border);font-size:11.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px">Test &lt;img&gt; direct sulle altre ' + (urlsToTest.length - 1) + ' immagini</div>'
+        );
+        for(let i = 1; i < urlsToTest.length; i++){
+          const u = urlsToTest[i];
+          const rowId2 = 'diag-test-other-' + i;
+          rowsEl.insertAdjacentHTML('beforeend',
+            '<div id="' + rowId2 + '" style="display:flex;align-items:center;gap:10px;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)">' +
+              '<span style="width:200px;font-family:monospace;font-weight:600">' + (typeof escapeHtml === 'function' ? escapeHtml(u.code) : u.code) + '</span>' +
+              '<span class="diag-status" style="color:var(--fg3)">⏳ ...</span>' +
+            '</div>'
+          );
+          const r = await methods[0].test(u.url);
+          const statusEl = document.querySelector('#' + rowId2 + ' .diag-status');
+          if(r.ok){
+            statusEl.innerHTML = '<span style="color:#16a34a;font-weight:700">✅</span> ' + r.info;
+            liveReport.push('  ✅ ' + u.code.padEnd(28) + ' → ' + r.info);
+          } else {
+            statusEl.innerHTML = '<span style="color:#ef4444;font-weight:700">❌</span> ' + r.info;
+            liveReport.push('  ❌ ' + u.code.padEnd(28) + ' → ' + r.info);
+          }
+        }
+      }
+      testBtn.disabled = false;
+      testBtn.textContent = '▶️ Test caricamento immagini (live)';
+      // Appendi al report copiabile
+      window._diagLiveTestAppend = liveReport.join('\n');
+      // Aggiungi pulsante "copia esteso"
+      rowsEl.insertAdjacentHTML('beforeend',
+        '<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);text-align:center">' +
+          '<button id="diagCopyExtBtn" class="btn" style="padding:8px 16px;background:#0ea5e9;color:#fff;border-color:#0ea5e9">📋 Copia report completo (con risultati test)</button>' +
+        '</div>'
+      );
+      const extBtn = document.getElementById('diagCopyExtBtn');
+      if(extBtn){
+        extBtn.addEventListener('click', () => {
+          const fullReport = reportTxtStr + '\n' + window._diagLiveTestAppend;
+          try {
+            navigator.clipboard.writeText(fullReport).then(() => {
+              if(typeof toast === 'function') toast('Report completo copiato', 'ok', 2500);
+            }).catch(() => {
+              const ta = document.createElement('textarea');
+              ta.value = fullReport;
+              ta.style.position = 'fixed';
+              ta.style.opacity = '0';
+              document.body.appendChild(ta);
+              ta.select();
+              try { document.execCommand('copy'); } catch(_){}
+              document.body.removeChild(ta);
+              if(typeof toast === 'function') toast('Report copiato (fallback)', 'ok', 2500);
+            });
+          } catch(e){
+            if(typeof toast === 'function') toast('Impossibile copiare: ' + e.message, 'err', 3000);
+          }
+        });
+      }
+    });
+  }
+
+  // Helper: testa LIVE un proxy (usato dal pulsante test)
+  // Definito come globale così è accessibile anche dopo reload del dialog.
+  if(typeof window._testProxyLive !== 'function'){
+    window._testProxyLive = async function(proxyUrl){
+      try {
+        const r = await _qFetchWithTimeout(proxyUrl, 8000);
+        if(!r.ok) return { ok:false, info:'HTTP '+r.status };
+        const buf = await r.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        const validMagic = (
+          (bytes[0] === 0x89 && bytes[1] === 0x50) ||  // PNG
+          (bytes[0] === 0xFF && bytes[1] === 0xD8) ||  // JPEG
+          (bytes[0] === 0x47 && bytes[1] === 0x49) ||  // GIF
+          (bytes[0] === 0x52 && bytes[1] === 0x49)     // RIFF/WebP
+        );
+        if(!validMagic){
+          return { ok:false, info:'dati non-immagine ('+Math.round(buf.byteLength/1024)+'KB)' };
+        }
+        return { ok:true, info:Math.round(buf.byteLength/1024)+'KB' };
+      } catch(e){
+        return { ok:false, info:(e.message||'error').substring(0,40) };
+      }
+    };
+  }
+  // Loggo anche su console per ridondanza
+  console.log('=== DIAGNOSTICA IMMAGINI PREVENTIVO ===');
+  console.log(reportTxtStr);
+}
+
+/* V2.10.281 — Dialog di setup del proxy CORS personalizzato (Cloudflare Worker).
+   Mostra istruzioni passo-passo + textarea con lo script Worker pronto da copiare
+   + campo per incollare l'URL del Worker creato + pulsante test. */
+function openCorsProxySetupDialog(){
+  const ex = document.getElementById('corsProxySetupModal');
+  if(ex) ex.remove();
+  const current = (typeof SETTINGS !== 'undefined' && SETTINGS.customCorsProxy)
+    ? String(SETTINGS.customCorsProxy).trim() : '';
+
+  // Script Worker pronto da copiare (un singolo file, 15 righe)
+  const workerScript = [
+    '// Cloudflare Worker — Proxy CORS per immagini Visiotech CloudFront',
+    '// Setup: dashboard.cloudflare.com → Workers & Pages → Create → Worker → Deploy',
+    '// Una volta deployed, ottieni un URL tipo: https://NOME.TUOACCOUNT.workers.dev',
+    '',
+    'export default {',
+    '  async fetch(request) {',
+    '    const url = new URL(request.url);',
+    '    const target = url.searchParams.get("url");',
+    '    if (!target) return new Response("Missing url parameter", { status: 400 });',
+    '    try {',
+    '      const resp = await fetch(target, {',
+    '        headers: { "User-Agent": "Mozilla/5.0" },',
+    '        cf: { cacheTtl: 86400 }  // cache 24h lato Cloudflare',
+    '      });',
+    '      const headers = new Headers(resp.headers);',
+    '      headers.set("Access-Control-Allow-Origin", "*");',
+    '      headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");',
+    '      return new Response(resp.body, { status: resp.status, headers });',
+    '    } catch (e) {',
+    '      return new Response("Proxy error: " + e.message, { status: 502 });',
+    '    }',
+    '  }',
+    '};',
+  ].join('\n');
+
+  const html =
+    '<div class="spl-ov spl-ov-top" id="corsProxySetupModal" style="z-index:11500">' +
+      '<div class="spl-dlg" style="max-width:780px;width:96%;max-height:92vh;display:flex;flex-direction:column">' +
+        '<div class="spl-dlg-head">' +
+          '<h3>⚙️ Configura Cloudflare Worker (CORS Proxy)</h3>' +
+          '<button class="btn" onclick="document.getElementById(\'corsProxySetupModal\').remove()" style="padding:4px 10px">✕</button>' +
+        '</div>' +
+        '<div style="padding:18px 22px;overflow:auto;flex:1">' +
+          '<div style="background:rgba(59,130,246,.08);border:1px solid #3b82f6;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:13px;line-height:1.55">' +
+            '<strong style="color:#3b82f6">Perché serve?</strong><br>' +
+            'Le immagini Visiotech sono su CloudFront, che non manda l\'header CORS necessario per il fetch da browser. I proxy pubblici gratuiti sono diventati instabili nel 2026. Un <strong>Cloudflare Worker personale</strong> risolve definitivamente il problema: ' +
+            '<strong>gratis fino a 100.000 richieste/giorno</strong>, 5 minuti di setup una sola volta.' +
+          '</div>' +
+
+          '<div style="font-size:13.5px;font-weight:700;color:var(--fg);margin-bottom:8px">📋 Passi (5 minuti)</div>' +
+          '<ol style="margin:0 0 20px 18px;padding:0;line-height:1.7;font-size:13px">' +
+            '<li>Vai su <a href="https://dash.cloudflare.com" target="_blank" rel="noopener" style="color:#3b82f6;font-weight:600">dash.cloudflare.com</a> e accedi (o crea un account gratuito)</li>' +
+            '<li>Menu sinistro → <strong>Workers &amp; Pages</strong> → <strong>Create application</strong> → <strong>Create Worker</strong></li>' +
+            '<li>Dai un nome (es. <code style="background:var(--bg2);padding:1px 6px;border-radius:3px">visiotech-proxy</code>) → <strong>Deploy</strong></li>' +
+            '<li>Click su <strong>Edit code</strong> → cancella il codice presente → <strong>incolla lo script qui sotto</strong> → <strong>Save and deploy</strong></li>' +
+            '<li>Copia l\'URL del Worker (lo vedi in alto, formato <code style="background:var(--bg2);padding:1px 6px;border-radius:3px">https://NOME.TUOACCOUNT.workers.dev</code>) e <strong>incollalo nel campo in fondo a questo dialog</strong></li>' +
+            '<li>Click su <strong>Verifica</strong> per testarlo. Se ✅ → <strong>Salva</strong>. Le immagini ora funzioneranno per sempre.</li>' +
+          '</ol>' +
+
+          '<div style="font-size:13.5px;font-weight:700;color:var(--fg);margin:18px 0 8px">📄 Script Worker (copia e incolla nel Cloudflare editor)</div>' +
+          '<div style="position:relative">' +
+            '<textarea id="cpsWorkerCode" readonly style="width:100%;height:200px;padding:10px 12px;font-family:monospace;font-size:11.5px;line-height:1.45;background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;resize:vertical">' + escapeHtml(workerScript) + '</textarea>' +
+            '<button id="cpsCopyCodeBtn" style="position:absolute;top:8px;right:8px;padding:5px 12px;font-size:11px;font-weight:700;background:#0ea5e9;color:#fff;border:none;border-radius:4px;cursor:pointer">📋 Copia</button>' +
+          '</div>' +
+
+          '<div style="font-size:13.5px;font-weight:700;color:var(--fg);margin:20px 0 8px">🌐 URL del tuo Worker</div>' +
+          '<div style="display:flex;gap:8px;margin-bottom:8px">' +
+            '<input id="cpsProxyInput" type="text" placeholder="https://visiotech-proxy.tuoaccount.workers.dev/" value="' + escapeAttr(current) + '" style="flex:1;padding:9px 12px;font-size:13px;font-family:monospace;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:6px">' +
+            '<button id="cpsTestBtn" style="padding:9px 16px;font-size:12px;font-weight:700;background:#16a34a;color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap">▶️ Verifica</button>' +
+          '</div>' +
+          '<div id="cpsTestResult" style="font-size:12px;margin-top:6px;min-height:20px"></div>' +
+        '</div>' +
+        '<div style="padding:14px 22px;border-top:1px solid var(--border);background:var(--bg3);display:flex;justify-content:space-between;gap:10px;flex-shrink:0">' +
+          '<button id="cpsClearBtn" class="btn" style="padding:9px 16px;background:transparent;color:#dc2626;border:1px solid #dc2626;font-weight:600">🗑️ Rimuovi configurazione</button>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button class="btn" onclick="document.getElementById(\'corsProxySetupModal\').remove()" style="padding:9px 16px">Annulla</button>' +
+            '<button id="cpsSaveBtn" class="btn primary" style="padding:9px 20px;font-weight:700;background:#3b82f6;color:#fff;border-color:#3b82f6">💾 Salva</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  // Copia codice
+  document.getElementById('cpsCopyCodeBtn').addEventListener('click', () => {
+    const ta = document.getElementById('cpsWorkerCode');
+    ta.select();
+    try {
+      navigator.clipboard.writeText(workerScript).then(() => {
+        if(typeof toast === 'function') toast('Codice copiato', 'ok', 1800);
+      }).catch(() => {
+        try { document.execCommand('copy'); if(typeof toast === 'function') toast('Codice copiato', 'ok', 1800); }
+        catch(_){ if(typeof toast === 'function') toast('Selezione manuale necessaria', 'warn', 2500); }
+      });
+    } catch(_){
+      try { document.execCommand('copy'); if(typeof toast === 'function') toast('Codice copiato', 'ok', 1800); } catch(__){}
+    }
+  });
+
+  // Verifica live: testo il proxy con un'immagine di esempio
+  document.getElementById('cpsTestBtn').addEventListener('click', async () => {
+    const input = document.getElementById('cpsProxyInput');
+    const resultDiv = document.getElementById('cpsTestResult');
+    let url = String(input.value || '').trim();
+    if(!url){
+      resultDiv.innerHTML = '<span style="color:#dc2626">⚠️ Inserisci prima l\'URL del Worker</span>';
+      return;
+    }
+    // Normalizza: stesso pattern di _qFetchImageBuffer per coerenza
+    let testUrl;
+    const targetImg = 'https://d1x12lhh8s9nlj.cloudfront.net/images/productos/products/AJ-RELAY/AJ-RELAY.png';
+    const enc = encodeURIComponent(targetImg);
+    if(url.endsWith('=')) testUrl = url + enc;
+    else if(url.endsWith('?')) testUrl = url + 'url=' + enc;
+    else if(url.indexOf('?') >= 0) testUrl = url + '&url=' + enc;
+    else testUrl = url + (url.endsWith('/') ? '' : '/') + '?url=' + enc;
+    resultDiv.innerHTML = '<span style="color:var(--fg3)">⏳ Test in corso (max 10s)...</span>';
+    try {
+      const r = await _qFetchWithTimeout(testUrl, 10000);
+      if(!r.ok){
+        resultDiv.innerHTML = '<span style="color:#dc2626">❌ HTTP ' + r.status + ' — il Worker non ha risposto correttamente. Verifica di aver fatto Deploy.</span>';
+        return;
+      }
+      const buf = await r.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      const validMagic = ((bytes[0] === 0x89 && bytes[1] === 0x50) || (bytes[0] === 0xFF && bytes[1] === 0xD8));
+      if(!validMagic){
+        resultDiv.innerHTML = '<span style="color:#dc2626">❌ Risposta non riconosciuta come immagine (' + Math.round(buf.byteLength/1024) + 'KB). Probabilmente lo script Worker non è corretto.</span>';
+        return;
+      }
+      resultDiv.innerHTML = '<span style="color:#16a34a;font-weight:700">✅ Funziona! Immagine scaricata: ' + Math.round(buf.byteLength/1024) + 'KB. Clicca <strong>Salva</strong> per applicare.</span>';
+    } catch(e){
+      resultDiv.innerHTML = '<span style="color:#dc2626">❌ Errore: ' + (e.message || 'connessione fallita') + '. Verifica URL e connessione.</span>';
+    }
+  });
+
+  // Salva: aggiorna SETTINGS e chiude
+  document.getElementById('cpsSaveBtn').addEventListener('click', () => {
+    const url = String(document.getElementById('cpsProxyInput').value || '').trim();
+    if(typeof SETTINGS !== 'undefined'){
+      SETTINGS.customCorsProxy = url;
+      if(typeof saveSettings === 'function') saveSettings();
+      // Invalido cache immagini così al prossimo export viene riprovato
+      if(window._qImgCache) window._qImgCache = {};
+    }
+    document.getElementById('corsProxySetupModal').remove();
+    if(typeof toast === 'function'){
+      toast(url ? '✅ Proxy configurato. Le immagini verranno scaricate via il tuo Worker.' : 'Proxy rimosso.', 'ok', 3500);
+    }
+    // Ricarico il dialog principale se aperto
+    const expDialog = document.querySelector('.modal-bg #qexpProxySetup');
+    if(expDialog){
+      // Chiude e riapre il dialog GENERA PREVENTIVO per riflettere il nuovo stato
+      const modalBg = expDialog.closest('.modal-bg');
+      if(modalBg){
+        modalBg.remove();
+        if(typeof openQuoteExportDialog === 'function') openQuoteExportDialog();
+      }
+    }
+  });
+
+  // Rimuovi
+  document.getElementById('cpsClearBtn').addEventListener('click', () => {
+    document.getElementById('cpsProxyInput').value = '';
+    document.getElementById('cpsTestResult').innerHTML = '<span style="color:var(--fg3)">Configurazione svuotata. Clicca <strong>Salva</strong> per applicare la rimozione.</span>';
+  });
 }
 
 /* ─── Helper: testo pulito del nome articolo nel carrello ───
@@ -48352,6 +48976,26 @@ function openQuoteExportDialog(){
           '<button class="qexp-dl qexp-format" data-format="docx" type="button" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .15s">📝 Word</button>' +
           '<button class="qexp-dl qexp-format" data-format="xlsx" type="button" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .15s">📊 Excel</button>' +
         '</div>' +
+        /* V2.10.279: pulsante diagnostica per debug immagini mancanti */
+        '<button id="qexpDiagImages" type="button" style="margin-top:10px;width:100%;padding:9px;font-size:12px;font-weight:600;background:#f59e0b;color:#fff;border:1px solid #f59e0b;border-radius:6px;cursor:pointer;transition:all .15s" title="Verifica perché alcune immagini potrebbero non comparire">🔍 Diagnostica immagini articoli</button>' +
+        /* V2.10.281: setup proxy CORS personalizzato per export immagini */
+        (function(){
+          const cp = (typeof SETTINGS !== 'undefined' && SETTINGS.customCorsProxy) ? String(SETTINGS.customCorsProxy).trim() : '';
+          const statusColor = cp ? '#16a34a' : '#f59e0b';
+          const statusLabel = cp ? '✅ Proxy configurato' : '⚠️ Proxy non configurato';
+          const statusDetail = cp
+            ? '<div style="font-size:11px;color:var(--fg3);font-family:monospace;word-break:break-all;margin-top:4px">' + escapeHtml(cp) + '</div>'
+            : '<div style="font-size:11px;color:var(--fg3);margin-top:4px">Le immagini Visiotech (CloudFront) potrebbero NON apparire nel PDF/Word. Setup 5 minuti, gratis.</div>';
+          return '<div style="margin-top:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">' +
+              '<div style="flex:1;min-width:0">' +
+                '<div style="font-size:11.5px;font-weight:700;color:' + statusColor + ';text-transform:uppercase;letter-spacing:.3px">🌐 ' + statusLabel + '</div>' +
+                statusDetail +
+              '</div>' +
+              '<button id="qexpProxySetup" type="button" style="flex-shrink:0;padding:6px 12px;font-size:11.5px;font-weight:600;background:#3b82f6;color:#fff;border:1px solid #3b82f6;border-radius:5px;cursor:pointer;white-space:nowrap">⚙️ ' + (cp ? 'Modifica' : 'Configura') + '</button>' +
+            '</div>' +
+          '</div>';
+        })() +
       '</div>' +
       '<div class="modal-foot">' +
         '<button class="btn ghost" id="qexpCancel">Annulla</button>' +
@@ -48361,6 +49005,31 @@ function openQuoteExportDialog(){
   document.body.appendChild(bg);
 
   document.getElementById('qexpCancel').addEventListener('click', () => bg.remove());
+
+  /* V2.10.279: listener pulsante diagnostica immagini */
+  const _diagBtn = document.getElementById('qexpDiagImages');
+  if(_diagBtn){
+    _diagBtn.addEventListener('click', () => {
+      if(typeof openImageDiagnosticDialog === 'function'){
+        openImageDiagnosticDialog();
+      } else {
+        if(typeof toast === 'function') toast('Funzione diagnostica non trovata', 'err', 3000);
+        else alert('Funzione diagnostica non trovata');
+      }
+    });
+  }
+
+  /* V2.10.281: listener pulsante Configura proxy */
+  const _proxyBtn = document.getElementById('qexpProxySetup');
+  if(_proxyBtn){
+    _proxyBtn.addEventListener('click', () => {
+      if(typeof openCorsProxySetupDialog === 'function'){
+        openCorsProxySetupDialog();
+      } else {
+        if(typeof toast === 'function') toast('Setup non disponibile', 'err', 3000);
+      }
+    });
+  }
 
   // V2.10.149: wiring sezione IVA.
   // - Toggle on/off → abilita/disabilita preset+custom, mostra/nasconde preview
@@ -49238,6 +49907,8 @@ async function _qShowQuotePreviewDialog(){
           (previewWin ? '' : '<button class="qprev-btn qprev-btn-secondary qprev-btn-preview" type="button">👁️ Apri anteprima</button>') +
           '<button class="qprev-btn qprev-btn-primary qprev-btn-pdf" type="button">📄 Scarica PDF</button>' +
           '<button class="qprev-btn qprev-btn-primary qprev-btn-docx" type="button">📝 Scarica Word</button>' +
+          /* V2.10.278: pulsante diagnostica immagini per debug */
+          '<button class="qprev-btn qprev-btn-secondary qprev-btn-diag" type="button" style="background:#f59e0b;color:#fff" title="Mostra report dettagliato di risoluzione immagini di ogni articolo">🔍 Diagnostica immagini</button>' +
         '</div>' +
         '<button class="qprev-btn qprev-btn-close" type="button">Chiudi senza scaricare</button>' +
       '</div>' +
@@ -49291,6 +49962,18 @@ async function _qShowQuotePreviewDialog(){
       docBtn.textContent = '📝 Scarica Word';
     }
   });
+
+  // V2.10.278: pulsante diagnostica immagini
+  const diagBtn = overlay.querySelector('.qprev-btn-diag');
+  if(diagBtn){
+    diagBtn.addEventListener('click', () => {
+      if(typeof openImageDiagnosticDialog === 'function'){
+        openImageDiagnosticDialog();
+      } else {
+        toast('Diagnostica non disponibile', 'err', 3000);
+      }
+    });
+  }
 }
 
 // V2.10.46: stili dialog anteprima (iniettati una volta sola al primo uso)
@@ -49413,17 +50096,58 @@ async function _qFetchImageBuffer(url){
   // I proxy elencati di seguito sono stati validati per CloudFront e gestiscono Origin:null
   // (necessario quando l'app gira da file:// invece che https://).
   // Builder = funzione che dato url originale produce l'URL via proxy.
-  const proxyBuilders = [
+  // V2.10.280: estesa con 3 nuovi proxy + logging migliorato + esposizione esiti
+  // ai dialog di diagnostica via window._qLastProxyTrace.
+  // V2.10.281: il proxy custom dell'utente (SETTINGS.customCorsProxy) viene
+  // tentato PER PRIMO. È l'unica via affidabile (Cloudflare Worker personale)
+  // perché i proxy pubblici gratuiti nel 2026 sono diventati instabili.
+  const proxyBuilders = [];
+  const _customProxy = (typeof SETTINGS !== 'undefined' && SETTINGS.customCorsProxy)
+    ? String(SETTINGS.customCorsProxy).trim() : '';
+  if(_customProxy){
+    proxyBuilders.push({
+      name: 'custom',
+      build: (u) => {
+        // V2.10.281: gestisco i pattern più comuni di URL proxy:
+        //   - "...?url="    → accodo encoded(u) direttamente
+        //   - "...?"         → accodo "url=" + encoded(u)
+        //   - "...?key=X"   → accodo "&url=" + encoded(u)
+        //   - "...workers.dev" o "...workers.dev/" → accodo "?url=" + encoded(u)
+        //                     (caso default Cloudflare Worker che propongo io)
+        const enc = encodeURIComponent(u);
+        if(_customProxy.endsWith('=')) return _customProxy + enc;
+        if(_customProxy.endsWith('?')) return _customProxy + 'url=' + enc;
+        if(_customProxy.indexOf('?') >= 0) return _customProxy + '&url=' + enc;
+        return _customProxy + (_customProxy.endsWith('/') ? '' : '/') + '?url=' + enc;
+      }
+    });
+  }
+  // Catena di proxy pubblici (best-effort, possono fallire)
+  proxyBuilders.push(
     // allorigins: stabile, no API key, supporta CloudFront. Endpoint raw restituisce binary diretto.
-    (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+    { name: 'allorigins',   build: (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
     // codetabs: backup, no API key.
-    (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
-    // corsproxy.io: tenuto come terzo tentativo (puo' richiedere API key per alcuni domini).
-    (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
-  ];
+    { name: 'codetabs',     build: (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u) },
+    // corsproxy.io: tenuto come terzo tentativo (può richiedere API key per alcuni domini).
+    { name: 'corsproxy.io', build: (u) => 'https://corsproxy.io/?' + encodeURIComponent(u) },
+    // V2.10.280: alternativi affidabili
+    // thingproxy: rate-limited a 10 req/min ma stabile.
+    { name: 'thingproxy',   build: (u) => 'https://thingproxy.freeboard.io/fetch/' + u },
+    // corsproxy.org: alternativa gratuita.
+    { name: 'corsproxy.org', build: (u) => 'https://corsproxy.org/?' + encodeURIComponent(u) },
+    // cloudflare worker generico (community-hosted CORS-anywhere mirror).
+    { name: 'cors-anywhere-worker', build: (u) => 'https://cors-anywhere.azm.workers.dev/?' + u }
+  );
+
+  // V2.10.280: traccia esiti per la diagnostica
+  if(!window._qLastProxyTrace) window._qLastProxyTrace = {};
+  const trace = window._qLastProxyTrace[url] = { url, attempts: [] };
 
   for(let i = 0; i < proxyBuilders.length; i++){
-    const proxyUrl = proxyBuilders[i](url);
+    const proxyDef = proxyBuilders[i];
+    const proxyUrl = proxyDef.build(url);
+    const attempt = { name: proxyDef.name, url: proxyUrl, result: 'pending' };
+    trace.attempts.push(attempt);
     try{
       const res = await _qFetchWithTimeout(proxyUrl, 10000);
       if(res.ok){
@@ -49439,9 +50163,14 @@ async function _qFetchImageBuffer(url){
           (bytes[0] === 0x52 && bytes[1] === 0x49)     // RIFF/WebP
         );
         if(!validMagic){
-          console.warn('[docx] proxy', i, 'ritorna dati non-immagine per', url);
+          attempt.result = 'invalid-data';
+          attempt.bytesRead = buf.byteLength;
+          console.warn('[docx] proxy', proxyDef.name, 'ritorna dati non-immagine (' + buf.byteLength + 'B) per', url);
           continue;
         }
+        attempt.result = 'ok';
+        attempt.bytesRead = buf.byteLength;
+        attempt.imageType = type;
         if(type === 'webp'){
           const r = await _qConvertViaCanvas(url);
           window._qImgCache[url] = r;
@@ -49451,10 +50180,13 @@ async function _qFetchImageBuffer(url){
         window._qImgCache[url] = result;
         return result;
       } else {
-        console.warn('[docx] proxy', i, 'HTTP', res.status, 'per', url);
+        attempt.result = 'http-' + res.status;
+        console.warn('[docx] proxy', proxyDef.name, 'HTTP', res.status, 'per', url);
       }
     } catch(e){
-      console.warn('[docx] proxy', i, 'errore:', e.message || e);
+      attempt.result = 'error';
+      attempt.errorMsg = e.message || String(e);
+      console.warn('[docx] proxy', proxyDef.name, 'errore:', e.message || e);
     }
   }
 
