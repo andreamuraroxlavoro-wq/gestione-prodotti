@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.296</title>
+<title>Gestione Prodotti V2.10.298</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6691,7 +6691,7 @@ body.theme-light .loader-card{
 /* Bottone "P" sulle card prodotto: visibile solo quando body.quote-mode è attivo */
 .card-img .quote-trigger{
   position:absolute;
-  top:122px;      /* V2.10.296: spostato sotto al pacchetto (era top:84px) */
+  top:160px;      /* V2.10.297: spostato per accomodare il nuovo fantasmino outlet sopra */
   right:8px;
   width:30px;
   height:30px;
@@ -6734,6 +6734,37 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 }
 .card-img .quote-trigger.in-cart:hover{background:rgba(22,163,74,1)}
 
+/* V2.10.298: badge quantità sul pulsante carrello — mostra il numero di unità del
+   prodotto presenti nel carrello preventivo. Posizionato in alto-destra del button,
+   stile pillola bianca con testo verde scuro (coerente con .in-cart verde). */
+.card-img .quote-trigger .quote-cart-qty{
+  position:absolute;
+  top:-6px;
+  right:-6px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:9px;
+  background:#fff;
+  color:#15803d;
+  border:1.5px solid #15803d;
+  font-size:10.5px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1;
+  box-shadow:0 1px 3px rgba(0,0,0,0.20);
+  pointer-events:none;  /* il badge non intercetta il click — passa al pulsante */
+  z-index:6;            /* sopra l'icona */
+  letter-spacing:0;
+}
+/* Quando il pulsante NON è in .in-cart (qty=0) ma in modalità preventivo, il badge
+   non viene generato (vedi _updateAllQuoteCartBadges). Niente CSS extra serve.
+   Se ad-hoc serve nasconderlo via CSS: */
+.card-img .quote-trigger:not(.in-cart) .quote-cart-qty{ display:none; }
+
 /* === V2.10.282: Icona stella PREFERITI nella card galleria ===
    Posizione: sotto al pulsante P (top:84px), allineata con eye-trigger (top:8px)
    e quote-trigger (top:46px). Sempre visibile (non solo in modalità).
@@ -6741,7 +6772,7 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 */
 .card-img .fav-trigger{
   position:absolute;
-  top:46px;       /* V2.10.283: sotto al fumetto (era top:84px) — invertita con quote-trigger */
+  top:84px;       /* V2.10.297: spostato sotto al fantasmino outlet (era top:46px) */
   right:8px;
   width:30px;
   height:30px;
@@ -6838,11 +6869,11 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 }
 
 /* === V2.10.295: Icona pacchetto STOCK MANAGED nella card galleria ===
-   V2.10.296: spostato sopra al carrello (era top:122px, ora top:84px).
+   V2.10.297: spostato a top:122px per accomodare il nuovo fantasmino outlet sopra.
    Inattiva: pallido grigio. Attiva (gestito): teal pieno #14b8a6. */
 .card-img .stock-trigger{
   position:absolute;
-  top:84px;
+  top:122px;
   right:8px;
   width:30px;
   height:30px;
@@ -6964,6 +6995,134 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 .tb-special-stock.active .tb-special-badge{
   background:#fff;
   color:#0d9488;
+}
+
+/* === V2.10.297: Icona fantasmino OUTLET nella card galleria ===
+   Sopra ai preferiti (top:46px) — prima icona dopo il fumetto descrizione.
+   Inattiva: pallido grigio. Attiva (outlet): viola/lavanda pieno #a855f7. */
+.card-img .outlet-trigger{
+  position:absolute;
+  top:46px;
+  right:8px;
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.92);
+  border:1px solid rgba(0,0,0,0.12);
+  box-shadow:0 2px 6px rgba(0,0,0,0.18);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  z-index:5;
+  transition:transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  padding:0;
+  user-select:none;
+  color:#9ca3af;
+}
+.card-img .outlet-trigger svg{
+  width:18px;
+  height:18px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  transition:fill 0.18s ease, stroke 0.18s ease;
+}
+.card-img .outlet-trigger:hover{
+  transform:scale(1.12);
+  background:rgba(255,255,255,1);
+  box-shadow:0 4px 10px rgba(0,0,0,0.28);
+  color:#a855f7;
+}
+.card-img .outlet-trigger:active{transform:scale(0.95)}
+.card-img .outlet-trigger.is-outlet{
+  background:#a855f7;
+  border-color:rgba(126,34,206,0.55);
+  color:#fff;
+}
+.card-img .outlet-trigger.is-outlet svg{
+  stroke:#fff;
+}
+.card-img .outlet-trigger.is-outlet:hover{
+  background:#9333ea;
+  box-shadow:0 4px 12px rgba(168,85,247,0.45);
+}
+
+/* === V2.10.297: Icona fantasmino OUTLET nella vista lista === */
+.row-outlet-trigger{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  background:transparent;
+  border:1px solid transparent;
+  cursor:pointer;
+  vertical-align:middle;
+  color:#9ca3af;
+  transition:transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+  padding:0;
+  margin:0 2px;
+}
+.row-outlet-trigger svg{
+  width:15px;
+  height:15px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.row-outlet-trigger:hover{
+  background:rgba(168,85,247,0.12);
+  color:#a855f7;
+  transform:scale(1.15);
+}
+.row-outlet-trigger.is-outlet{
+  color:#a855f7;
+}
+.row-outlet-trigger.is-outlet:hover{
+  background:rgba(168,85,247,0.18);
+  color:#9333ea;
+}
+
+/* === V2.10.297: Pulsante toggle "Solo outlet" nella toolbar === */
+.tb-special-outlet .tb-special-badge{ background:#a855f7; }
+.tb-special-outlet:hover{ color:#a855f7; border-color:rgba(168,85,247,0.45); }
+.tb-special-outlet .outlet-ghost{
+  width:20px;
+  height:20px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.tb-special-outlet.active,
+.tb-special-outlet[aria-pressed="true"]{
+  background:#a855f7;
+  color:#fff;
+  border-color:#a855f7;
+  box-shadow:0 2px 6px rgba(168,85,247,0.35);
+}
+.tb-special-outlet.active .outlet-ghost,
+.tb-special-outlet[aria-pressed="true"] .outlet-ghost{
+  stroke:#fff;
+}
+.tb-special-outlet.active:hover,
+.tb-special-outlet[aria-pressed="true"]:hover{
+  background:#9333ea;
+  border-color:#9333ea;
+  color:#fff;
+}
+.tb-special-outlet.active .tb-special-badge{
+  background:#fff;
+  color:#9333ea;
 }
 
 /* === V2.10.282: Pulsante toggle "Solo preferiti" nella toolbar ===
@@ -8842,7 +9001,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.296</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.298</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9089,6 +9248,18 @@ body.theme-light .dlg-input{background:var(--bg3)}
         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
       </svg>
       <span class="tb-special-badge" id="tbSpecialServiceBadge">0</span>
+    </button>
+
+    <!-- V2.10.297: Pulsante toggle "Solo outlet" (prodotti da uscire rapidamente).
+         Posizionato SOPRA ai preferiti = a sinistra del pulsante stella nella toolbar.
+         Visibile solo se almeno un prodotto è marcato come outlet. Accento viola #a855f7. -->
+    <button class="btn icon-btn tb-special-btn tb-special-outlet" id="btnOutletFilter" onclick="toggleOnlyOutletFilter()" title="Filtra: solo prodotti in uscita rapida" aria-label="Solo outlet" style="display:none">
+      <svg class="outlet-ghost" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 10h.01"/>
+        <path d="M15 10h.01"/>
+        <path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"/>
+      </svg>
+      <span class="tb-special-badge outlet-count" id="tbOutletFilterBadge">0</span>
     </button>
 
     <!-- V2.10.282: Pulsante toggle "Solo preferiti" — visibile solo se almeno un prodotto è preferito.
@@ -9387,7 +9558,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.296');
+console.info('[bootstrap] script avvio — V2.10.298');
 
 window.openStatsDashboard = function(){
   try {
@@ -10838,7 +11009,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.296';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.298';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12678,6 +12849,188 @@ function toggleOnlyStockManagedFilter(){
 loadStockManaged();
 /* ============== FINE SISTEMA STOCK MANAGED ============== */
 
+/* ========== SISTEMA OUTLET (V2.10.297) ==========
+   Permette di marcare prodotti da "far uscire rapidamente dal magazzino" (icona
+   fantasmino nella card galleria e nella vista lista) e attivare un filtro
+   "Solo outlet" dalla toolbar. Identico ai sistemi PREFERITI/STOCK_MANAGED ma con
+   identifier e colori distinti (viola/lavanda).
+   Concetto: prodotti che vogliamo svuotare rapidamente — usare il fantasmino
+   richiama l'idea di "fare sparire" rapidamente.
+   Persistenza: localStorage chiave 'vt_outlet' + sync via Drive Sync.
+   Identifier: `name` canonico.
+   ================================================= */
+const OUTLET_CODES = new Set();
+let ONLY_OUTLET = false;
+const OUTLET_LS_KEY = 'vt_outlet';
+
+function loadOutlet(){
+  try {
+    const raw = localStorage.getItem(OUTLET_LS_KEY);
+    if(raw){
+      const arr = JSON.parse(raw);
+      if(Array.isArray(arr)){
+        OUTLET_CODES.clear();
+        arr.forEach(c => {
+          const s = String(c || '').trim();
+          if(s) OUTLET_CODES.add(s);
+        });
+      }
+    }
+  } catch(e){
+    console.warn('[outlet] errore lettura localStorage:', e);
+  }
+}
+
+function saveOutlet(){
+  try {
+    localStorage.setItem(OUTLET_LS_KEY, JSON.stringify([...OUTLET_CODES]));
+  } catch(e){
+    console.warn('[outlet] errore scrittura localStorage:', e);
+  }
+}
+
+function isOutlet(code){
+  if(!code) return false;
+  return OUTLET_CODES.has(String(code).trim());
+}
+
+/**
+ * Toggle dello stato "outlet" per un codice prodotto.
+ * @returns {boolean} il nuovo stato
+ */
+function toggleOutlet(code){
+  const c = String(code || '').trim();
+  if(!c) return false;
+  let nowOutlet;
+  if(OUTLET_CODES.has(c)){
+    OUTLET_CODES.delete(c);
+    nowOutlet = false;
+  } else {
+    OUTLET_CODES.add(c);
+    nowOutlet = true;
+  }
+  saveOutlet();
+  if(typeof driveNotifyChange === 'function'){
+    try { driveNotifyChange('settings', 'vt_outlet', null); } catch(_){}
+  }
+  if(ONLY_OUTLET){
+    if(typeof applyFilters === 'function') applyFilters();
+  } else {
+    _updateOutletIconsForCode(c, nowOutlet);
+  }
+  _updateOutletToolbarButton();
+  return nowOutlet;
+}
+
+function _updateOutletIconsForCode(code, isNowOutlet){
+  const sel = '[data-outlet-code="' + (window.CSS && CSS.escape ? CSS.escape(code) : code.replace(/"/g, '\\"')) + '"]';
+  document.querySelectorAll(sel).forEach(el => {
+    if(isNowOutlet){
+      el.classList.add('is-outlet');
+      el.setAttribute('aria-pressed', 'true');
+      el.setAttribute('title', 'Rimuovi da prodotti in uscita rapida');
+    } else {
+      el.classList.remove('is-outlet');
+      el.setAttribute('aria-pressed', 'false');
+      el.setAttribute('title', 'Segna come prodotto in uscita rapida');
+    }
+  });
+}
+
+function _updateOutletToolbarButton(){
+  const btn = document.getElementById('btnOutletFilter');
+  if(!btn) return;
+  const totalOutlet = OUTLET_CODES.size;
+  let visibleCount = totalOutlet;
+  try {
+    const _dataReady = (typeof DATA !== 'undefined') && Array.isArray(DATA) && DATA.length > 0;
+    const _filteredReady = (typeof FILTERED !== 'undefined') && Array.isArray(FILTERED);
+    if(_dataReady && _filteredReady){
+      visibleCount = 0;
+      for(const p of FILTERED){
+        const code = String((typeof getField === 'function' ? getField(p, 'name') : p && p.name) || '').trim();
+        if(code && OUTLET_CODES.has(code)) visibleCount++;
+      }
+    }
+  } catch(_){}
+  const countEl = btn.querySelector('.outlet-count');
+  if(countEl) countEl.textContent = visibleCount;
+  if(totalOutlet > 0){
+    if(visibleCount === totalOutlet){
+      btn.title = 'Filtra: solo prodotti in uscita rapida (' + totalOutlet + ')';
+    } else {
+      btn.title = visibleCount + ' di ' + totalOutlet + ' prodotti outlet compatibili con i filtri attivi';
+    }
+  }
+  btn.style.display = totalOutlet > 0 ? '' : 'none';
+  btn.classList.toggle('active', ONLY_OUTLET && totalOutlet > 0);
+}
+
+function toggleOnlyOutletFilter(){
+  ONLY_OUTLET = !ONLY_OUTLET;
+  if(ONLY_OUTLET && OUTLET_CODES.size === 0){
+    ONLY_OUTLET = false;
+    if(typeof toast === 'function') toast('Nessun prodotto in uscita rapida. Marcali con l\'icona fantasmino sulle card.', 'warn', 3500);
+    return;
+  }
+  _updateOutletToolbarButton();
+  if(typeof applyFilters === 'function') applyFilters();
+}
+
+loadOutlet();
+/* ============== FINE SISTEMA OUTLET ============== */
+
+/* ========== BADGE QUANTITÀ CARRELLO (V2.10.298) ==========
+   Helper functions per mostrare la quantità di ogni prodotto nel carrello
+   direttamente sull'icona carrello della card galleria.
+   ============================================================ */
+
+/** Ritorna la quantità totale del prodotto identificato da `code` (= name canonico)
+ *  presente nel carrello preventivo. 0 se assente o carrello vuoto. */
+function _quoteCartQtyForCode(code){
+  if(!code) return 0;
+  if(!window._QUOTE_STATE || !Array.isArray(window._QUOTE_STATE.items)) return 0;
+  const target = String(code).trim();
+  if(!target) return 0;
+  let total = 0;
+  for(const it of window._QUOTE_STATE.items){
+    if(it && it.code === target){
+      const q = Number(it.qty) || 0;
+      total += q;
+    }
+  }
+  return total;
+}
+
+/** Aggiorna tutti i badge .quote-cart-qty visibili nel DOM in base allo stato
+ *  corrente del carrello. Chiamato dopo ogni modifica del carrello.
+ *  Non re-renderizza l'intera griglia: agisce chirurgicamente sui singoli pulsanti.
+ *  Mantiene sincronizzata anche la classe .in-cart sul .quote-trigger e il title. */
+function _updateAllQuoteCartBadges(){
+  const buttons = document.querySelectorAll('.quote-trigger[data-cart-code]');
+  buttons.forEach(btn => {
+    const code = btn.getAttribute('data-cart-code');
+    if(!code) return;
+    const qty = _quoteCartQtyForCode(code);
+    let badge = btn.querySelector('.quote-cart-qty');
+    if(qty > 0){
+      if(!badge){
+        badge = document.createElement('span');
+        badge.className = 'quote-cart-qty';
+        btn.appendChild(badge);
+      }
+      badge.textContent = String(qty);
+      btn.classList.add('in-cart');
+      btn.title = 'Nel carrello: ' + qty + ' · clicca per aggiungere altro';
+    } else {
+      if(badge) badge.remove();
+      btn.classList.remove('in-cart');
+      btn.title = 'Aggiungi al preventivo';
+    }
+  });
+}
+/* ============== FINE BADGE CARRELLO ============== */
+
 /* ========== IMPOSTAZIONI ==========
    Configurazione persistita in localStorage (chiave 'vt_settings').
    Attualmente minimal: memorizza il timestamp dell'ultimo import riuscito.
@@ -14515,7 +14868,8 @@ function _driveBuildFullPayload(){
     'vt_settings', 'vt_presets', 'vt_dict',
     'vt_text_phrases', 'vt_text_words',
     'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
-    'vt_stock_managed'  // V2.10.295: sincronizza la lista gestiti a magazzino
+    'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
+    'vt_outlet'  // V2.10.297: sincronizza la lista outlet (uscita rapida)
   ];
   SETTINGS_KEYS.forEach(k => {
     let v = localStorage.getItem(k);
@@ -16551,7 +16905,8 @@ function driveNotifyChange(kind, key, record){
           'vt_settings', 'vt_presets', 'vt_dict',
           'vt_text_phrases', 'vt_text_words',
           'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
-          'vt_stock_managed'  // V2.10.295: sincronizza la lista gestiti a magazzino
+          'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
+          'vt_outlet'  // V2.10.297: sincronizza la lista outlet (uscita rapida)
         ];
         SETTINGS_KEYS.forEach(k => {
           let v = localStorage.getItem(k);
@@ -17804,7 +18159,8 @@ async function driveApplyRemoteData(payload){
       'vt_settings', 'vt_presets', 'vt_dict',
       'vt_text_phrases', 'vt_text_words',
       'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
-      'vt_stock_managed'  // V2.10.295: sincronizza la lista gestiti a magazzino
+      'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
+      'vt_outlet'  // V2.10.297: sincronizza la lista outlet (uscita rapida)
     ];
     Object.keys(payload.settings).forEach(k => {
       if(!SETTINGS_KEYS.includes(k) || typeof payload.settings[k] !== 'string') return;
@@ -17846,6 +18202,9 @@ async function driveApplyRemoteData(payload){
     // V2.10.295: idem per la lista "gestiti a magazzino" (vt_stock_managed)
     if(typeof loadStockManaged === 'function') loadStockManaged();
     if(typeof _updateStockManagedToolbarButton === 'function') _updateStockManagedToolbarButton();
+    // V2.10.297: idem per la lista outlet (vt_outlet)
+    if(typeof loadOutlet === 'function') loadOutlet();
+    if(typeof _updateOutletToolbarButton === 'function') _updateOutletToolbarButton();
   }
 
   // V2.8.0: 4. CASCADE DISCOUNTS — sconti aggiuntivi a cascata su marca/macrocat/cat
@@ -19182,7 +19541,8 @@ const BACKUP_SETTINGS_KEYS = [
   'vt_settings', 'vt_presets', 'vt_dict',
   'vt_text_phrases', 'vt_text_words', 'vt_sidebar_width',
   'vt_favorites',  // V2.10.284: include preferiti nei backup locali
-  'vt_stock_managed'  // V2.10.295: include lista gestiti a magazzino nei backup locali
+  'vt_stock_managed',  // V2.10.295: include lista gestiti a magazzino nei backup locali
+  'vt_outlet'  // V2.10.297: include lista outlet nei backup locali
 ];
 
 // Stato runtime del sistema di backup
@@ -24676,6 +25036,12 @@ function applyFilters(options){
       if(!STOCK_MANAGED_CODES.has(pName)) return false;
     }
 
+    // V2.10.297: filtro "Solo outlet" — in AND con tutti gli altri filtri
+    if(ONLY_OUTLET && OUTLET_CODES.size > 0){
+      const pName = String(getField(p, 'name') || '').trim();
+      if(!OUTLET_CODES.has(pName)) return false;
+    }
+
     // V2.2.36: filtro speciale "Nuovi prodotti" / "Prodotti scatalogati"
     // Quando sono attivi uno o entrambi, applica OR: passa se matcha almeno uno
     // (nuovi O scatalogati). Set vuoto = nessun filtro speciale attivo.
@@ -24812,6 +25178,8 @@ function applyFilters(options){
   if(typeof _updateFavoritesToolbarButton === 'function') _updateFavoritesToolbarButton();
   // V2.10.295: stessa logica per il pulsante "Solo gestiti a magazzino".
   if(typeof _updateStockManagedToolbarButton === 'function') _updateStockManagedToolbarButton();
+  // V2.10.297: stessa logica per il pulsante "Solo outlet".
+  if(typeof _updateOutletToolbarButton === 'function') _updateOutletToolbarButton();
 
   PAGE = 0;
   render();
@@ -25565,7 +25933,25 @@ function renderGallery(main, list){
         <span class="eye-trigger" role="button" tabindex="-1" aria-label="Mostra dettagli prodotto" title="Mostra dettagli prodotto">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </span>
-        <button class="quote-trigger" type="button" data-product-idx="${p._idx}" aria-label="Aggiungi al preventivo" title="Aggiungi al preventivo"><svg viewBox="0 -1 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>
+        ${(() => {
+          // V2.10.298: il pulsante carrello mostra un badge con la quantità del prodotto
+          // attualmente nel carrello preventivo. Il data-cart-code (= name canonico)
+          // permette al refresh di trovare e aggiornare il pulsante senza re-render.
+          const _cartCode = String(getField(p, 'name') || '').trim();
+          const _cartQty = (typeof _quoteCartQtyForCode === 'function' && _cartCode) ? _quoteCartQtyForCode(_cartCode) : 0;
+          const _cartBadge = _cartQty > 0 ? `<span class="quote-cart-qty">${_cartQty}</span>` : '';
+          return `<button class="quote-trigger${_cartQty > 0 ? ' in-cart' : ''}" type="button"
+            data-product-idx="${p._idx}"
+            data-cart-code="${escapeAttr(_cartCode)}"
+            aria-label="Aggiungi al preventivo"
+            title="${_cartQty > 0 ? 'Nel carrello: ' + _cartQty + ' · clicca per aggiungere altro' : 'Aggiungi al preventivo'}">
+            <svg viewBox="0 -1 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+            </svg>
+            ${_cartBadge}
+          </button>`;
+        })()}
         ${(() => {
           // V2.10.295: icona pacchetto STOCK MANAGED, sotto al carrello.
           // Stesso pattern dei preferiti — identifier = name canonico.
@@ -25582,6 +25968,26 @@ function renderGallery(main, list){
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
               <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
               <line x1="12" y1="22.08" x2="12" y2="12"/>
+            </svg>
+          </button>`;
+        })()}
+        ${(() => {
+          // V2.10.297: icona fantasmino OUTLET — posizionata SOPRA i preferiti
+          // (top:46px, prima icona sotto al fumetto descrizione).
+          // Identifier = name canonico, stesso pattern di favoriti/stock.
+          const _outletCode = String(getField(p, 'name') || '').trim();
+          if(!_outletCode) return '';
+          const _outletOn = (typeof isOutlet === 'function') && isOutlet(_outletCode);
+          // SVG fantasma (Lucide "ghost"): corpo + 2 occhi
+          return `<button class="outlet-trigger${_outletOn ? ' is-outlet' : ''}" type="button"
+            data-outlet-code="${escapeAttr(_outletCode)}"
+            aria-label="${_outletOn ? 'Rimuovi da prodotti in uscita rapida' : 'Segna come prodotto in uscita rapida'}"
+            aria-pressed="${_outletOn ? 'true' : 'false'}"
+            title="${_outletOn ? 'Rimuovi da prodotti in uscita rapida' : 'Segna come prodotto in uscita rapida'}">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 10h.01"/>
+              <path d="M15 10h.01"/>
+              <path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"/>
             </svg>
           </button>`;
         })()}
@@ -25647,6 +26053,7 @@ function renderGallery(main, list){
             e.target.closest('.quote-trigger') ||
             e.target.closest('.fav-trigger') ||
             e.target.closest('.stock-trigger') ||
+            e.target.closest('.outlet-trigger') ||
             e.target.closest('.card-sel-checkbox')
         )) return;
         // Se l'immagine non c'è (placeholder NO IMG), non aprire il lightbox
@@ -25666,7 +26073,8 @@ function renderGallery(main, list){
             e.target.closest('.eye-trigger') ||
             e.target.closest('.card-desc-icon') ||
             e.target.closest('.fav-trigger') ||
-            e.target.closest('.stock-trigger')
+            e.target.closest('.stock-trigger') ||
+            e.target.closest('.outlet-trigger')
         )) return;
         // Cancella il timer del click singolo: deve partire SOLO openEditor
         if(_imgClickTimer){ clearTimeout(_imgClickTimer); _imgClickTimer = null; }
@@ -25736,6 +26144,18 @@ function renderGallery(main, list){
         const code = stockTriggerEl.getAttribute('data-stock-code');
         if(code && typeof toggleStockManaged === 'function'){
           toggleStockManaged(code);
+        }
+      });
+    }
+    // V2.10.297: handler icona fantasmino OUTLET
+    const outletTriggerEl = card.querySelector('.outlet-trigger');
+    if(outletTriggerEl){
+      outletTriggerEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const code = outletTriggerEl.getAttribute('data-outlet-code');
+        if(code && typeof toggleOutlet === 'function'){
+          toggleOutlet(code);
         }
       });
     }
@@ -25861,6 +26281,20 @@ function renderTable(main, list){
         <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
     </span>`;
+    // V2.10.297: icona fantasmino OUTLET per la vista lista (PRIMA di rowFavIcon)
+    const _outletCodeRow = String(getField(p, 'name') || '').trim();
+    const _outletOnRow = _outletCodeRow && (typeof isOutlet === 'function') && isOutlet(_outletCodeRow);
+    const rowOutletIcon = _outletCodeRow ? `<button type="button" class="row-outlet-trigger${_outletOnRow ? ' is-outlet' : ''}"
+        data-outlet-code="${escapeAttr(_outletCodeRow)}"
+        aria-label="${_outletOnRow ? 'Rimuovi da prodotti in uscita rapida' : 'Segna come prodotto in uscita rapida'}"
+        aria-pressed="${_outletOnRow ? 'true' : 'false'}"
+        title="${_outletOnRow ? 'Rimuovi da prodotti in uscita rapida' : 'Segna come prodotto in uscita rapida'}">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 10h.01"/>
+          <path d="M15 10h.01"/>
+          <path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"/>
+        </svg>
+      </button>` : '';
     // V2.10.282: icona stella PREFERITI per la vista lista
     const _favCodeRow = String(getField(p, 'name') || '').trim();
     const _favOnRow = _favCodeRow && (typeof isFavorite === 'function') && isFavorite(_favCodeRow);
@@ -25886,7 +26320,7 @@ function renderTable(main, list){
           <line x1="12" y1="22.08" x2="12" y2="12"/>
         </svg>
       </button>` : '';
-    const rowActionsCell = `<span class="row-actions">${rowEyeIcon}${rowDescIcon}${rowFavIcon}${rowStockIcon}</span>${renderStockPair(stockIT(p), stockES(p), true, 'sp-inline')}`;
+    const rowActionsCell = `<span class="row-actions">${rowEyeIcon}${rowDescIcon}${rowOutletIcon}${rowFavIcon}${rowStockIcon}</span>${renderStockPair(stockIT(p), stockES(p), true, 'sp-inline')}`;
 
     // V2.10.269: rendo le celle Marca/Macrocategoria/Categoria cliccabili per
     // attivare il filtro corrispondente (stesso comportamento delle card).
@@ -26486,6 +26920,18 @@ function initHoverPreview(){
     const code = stkBtn.getAttribute('data-stock-code');
     if(code && typeof toggleStockManaged === 'function'){
       toggleStockManaged(code);
+    }
+  }, true);
+
+  // V2.10.297: idem per icona fantasmino OUTLET nelle righe tabella
+  document.addEventListener('click', (ev) => {
+    const outBtn = ev.target && ev.target.closest && ev.target.closest('.row-outlet-trigger[data-outlet-code]');
+    if(!outBtn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const code = outBtn.getAttribute('data-outlet-code');
+    if(code && typeof toggleOutlet === 'function'){
+      toggleOutlet(code);
     }
   }, true);
 
@@ -27795,7 +28241,23 @@ function renderRelatedList(){
           <span class="eye-trigger" role="button" tabindex="-1" aria-label="Mostra dettagli prodotto" title="Mostra dettagli prodotto">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           </span>
-          <button class="quote-trigger" type="button" data-product-idx="${product._idx}" aria-label="Aggiungi al preventivo" title="Aggiungi al preventivo"><svg viewBox="0 -1 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>
+          ${(() => {
+            // V2.10.298: badge quantità carrello anche nelle card prodotti correlati
+            const _relCartCode = String(getField(product, 'name') || '').trim();
+            const _relCartQty = (typeof _quoteCartQtyForCode === 'function' && _relCartCode) ? _quoteCartQtyForCode(_relCartCode) : 0;
+            const _relCartBadge = _relCartQty > 0 ? `<span class="quote-cart-qty">${_relCartQty}</span>` : '';
+            return `<button class="quote-trigger${_relCartQty > 0 ? ' in-cart' : ''}" type="button"
+              data-product-idx="${product._idx}"
+              data-cart-code="${escapeAttr(_relCartCode)}"
+              aria-label="Aggiungi al preventivo"
+              title="${_relCartQty > 0 ? 'Nel carrello: ' + _relCartQty + ' · clicca per aggiungere altro' : 'Aggiungi al preventivo'}">
+              <svg viewBox="0 -1 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+              </svg>
+              ${_relCartBadge}
+            </button>`;
+          })()}
           ${_relNExtras>0?`<span class="extra-count">📷 ${_relNExtras}</span>`:''}
           ${_relNRelated>0?`<span class="related-count">🔗 ${_relNRelated}</span>`:''}
         </div>
@@ -44668,6 +45130,11 @@ async function saveQuoteState(){
     await idbSet('meta', QUOTE_KEY_SETTINGS, { settings: window._QUOTE_STATE.settings });
     // V2.10.11: persisto anche il bound state
     await idbSet('meta', QUOTE_KEY_BOUND, { boundQuote: window._QUOTE_STATE.boundQuote || null });
+    // V2.10.298: aggiorna i badge "quantità nel carrello" sui pulsanti carrello
+    // delle card galleria. Defensive try/catch — non blocca il save su errori DOM.
+    try {
+      if(typeof _updateAllQuoteCartBadges === 'function') _updateAllQuoteCartBadges();
+    } catch(_){}
   } catch(err){
     console.warn('[quote] save error:', err);
   }
@@ -44700,6 +45167,13 @@ async function loadQuoteState(){
     applyQuoteMode();
     // Aggiorna pulsante fluttuante (creandolo se non esiste)
     renderQuoteFloatingButton();
+    // V2.10.298: aggiorna i badge "quantità carrello" sulle card al ripristino.
+    // Defensive: il DOM delle card potrebbe non essere ancora pronto al primo
+    // load, in quel caso _updateAllQuoteCartBadges trova querySelectorAll vuoto
+    // e non fa nulla; il prossimo render della griglia rigenera i badge inline.
+    try {
+      if(typeof _updateAllQuoteCartBadges === 'function') _updateAllQuoteCartBadges();
+    } catch(_){}
   } catch(err){
     console.warn('[quote] load error:', err);
   }
@@ -57424,6 +57898,10 @@ if(document.readyState === 'loading'){
     // V2.10.295: stessa init per il pulsante "Solo gestiti a magazzino"
     if(typeof _updateStockManagedToolbarButton === 'function'){
       _updateStockManagedToolbarButton();
+    }
+    // V2.10.297: stessa init per il pulsante "Solo outlet"
+    if(typeof _updateOutletToolbarButton === 'function'){
+      _updateOutletToolbarButton();
     }
   }
   if(document.readyState === 'loading'){
