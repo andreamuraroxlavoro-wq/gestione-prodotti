@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.281</title>
+<title>Gestione Prodotti V2.10.284</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6572,7 +6572,7 @@ body.theme-light .loader-card{
 /* Bottone "P" sulle card prodotto: visibile solo quando body.quote-mode è attivo */
 .card-img .quote-trigger{
   position:absolute;
-  top:46px;       /* sotto al fumetto (.eye-trigger) che è a top:8px con altezza ~30px */
+  top:84px;       /* V2.10.283: spostato sotto la stella (era top:46px) */
   right:8px;
   width:30px;
   height:30px;
@@ -6607,6 +6607,146 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   border-color:rgba(255,255,255,0.5);
 }
 .card-img .quote-trigger.in-cart:hover{background:rgba(22,163,74,1)}
+
+/* === V2.10.282: Icona stella PREFERITI nella card galleria ===
+   Posizione: sotto al pulsante P (top:84px), allineata con eye-trigger (top:8px)
+   e quote-trigger (top:46px). Sempre visibile (non solo in modalità).
+   Inattiva: pallido grigio + bordo bianco. Attiva (preferito): giallo dorato pieno.
+*/
+.card-img .fav-trigger{
+  position:absolute;
+  top:46px;       /* V2.10.283: sotto al fumetto (era top:84px) — invertita con quote-trigger */
+  right:8px;
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.92);
+  border:1px solid rgba(0,0,0,0.12);
+  box-shadow:0 2px 6px rgba(0,0,0,0.18);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  z-index:5;
+  transition:transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  padding:0;
+  user-select:none;
+  color:#9ca3af;  /* grigio per stella vuota */
+}
+.card-img .fav-trigger svg{
+  width:18px;
+  height:18px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  transition:fill 0.18s ease, stroke 0.18s ease;
+}
+.card-img .fav-trigger:hover{
+  transform:scale(1.12);
+  background:rgba(255,255,255,1);
+  box-shadow:0 4px 10px rgba(0,0,0,0.28);
+  color:#f59e0b;  /* anteprima giallo dorato in hover */
+}
+.card-img .fav-trigger:active{transform:scale(0.95)}
+.card-img .fav-trigger.is-fav{
+  background:rgba(255,209,53,0.96);
+  border-color:rgba(202,138,4,0.55);
+  color:#fff;
+}
+.card-img .fav-trigger.is-fav svg{
+  fill:#fff;        /* stella piena */
+  stroke:#fff;
+}
+.card-img .fav-trigger.is-fav:hover{
+  background:rgba(245,158,11,1);
+  box-shadow:0 4px 12px rgba(245,158,11,0.45);
+}
+/* Nascondi su touch device se necessario? No, manteniamo sempre visibile (è core feature) */
+
+/* === V2.10.282: Icona stella PREFERITI nella vista lista ===
+   Più piccola, allineata con gli altri controlli inline della riga.
+*/
+.row-fav-trigger{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  background:transparent;
+  border:1px solid transparent;
+  cursor:pointer;
+  vertical-align:middle;
+  color:#9ca3af;
+  transition:transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+  padding:0;
+  margin:0 2px;
+}
+.row-fav-trigger svg{
+  width:15px;
+  height:15px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.row-fav-trigger:hover{
+  background:rgba(245,158,11,0.12);
+  color:#f59e0b;
+  transform:scale(1.15);
+}
+.row-fav-trigger.is-fav{
+  color:#f59e0b;
+}
+.row-fav-trigger.is-fav svg{
+  fill:#f59e0b;
+}
+.row-fav-trigger.is-fav:hover{
+  background:rgba(245,158,11,0.18);
+  color:#ea580c;
+}
+
+/* === V2.10.282: Pulsante toggle "Solo preferiti" nella toolbar ===
+   Usa il pattern .tb-special-btn esistente, con accento giallo dorato (stella). */
+.tb-special-fav .tb-special-badge{ background:#f59e0b; }
+.tb-special-fav:hover{ color:#f59e0b; border-color:rgba(245,158,11,0.45); }
+.tb-special-fav .fav-star{
+  width:20px;
+  height:20px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+/* Stato attivo (toggle ON): pulsante riempito di giallo dorato */
+.tb-special-fav.active,
+.tb-special-fav[aria-pressed="true"]{
+  background:#f59e0b;
+  color:#fff;
+  border-color:#f59e0b;
+  box-shadow:0 2px 6px rgba(245,158,11,0.35);
+}
+.tb-special-fav.active .fav-star,
+.tb-special-fav[aria-pressed="true"] .fav-star{
+  fill:#fff;
+  stroke:#fff;
+}
+.tb-special-fav.active:hover,
+.tb-special-fav[aria-pressed="true"]:hover{
+  background:#ea580c;
+  border-color:#ea580c;
+  color:#fff;
+}
+.tb-special-fav.active .tb-special-badge{
+  background:#fff;
+  color:#ea580c;
+}
 
 /* Pulsante fluttuante carrello — bottom-right, sempre visibile in quote-mode */
 #quote-float-btn{
@@ -8447,7 +8587,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.281</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.284</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8694,6 +8834,16 @@ body.theme-light .dlg-input{background:var(--bg3)}
         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
       </svg>
       <span class="tb-special-badge" id="tbSpecialServiceBadge">0</span>
+    </button>
+
+    <!-- V2.10.282: Pulsante toggle "Solo preferiti" — visibile solo se almeno un prodotto è preferito.
+         Stile coerente con gli altri tb-special-btn ma con accento giallo dorato (stella).
+         L'attivazione restringe il catalogo ai soli prodotti marcati con stella nella card. -->
+    <button class="btn icon-btn tb-special-btn tb-special-fav" id="btnFavoritesFilter" onclick="toggleOnlyFavoritesFilter()" title="Filtra: solo prodotti preferiti" aria-label="Solo preferiti" style="display:none">
+      <svg class="fav-star" viewBox="0 0 24 24" aria-hidden="true">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+      <span class="tb-special-badge fav-count" id="tbFavoritesFilterBadge">0</span>
     </button>
 
     <!-- V2.10.9: scorciatoie topbar per Archivio Preventivi / Anagrafica Clienti / Prodotti Personali (sezioni dedicate). Visibilita' gestita via JS in base alla presenza di dati. -->
@@ -8970,7 +9120,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.281');
+console.info('[bootstrap] script avvio — V2.10.284');
 
 window.openStatsDashboard = function(){
   try {
@@ -10421,7 +10571,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.281';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.284';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -11969,6 +12119,132 @@ const IS_TOUCH_DEVICE = (() => {
 let MS_LAST_OPEN_TS = 0;
 // Debounce per search textbox
 let MS_SEARCH_DEBOUNCE = null;
+
+/* ========== SISTEMA PREFERITI (V2.10.282) ==========
+   Permette di marcare prodotti come "Preferiti" (icona stella nella card galleria
+   e nella vista lista) e attivare un filtro "Solo preferiti" dalla toolbar.
+   Il filtro è in AND con tutti gli altri filtri attivi (brand, categoria, ricerca,
+   stock, modalità, ecc.) — i preferiti restringono ulteriormente il set, non lo
+   sostituiscono.
+   Persistenza: localStorage chiave 'vt_favorites' (array di code stringa).
+   Identifier: usiamo il `name` del prodotto (canonico, non gli idx che possono
+   shiftare dopo re-import del catalogo).
+   ===================================================== */
+const FAVORITES_CODES = new Set();
+let ONLY_FAVORITES = false;  // toggle toolbar (non persistito: parte sempre OFF al refresh)
+const FAVORITES_LS_KEY = 'vt_favorites';
+
+function loadFavorites(){
+  try {
+    const raw = localStorage.getItem(FAVORITES_LS_KEY);
+    if(raw){
+      const arr = JSON.parse(raw);
+      if(Array.isArray(arr)){
+        FAVORITES_CODES.clear();
+        arr.forEach(c => {
+          const s = String(c || '').trim();
+          if(s) FAVORITES_CODES.add(s);
+        });
+      }
+    }
+  } catch(e){
+    console.warn('[favorites] errore lettura localStorage:', e);
+  }
+}
+
+function saveFavorites(){
+  try {
+    localStorage.setItem(FAVORITES_LS_KEY, JSON.stringify([...FAVORITES_CODES]));
+  } catch(e){
+    console.warn('[favorites] errore scrittura localStorage:', e);
+  }
+}
+
+function isFavorite(code){
+  if(!code) return false;
+  return FAVORITES_CODES.has(String(code).trim());
+}
+
+/**
+ * Toggle dello stato preferito per un codice prodotto.
+ * @returns {boolean} il nuovo stato (true=preferito, false=non più preferito)
+ */
+function toggleFavorite(code){
+  const c = String(code || '').trim();
+  if(!c) return false;
+  let nowFav;
+  if(FAVORITES_CODES.has(c)){
+    FAVORITES_CODES.delete(c);
+    nowFav = false;
+  } else {
+    FAVORITES_CODES.add(c);
+    nowFav = true;
+  }
+  saveFavorites();
+  // V2.10.284: notifico al sistema Drive Sync che la chiave vt_favorites è cambiata.
+  // Il save Drive avviene in modalità incrementale come per le altre settings (delta
+  // buffer + push secondo le politiche di DRIVE_STATE.mode). Defensive contro
+  // ambienti in cui driveNotifyChange non è ancora definito (parse-time).
+  if(typeof driveNotifyChange === 'function'){
+    try { driveNotifyChange('settings', 'vt_favorites', null); } catch(_){}
+  }
+  // Se il filtro "Solo preferiti" è attivo, ri-applico i filtri così il prodotto
+  // appena rimosso scompare (o quello appena aggiunto entra). Altrimenti aggiorno
+  // solo le icone visibili senza re-renderizzare l'intera griglia.
+  if(ONLY_FAVORITES){
+    if(typeof applyFilters === 'function') applyFilters();
+  } else {
+    _updateFavoriteIconsForCode(c, nowFav);
+  }
+  // Aggiorno il pulsante toolbar (contatore)
+  _updateFavoritesToolbarButton();
+  return nowFav;
+}
+
+/** Aggiorna lo stato visivo delle icone stella per il codice dato (galleria + lista). */
+function _updateFavoriteIconsForCode(code, isNowFav){
+  const sel = '[data-fav-code="' + (window.CSS && CSS.escape ? CSS.escape(code) : code.replace(/"/g, '\\"')) + '"]';
+  document.querySelectorAll(sel).forEach(el => {
+    if(isNowFav){
+      el.classList.add('is-fav');
+      el.setAttribute('aria-pressed', 'true');
+      el.setAttribute('title', 'Rimuovi dai preferiti');
+    } else {
+      el.classList.remove('is-fav');
+      el.setAttribute('aria-pressed', 'false');
+      el.setAttribute('title', 'Aggiungi ai preferiti');
+    }
+  });
+}
+
+/** Aggiorna lo stato visivo del pulsante toolbar "Solo preferiti" (contatore + active). */
+function _updateFavoritesToolbarButton(){
+  const btn = document.getElementById('btnFavoritesFilter');
+  if(!btn) return;
+  const count = FAVORITES_CODES.size;
+  const countEl = btn.querySelector('.fav-count');
+  if(countEl) countEl.textContent = count;
+  // Mostra/nascondi pulsante in base alla presenza di almeno un preferito
+  btn.style.display = count > 0 ? '' : 'none';
+  btn.classList.toggle('active', ONLY_FAVORITES && count > 0);
+}
+
+/** Toggle del filtro "Solo preferiti" (chiamato dal pulsante toolbar). */
+function toggleOnlyFavoritesFilter(){
+  ONLY_FAVORITES = !ONLY_FAVORITES;
+  if(ONLY_FAVORITES && FAVORITES_CODES.size === 0){
+    // Nessun preferito: il filtro non avrebbe senso, lo disabilito e mostro un toast informativo
+    ONLY_FAVORITES = false;
+    if(typeof toast === 'function') toast('Nessun prodotto nei preferiti. Aggiungili con l\'icona stella sulle card.', 'warn', 3500);
+    return;
+  }
+  _updateFavoritesToolbarButton();
+  if(typeof applyFilters === 'function') applyFilters();
+}
+
+// Inizializzazione: carico i preferiti subito al parse del modulo
+loadFavorites();
+/* ============== FINE SISTEMA PREFERITI ============== */
 
 /* ========== IMPOSTAZIONI ==========
    Configurazione persistita in localStorage (chiave 'vt_settings').
@@ -13805,7 +14081,8 @@ function _driveBuildFullPayload(){
   const settingsObj = {};
   const SETTINGS_KEYS = [
     'vt_settings', 'vt_presets', 'vt_dict',
-    'vt_text_phrases', 'vt_text_words'
+    'vt_text_phrases', 'vt_text_words',
+    'vt_favorites'  // V2.10.284: sincronizza i preferiti via Drive Sync
   ];
   SETTINGS_KEYS.forEach(k => {
     let v = localStorage.getItem(k);
@@ -15839,7 +16116,8 @@ function driveNotifyChange(kind, key, record){
         const settingsObj = {};
         const SETTINGS_KEYS = [
           'vt_settings', 'vt_presets', 'vt_dict',
-          'vt_text_phrases', 'vt_text_words'
+          'vt_text_phrases', 'vt_text_words',
+          'vt_favorites'  // V2.10.284: sincronizza i preferiti via Drive Sync
         ];
         SETTINGS_KEYS.forEach(k => {
           let v = localStorage.getItem(k);
@@ -17090,7 +17368,8 @@ async function driveApplyRemoteData(payload){
   if(payload.settings && typeof payload.settings === 'object'){
     const SETTINGS_KEYS = [
       'vt_settings', 'vt_presets', 'vt_dict',
-      'vt_text_phrases', 'vt_text_words'
+      'vt_text_phrases', 'vt_text_words',
+      'vt_favorites'  // V2.10.284: sincronizza i preferiti via Drive Sync
     ];
     Object.keys(payload.settings).forEach(k => {
       if(!SETTINGS_KEYS.includes(k) || typeof payload.settings[k] !== 'string') return;
@@ -17124,6 +17403,11 @@ async function driveApplyRemoteData(payload){
       try { localStorage.setItem(k, valueToWrite); } catch(_){}
     });
     if(typeof loadSettings === 'function') loadSettings();
+    // V2.10.284: i preferiti sono in vt_favorites (chiave SETTINGS_KEYS). Dopo che il
+    // localStorage è stato riscritto, ricarico il Set in-memory FAVORITES_CODES e
+    // aggiorno il pulsante toolbar (visibilità + contatore).
+    if(typeof loadFavorites === 'function') loadFavorites();
+    if(typeof _updateFavoritesToolbarButton === 'function') _updateFavoritesToolbarButton();
   }
 
   // V2.8.0: 4. CASCADE DISCOUNTS — sconti aggiuntivi a cascata su marca/macrocat/cat
@@ -18458,7 +18742,8 @@ const BACKUP_PRODOTTI_PREFIX = 'prodotti-export-';
 const BACKUP_SETTINGS_PREFIX = 'impostazioni-export-';
 const BACKUP_SETTINGS_KEYS = [
   'vt_settings', 'vt_presets', 'vt_dict',
-  'vt_text_phrases', 'vt_text_words', 'vt_sidebar_width'
+  'vt_text_phrases', 'vt_text_words', 'vt_sidebar_width',
+  'vt_favorites'  // V2.10.284: include preferiti nei backup locali
 ];
 
 // Stato runtime del sistema di backup
@@ -23928,6 +24213,14 @@ function applyFilters(options){
   const skipSidebarFilters = advActive && !advCombine;
 
   FILTERED = DATA.filter(p=>{
+    // V2.10.282: filtro "Solo preferiti" — restringe ulteriormente in AND con tutti
+    // gli altri filtri attivi (brand, categoria, ricerca testuale, stock, ecc.).
+    // L'identifier è il `name` canonico (idem chiave usata in toggleFavorite).
+    if(ONLY_FAVORITES && FAVORITES_CODES.size > 0){
+      const pName = String(getField(p, 'name') || '').trim();
+      if(!FAVORITES_CODES.has(pName)) return false;
+    }
+
     // V2.2.36: filtro speciale "Nuovi prodotti" / "Prodotti scatalogati"
     // Quando sono attivi uno o entrambi, applica OR: passa se matcha almeno uno
     // (nuovi O scatalogati). Set vuoto = nessun filtro speciale attivo.
@@ -24812,6 +25105,20 @@ function renderGallery(main, list){
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </span>
         <button class="quote-trigger" type="button" data-product-idx="${p._idx}" aria-label="Aggiungi al preventivo" title="Aggiungi al preventivo">P</button>
+        ${(() => {
+          // V2.10.282: icona stella PREFERITI, sotto al pulsante P.
+          // Il codice usa il `name` canonico (stesso identifier del filtro).
+          const _favCode = String(getField(p, 'name') || '').trim();
+          if(!_favCode) return '';
+          const _favOn = (typeof isFavorite === 'function') && isFavorite(_favCode);
+          return `<button class="fav-trigger${_favOn ? ' is-fav' : ''}" type="button"
+            data-fav-code="${escapeAttr(_favCode)}"
+            aria-label="${_favOn ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}"
+            aria-pressed="${_favOn ? 'true' : 'false'}"
+            title="${_favOn ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </button>`;
+        })()}
         ${nExtras>0?`<span class="extra-count">📷 ${nExtras}</span>`:''}
         ${nRelated>0?`<span class="related-count">🔗 ${nRelated}</span>`:''}
       </div>
@@ -24858,6 +25165,7 @@ function renderGallery(main, list){
             e.target.closest('.eye-trigger') ||
             e.target.closest('.card-desc-icon') ||
             e.target.closest('.quote-trigger') ||
+            e.target.closest('.fav-trigger') ||
             e.target.closest('.card-sel-checkbox')
         )) return;
         // Se l'immagine non c'è (placeholder NO IMG), non aprire il lightbox
@@ -24875,7 +25183,8 @@ function renderGallery(main, list){
         // (es. icona fumetto), il dblclick viene ignorato
         if(e.target && e.target.closest && (
             e.target.closest('.eye-trigger') ||
-            e.target.closest('.card-desc-icon')
+            e.target.closest('.card-desc-icon') ||
+            e.target.closest('.fav-trigger')
         )) return;
         // Cancella il timer del click singolo: deve partire SOLO openEditor
         if(_imgClickTimer){ clearTimeout(_imgClickTimer); _imgClickTimer = null; }
@@ -24921,6 +25230,18 @@ function renderGallery(main, list){
         e.preventDefault();
         if(typeof openQuoteAddDialog === 'function'){
           openQuoteAddDialog(p._idx);
+        }
+      });
+    }
+    // V2.10.282: handler icona stella PREFERITI
+    const favTriggerEl = card.querySelector('.fav-trigger');
+    if(favTriggerEl){
+      favTriggerEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const code = favTriggerEl.getAttribute('data-fav-code');
+        if(code && typeof toggleFavorite === 'function'){
+          toggleFavorite(code);
         }
       });
     }
@@ -25046,7 +25367,17 @@ function renderTable(main, list){
         <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
     </span>`;
-    const rowActionsCell = `<span class="row-actions">${rowEyeIcon}${rowDescIcon}</span>${renderStockPair(stockIT(p), stockES(p), true, 'sp-inline')}`;
+    // V2.10.282: icona stella PREFERITI per la vista lista
+    const _favCodeRow = String(getField(p, 'name') || '').trim();
+    const _favOnRow = _favCodeRow && (typeof isFavorite === 'function') && isFavorite(_favCodeRow);
+    const rowFavIcon = _favCodeRow ? `<button type="button" class="row-fav-trigger${_favOnRow ? ' is-fav' : ''}"
+        data-fav-code="${escapeAttr(_favCodeRow)}"
+        aria-label="${_favOnRow ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}"
+        aria-pressed="${_favOnRow ? 'true' : 'false'}"
+        title="${_favOnRow ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </button>` : '';
+    const rowActionsCell = `<span class="row-actions">${rowEyeIcon}${rowDescIcon}${rowFavIcon}</span>${renderStockPair(stockIT(p), stockES(p), true, 'sp-inline')}`;
 
     // V2.10.269: rendo le celle Marca/Macrocategoria/Categoria cliccabili per
     // attivare il filtro corrispondente (stesso comportamento delle card).
@@ -25623,6 +25954,19 @@ function initHoverPreview(){
 
     return null;
   }
+
+  // V2.10.282: event delegation per click su icona stella PREFERITI nelle righe tabella
+  // (più affidabile dell'attach diretto perché le righe vengono re-renderizzate spesso).
+  document.addEventListener('click', (ev) => {
+    const favBtn = ev.target && ev.target.closest && ev.target.closest('.row-fav-trigger[data-fav-code]');
+    if(!favBtn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const code = favBtn.getAttribute('data-fav-code');
+    if(code && typeof toggleFavorite === 'function'){
+      toggleFavorite(code);
+    }
+  }, true);  // capture phase per intercettare prima del dblclick aperture editor
 
   document.addEventListener('mouseover', (ev)=>{
     // V2.2.42: hover-to-open completamente disattivato.
@@ -56501,6 +56845,21 @@ if(document.readyState === 'loading'){
 } else {
   bindUIListeners();
 }
+
+// V2.10.282: aggiorno lo stato del pulsante "Solo preferiti" all'avvio (visibilità +
+// contatore in base ai preferiti già salvati in localStorage al caricamento pagina).
+(function initFavoritesToolbarOnReady(){
+  function run(){
+    if(typeof _updateFavoritesToolbarButton === 'function'){
+      _updateFavoritesToolbarButton();
+    }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
+})();
 
 // V2.10.102: orologio live HH:MM:SS in sidebar (pillola ciano accanto a versione).
 // Pad a 2 cifre, formato 24h, aggiornamento al secondo. Allineamento al wall-clock
