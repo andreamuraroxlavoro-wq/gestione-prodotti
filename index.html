@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.289</title>
+<title>Gestione Prodotti V2.10.296</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -572,11 +572,16 @@ body{flex-direction:row;min-height:100vh;height:100vh;overflow:hidden}
 }
 
 .sb-logo-block{
-  padding:14px 18px;
-  border-bottom:1px solid var(--sidebar-border);
+  padding:10px 18px;
+  /* V2.10.292: colore solido (no gradient) per garantire colore IDENTICO al header
+     anche se i due box hanno dimensioni diverse (un gradient 135deg renderizza
+     diversamente in container con aspect ratio differenti). L'altezza viene
+     allineata dinamicamente via ResizeObserver in JS (initLogoBlockSync). */
+  background:#0f141c;
+  border-bottom:2px solid var(--accent);
   display:flex;align-items:center;justify-content:center;  /* V2.9.4: centrato */
   flex-shrink:0;
-  min-height:56px;
+  min-height:var(--topbar-h);
   box-sizing:border-box;
 }
 /* V2.9.4: stile del logo aziendale personalizzato caricato dall'utente.
@@ -1326,7 +1331,95 @@ body.sb-resizing *{user-select:none !important}
 .topbar-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
 
 /* Tema chiaro: sidebar rimane scura (è parte dell'identità visiva dell'app) */
-body.theme-light .app-sidebar{background:#1a2332}
+/* V2.10.290: in tema chiaro, la sidebar diventa chiara come il resto della UI,
+   MA il blocco logo rimane scuro per preservare la leggibilità del logo bianco
+   con accento rosso (il path SVG ha fill="#fff" hard-coded). Visivamente il
+   blocco logo si "ingloba" idealmente con la zona scura della topbar.
+   Override delle variabili sidebar nel solo scope theme-light: */
+body.theme-light{
+  --sidebar-bg:#f8f9fb;
+  --sidebar-bg-hover:#eef1f5;
+  --sidebar-bg-active:#dfe4eb;
+  --sidebar-border:#d6dce3;
+  --sidebar-fg:#1a2332;
+  --sidebar-fg-dim:#5a6573;
+}
+body.theme-light .app-sidebar{
+  background:var(--sidebar-bg);
+  color:var(--sidebar-fg);
+}
+/* Blocco logo: già gestito da .sb-logo-block base (gradient topbar + altezza 60px +
+   bordo accent 2px) — vale identicamente su entrambi i temi. */
+/* Pillola "Ultimo Backup" e "Drive" e simili usano rgba(255,255,255,0.06) come bg.
+   In tema chiaro non sono più visibili su sfondo chiaro → li converto a nero attenuato. */
+body.theme-light .sb-title-backup{
+  background:rgba(15,20,30,0.05);
+  color:var(--sidebar-fg-dim);
+}
+body.theme-light .sb-title-backup:hover{
+  background:rgba(15,20,30,0.10);
+  color:var(--sidebar-fg);
+}
+/* La pillola orologio mantiene il suo accent cyano: già OK su entrambi i temi grazie
+   alla saturazione. Non serve override. */
+
+/* === V2.10.290: Override elementi sidebar con colori hard-coded per dark mode ===
+   I select/trigger dei filtri Marca/Macrocategoria/Categoria, l'input di ricerca veloce
+   e il pulsante clear erano disegnati per fondo scuro (testo bianco, bg semi-bianco).
+   In tema chiaro li ribalto. */
+body.theme-light .sb-filter-group .filter-select,
+body.theme-light .ms-trigger{
+  color:var(--sidebar-fg);
+  background:#ffffff;
+}
+body.theme-light .sb-filter-group .filter-select option{
+  background:#ffffff;
+  color:var(--sidebar-fg);
+}
+body.theme-light .ms-trigger:hover{
+  background:rgba(15,20,30,0.04);
+  border-color:rgba(15,20,30,0.20);
+}
+body.theme-light .ms-trigger.has-selection{
+  color:var(--sidebar-fg);
+}
+/* Ricerca veloce: input scuro → chiaro, mantenendo focus ring ciano del tema accent */
+body.theme-light #fltQuickSearch{
+  background:#ffffff;
+  border-color:rgba(34,211,238,0.30);
+  color:var(--sidebar-fg);
+}
+body.theme-light #fltQuickSearch::placeholder{
+  color:rgba(15,20,30,0.45);
+}
+body.theme-light #fltQuickSearch:hover,
+body.theme-light #fltQuickSearch:focus{
+  background:#ffffff;
+}
+body.theme-light .quick-search-clear{
+  background:rgba(15,20,30,0.10);
+  color:var(--sidebar-fg);
+}
+body.theme-light .quick-search-clear:hover{
+  background:rgba(15,20,30,0.18);
+}
+/* Hint "Filtro disponibile su selezione" — il testo di default era grigio chiaro
+   per fondo scuro. In tema chiaro il container ha già un bg viola pallido che resta
+   visibile, ma il testo del corpo deve diventare scuro. */
+body.theme-light .prm-disabled-hint{
+  color:var(--sidebar-fg) !important;
+}
+/* Scrollbar della sidebar in tema chiaro: thumb più scuro per essere visibile su bg
+   chiaro (altrimenti i rgba(255,255,255) hard-coded sparirebbero). */
+body.theme-light .sb-menu::-webkit-scrollbar-thumb{
+  background:rgba(15,20,30,0.18);
+}
+body.theme-light .sb-menu::-webkit-scrollbar-thumb:hover{
+  background:rgba(15,20,30,0.30);
+}
+body.theme-light .sb-menu{
+  scrollbar-color:rgba(15,20,30,0.22) transparent;
+}
 body.theme-light .app-topbar{background:var(--bg2)}
 
 /* Main area del contenuto (galleria/tabella). Padding ridotto ora che la
@@ -1338,7 +1431,9 @@ body.theme-light .app-topbar{background:var(--bg2)}
    orizzontale originario. La barra pillole (topbar-pills-bar) si auto-adatta
    in altezza: 0 quando non ci sono condizioni avanzate, altrimenti espansa. */
 header{
-  background:var(--header-bg, linear-gradient(135deg,#0a0f14 0%,#141b24 100%));
+  /* V2.10.292: colore solido (no gradient) — uguale a .sb-logo-block per dare
+     continuità visiva totale tra logo (sidebar) e topbar (main area). */
+  background:#0f141c;
   border-bottom:2px solid var(--accent);
   padding:0;  /* Il padding ora è sulle righe figlie */
   display:flex;flex-direction:column;
@@ -2918,6 +3013,30 @@ body.theme-light .prm-value-count{ color:#7c3aed !important; }
      fa proseguire il fondo verde fuori dal box del <mark> senza alterare il layout. */
   box-shadow: 1px 0 0 0 #CCFF00, -1px 0 0 0 #CCFF00;
 }
+/* V2.10.294: highlight color-coded per tipo di filtro. Il colore corrisponde ai
+   colori dei filtri sidebar (label + bordo trigger):
+   - .search-hl-text     → giallo acido #CCFF00 (default, ricerca testuale/avanzata)
+   - .search-hl-brand    → ciano #22d3ee (= --ms-brand-color)
+   - .search-hl-catParent → ambra (= --ms-catParent-soft palette)
+   - .search-hl-cat      → verde lime #a3e635 (= --ms-cat-color)
+   Per tutti i colorati uso il `color` del testo a scuro per contrasto leggibile,
+   e il box-shadow di 1px che fa da "false padding" coerente con il giallo default. */
+.search-hl-brand{
+  background:#22d3ee;
+  color:#062a30;
+  box-shadow: 1px 0 0 0 #22d3ee, -1px 0 0 0 #22d3ee;
+}
+.search-hl-catParent{
+  background:#fbbf24;       /* ambra/arancione coerente con catParent-soft */
+  color:#3a2900;
+  box-shadow: 1px 0 0 0 #fbbf24, -1px 0 0 0 #fbbf24;
+}
+.search-hl-cat{
+  background:#a3e635;
+  color:#1f2a00;
+  box-shadow: 1px 0 0 0 #a3e635, -1px 0 0 0 #a3e635;
+}
+/* .search-hl-text usa già lo stile default di .search-hl, niente override necessario */
 /* Mantengo font-family monospaziato quando highlighto dentro EAN/codici tabella */
 td[style*="monospace"] .search-hl,
 .card-name .search-hl,
@@ -6572,7 +6691,7 @@ body.theme-light .loader-card{
 /* Bottone "P" sulle card prodotto: visibile solo quando body.quote-mode è attivo */
 .card-img .quote-trigger{
   position:absolute;
-  top:84px;       /* V2.10.283: spostato sotto la stella (era top:46px) */
+  top:122px;      /* V2.10.296: spostato sotto al pacchetto (era top:84px) */
   right:8px;
   width:30px;
   height:30px;
@@ -6716,6 +6835,135 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 .row-fav-trigger.is-fav:hover{
   background:rgba(245,158,11,0.18);
   color:#ea580c;
+}
+
+/* === V2.10.295: Icona pacchetto STOCK MANAGED nella card galleria ===
+   V2.10.296: spostato sopra al carrello (era top:122px, ora top:84px).
+   Inattiva: pallido grigio. Attiva (gestito): teal pieno #14b8a6. */
+.card-img .stock-trigger{
+  position:absolute;
+  top:84px;
+  right:8px;
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.92);
+  border:1px solid rgba(0,0,0,0.12);
+  box-shadow:0 2px 6px rgba(0,0,0,0.18);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  z-index:5;
+  transition:transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  padding:0;
+  user-select:none;
+  color:#9ca3af;
+}
+.card-img .stock-trigger svg{
+  width:17px;
+  height:17px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  transition:fill 0.18s ease, stroke 0.18s ease;
+}
+.card-img .stock-trigger:hover{
+  transform:scale(1.12);
+  background:rgba(255,255,255,1);
+  box-shadow:0 4px 10px rgba(0,0,0,0.28);
+  color:#14b8a6;
+}
+.card-img .stock-trigger:active{transform:scale(0.95)}
+.card-img .stock-trigger.is-managed{
+  background:#14b8a6;
+  border-color:rgba(13,148,136,0.65);
+  color:#fff;
+}
+.card-img .stock-trigger.is-managed svg{
+  stroke:#fff;
+}
+.card-img .stock-trigger.is-managed:hover{
+  background:#0d9488;
+  box-shadow:0 4px 12px rgba(20,184,166,0.45);
+}
+
+/* === V2.10.295: Icona pacchetto STOCK MANAGED nella vista lista === */
+.row-stock-trigger{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  background:transparent;
+  border:1px solid transparent;
+  cursor:pointer;
+  vertical-align:middle;
+  color:#9ca3af;
+  transition:transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+  padding:0;
+  margin:0 2px;
+}
+.row-stock-trigger svg{
+  width:14px;
+  height:14px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.row-stock-trigger:hover{
+  background:rgba(20,184,166,0.12);
+  color:#14b8a6;
+  transform:scale(1.15);
+}
+.row-stock-trigger.is-managed{
+  color:#14b8a6;
+}
+.row-stock-trigger.is-managed:hover{
+  background:rgba(20,184,166,0.18);
+  color:#0d9488;
+}
+
+/* === V2.10.295: Pulsante toggle "Solo gestiti a magazzino" nella toolbar ===
+   Stile coerente con tb-special-btn, accento teal. */
+.tb-special-stock .tb-special-badge{ background:#14b8a6; }
+.tb-special-stock:hover{ color:#14b8a6; border-color:rgba(20,184,166,0.45); }
+.tb-special-stock .stock-pkg{
+  width:20px;
+  height:20px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.tb-special-stock.active,
+.tb-special-stock[aria-pressed="true"]{
+  background:#14b8a6;
+  color:#fff;
+  border-color:#14b8a6;
+  box-shadow:0 2px 6px rgba(20,184,166,0.35);
+}
+.tb-special-stock.active .stock-pkg,
+.tb-special-stock[aria-pressed="true"] .stock-pkg{
+  stroke:#fff;
+}
+.tb-special-stock.active:hover,
+.tb-special-stock[aria-pressed="true"]:hover{
+  background:#0d9488;
+  border-color:#0d9488;
+  color:#fff;
+}
+.tb-special-stock.active .tb-special-badge{
+  background:#fff;
+  color:#0d9488;
 }
 
 /* === V2.10.282: Pulsante toggle "Solo preferiti" nella toolbar ===
@@ -8594,7 +8842,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.289</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.296</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -8851,6 +9099,18 @@ body.theme-light .dlg-input{background:var(--bg3)}
         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
       </svg>
       <span class="tb-special-badge fav-count" id="tbFavoritesFilterBadge">0</span>
+    </button>
+
+    <!-- V2.10.295: Pulsante toggle "Solo gestiti a magazzino" — visibile solo se almeno
+         un prodotto è marcato come gestito a magazzino. Accento teal #14b8a6, icona pacchetto. -->
+    <button class="btn icon-btn tb-special-btn tb-special-stock" id="btnStockManagedFilter" onclick="toggleOnlyStockManagedFilter()" title="Filtra: solo prodotti gestiti a magazzino" aria-label="Solo gestiti a magazzino" style="display:none">
+      <svg class="stock-pkg" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M16.5 9.4l-9-5.19"/>
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+        <line x1="12" y1="22.08" x2="12" y2="12"/>
+      </svg>
+      <span class="tb-special-badge stock-count" id="tbStockManagedFilterBadge">0</span>
     </button>
 
     <!-- V2.10.9: scorciatoie topbar per Archivio Preventivi / Anagrafica Clienti / Prodotti Personali (sezioni dedicate). Visibilita' gestita via JS in base alla presenza di dati. -->
@@ -9127,7 +9387,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.289');
+console.info('[bootstrap] script avvio — V2.10.296');
 
 window.openStatsDashboard = function(){
   try {
@@ -10578,7 +10838,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.289';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.296';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12280,6 +12540,143 @@ function toggleOnlyFavoritesFilter(){
 // Inizializzazione: carico i preferiti subito al parse del modulo
 loadFavorites();
 /* ============== FINE SISTEMA PREFERITI ============== */
+
+/* ========== SISTEMA STOCK MANAGED (V2.10.295) ==========
+   Permette di marcare prodotti come "Gestiti a magazzino" (icona pacchetto nella
+   card galleria e nella vista lista) e attivare un filtro "Solo gestiti a magazzino"
+   dalla toolbar. Identico al sistema PREFERITI nella struttura ma con identifier
+   e colori distinti (teal/acquamarina vs giallo dorato dei preferiti).
+   Persistenza: localStorage chiave 'vt_stock_managed' + sync via Drive Sync (vedi
+   SETTINGS_KEYS aggiornate).
+   Identifier: `name` canonico (idem chiave usata in toggleStockManaged).
+   ======================================================== */
+const STOCK_MANAGED_CODES = new Set();
+let ONLY_STOCK_MANAGED = false;  // toggle toolbar (non persistito: parte OFF al refresh)
+const STOCK_MANAGED_LS_KEY = 'vt_stock_managed';
+
+function loadStockManaged(){
+  try {
+    const raw = localStorage.getItem(STOCK_MANAGED_LS_KEY);
+    if(raw){
+      const arr = JSON.parse(raw);
+      if(Array.isArray(arr)){
+        STOCK_MANAGED_CODES.clear();
+        arr.forEach(c => {
+          const s = String(c || '').trim();
+          if(s) STOCK_MANAGED_CODES.add(s);
+        });
+      }
+    }
+  } catch(e){
+    console.warn('[stock-managed] errore lettura localStorage:', e);
+  }
+}
+
+function saveStockManaged(){
+  try {
+    localStorage.setItem(STOCK_MANAGED_LS_KEY, JSON.stringify([...STOCK_MANAGED_CODES]));
+  } catch(e){
+    console.warn('[stock-managed] errore scrittura localStorage:', e);
+  }
+}
+
+function isStockManaged(code){
+  if(!code) return false;
+  return STOCK_MANAGED_CODES.has(String(code).trim());
+}
+
+/**
+ * Toggle dello stato "gestito a magazzino" per un codice prodotto.
+ * @returns {boolean} il nuovo stato (true=gestito, false=non più gestito)
+ */
+function toggleStockManaged(code){
+  const c = String(code || '').trim();
+  if(!c) return false;
+  let nowManaged;
+  if(STOCK_MANAGED_CODES.has(c)){
+    STOCK_MANAGED_CODES.delete(c);
+    nowManaged = false;
+  } else {
+    STOCK_MANAGED_CODES.add(c);
+    nowManaged = true;
+  }
+  saveStockManaged();
+  // Sync verso Drive (stesso pattern dei preferiti — la chiave vt_stock_managed
+  // è in SETTINGS_KEYS quindi il delta viene inviato come settings change).
+  if(typeof driveNotifyChange === 'function'){
+    try { driveNotifyChange('settings', 'vt_stock_managed', null); } catch(_){}
+  }
+  // Se il filtro "Solo gestiti a magazzino" è attivo, re-applica i filtri
+  if(ONLY_STOCK_MANAGED){
+    if(typeof applyFilters === 'function') applyFilters();
+  } else {
+    _updateStockManagedIconsForCode(c, nowManaged);
+  }
+  _updateStockManagedToolbarButton();
+  return nowManaged;
+}
+
+/** Aggiorna lo stato visivo delle icone pacchetto per il codice dato (galleria + lista). */
+function _updateStockManagedIconsForCode(code, isNowManaged){
+  const sel = '[data-stock-code="' + (window.CSS && CSS.escape ? CSS.escape(code) : code.replace(/"/g, '\\"')) + '"]';
+  document.querySelectorAll(sel).forEach(el => {
+    if(isNowManaged){
+      el.classList.add('is-managed');
+      el.setAttribute('aria-pressed', 'true');
+      el.setAttribute('title', 'Rimuovi da gestione a magazzino');
+    } else {
+      el.classList.remove('is-managed');
+      el.setAttribute('aria-pressed', 'false');
+      el.setAttribute('title', 'Aggiungi a gestione a magazzino');
+    }
+  });
+}
+
+/** Aggiorna pulsante toolbar "Solo gestiti a magazzino" (count dinamico in base a FILTERED). */
+function _updateStockManagedToolbarButton(){
+  const btn = document.getElementById('btnStockManagedFilter');
+  if(!btn) return;
+  const totalManaged = STOCK_MANAGED_CODES.size;
+  let visibleCount = totalManaged;
+  try {
+    const _dataReady = (typeof DATA !== 'undefined') && Array.isArray(DATA) && DATA.length > 0;
+    const _filteredReady = (typeof FILTERED !== 'undefined') && Array.isArray(FILTERED);
+    if(_dataReady && _filteredReady){
+      visibleCount = 0;
+      for(const p of FILTERED){
+        const code = String((typeof getField === 'function' ? getField(p, 'name') : p && p.name) || '').trim();
+        if(code && STOCK_MANAGED_CODES.has(code)) visibleCount++;
+      }
+    }
+  } catch(_){}
+  const countEl = btn.querySelector('.stock-count');
+  if(countEl) countEl.textContent = visibleCount;
+  if(totalManaged > 0){
+    if(visibleCount === totalManaged){
+      btn.title = 'Filtra: solo prodotti gestiti a magazzino (' + totalManaged + ')';
+    } else {
+      btn.title = visibleCount + ' di ' + totalManaged + ' gestiti a magazzino compatibili con i filtri attivi';
+    }
+  }
+  btn.style.display = totalManaged > 0 ? '' : 'none';
+  btn.classList.toggle('active', ONLY_STOCK_MANAGED && totalManaged > 0);
+}
+
+/** Toggle del filtro "Solo gestiti a magazzino". */
+function toggleOnlyStockManagedFilter(){
+  ONLY_STOCK_MANAGED = !ONLY_STOCK_MANAGED;
+  if(ONLY_STOCK_MANAGED && STOCK_MANAGED_CODES.size === 0){
+    ONLY_STOCK_MANAGED = false;
+    if(typeof toast === 'function') toast('Nessun prodotto gestito a magazzino. Aggiungili con l\'icona pacchetto sulle card.', 'warn', 3500);
+    return;
+  }
+  _updateStockManagedToolbarButton();
+  if(typeof applyFilters === 'function') applyFilters();
+}
+
+// Inizializzazione: carico la lista subito al parse del modulo
+loadStockManaged();
+/* ============== FINE SISTEMA STOCK MANAGED ============== */
 
 /* ========== IMPOSTAZIONI ==========
    Configurazione persistita in localStorage (chiave 'vt_settings').
@@ -14117,7 +14514,8 @@ function _driveBuildFullPayload(){
   const SETTINGS_KEYS = [
     'vt_settings', 'vt_presets', 'vt_dict',
     'vt_text_phrases', 'vt_text_words',
-    'vt_favorites'  // V2.10.284: sincronizza i preferiti via Drive Sync
+    'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
+    'vt_stock_managed'  // V2.10.295: sincronizza la lista gestiti a magazzino
   ];
   SETTINGS_KEYS.forEach(k => {
     let v = localStorage.getItem(k);
@@ -16152,7 +16550,8 @@ function driveNotifyChange(kind, key, record){
         const SETTINGS_KEYS = [
           'vt_settings', 'vt_presets', 'vt_dict',
           'vt_text_phrases', 'vt_text_words',
-          'vt_favorites'  // V2.10.284: sincronizza i preferiti via Drive Sync
+          'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
+          'vt_stock_managed'  // V2.10.295: sincronizza la lista gestiti a magazzino
         ];
         SETTINGS_KEYS.forEach(k => {
           let v = localStorage.getItem(k);
@@ -17404,7 +17803,8 @@ async function driveApplyRemoteData(payload){
     const SETTINGS_KEYS = [
       'vt_settings', 'vt_presets', 'vt_dict',
       'vt_text_phrases', 'vt_text_words',
-      'vt_favorites'  // V2.10.284: sincronizza i preferiti via Drive Sync
+      'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
+      'vt_stock_managed'  // V2.10.295: sincronizza la lista gestiti a magazzino
     ];
     Object.keys(payload.settings).forEach(k => {
       if(!SETTINGS_KEYS.includes(k) || typeof payload.settings[k] !== 'string') return;
@@ -17443,6 +17843,9 @@ async function driveApplyRemoteData(payload){
     // aggiorno il pulsante toolbar (visibilità + contatore).
     if(typeof loadFavorites === 'function') loadFavorites();
     if(typeof _updateFavoritesToolbarButton === 'function') _updateFavoritesToolbarButton();
+    // V2.10.295: idem per la lista "gestiti a magazzino" (vt_stock_managed)
+    if(typeof loadStockManaged === 'function') loadStockManaged();
+    if(typeof _updateStockManagedToolbarButton === 'function') _updateStockManagedToolbarButton();
   }
 
   // V2.8.0: 4. CASCADE DISCOUNTS — sconti aggiuntivi a cascata su marca/macrocat/cat
@@ -18778,7 +19181,8 @@ const BACKUP_SETTINGS_PREFIX = 'impostazioni-export-';
 const BACKUP_SETTINGS_KEYS = [
   'vt_settings', 'vt_presets', 'vt_dict',
   'vt_text_phrases', 'vt_text_words', 'vt_sidebar_width',
-  'vt_favorites'  // V2.10.284: include preferiti nei backup locali
+  'vt_favorites',  // V2.10.284: include preferiti nei backup locali
+  'vt_stock_managed'  // V2.10.295: include lista gestiti a magazzino nei backup locali
 ];
 
 // Stato runtime del sistema di backup
@@ -24015,15 +24419,25 @@ function paramRenderSidebar(){
   // Lo style inline ha specificità massima; con !important batte anche regole
   // CSS esterne con !important. Questo è il livello più alto in CSS.
   // V2.10.130: rimosso grassetto dai label gruppi (font-weight 400 invece di 600).
+  // V2.10.291: i colori dei parametri devono adattarsi al tema attivo. In dark mode
+  // testo bianco su fondo scuro, in light mode testo navy scuro su fondo chiaro.
+  // Senza questa condizione gli stili inline !important ignoravano qualsiasi override
+  // CSS basato su body.theme-light → in tema chiaro i parametri risultavano viola
+  // pallido / bianchi su bianco, illegibili.
+  const _isLight = document.body.classList.contains('theme-light');
+  const _cFg     = _isLight ? '#1a2332' : '#ffffff';   // testo principale
+  const _cFgOpen = _isLight ? '#7c3aed' : '#c4b5fd';   // testo gruppo aperto (viola)
+  const _cIcon   = _isLight ? '#7c3aed' : '#a78bfa';   // icona + count (viola)
+  const _cBadgeBg = _isLight ? '#7c3aed' : '#8b5cf6';  // bg badge selected
   const S = {
-    groupHeader: 'display:flex !important;align-items:center !important;gap:8px !important;padding:7px 9px !important;cursor:pointer !important;user-select:none !important;font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif !important;font-size:13px !important;font-weight:400 !important;color:#ffffff !important;border-radius:6px !important;letter-spacing:0.2px !important;text-transform:none !important;',
-    groupIcon: 'display:inline-flex !important;align-items:center !important;justify-content:center !important;width:14px !important;height:14px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;color:#a78bfa !important;flex-shrink:0 !important;',
-    groupLabel: 'flex:1 !important;text-transform:capitalize !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:#ffffff !important;font-size:13px !important;font-weight:400 !important;letter-spacing:0.2px !important;',
-    groupLabelOpen: 'flex:1 !important;text-transform:capitalize !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:#c4b5fd !important;font-size:13px !important;font-weight:500 !important;letter-spacing:0.2px !important;',
-    groupSelected: 'display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:18px !important;height:17px !important;padding:0 6px !important;border-radius:9px !important;background:#8b5cf6 !important;color:#ffffff !important;font-size:10px !important;font-weight:700 !important;flex-shrink:0 !important;',
-    value: 'display:flex !important;align-items:center !important;gap:9px !important;padding:5px 7px !important;border-radius:4px !important;cursor:pointer !important;font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif !important;font-size:12px !important;font-weight:500 !important;color:#ffffff !important;user-select:none !important;text-transform:none !important;letter-spacing:0.1px !important;',
-    valueLabel: 'flex:1 !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:#ffffff !important;font-size:12px !important;font-weight:500 !important;text-transform:none !important;letter-spacing:0.1px !important;',
-    valueCount: 'flex-shrink:0 !important;font-size:11px !important;color:#a78bfa !important;font-weight:700 !important;font-variant-numeric:tabular-nums !important;font-family:SF Mono,JetBrains Mono,Menlo,Consolas,monospace !important;text-transform:none !important;letter-spacing:0 !important;',
+    groupHeader: 'display:flex !important;align-items:center !important;gap:8px !important;padding:7px 9px !important;cursor:pointer !important;user-select:none !important;font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif !important;font-size:13px !important;font-weight:400 !important;color:'+_cFg+' !important;border-radius:6px !important;letter-spacing:0.2px !important;text-transform:none !important;',
+    groupIcon: 'display:inline-flex !important;align-items:center !important;justify-content:center !important;width:14px !important;height:14px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;color:'+_cIcon+' !important;flex-shrink:0 !important;',
+    groupLabel: 'flex:1 !important;text-transform:capitalize !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:'+_cFg+' !important;font-size:13px !important;font-weight:400 !important;letter-spacing:0.2px !important;',
+    groupLabelOpen: 'flex:1 !important;text-transform:capitalize !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:'+_cFgOpen+' !important;font-size:13px !important;font-weight:500 !important;letter-spacing:0.2px !important;',
+    groupSelected: 'display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:18px !important;height:17px !important;padding:0 6px !important;border-radius:9px !important;background:'+_cBadgeBg+' !important;color:#ffffff !important;font-size:10px !important;font-weight:700 !important;flex-shrink:0 !important;',
+    value: 'display:flex !important;align-items:center !important;gap:9px !important;padding:5px 7px !important;border-radius:4px !important;cursor:pointer !important;font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif !important;font-size:12px !important;font-weight:500 !important;color:'+_cFg+' !important;user-select:none !important;text-transform:none !important;letter-spacing:0.1px !important;',
+    valueLabel: 'flex:1 !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:'+_cFg+' !important;font-size:12px !important;font-weight:500 !important;text-transform:none !important;letter-spacing:0.1px !important;',
+    valueCount: 'flex-shrink:0 !important;font-size:11px !important;color:'+_cIcon+' !important;font-weight:700 !important;font-variant-numeric:tabular-nums !important;font-family:SF Mono,JetBrains Mono,Menlo,Consolas,monospace !important;text-transform:none !important;letter-spacing:0 !important;',
   };
   // V2.10.120: nascondo i gruppi parametri che duplicherebbero filtri "anagrafici"
   // già attivi nei 3 multi-select sopra (Marca, Macrocategoria, Categoria).
@@ -24256,6 +24670,12 @@ function applyFilters(options){
       if(!FAVORITES_CODES.has(pName)) return false;
     }
 
+    // V2.10.295: filtro "Solo gestiti a magazzino" — in AND con tutti gli altri filtri
+    if(ONLY_STOCK_MANAGED && STOCK_MANAGED_CODES.size > 0){
+      const pName = String(getField(p, 'name') || '').trim();
+      if(!STOCK_MANAGED_CODES.has(pName)) return false;
+    }
+
     // V2.2.36: filtro speciale "Nuovi prodotti" / "Prodotti scatalogati"
     // Quando sono attivi uno o entrambi, applica OR: passa se matcha almeno uno
     // (nuovi O scatalogati). Set vuoto = nessun filtro speciale attivo.
@@ -24390,6 +24810,8 @@ function applyFilters(options){
   // V2.10.289: aggiorna il badge del pulsante "Solo preferiti" (mostra il count
   // dei preferiti VISIBILI nei filtri correnti, non il totale assoluto).
   if(typeof _updateFavoritesToolbarButton === 'function') _updateFavoritesToolbarButton();
+  // V2.10.295: stessa logica per il pulsante "Solo gestiti a magazzino".
+  if(typeof _updateStockManagedToolbarButton === 'function') _updateStockManagedToolbarButton();
 
   PAGE = 0;
   render();
@@ -25145,6 +25567,25 @@ function renderGallery(main, list){
         </span>
         <button class="quote-trigger" type="button" data-product-idx="${p._idx}" aria-label="Aggiungi al preventivo" title="Aggiungi al preventivo"><svg viewBox="0 -1 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>
         ${(() => {
+          // V2.10.295: icona pacchetto STOCK MANAGED, sotto al carrello.
+          // Stesso pattern dei preferiti — identifier = name canonico.
+          const _stkCode = String(getField(p, 'name') || '').trim();
+          if(!_stkCode) return '';
+          const _stkOn = (typeof isStockManaged === 'function') && isStockManaged(_stkCode);
+          return `<button class="stock-trigger${_stkOn ? ' is-managed' : ''}" type="button"
+            data-stock-code="${escapeAttr(_stkCode)}"
+            aria-label="${_stkOn ? 'Rimuovi da gestione a magazzino' : 'Aggiungi a gestione a magazzino'}"
+            aria-pressed="${_stkOn ? 'true' : 'false'}"
+            title="${_stkOn ? 'Rimuovi da gestione a magazzino' : 'Aggiungi a gestione a magazzino'}">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M16.5 9.4l-9-5.19"/>
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+              <line x1="12" y1="22.08" x2="12" y2="12"/>
+            </svg>
+          </button>`;
+        })()}
+        ${(() => {
           // V2.10.282: icona stella PREFERITI, sotto al pulsante P.
           // Il codice usa il `name` canonico (stesso identifier del filtro).
           const _favCode = String(getField(p, 'name') || '').trim();
@@ -25205,6 +25646,7 @@ function renderGallery(main, list){
             e.target.closest('.card-desc-icon') ||
             e.target.closest('.quote-trigger') ||
             e.target.closest('.fav-trigger') ||
+            e.target.closest('.stock-trigger') ||
             e.target.closest('.card-sel-checkbox')
         )) return;
         // Se l'immagine non c'è (placeholder NO IMG), non aprire il lightbox
@@ -25223,7 +25665,8 @@ function renderGallery(main, list){
         if(e.target && e.target.closest && (
             e.target.closest('.eye-trigger') ||
             e.target.closest('.card-desc-icon') ||
-            e.target.closest('.fav-trigger')
+            e.target.closest('.fav-trigger') ||
+            e.target.closest('.stock-trigger')
         )) return;
         // Cancella il timer del click singolo: deve partire SOLO openEditor
         if(_imgClickTimer){ clearTimeout(_imgClickTimer); _imgClickTimer = null; }
@@ -25281,6 +25724,18 @@ function renderGallery(main, list){
         const code = favTriggerEl.getAttribute('data-fav-code');
         if(code && typeof toggleFavorite === 'function'){
           toggleFavorite(code);
+        }
+      });
+    }
+    // V2.10.295: handler icona pacchetto STOCK MANAGED
+    const stockTriggerEl = card.querySelector('.stock-trigger');
+    if(stockTriggerEl){
+      stockTriggerEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const code = stockTriggerEl.getAttribute('data-stock-code');
+        if(code && typeof toggleStockManaged === 'function'){
+          toggleStockManaged(code);
         }
       });
     }
@@ -25416,7 +25871,22 @@ function renderTable(main, list){
         title="${_favOnRow ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
       </button>` : '';
-    const rowActionsCell = `<span class="row-actions">${rowEyeIcon}${rowDescIcon}${rowFavIcon}</span>${renderStockPair(stockIT(p), stockES(p), true, 'sp-inline')}`;
+    // V2.10.295: icona pacchetto STOCK MANAGED per la vista lista
+    const _stkCodeRow = String(getField(p, 'name') || '').trim();
+    const _stkOnRow = _stkCodeRow && (typeof isStockManaged === 'function') && isStockManaged(_stkCodeRow);
+    const rowStockIcon = _stkCodeRow ? `<button type="button" class="row-stock-trigger${_stkOnRow ? ' is-managed' : ''}"
+        data-stock-code="${escapeAttr(_stkCodeRow)}"
+        aria-label="${_stkOnRow ? 'Rimuovi da gestione a magazzino' : 'Aggiungi a gestione a magazzino'}"
+        aria-pressed="${_stkOnRow ? 'true' : 'false'}"
+        title="${_stkOnRow ? 'Rimuovi da gestione a magazzino' : 'Aggiungi a gestione a magazzino'}">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M16.5 9.4l-9-5.19"/>
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
+      </button>` : '';
+    const rowActionsCell = `<span class="row-actions">${rowEyeIcon}${rowDescIcon}${rowFavIcon}${rowStockIcon}</span>${renderStockPair(stockIT(p), stockES(p), true, 'sp-inline')}`;
 
     // V2.10.269: rendo le celle Marca/Macrocategoria/Categoria cliccabili per
     // attivare il filtro corrispondente (stesso comportamento delle card).
@@ -26006,6 +26476,18 @@ function initHoverPreview(){
       toggleFavorite(code);
     }
   }, true);  // capture phase per intercettare prima del dblclick aperture editor
+
+  // V2.10.295: idem per icona pacchetto STOCK MANAGED nelle righe tabella
+  document.addEventListener('click', (ev) => {
+    const stkBtn = ev.target && ev.target.closest && ev.target.closest('.row-stock-trigger[data-stock-code]');
+    if(!stkBtn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const code = stkBtn.getAttribute('data-stock-code');
+    if(code && typeof toggleStockManaged === 'function'){
+      toggleStockManaged(code);
+    }
+  }, true);
 
   document.addEventListener('mouseover', (ev)=>{
     // V2.2.42: hover-to-open completamente disattivato.
@@ -32294,6 +32776,12 @@ function applyTheme(){
     document.body.classList.remove('theme-light');
   }
   updateThemeButton();
+  // V2.10.291: la sidebar parametri usa stili inline !important con colori
+  // condizionati al tema (vedi paramRenderSidebar). Quando cambia il tema devo
+  // ri-renderizzarla, altrimenti i colori restano quelli del tema precedente.
+  if(typeof paramRenderSidebar === 'function'){
+    try { paramRenderSidebar(); } catch(_){}
+  }
 }
 
 function updateThemeButton(){
@@ -32579,13 +33067,21 @@ function _escapeRegex(s){
 // Dedup + filter < HIGHLIGHT_MIN_LEN.
 function collectSearchTerms(){
   const terms = new Set();
+  // V2.10.294: mappa termine→tipoFiltro per colorare ogni highlight col colore del
+  // filtro che l'ha originato. Tipi: 'text' (search principale + ricerca veloce +
+  // ricerca avanzata), 'brand' (marca), 'catParent' (macrocategoria), 'cat' (categoria).
+  // In caso di conflitti vince l'ULTIMO assegnato → ordino le sezioni così che
+  // i filtri più "primary" (brand) sovrascrivano quelli "secondary" (cat).
+  const typesMap = {};
 
   // 1) Barra ricerca principale
   const searchEl = document.getElementById('search');
   if(searchEl && searchEl.value){
     const q = searchEl.value.trim();
     if(q.length >= HIGHLIGHT_MIN_LEN){
-      terms.add(q.toLowerCase());
+      const k = q.toLowerCase();
+      terms.add(k);
+      typesMap[k] = 'text';
     }
   }
 
@@ -32594,7 +33090,9 @@ function collectSearchTerms(){
   if(quickEl && quickEl.value){
     const q = quickEl.value.trim();
     if(q.length >= HIGHLIGHT_MIN_LEN){
-      terms.add(q.toLowerCase());
+      const k = q.toLowerCase();
+      terms.add(k);
+      typesMap[k] = 'text';
     }
   }
 
@@ -32610,28 +33108,37 @@ function collectSearchTerms(){
         if(c.op === 'contains' || c.op === 'startsWith' || c.op === 'endsWith'){
           const v = String(c.value).trim();
           if(v.length >= HIGHLIGHT_MIN_LEN){
-            terms.add(v.toLowerCase());
+            const key = v.toLowerCase();
+            terms.add(key);
+            if(!typesMap[key]) typesMap[key] = 'text';
           }
         }
       });
     });
   }
 
-  // V2.10.271: 3) Filtri Marca / Macrocategoria / Categoria (multi-select sidebar).
-  // I valori esatti selezionati vengono aggiunti come termini di highlight, così
-  // l'utente vede subito quali dati delle card corrispondono al filtro attivo
-  // (stesso colore verde acido usato per la ricerca testuale).
+  // V2.10.271 + V2.10.294: 3) Filtri Marca / Macrocategoria / Categoria (multi-select
+  // sidebar). I valori esatti selezionati vengono aggiunti come termini di highlight
+  // CON IL COLORE del filtro corrispondente: ciano per marca, ambra per macrocat,
+  // verde lime per cat — coerente con i bordi dei trigger e le label sidebar.
   if(typeof MS_FILTERS !== 'undefined'){
-    ['brand','catParent','cat'].forEach(k => {
+    // Ordine: cat → catParent → brand. In caso di conflitto (lo stesso valore
+    // selezionato in più filtri, raro) vince il filtro più "primario" (brand).
+    ['cat', 'catParent', 'brand'].forEach(k => {
       const f = MS_FILTERS[k];
       if(!f || !f.selected) return;
       f.selected.forEach(v => {
         const t = String(v || '').trim();
-        if(t.length >= HIGHLIGHT_MIN_LEN) terms.add(t.toLowerCase());
+        if(t.length >= HIGHLIGHT_MIN_LEN){
+          const key = t.toLowerCase();
+          terms.add(key);
+          typesMap[key] = k;
+        }
       });
     });
   }
 
+  window.SEARCH_HIGHLIGHTS_MAP = typesMap;
   return Array.from(terms);
 }
 
@@ -32650,7 +33157,13 @@ function highlightMatches(textSafeHtml, terms){
   } catch(e){
     return textSafeHtml;  // fallback su errore regex
   }
-  return textSafeHtml.replace(re, '<mark class="search-hl">$1</mark>');
+  // V2.10.294: assegno la classe in base al tipo di filtro (text/brand/catParent/cat)
+  // così ogni mark prende il colore del filtro che l'ha originato.
+  const typesMap = window.SEARCH_HIGHLIGHTS_MAP || {};
+  return textSafeHtml.replace(re, function(_full, m){
+    const type = typesMap[m.toLowerCase()] || 'text';
+    return '<mark class="search-hl search-hl-' + type + '">' + m + '</mark>';
+  });
 }
 
 // Versione per HTML grezzo: separa tag ed entità, evidenzia solo il testo.
@@ -56908,11 +57421,55 @@ if(document.readyState === 'loading'){
     if(typeof _updateFavoritesToolbarButton === 'function'){
       _updateFavoritesToolbarButton();
     }
+    // V2.10.295: stessa init per il pulsante "Solo gestiti a magazzino"
+    if(typeof _updateStockManagedToolbarButton === 'function'){
+      _updateStockManagedToolbarButton();
+    }
   }
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', run);
   } else {
     run();
+  }
+})();
+
+// V2.10.293: ResizeObserver per allineare l'altezza del .sb-logo-block all'altezza
+// effettiva della topbar (header). La topbar usa flex-wrap:wrap quindi può crescere
+// in altezza quando i pulsanti vanno a capo su viewport stretti; senza questo sync
+// il logo block resterebbe a min-height fisso e si vedrebbe uno "scalino" tra le
+// due zone scure in alto. Entrambi i box hanno box-sizing:border-box quindi
+// applichiamo offsetHeight TAL QUALE (include border-bottom 2px) come min-height:
+// così le linee arancione fondo coincidono pixel-perfect.
+(function initLogoBlockHeightSync(){
+  function setup(){
+    const logo = document.querySelector('.sb-logo-block');
+    const header = document.querySelector('.app-main-area > header');
+    if(!logo || !header) return;
+    const apply = function(){
+      const h = header.offsetHeight;
+      if(h > 0){
+        // box-sizing:border-box: min-height include già il border-bottom 2px,
+        // quindi assegniamo l'intero offsetHeight (NON sottrarre il border).
+        logo.style.minHeight = h + 'px';
+      }
+    };
+    // Doppio rAF per attendere il completo render iniziale prima di misurare
+    // (alcuni layout shift avvengono al primo frame dopo DOMContentLoaded).
+    requestAnimationFrame(function(){
+      requestAnimationFrame(apply);
+    });
+    if(typeof ResizeObserver === 'function'){
+      try {
+        const ro = new ResizeObserver(apply);
+        ro.observe(header);
+      } catch(_){}
+    }
+    window.addEventListener('resize', apply);
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
   }
 })();
 
