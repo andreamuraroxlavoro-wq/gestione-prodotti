@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.288</title>
+<title>Gestione Prodotti V2.10.289</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8594,7 +8594,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.288</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.289</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9127,7 +9127,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.288');
+console.info('[bootstrap] script avvio — V2.10.289');
 
 window.openStatsDashboard = function(){
   try {
@@ -10578,7 +10578,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.288';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.289';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12224,16 +12224,44 @@ function _updateFavoriteIconsForCode(code, isNowFav){
   });
 }
 
-/** Aggiorna lo stato visivo del pulsante toolbar "Solo preferiti" (contatore + active). */
+/** Aggiorna lo stato visivo del pulsante toolbar "Solo preferiti" (contatore + active).
+ *  V2.10.289: il badge mostra il numero di preferiti VISIBILI con i filtri correnti
+ *  (sopravvivono in FILTERED), non il totale assoluto.
+ *  La visibilità del pulsante invece dipende dal totale dei preferiti — se ne hai
+ *  marcati ma nessuno è compatibile con i filtri correnti, il pulsante mostra "0"
+ *  ma resta visibile per permettere il toggle che spegnerebbe il filtro. */
 function _updateFavoritesToolbarButton(){
   const btn = document.getElementById('btnFavoritesFilter');
   if(!btn) return;
-  const count = FAVORITES_CODES.size;
+  const totalFavorites = FAVORITES_CODES.size;
+  // V2.10.289: il badge mostra preferiti VISIBILI nei filtri correnti.
+  // Fallback al TOTALE solo se DATA non è ancora pronto (boot prima del load del
+  // catalogo). Se DATA è pronto ma FILTERED è ridotto, mostro 0 — è semanticamente
+  // corretto ("0 dei tuoi preferiti compatibili con questi filtri").
+  let visibleCount = totalFavorites;
+  try {
+    const _dataReady = (typeof DATA !== 'undefined') && Array.isArray(DATA) && DATA.length > 0;
+    const _filteredReady = (typeof FILTERED !== 'undefined') && Array.isArray(FILTERED);
+    if(_dataReady && _filteredReady){
+      visibleCount = 0;
+      for(const p of FILTERED){
+        const code = String((typeof getField === 'function' ? getField(p, 'name') : p && p.name) || '').trim();
+        if(code && FAVORITES_CODES.has(code)) visibleCount++;
+      }
+    }
+  } catch(_){}
   const countEl = btn.querySelector('.fav-count');
-  if(countEl) countEl.textContent = count;
-  // Mostra/nascondi pulsante in base alla presenza di almeno un preferito
-  btn.style.display = count > 0 ? '' : 'none';
-  btn.classList.toggle('active', ONLY_FAVORITES && count > 0);
+  if(countEl) countEl.textContent = visibleCount;
+  // Tooltip dinamico: chiarisce se il numero è "filtrato" o no
+  if(totalFavorites > 0){
+    if(visibleCount === totalFavorites){
+      btn.title = 'Filtra: solo prodotti preferiti (' + totalFavorites + ')';
+    } else {
+      btn.title = visibleCount + ' di ' + totalFavorites + ' preferiti compatibili con i filtri attivi';
+    }
+  }
+  btn.style.display = totalFavorites > 0 ? '' : 'none';
+  btn.classList.toggle('active', ONLY_FAVORITES && totalFavorites > 0);
 }
 
 /** Toggle del filtro "Solo preferiti" (chiamato dal pulsante toolbar). */
@@ -24358,6 +24386,10 @@ function applyFilters(options){
 
   // V2.10.118: aggiorna sidebar parametri (conteggi dinamici)
   if(typeof paramRenderSidebar === 'function') paramRenderSidebar();
+
+  // V2.10.289: aggiorna il badge del pulsante "Solo preferiti" (mostra il count
+  // dei preferiti VISIBILI nei filtri correnti, non il totale assoluto).
+  if(typeof _updateFavoritesToolbarButton === 'function') _updateFavoritesToolbarButton();
 
   PAGE = 0;
   render();
