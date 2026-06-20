@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.284</title>
+<title>Gestione Prodotti V2.10.288</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6588,11 +6588,18 @@ body.theme-light .loader-card{
   transition:transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   font-family:inherit;
   color:#fff;
-  font-weight:800;
-  font-size:13px;
-  letter-spacing:0.5px;
   padding:0;
   user-select:none;
+}
+/* V2.10.286: l'SVG del carrello sostituisce il vecchio testo "P". Per una centratura
+   perfetta nel cerchio: il contenuto del path è leggermente sbilanciato nel viewBox
+   (busta sopra le ruote), quindi uso dimensioni più grandi (18px) per riempire meglio
+   il cerchio e mi affido al flexbox del .quote-trigger (align/justify center). */
+.card-img .quote-trigger svg{
+  width:18px;
+  height:18px;
+  display:block;
+  flex-shrink:0;
 }
 body.quote-mode .card-img .quote-trigger{display:flex}
 .card-img .quote-trigger:hover{
@@ -8587,7 +8594,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.284</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.288</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9120,7 +9127,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.284');
+console.info('[bootstrap] script avvio — V2.10.288');
 
 window.openStatsDashboard = function(){
   try {
@@ -10571,7 +10578,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.284';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.288';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -25104,7 +25111,7 @@ function renderGallery(main, list){
         <span class="eye-trigger" role="button" tabindex="-1" aria-label="Mostra dettagli prodotto" title="Mostra dettagli prodotto">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </span>
-        <button class="quote-trigger" type="button" data-product-idx="${p._idx}" aria-label="Aggiungi al preventivo" title="Aggiungi al preventivo">P</button>
+        <button class="quote-trigger" type="button" data-product-idx="${p._idx}" aria-label="Aggiungi al preventivo" title="Aggiungi al preventivo"><svg viewBox="0 -1 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>
         ${(() => {
           // V2.10.282: icona stella PREFERITI, sotto al pulsante P.
           // Il codice usa il `name` canonico (stesso identifier del filtro).
@@ -26350,20 +26357,36 @@ function renderEditor(){
           <label>Nome prodotto</label>
           <input type="text" id="f_name" value="${escapeAttr(data.name)}" oninput="CURRENT_EDIT.data.name=this.value">
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-          <div class="edit-field">
-            <label>Netto acquisto</label>
-            <input type="text" id="f_precio_neto_compra" value="${escapeAttr(data.precio_neto_compra)}" oninput="CURRENT_EDIT.data.precio_neto_compra=this.value">
-          </div>
-          <div class="edit-field">
-            <label>PVP</label>
-            <input type="text" id="f_PVP" value="${escapeAttr(data.PVP)}" oninput="CURRENT_EDIT.data.PVP=this.value">
-          </div>
-          <div class="edit-field">
-            <label>MSRP</label>
-            <input type="text" id="f_msrp" value="${escapeAttr(data.msrp)}" oninput="CURRENT_EDIT.data.msrp=this.value">
-          </div>
-        </div>
+        ${(() => {
+          // V2.10.287: se l'occhio è chiuso (SETTINGS.showDiscount === false) NON mostro
+          // il campo "Netto acquisto" nell'editor — coerente con il fatto che in quella
+          // modalità i prezzi/sconti di acquisto sono nascosti su card e tabella.
+          // V2.10.288: nascondo il Netto Acquisto anche quando la modalità prezzo è
+          // 'vendita' (l'utente sta lavorando in ottica cliente, non deve vedere il
+          // costo). Quindi mostro il campo SOLO se: occhio aperto AND modalità acquisto.
+          // La griglia passa da 3 colonne (Netto/PVP/MSRP) a 2 colonne (PVP/MSRP).
+          const _isShowDisc = (typeof SETTINGS !== 'undefined' && SETTINGS && SETTINGS.showDiscount === true);
+          const _isAcquistoMode = (typeof getPriceMode !== 'function') || getPriceMode() === 'acquisto';
+          const _showNetto = _isShowDisc && _isAcquistoMode;
+          const _gridCols = _showNetto ? '1fr 1fr 1fr' : '1fr 1fr';
+          const _nettoField = _showNetto
+            ? `<div class="edit-field">
+                <label>Netto acquisto</label>
+                <input type="text" id="f_precio_neto_compra" value="${escapeAttr(data.precio_neto_compra)}" oninput="CURRENT_EDIT.data.precio_neto_compra=this.value">
+              </div>`
+            : '';
+          return `<div style="display:grid;grid-template-columns:${_gridCols};gap:8px">
+            ${_nettoField}
+            <div class="edit-field">
+              <label>PVP</label>
+              <input type="text" id="f_PVP" value="${escapeAttr(data.PVP)}" oninput="CURRENT_EDIT.data.PVP=this.value">
+            </div>
+            <div class="edit-field">
+              <label>MSRP</label>
+              <input type="text" id="f_msrp" value="${escapeAttr(data.msrp)}" oninput="CURRENT_EDIT.data.msrp=this.value">
+            </div>
+          </div>`;
+        })()}
         <div class="edit-field">
           <label>Descrizione breve</label>
           <textarea id="f_short_description" style="min-height:50px" oninput="CURRENT_EDIT.data.short_description=this.value">${escapeHtml(stripBrandPrefix(data.short_description || '', data.brand))}</textarea>
@@ -27258,7 +27281,7 @@ function renderRelatedList(){
           <span class="eye-trigger" role="button" tabindex="-1" aria-label="Mostra dettagli prodotto" title="Mostra dettagli prodotto">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           </span>
-          <button class="quote-trigger" type="button" data-product-idx="${product._idx}" aria-label="Aggiungi al preventivo" title="Aggiungi al preventivo">P</button>
+          <button class="quote-trigger" type="button" data-product-idx="${product._idx}" aria-label="Aggiungi al preventivo" title="Aggiungi al preventivo"><svg viewBox="0 -1 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>
           ${_relNExtras>0?`<span class="extra-count">📷 ${_relNExtras}</span>`:''}
           ${_relNRelated>0?`<span class="related-count">🔗 ${_relNRelated}</span>`:''}
         </div>
