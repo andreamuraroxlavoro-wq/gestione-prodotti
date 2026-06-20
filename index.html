@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.298</title>
+<title>Gestione Prodotti V2.10.300</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7215,6 +7215,37 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 }
 #quote-float-btn.quote-bump{animation:quote-bump-anim 0.45s ease}
 
+/* V2.10.299: stato "filtro nel carrello attivo" — anello verde acido pulsante intorno
+   al pulsante fluttuante. Comunica che cliccando il catalogo è filtrato sui soli
+   prodotti del carrello. Glow animato leggero per non infastidire ma essere visibile. */
+#quote-float-btn.filter-active{
+  box-shadow:
+    0 0 0 4px rgba(204,255,0,0.85),
+    0 6px 20px rgba(234,88,12,0.5),
+    0 0 18px rgba(204,255,0,0.55);
+  animation: quote-filter-pulse 1.8s ease-in-out infinite;
+}
+#quote-float-btn.filter-active:hover{
+  box-shadow:
+    0 0 0 5px rgba(204,255,0,1),
+    0 10px 24px rgba(234,88,12,0.5),
+    0 0 24px rgba(204,255,0,0.7);
+}
+@keyframes quote-filter-pulse{
+  0%, 100% {
+    box-shadow:
+      0 0 0 4px rgba(204,255,0,0.85),
+      0 6px 20px rgba(234,88,12,0.5),
+      0 0 18px rgba(204,255,0,0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(204,255,0,1),
+      0 6px 22px rgba(234,88,12,0.6),
+      0 0 28px rgba(204,255,0,0.9);
+  }
+}
+
 /* Tabella carrello — V2.3.6: font +25%, bottoni qty centrati */
 .quote-cart-tbl{width:100%;border-collapse:collapse;font-size:14px;font-family:inherit}
 .quote-cart-tbl thead th{
@@ -9001,7 +9032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.298</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.300</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9558,7 +9589,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.298');
+console.info('[bootstrap] script avvio — V2.10.300');
 
 window.openStatsDashboard = function(){
   try {
@@ -11009,7 +11040,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.298';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.300';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13030,6 +13061,66 @@ function _updateAllQuoteCartBadges(){
   });
 }
 /* ============== FINE BADGE CARRELLO ============== */
+
+/* ========== FILTRO "SOLO NEL CARRELLO" (V2.10.299) ==========
+   Toggle attivabile via doppio-click sul pulsante fluttuante carrello che
+   restringe il catalogo (galleria + lista) ai soli prodotti effettivamente
+   presenti nel carrello preventivo. Diverso dai sistemi PREFERITI/STOCK/OUTLET
+   perché NON ha una lista persistente propria: pesca i codici da _QUOTE_STATE.items.
+   Non persistente: ad ogni refresh parte OFF.
+   ============================================================ */
+let ONLY_IN_CART = false;
+
+/** Ritorna un Set con i codici (name canonico) attualmente nel carrello.
+ *  Calcolato on-demand per essere sempre aggiornato anche se il carrello cambia. */
+function _inCartCodesSet(){
+  const out = new Set();
+  if(!window._QUOTE_STATE || !Array.isArray(window._QUOTE_STATE.items)) return out;
+  for(const it of window._QUOTE_STATE.items){
+    if(it && it.code){
+      const c = String(it.code).trim();
+      if(c) out.add(c);
+    }
+  }
+  return out;
+}
+
+/** Toggle del filtro "Solo nel carrello" (chiamato da dblclick sul pulsante fluttuante). */
+function toggleOnlyInCartFilter(){
+  const codesNow = _inCartCodesSet();
+  if(!ONLY_IN_CART && codesNow.size === 0){
+    // Carrello vuoto: il filtro non avrebbe senso, ignoro la richiesta
+    if(typeof toast === 'function') toast('Il carrello è vuoto. Aggiungi prodotti prima di filtrarli.', 'warn', 3000);
+    return;
+  }
+  ONLY_IN_CART = !ONLY_IN_CART;
+  // Feedback visivo sul pulsante fluttuante
+  _updateQuoteFloatBtnFilterState();
+  // Toast informativo
+  if(typeof toast === 'function'){
+    if(ONLY_IN_CART){
+      toast('Filtro "Solo nel carrello" ATTIVO (' + codesNow.size + ' prodotti)', 'ok', 2500);
+    } else {
+      toast('Filtro "Solo nel carrello" disattivato', 'info', 2000);
+    }
+  }
+  // Ri-applico i filtri per aggiornare la griglia
+  if(typeof applyFilters === 'function') applyFilters();
+}
+
+/** Aggiorna lo stato visivo del pulsante fluttuante carrello in base a ONLY_IN_CART. */
+function _updateQuoteFloatBtnFilterState(){
+  const btn = document.getElementById('quote-float-btn');
+  if(!btn) return;
+  btn.classList.toggle('filter-active', ONLY_IN_CART);
+  // Aggiorno il title per chiarezza UX
+  if(ONLY_IN_CART){
+    btn.title = 'Filtro "Solo nel carrello" ATTIVO — doppio click per disattivare · click per aprire il carrello';
+  } else {
+    btn.title = 'Apri carrello preventivo · doppio click per filtrare il catalogo ai soli prodotti nel carrello';
+  }
+}
+/* ============== FINE FILTRO SOLO NEL CARRELLO ============== */
 
 /* ========== IMPOSTAZIONI ==========
    Configurazione persistita in localStorage (chiave 'vt_settings').
@@ -25042,6 +25133,17 @@ function applyFilters(options){
       if(!OUTLET_CODES.has(pName)) return false;
     }
 
+    // V2.10.299: filtro "Solo nel carrello" — in AND con tutti gli altri filtri.
+    // I codici vengono letti on-demand da _QUOTE_STATE.items (no lista persistente).
+    if(ONLY_IN_CART && window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items) && window._QUOTE_STATE.items.length > 0){
+      const pName = String(getField(p, 'name') || '').trim();
+      let found = false;
+      for(const it of window._QUOTE_STATE.items){
+        if(it && it.code === pName){ found = true; break; }
+      }
+      if(!found) return false;
+    }
+
     // V2.2.36: filtro speciale "Nuovi prodotti" / "Prodotti scatalogati"
     // Quando sono attivi uno o entrambi, applica OR: passa se matcha almeno uno
     // (nuovi O scatalogati). Set vuoto = nessun filtro speciale attivo.
@@ -25155,6 +25257,30 @@ function applyFilters(options){
       const da = excelDateToJs(a.created) || new Date(0);
       const db = excelDateToJs(b.created) || new Date(0);
       return db - da;
+    });
+  }
+
+  // V2.10.300: quando il filtro "Solo nel carrello" è attivo, ordino FILTERED
+  // secondo l'ordine delle righe del carrello/preventivo. Sovrascrive eventuali
+  // altri sort precedenti perché l'utente ha esplicitamente chiesto di vedere il
+  // catalogo nello stesso ordine del preventivo. Codici non presenti nel carrello
+  // (caso edge) finiscono in coda — non dovrebbe mai capitare perché il filtro
+  // li ha già esclusi, ma la safety map gestisce comunque l'edge case.
+  if(ONLY_IN_CART && window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items) && window._QUOTE_STATE.items.length > 0){
+    const orderMap = new Map();
+    window._QUOTE_STATE.items.forEach((it, i) => {
+      if(it && it.code){
+        const c = String(it.code).trim();
+        // Se lo stesso code appare in più righe (raro), uso la prima posizione
+        if(c && !orderMap.has(c)) orderMap.set(c, i);
+      }
+    });
+    FILTERED.sort((a, b) => {
+      const ca = String(getField(a, 'name') || '').trim();
+      const cb = String(getField(b, 'name') || '').trim();
+      const ia = orderMap.has(ca) ? orderMap.get(ca) : Infinity;
+      const ib = orderMap.has(cb) ? orderMap.get(cb) : Infinity;
+      return ia - ib;
     });
   }
 
@@ -45135,6 +45261,21 @@ async function saveQuoteState(){
     try {
       if(typeof _updateAllQuoteCartBadges === 'function') _updateAllQuoteCartBadges();
     } catch(_){}
+    // V2.10.299: se il filtro "Solo nel carrello" è attivo e il carrello è stato
+    // svuotato, lo disattivo automaticamente. Senza questa logica l'utente vedrebbe
+    // una griglia vuota senza capire perché il filtro è ancora ON.
+    try {
+      if(ONLY_IN_CART && (!window._QUOTE_STATE.items || window._QUOTE_STATE.items.length === 0)){
+        ONLY_IN_CART = false;
+        if(typeof _updateQuoteFloatBtnFilterState === 'function') _updateQuoteFloatBtnFilterState();
+        if(typeof applyFilters === 'function') applyFilters();
+        if(typeof toast === 'function') toast('Filtro "Solo nel carrello" disattivato automaticamente (carrello vuoto)', 'info', 2500);
+      } else if(ONLY_IN_CART && typeof applyFilters === 'function'){
+        // Carrello modificato (aggiunta/rimozione articolo) mentre il filtro è ON:
+        // ri-applico per aggiornare l'insieme visibile (es. nuovo articolo entra subito).
+        applyFilters();
+      }
+    } catch(_){}
   } catch(err){
     console.warn('[quote] save error:', err);
   }
@@ -48190,14 +48331,37 @@ function renderQuoteFloatingButton(animateBump){
   if(!btn){
     btn = document.createElement('button');
     btn.id = 'quote-float-btn';
-    btn.title = 'Apri carrello preventivo';
+    btn.title = 'Apri carrello preventivo · doppio click per filtrare il catalogo ai soli prodotti nel carrello';
     btn.innerHTML =
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">' +
         '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>' +
         '<path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>' +
       '</svg>' +
       '<span class="quote-float-badge" id="quote-float-badge">0</span>';
-    btn.addEventListener('click', () => openQuoteCart());
+    // V2.10.299: click singolo = apre il carrello (comportamento storico).
+    // Doppio click = toggle filtro "Solo nel carrello". Uso un timer per
+    // distinguere: se entro 280ms arriva un secondo click → dblclick (e annullo
+    // il single-click); altrimenti scatta openQuoteCart() dopo il delay.
+    let _qfbClickTimer = null;
+    btn.addEventListener('click', () => {
+      if(_qfbClickTimer){
+        // Un click è già in attesa → questo è il secondo (= dblclick).
+        // Il listener dblclick gestirà tutto, qui non faccio nulla.
+        return;
+      }
+      _qfbClickTimer = setTimeout(() => {
+        _qfbClickTimer = null;
+        openQuoteCart();
+      }, 280);
+    });
+    btn.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      if(_qfbClickTimer){
+        clearTimeout(_qfbClickTimer);
+        _qfbClickTimer = null;
+      }
+      if(typeof toggleOnlyInCartFilter === 'function') toggleOnlyInCartFilter();
+    });
     document.body.appendChild(btn);
   }
   // Aggiorno badge
@@ -48213,6 +48377,8 @@ function renderQuoteFloatingButton(animateBump){
     void btn.offsetWidth;  // reflow per restartare l'animazione
     btn.classList.add('quote-bump');
   }
+  // V2.10.299: sincronizza lo stato visivo "filtro nel carrello attivo"
+  if(typeof _updateQuoteFloatBtnFilterState === 'function') _updateQuoteFloatBtnFilterState();
 }
 
 /* ─── Dialog quantità ─── */
