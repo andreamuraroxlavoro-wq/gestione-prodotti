@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.300</title>
+<title>Gestione Prodotti V2.10.301</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9032,7 +9032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.300</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.301</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9589,7 +9589,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.300');
+console.info('[bootstrap] script avvio — V2.10.301');
 
 window.openStatsDashboard = function(){
   try {
@@ -11040,7 +11040,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.300';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.301';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -23906,6 +23906,35 @@ function msComputeCounts(key){
     // tutte le condizioni avanzate (engine advSearchMatches).
     if(window.ADV_SEARCH && window.ADV_SEARCH.active && typeof advSearchMatches === 'function'){
       if(!advSearchMatches(p)) return false;
+    }
+    // V2.10.301: filtri toolbar (preferiti / stock managed / outlet / solo nel carrello).
+    // Quando uno o più di questi sono attivi, i dropdown MARCA/MACROCAT/CATEGORIA
+    // devono mostrare SOLO i valori dei prodotti che sopravvivono — coerente con
+    // come funziona già il "matchExcept" per gli altri filtri MS.
+    // Identifier = name canonico (idem chiave usata dai vari Set persistenti).
+    if(typeof ONLY_FAVORITES !== 'undefined' && ONLY_FAVORITES &&
+       typeof FAVORITES_CODES !== 'undefined' && FAVORITES_CODES.size > 0){
+      const pName = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
+      if(!FAVORITES_CODES.has(pName)) return false;
+    }
+    if(typeof ONLY_STOCK_MANAGED !== 'undefined' && ONLY_STOCK_MANAGED &&
+       typeof STOCK_MANAGED_CODES !== 'undefined' && STOCK_MANAGED_CODES.size > 0){
+      const pName = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
+      if(!STOCK_MANAGED_CODES.has(pName)) return false;
+    }
+    if(typeof ONLY_OUTLET !== 'undefined' && ONLY_OUTLET &&
+       typeof OUTLET_CODES !== 'undefined' && OUTLET_CODES.size > 0){
+      const pName = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
+      if(!OUTLET_CODES.has(pName)) return false;
+    }
+    if(typeof ONLY_IN_CART !== 'undefined' && ONLY_IN_CART &&
+       window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items) && window._QUOTE_STATE.items.length > 0){
+      const pName = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
+      let found = false;
+      for(const it of window._QUOTE_STATE.items){
+        if(it && it.code === pName){ found = true; break; }
+      }
+      if(!found) return false;
     }
     return true;
   };
