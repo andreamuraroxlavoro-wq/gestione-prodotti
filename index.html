@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.308</title>
+<title>Gestione Prodotti V2.10.309</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7079,6 +7079,36 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   color:#fff;
 }
 
+/* === V2.10.309: 4° stato "grigio" = prodotti NON a magazzino (non nel file giacenze).
+   Il pulsante mostra l'icona di divieto al posto del pacchetto. === */
+.tb-special-stock .stock-ban{
+  width:20px;
+  height:20px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  display:none;   /* nascosta tranne nello stato grigio */
+}
+.tb-special-stock.stock-state-grey{
+  background:#f1f5f9;
+  border-color:#94a3b8;
+  color:#64748b;
+}
+.tb-special-stock.stock-state-grey .stock-pkg{ display:none; }
+.tb-special-stock.stock-state-grey .stock-ban{ display:block; stroke:#64748b; }
+.tb-special-stock.stock-state-grey:hover{
+  background:#e2e8f0;
+  border-color:#64748b;
+  color:#475569;
+}
+.tb-special-stock.stock-state-grey:hover .stock-ban{ stroke:#475569; }
+.tb-special-stock.stock-state-grey .tb-special-badge{
+  background:#64748b;
+  color:#fff;
+}
+
 /* === V2.10.297: Icona fantasmino OUTLET nella card galleria ===
    Sopra ai preferiti (top:46px) — prima icona dopo il fumetto descrizione.
    Inattiva: pallido grigio. Attiva (outlet): viola/lavanda pieno #a855f7. */
@@ -9114,7 +9144,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.308</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.309</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9395,6 +9425,10 @@ body.theme-light .dlg-input{background:var(--bg3)}
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
         <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
         <line x1="12" y1="22.08" x2="12" y2="12"/>
+      </svg>
+      <svg class="stock-ban" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/>
+        <line x1="5.64" y1="5.64" x2="18.36" y2="18.36"/>
       </svg>
       <span class="tb-special-badge stock-count" id="tbStockManagedFilterBadge">0</span>
     </button>
@@ -9679,7 +9713,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.308');
+console.info('[bootstrap] script avvio — V2.10.309');
 
 window.openStatsDashboard = function(){
   try {
@@ -11130,7 +11164,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.308';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.309';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12843,10 +12877,11 @@ loadFavorites();
    Identifier: `name` canonico (idem chiave usata in toggleStockManaged).
    ======================================================== */
 const STOCK_MANAGED_CODES = new Set();
-// V2.10.308: filtro magazzino ciclico a 3 stati (non persistito: parte da 0 al refresh).
+// V2.10.308/309: filtro magazzino ciclico a 4 stati (non persistito: parte da 0).
 //   0 = off  → mostra tutto il catalogo
 //   1 = verde → solo prodotti con giacenza > 0 (disponibili)
 //   2 = rosso → solo prodotti a magazzino con giacenza <= 0 (esauriti)
+//   3 = grigio → solo prodotti del catalogo NON presenti nel file giacenze (non a magazzino)
 let STOCK_FILTER_STATE = 0;
 const STOCK_MANAGED_LS_KEY = 'vt_stock_managed';
 
@@ -12937,11 +12972,10 @@ function _updateStockManagedToolbarButton(){
   const totalTracked = Object.keys(hasQty).length;
   // criterio di match per lo stato corrente
   const matchState = (sq) => {
-    if(!sq) return false;
-    const g = Number(sq.giac) || 0;
-    if(STOCK_FILTER_STATE === 1) return g > 0;     // verde
-    if(STOCK_FILTER_STATE === 2) return g <= 0;    // rosso
-    return true;                                   // off: tutti i tracciati
+    if(STOCK_FILTER_STATE === 1) return !!sq && (Number(sq.giac) || 0) > 0;   // verde
+    if(STOCK_FILTER_STATE === 2) return !!sq && (Number(sq.giac) || 0) <= 0;  // rosso
+    if(STOCK_FILTER_STATE === 3) return !sq;                                  // grigio: non a magazzino
+    return !!sq;                                                              // off: conteggio tracciati
   };
   // conteggio sui prodotti attualmente visibili (FILTERED)
   let count = 0;
@@ -12961,14 +12995,16 @@ function _updateStockManagedToolbarButton(){
   const countEl = btn.querySelector('.stock-count');
   if(countEl) countEl.textContent = count;
 
-  // classi colore: off (nessuna) / verde / rosso
-  btn.classList.remove('active', 'stock-state-green', 'stock-state-red');
+  // classi colore: off (nessuna) / verde / rosso / grigio
+  btn.classList.remove('active', 'stock-state-green', 'stock-state-red', 'stock-state-grey');
   if(STOCK_FILTER_STATE === 1) btn.classList.add('stock-state-green');
   else if(STOCK_FILTER_STATE === 2) btn.classList.add('stock-state-red');
+  else if(STOCK_FILTER_STATE === 3) btn.classList.add('stock-state-grey');
 
   // tooltip per stato
   if(STOCK_FILTER_STATE === 1)      btn.title = 'Magazzino: solo disponibili (giacenza > 0) — ' + count + '. Clicca per esauriti.';
-  else if(STOCK_FILTER_STATE === 2) btn.title = 'Magazzino: solo esauriti (giacenza ≤ 0) — ' + count + '. Clicca per tornare a tutti.';
+  else if(STOCK_FILTER_STATE === 2) btn.title = 'Magazzino: solo esauriti (giacenza ≤ 0) — ' + count + '. Clicca per i prodotti non a magazzino.';
+  else if(STOCK_FILTER_STATE === 3) btn.title = 'Magazzino: solo prodotti NON nel file giacenze — ' + count + '. Clicca per tornare a tutti.';
   else                              btn.title = 'Filtra per giacenza a magazzino (' + totalTracked + ' tracciati). Clicca per i disponibili.';
 
   btn.style.display = totalTracked > 0 ? '' : 'none';
@@ -12983,7 +13019,7 @@ function toggleOnlyStockManagedFilter(){
     _updateStockManagedToolbarButton();
     return;
   }
-  STOCK_FILTER_STATE = (STOCK_FILTER_STATE + 1) % 3;  // 0 → 1 → 2 → 0
+  STOCK_FILTER_STATE = (STOCK_FILTER_STATE + 1) % 4;  // 0 → 1 → 2 → 3 → 0
   _updateStockManagedToolbarButton();
   if(typeof applyFilters === 'function') applyFilters();
 }
@@ -24287,7 +24323,8 @@ function msComputeCounts(key){
       const _sq = STOCK_QTY[pName];
       const _g = _sq ? (Number(_sq.giac) || 0) : null;
       if(STOCK_FILTER_STATE === 1){ if(_g === null || !(_g > 0)) return false; }
-      else { if(_g === null || !(_g <= 0)) return false; }
+      else if(STOCK_FILTER_STATE === 2){ if(_g === null || !(_g <= 0)) return false; }
+      else if(STOCK_FILTER_STATE === 3){ if(_sq) return false; }
     }
     if(typeof ONLY_OUTLET !== 'undefined' && ONLY_OUTLET &&
        typeof OUTLET_CODES !== 'undefined' && OUTLET_CODES.size > 0){
@@ -25517,14 +25554,16 @@ function applyFilters(options){
       if(!FAVORITES_CODES.has(pName)) return false;
     }
 
-    // V2.10.308: filtro magazzino ciclico — in AND con tutti gli altri filtri.
-    //   stato 1 (verde) = solo giacenza > 0 · stato 2 (rosso) = solo giacenza <= 0 (tracciato).
+    // V2.10.308/309: filtro magazzino ciclico — in AND con tutti gli altri filtri.
+    //   stato 1 (verde) = giacenza > 0 · stato 2 (rosso) = giacenza <= 0 (tracciato)
+    //   stato 3 (grigio) = prodotti NON presenti nel file giacenze.
     if(STOCK_FILTER_STATE !== 0 && typeof STOCK_QTY !== 'undefined' && STOCK_QTY && Object.keys(STOCK_QTY).length > 0){
       const pName = String(getField(p, 'name') || '').trim();
       const _sq = STOCK_QTY[pName];
       const _g = _sq ? (Number(_sq.giac) || 0) : null;
       if(STOCK_FILTER_STATE === 1){ if(_g === null || !(_g > 0)) return false; }
-      else { if(_g === null || !(_g <= 0)) return false; }
+      else if(STOCK_FILTER_STATE === 2){ if(_g === null || !(_g <= 0)) return false; }
+      else if(STOCK_FILTER_STATE === 3){ if(_sq) return false; }
     }
 
     // V2.10.297: filtro "Solo outlet" — in AND con tutti gli altri filtri
