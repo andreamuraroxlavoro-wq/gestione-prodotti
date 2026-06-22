@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.305</title>
+<title>Gestione Prodotti V2.10.306</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9079,7 +9079,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.305</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.306</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9354,7 +9354,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
 
     <!-- V2.10.295: Pulsante toggle "Solo gestiti a magazzino" — visibile solo se almeno
          un prodotto è marcato come gestito a magazzino. Accento teal #14b8a6, icona pacchetto. -->
-    <button class="btn icon-btn tb-special-btn tb-special-stock" id="btnStockManagedFilter" onclick="toggleOnlyStockManagedFilter()" title="Filtra: solo prodotti gestiti a magazzino" aria-label="Solo gestiti a magazzino" style="display:none">
+    <button class="btn icon-btn tb-special-btn tb-special-stock" id="btnStockManagedFilter" onclick="toggleOnlyStockManagedFilter()" title="Filtra: solo prodotti presenti a magazzino" aria-label="Solo presenti a magazzino" style="display:none">
       <svg class="stock-pkg" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M16.5 9.4l-9-5.19"/>
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -9644,7 +9644,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.305');
+console.info('[bootstrap] script avvio — V2.10.306');
 
 window.openStatsDashboard = function(){
   try {
@@ -11095,7 +11095,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.305';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.306';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12889,11 +12889,12 @@ function _updateStockManagedIconsForCode(code, isNowManaged){
   });
 }
 
-/** Aggiorna pulsante toolbar "Solo gestiti a magazzino" (count dinamico in base a FILTERED). */
+/** Aggiorna pulsante toolbar "Solo presenti a magazzino" (count dinamico in base a FILTERED).
+ *  V2.10.306: basato sulla giacenza dal file (STOCK_QTY), non più sulla lista manuale. */
 function _updateStockManagedToolbarButton(){
   const btn = document.getElementById('btnStockManagedFilter');
   if(!btn) return;
-  const totalManaged = STOCK_MANAGED_CODES.size;
+  const totalManaged = (typeof STOCK_QTY !== 'undefined' && STOCK_QTY) ? Object.keys(STOCK_QTY).length : 0;
   let visibleCount = totalManaged;
   try {
     const _dataReady = (typeof DATA !== 'undefined') && Array.isArray(DATA) && DATA.length > 0;
@@ -12902,7 +12903,7 @@ function _updateStockManagedToolbarButton(){
       visibleCount = 0;
       for(const p of FILTERED){
         const code = String((typeof getField === 'function' ? getField(p, 'name') : p && p.name) || '').trim();
-        if(code && STOCK_MANAGED_CODES.has(code)) visibleCount++;
+        if(code && STOCK_QTY[code]) visibleCount++;
       }
     }
   } catch(_){}
@@ -12910,21 +12911,21 @@ function _updateStockManagedToolbarButton(){
   if(countEl) countEl.textContent = visibleCount;
   if(totalManaged > 0){
     if(visibleCount === totalManaged){
-      btn.title = 'Filtra: solo prodotti gestiti a magazzino (' + totalManaged + ')';
+      btn.title = 'Filtra: solo prodotti presenti a magazzino (' + totalManaged + ')';
     } else {
-      btn.title = visibleCount + ' di ' + totalManaged + ' gestiti a magazzino compatibili con i filtri attivi';
+      btn.title = visibleCount + ' di ' + totalManaged + ' presenti a magazzino compatibili con i filtri attivi';
     }
   }
   btn.style.display = totalManaged > 0 ? '' : 'none';
   btn.classList.toggle('active', ONLY_STOCK_MANAGED && totalManaged > 0);
 }
 
-/** Toggle del filtro "Solo gestiti a magazzino". */
+/** Toggle del filtro "Solo presenti a magazzino". */
 function toggleOnlyStockManagedFilter(){
   ONLY_STOCK_MANAGED = !ONLY_STOCK_MANAGED;
-  if(ONLY_STOCK_MANAGED && STOCK_MANAGED_CODES.size === 0){
+  if(ONLY_STOCK_MANAGED && (typeof STOCK_QTY === 'undefined' || !STOCK_QTY || Object.keys(STOCK_QTY).length === 0)){
     ONLY_STOCK_MANAGED = false;
-    if(typeof toast === 'function') toast('Nessun prodotto gestito a magazzino. Aggiungili con l\'icona pacchetto sulle card.', 'warn', 3500);
+    if(typeof toast === 'function') toast('Nessuna giacenza a magazzino. Importa prima il file del magazzino.', 'warn', 3500);
     return;
   }
   _updateStockManagedToolbarButton();
@@ -13136,8 +13137,11 @@ async function importMagazzino(file){
     if(typeof driveNotifyChange === 'function'){
       try { driveNotifyChange('settings', 'vt_stock_qty', null); } catch(_){}
     }
-    // Re-render della vista corrente per mostrare i badge aggiornati
-    if(typeof render === 'function') render();
+    // V2.10.306: aggiorno il pulsante toolbar "presenti a magazzino" (visibilità + count)
+    // e ri-applico i filtri (così il badge giacenza e il filtro restano coerenti).
+    if(typeof _updateStockManagedToolbarButton === 'function') _updateStockManagedToolbarButton();
+    if(typeof applyFilters === 'function') applyFilters();
+    else if(typeof render === 'function') render();
     const msg = '✓ Magazzino ' + sourceLabel + ' aggiornato: ' + updated + ' articoli'
       + (skippedNotInDb > 0 ? ' · ' + skippedNotInDb + ' non in catalogo (ignorati)' : '');
     if(typeof toast === 'function') toast(msg, 'ok', 5000);
@@ -18573,6 +18577,8 @@ async function driveApplyRemoteData(payload){
     if(typeof _updateOutletToolbarButton === 'function') _updateOutletToolbarButton();
     // V2.10.302: ricarico le giacenze magazzino (vt_stock_qty) dopo il merge Drive
     if(typeof loadStockQty === 'function') loadStockQty();
+    // V2.10.306: il pulsante "presenti a magazzino" dipende ora da STOCK_QTY → aggiorno dopo il reload
+    if(typeof _updateStockManagedToolbarButton === 'function') _updateStockManagedToolbarButton();
   }
 
   // V2.8.0: 4. CASCADE DISCOUNTS — sconti aggiuntivi a cascata su marca/macrocat/cat
@@ -24196,9 +24202,9 @@ function msComputeCounts(key){
       if(!FAVORITES_CODES.has(pName)) return false;
     }
     if(typeof ONLY_STOCK_MANAGED !== 'undefined' && ONLY_STOCK_MANAGED &&
-       typeof STOCK_MANAGED_CODES !== 'undefined' && STOCK_MANAGED_CODES.size > 0){
+       typeof STOCK_QTY !== 'undefined' && STOCK_QTY && Object.keys(STOCK_QTY).length > 0){
       const pName = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
-      if(!STOCK_MANAGED_CODES.has(pName)) return false;
+      if(!STOCK_QTY[pName]) return false;
     }
     if(typeof ONLY_OUTLET !== 'undefined' && ONLY_OUTLET &&
        typeof OUTLET_CODES !== 'undefined' && OUTLET_CODES.size > 0){
@@ -25428,10 +25434,11 @@ function applyFilters(options){
       if(!FAVORITES_CODES.has(pName)) return false;
     }
 
-    // V2.10.295: filtro "Solo gestiti a magazzino" — in AND con tutti gli altri filtri
-    if(ONLY_STOCK_MANAGED && STOCK_MANAGED_CODES.size > 0){
+    // V2.10.306: filtro "Solo presenti a magazzino" — ora basato sulla giacenza
+    // dal file (STOCK_QTY), non più sulla vecchia lista manuale. In AND con gli altri.
+    if(ONLY_STOCK_MANAGED && typeof STOCK_QTY !== 'undefined' && STOCK_QTY && Object.keys(STOCK_QTY).length > 0){
       const pName = String(getField(p, 'name') || '').trim();
-      if(!STOCK_MANAGED_CODES.has(pName)) return false;
+      if(!STOCK_QTY[pName]) return false;
     }
 
     // V2.10.297: filtro "Solo outlet" — in AND con tutti gli altri filtri
