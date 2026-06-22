@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.304</title>
+<title>Gestione Prodotti V2.10.305</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6871,6 +6871,9 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 /* === V2.10.295: Icona pacchetto STOCK MANAGED nella card galleria ===
    V2.10.297: spostato a top:122px per accomodare il nuovo fantasmino outlet sopra.
    Inattiva: pallido grigio. Attiva (gestito): teal pieno #14b8a6. */
+/* V2.10.305: l'icona pacchetto NON è più un toggle. È un indicatore di sola
+   lettura della giacenza a magazzino (teal quando il prodotto ha una giacenza
+   dal file importato). Niente cursore pointer, niente hover/active. */
 .card-img .stock-trigger{
   position:absolute;
   top:122px;
@@ -6884,9 +6887,8 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   display:flex;
   align-items:center;
   justify-content:center;
-  cursor:pointer;
+  cursor:default;
   z-index:5;
-  transition:transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   padding:0;
   user-select:none;
   color:#9ca3af;
@@ -6900,15 +6902,7 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   stroke-width:2;
   stroke-linecap:round;
   stroke-linejoin:round;
-  transition:fill 0.18s ease, stroke 0.18s ease;
 }
-.card-img .stock-trigger:hover{
-  transform:scale(1.12);
-  background:rgba(255,255,255,1);
-  box-shadow:0 4px 10px rgba(0,0,0,0.28);
-  color:#14b8a6;
-}
-.card-img .stock-trigger:active{transform:scale(0.95)}
 .card-img .stock-trigger.is-managed{
   background:#14b8a6;
   border-color:rgba(13,148,136,0.65);
@@ -6916,10 +6910,6 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 }
 .card-img .stock-trigger.is-managed svg{
   stroke:#fff;
-}
-.card-img .stock-trigger.is-managed:hover{
-  background:#0d9488;
-  box-shadow:0 4px 12px rgba(20,184,166,0.45);
 }
 
 /* === V2.10.302/303: Badge GIACENZA (Giac.Lentiai) + MINIMO (Min) ===
@@ -6999,10 +6989,9 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   border-radius:50%;
   background:transparent;
   border:1px solid transparent;
-  cursor:pointer;
+  cursor:default;
   vertical-align:middle;
   color:#9ca3af;
-  transition:transform 0.12s ease, background 0.12s ease, color 0.12s ease;
   padding:0;
   margin:0 2px;
 }
@@ -7016,17 +7005,8 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   stroke-linecap:round;
   stroke-linejoin:round;
 }
-.row-stock-trigger:hover{
-  background:rgba(20,184,166,0.12);
-  color:#14b8a6;
-  transform:scale(1.15);
-}
 .row-stock-trigger.is-managed{
   color:#14b8a6;
-}
-.row-stock-trigger.is-managed:hover{
-  background:rgba(20,184,166,0.18);
-  color:#0d9488;
 }
 
 /* === V2.10.295: Pulsante toggle "Solo gestiti a magazzino" nella toolbar ===
@@ -9099,7 +9079,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.304</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.305</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9664,7 +9644,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.304');
+console.info('[bootstrap] script avvio — V2.10.305');
 
 window.openStatsDashboard = function(){
   try {
@@ -11115,7 +11095,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.304';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.305';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -26417,14 +26397,14 @@ function renderGallery(main, list){
           </button>`;
         })()}
         ${(() => {
-          // V2.10.295: icona pacchetto STOCK MANAGED, sotto al carrello.
-          // Stesso pattern dei preferiti — identifier = name canonico.
+          // V2.10.305: icona pacchetto = indicatore di sola lettura della giacenza
+          // a magazzino. NON è più un toggle. Teal quando il prodotto ha una giacenza
+          // dal file importato (STOCK_QTY). Il badge giacenza resta in alto a destra.
           const _stkCode = String(getField(p, 'name') || '').trim();
           if(!_stkCode) return '';
-          const _stkOn = (typeof isStockManaged === 'function') && isStockManaged(_stkCode);
-          // V2.10.302: badge giacenza (Giac.Lentiai) sopra + minimo (Min) a sinistra.
-          let _qtyBadges = '';
           const _sq = (typeof getStockQty === 'function') ? getStockQty(_stkCode) : null;
+          const _hasQty = !!_sq;
+          let _qtyBadges = '';
           if(_sq){
             const _g = Number(_sq.giac) || 0;
             const _m = Number(_sq.min) || 0;
@@ -26433,18 +26413,21 @@ function renderGallery(main, list){
             _qtyBadges =
               `<span class="stock-qty-badge${_lvlClass}" title="Giacenza Lentiai: ${_g}${_m>0?' · minimo '+_m:''}">${_g}</span>`;
           }
-          return `<button class="stock-trigger${_stkOn ? ' is-managed' : ''}" type="button"
+          const _stkTitle = _hasQty
+            ? ('Giacenza a magazzino: ' + (Number(_sq.giac) || 0))
+            : 'Nessuna giacenza dal magazzino';
+          return `<span class="stock-trigger${_hasQty ? ' is-managed' : ''}"
             data-stock-code="${escapeAttr(_stkCode)}"
-            aria-label="${_stkOn ? 'Rimuovi da gestione a magazzino' : 'Aggiungi a gestione a magazzino'}"
-            aria-pressed="${_stkOn ? 'true' : 'false'}"
-            title="${_stkOn ? 'Rimuovi da gestione a magazzino' : 'Aggiungi a gestione a magazzino'}">
+            role="img"
+            aria-label="${_stkTitle}"
+            title="${_stkTitle}">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M16.5 9.4l-9-5.19"/>
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
               <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
               <line x1="12" y1="22.08" x2="12" y2="12"/>
             </svg>${_qtyBadges}
-          </button>`;
+          </span>`;
         })()}
         ${(() => {
           // V2.10.297: icona fantasmino OUTLET — posizionata SOPRA i preferiti
@@ -26610,18 +26593,8 @@ function renderGallery(main, list){
         }
       });
     }
-    // V2.10.295: handler icona pacchetto STOCK MANAGED
-    const stockTriggerEl = card.querySelector('.stock-trigger');
-    if(stockTriggerEl){
-      stockTriggerEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        const code = stockTriggerEl.getAttribute('data-stock-code');
-        if(code && typeof toggleStockManaged === 'function'){
-          toggleStockManaged(code);
-        }
-      });
-    }
+    // V2.10.305: l'icona pacchetto è ora un indicatore di sola lettura della
+    // giacenza a magazzino — nessun handler di click (non è più un toggle).
     // V2.10.297: handler icona fantasmino OUTLET
     const outletTriggerEl = card.querySelector('.outlet-trigger');
     if(outletTriggerEl){
@@ -26782,19 +26755,24 @@ function renderTable(main, list){
       </button>` : '';
     // V2.10.295: icona pacchetto STOCK MANAGED per la vista lista
     const _stkCodeRow = String(getField(p, 'name') || '').trim();
-    const _stkOnRow = _stkCodeRow && (typeof isStockManaged === 'function') && isStockManaged(_stkCodeRow);
-    const rowStockIcon = _stkCodeRow ? `<button type="button" class="row-stock-trigger${_stkOnRow ? ' is-managed' : ''}"
+    // V2.10.305: indicatore di sola lettura — teal se il prodotto ha giacenza dal file.
+    const _sqRow = _stkCodeRow && (typeof getStockQty === 'function') ? getStockQty(_stkCodeRow) : null;
+    const _hasQtyRow = !!_sqRow;
+    const _stkTitleRow = _hasQtyRow
+      ? ('Giacenza a magazzino: ' + (Number(_sqRow.giac) || 0))
+      : 'Nessuna giacenza dal magazzino';
+    const rowStockIcon = _stkCodeRow ? `<span class="row-stock-trigger${_hasQtyRow ? ' is-managed' : ''}"
         data-stock-code="${escapeAttr(_stkCodeRow)}"
-        aria-label="${_stkOnRow ? 'Rimuovi da gestione a magazzino' : 'Aggiungi a gestione a magazzino'}"
-        aria-pressed="${_stkOnRow ? 'true' : 'false'}"
-        title="${_stkOnRow ? 'Rimuovi da gestione a magazzino' : 'Aggiungi a gestione a magazzino'}">
+        role="img"
+        aria-label="${_stkTitleRow}"
+        title="${_stkTitleRow}">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M16.5 9.4l-9-5.19"/>
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
           <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
           <line x1="12" y1="22.08" x2="12" y2="12"/>
         </svg>
-      </button>` : '';
+      </span>` : '';
     const rowActionsCell = `<span class="row-actions">${rowEyeIcon}${rowDescIcon}${rowOutletIcon}${rowFavIcon}${rowStockIcon}</span>${renderStockPair(stockIT(p), stockES(p), true, 'sp-inline')}`;
 
     // V2.10.269: rendo le celle Marca/Macrocategoria/Categoria cliccabili per
@@ -27386,17 +27364,8 @@ function initHoverPreview(){
     }
   }, true);  // capture phase per intercettare prima del dblclick aperture editor
 
-  // V2.10.295: idem per icona pacchetto STOCK MANAGED nelle righe tabella
-  document.addEventListener('click', (ev) => {
-    const stkBtn = ev.target && ev.target.closest && ev.target.closest('.row-stock-trigger[data-stock-code]');
-    if(!stkBtn) return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    const code = stkBtn.getAttribute('data-stock-code');
-    if(code && typeof toggleStockManaged === 'function'){
-      toggleStockManaged(code);
-    }
-  }, true);
+  // V2.10.305: l'icona pacchetto nelle righe è ora un indicatore di sola lettura
+  // della giacenza a magazzino — nessun handler di click (non è più un toggle).
 
   // V2.10.297: idem per icona fantasmino OUTLET nelle righe tabella
   document.addEventListener('click', (ev) => {
