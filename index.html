@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.309</title>
+<title>Gestione Prodotti V2.10.310</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6911,6 +6911,15 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 .card-img .stock-trigger.is-managed svg{
   stroke:#fff;
 }
+/* V2.10.310: giacenza <= 0 → icona pacchetto rossa (esaurito) */
+.card-img .stock-trigger.is-out{
+  background:#dc2626;
+  border-color:rgba(185,28,28,0.7);
+  color:#fff;
+}
+.card-img .stock-trigger.is-out svg{
+  stroke:#fff;
+}
 
 /* === V2.10.302/303: Badge GIACENZA (Giac.Lentiai) + MINIMO (Min) ===
    V2.10.303:
@@ -7007,6 +7016,10 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 }
 .row-stock-trigger.is-managed{
   color:#14b8a6;
+}
+/* V2.10.310: giacenza <= 0 → icona pacchetto rossa anche in vista lista */
+.row-stock-trigger.is-out{
+  color:#dc2626;
 }
 
 /* === V2.10.295: Pulsante toggle "Solo gestiti a magazzino" nella toolbar ===
@@ -9144,7 +9157,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.309</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.310</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9713,7 +9726,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.309');
+console.info('[bootstrap] script avvio — V2.10.310');
 
 window.openStatsDashboard = function(){
   try {
@@ -11164,7 +11177,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.309';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.310';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -26530,12 +26543,13 @@ function renderGallery(main, list){
         })()}
         ${(() => {
           // V2.10.305: icona pacchetto = indicatore di sola lettura della giacenza
-          // a magazzino. NON è più un toggle. Teal quando il prodotto ha una giacenza
-          // dal file importato (STOCK_QTY). Il badge giacenza resta in alto a destra.
+          // a magazzino. NON è più un toggle.
+          // V2.10.310: teal se giacenza > 0, ROSSO se giacenza <= 0 (esaurito).
           const _stkCode = String(getField(p, 'name') || '').trim();
           if(!_stkCode) return '';
           const _sq = (typeof getStockQty === 'function') ? getStockQty(_stkCode) : null;
           const _hasQty = !!_sq;
+          const _gStk = _sq ? (Number(_sq.giac) || 0) : null;
           let _qtyBadges = '';
           if(_sq){
             const _g = Number(_sq.giac) || 0;
@@ -26545,10 +26559,11 @@ function renderGallery(main, list){
             _qtyBadges =
               `<span class="stock-qty-badge${_lvlClass}" title="Giacenza Lentiai: ${_g}${_m>0?' · minimo '+_m:''}">${_g}</span>`;
           }
+          const _stkCls = _hasQty ? (_gStk <= 0 ? ' is-out' : ' is-managed') : '';
           const _stkTitle = _hasQty
-            ? ('Giacenza a magazzino: ' + (Number(_sq.giac) || 0))
+            ? ('Giacenza a magazzino: ' + (_gStk) + (_gStk <= 0 ? ' (esaurito)' : ''))
             : 'Nessuna giacenza dal magazzino';
-          return `<span class="stock-trigger${_hasQty ? ' is-managed' : ''}"
+          return `<span class="stock-trigger${_stkCls}"
             data-stock-code="${escapeAttr(_stkCode)}"
             role="img"
             aria-label="${_stkTitle}"
@@ -26887,13 +26902,16 @@ function renderTable(main, list){
       </button>` : '';
     // V2.10.295: icona pacchetto STOCK MANAGED per la vista lista
     const _stkCodeRow = String(getField(p, 'name') || '').trim();
-    // V2.10.305: indicatore di sola lettura — teal se il prodotto ha giacenza dal file.
+    // V2.10.305: indicatore di sola lettura — teal se ha giacenza dal file.
+    // V2.10.310: rosso se giacenza <= 0 (esaurito).
     const _sqRow = _stkCodeRow && (typeof getStockQty === 'function') ? getStockQty(_stkCodeRow) : null;
     const _hasQtyRow = !!_sqRow;
+    const _gRow = _sqRow ? (Number(_sqRow.giac) || 0) : null;
+    const _stkClsRow = _hasQtyRow ? (_gRow <= 0 ? ' is-out' : ' is-managed') : '';
     const _stkTitleRow = _hasQtyRow
-      ? ('Giacenza a magazzino: ' + (Number(_sqRow.giac) || 0))
+      ? ('Giacenza a magazzino: ' + (_gRow) + (_gRow <= 0 ? ' (esaurito)' : ''))
       : 'Nessuna giacenza dal magazzino';
-    const rowStockIcon = _stkCodeRow ? `<span class="row-stock-trigger${_hasQtyRow ? ' is-managed' : ''}"
+    const rowStockIcon = _stkCodeRow ? `<span class="row-stock-trigger${_stkClsRow}"
         data-stock-code="${escapeAttr(_stkCodeRow)}"
         role="img"
         aria-label="${_stkTitleRow}"
