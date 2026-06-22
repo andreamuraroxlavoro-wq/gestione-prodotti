@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.302</title>
+<title>Gestione Prodotti V2.10.303</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6922,28 +6922,26 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   box-shadow:0 4px 12px rgba(20,184,166,0.45);
 }
 
-/* === V2.10.302: Badge GIACENZA (Giac.Lentiai) + MINIMO (Min) sul pacchetto stock ===
-   I due badge sono figli del .stock-trigger (position:absolute), quindi si posizionano
-   relativamente ad esso. Stile coerente con il badge carrello (.quote-cart-qty):
-   pillola bianca con bordo/testo colorato, tabular-nums, ombra discreta.
-   - GIACENZA: SOPRA l'icona (top, centrato). Colore in base alla salute stock:
-       teal  = giac > min (ok)
-       amber = 0 < giac < min (sotto il minimo, da riordinare)
-       rosso = giac == 0 (esaurito)
-   - MINIMO: a SINISTRA dell'icona, stile neutro (soglia di riferimento). */
+/* === V2.10.302/303: Badge GIACENZA (Giac.Lentiai) + MINIMO (Min) ===
+   V2.10.303:
+   - GIACENZA: spostata in ALTO A DESTRA dell'icona pacchetto, stile coerente con
+     il badge carrello (.quote-cart-qty). Colore in base alla salute stock:
+       teal = giac >= min (ok) · amber = 0<giac<min · rosso = giac==0.
+   - MINIMO: spostato in ALTO A DESTRA dell'icona dettagli (.eye-trigger). È un
+     elemento separato (figlio di .card-img, NON dell'eye-trigger) per non
+     ereditarne l'opacity:0.25; z-index sopra il fumetto. */
 .card-img .stock-trigger .stock-qty-badge{
   position:absolute;
-  top:-9px;
-  left:50%;
-  transform:translateX(-50%);
+  top:-6px;
+  right:-6px;
   min-width:18px;
-  height:17px;
+  height:18px;
   padding:0 5px;
   border-radius:9px;
   background:#fff;
   color:#0d9488;
   border:1.5px solid #14b8a6;
-  font-size:10px;
+  font-size:10.5px;
   font-weight:800;
   font-variant-numeric:tabular-nums;
   display:inline-flex;
@@ -6964,28 +6962,28 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   color:#b91c1c;
   border-color:#ef4444;
 }
-.card-img .stock-trigger .stock-min-badge{
+/* MINIMO: angolo in alto a destra dell'icona dettagli (eye-trigger top:8px right:8px). */
+.card-img .stock-min-badge{
   position:absolute;
-  top:50%;
-  right:calc(100% + 4px);   /* tutto a sinistra dell'icona */
-  transform:translateY(-50%);
-  min-width:16px;
-  height:16px;
+  top:2px;
+  right:2px;
+  min-width:17px;
+  height:17px;
   padding:0 4px;
-  border-radius:8px;
+  border-radius:9px;
   background:#fff;
   color:#6b7280;
   border:1.5px solid #cbd5e1;
-  font-size:9px;
+  font-size:9.5px;
   font-weight:800;
   font-variant-numeric:tabular-nums;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   line-height:1;
-  box-shadow:0 1px 2px rgba(0,0,0,0.18);
+  box-shadow:0 1px 3px rgba(0,0,0,0.25);
   pointer-events:none;
-  z-index:7;
+  z-index:6;             /* sopra l'eye-trigger (z-index:2) */
   letter-spacing:0;
   white-space:nowrap;
 }
@@ -9101,7 +9099,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.302</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.303</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9666,7 +9664,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.302');
+console.info('[bootstrap] script avvio — V2.10.303');
 
 window.openStatsDashboard = function(){
   try {
@@ -11117,7 +11115,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.302';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.303';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -26340,6 +26338,17 @@ function renderGallery(main, list){
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </span>
         ${(() => {
+          // V2.10.303: badge MINIMO (Min) in alto a destra dell'icona dettagli (.eye-trigger).
+          // Elemento separato (NON figlio dell'eye-trigger) per non ereditarne l'opacity:0.25.
+          const _mCode = String(getField(p, 'name') || '').trim();
+          if(!_mCode) return '';
+          const _msq = (typeof getStockQty === 'function') ? getStockQty(_mCode) : null;
+          if(!_msq) return '';
+          const _mm = Number(_msq.min) || 0;
+          if(_mm <= 0) return '';
+          return `<span class="stock-min-badge" title="Quantità minima a magazzino: ${_mm}">${_mm}</span>`;
+        })()}
+        ${(() => {
           // V2.10.298: il pulsante carrello mostra un badge con la quantità del prodotto
           // attualmente nel carrello preventivo. Il data-cart-code (= name canonico)
           // permette al refresh di trovare e aggiornare il pulsante senza re-render.
@@ -26373,8 +26382,7 @@ function renderGallery(main, list){
             const _lvl = (typeof stockQtyLevel === 'function') ? stockQtyLevel(_g, _m) : 'ok';
             const _lvlClass = _lvl === 'out' ? ' lvl-out' : (_lvl === 'under' ? ' lvl-under' : '');
             _qtyBadges =
-              `<span class="stock-qty-badge${_lvlClass}" title="Giacenza Lentiai: ${_g}${_m>0?' · minimo '+_m:''}">${_g}</span>`
-              + (_m > 0 ? `<span class="stock-min-badge" title="Quantità minima a magazzino: ${_m}">${_m}</span>` : '');
+              `<span class="stock-qty-badge${_lvlClass}" title="Giacenza Lentiai: ${_g}${_m>0?' · minimo '+_m:''}">${_g}</span>`;
           }
           return `<button class="stock-trigger${_stkOn ? ' is-managed' : ''}" type="button"
             data-stock-code="${escapeAttr(_stkCode)}"
