@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.301</title>
+<title>Gestione Prodotti V2.10.302</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6922,6 +6922,75 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   box-shadow:0 4px 12px rgba(20,184,166,0.45);
 }
 
+/* === V2.10.302: Badge GIACENZA (Giac.Lentiai) + MINIMO (Min) sul pacchetto stock ===
+   I due badge sono figli del .stock-trigger (position:absolute), quindi si posizionano
+   relativamente ad esso. Stile coerente con il badge carrello (.quote-cart-qty):
+   pillola bianca con bordo/testo colorato, tabular-nums, ombra discreta.
+   - GIACENZA: SOPRA l'icona (top, centrato). Colore in base alla salute stock:
+       teal  = giac > min (ok)
+       amber = 0 < giac < min (sotto il minimo, da riordinare)
+       rosso = giac == 0 (esaurito)
+   - MINIMO: a SINISTRA dell'icona, stile neutro (soglia di riferimento). */
+.card-img .stock-trigger .stock-qty-badge{
+  position:absolute;
+  top:-9px;
+  left:50%;
+  transform:translateX(-50%);
+  min-width:18px;
+  height:17px;
+  padding:0 5px;
+  border-radius:9px;
+  background:#fff;
+  color:#0d9488;
+  border:1.5px solid #14b8a6;
+  font-size:10px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1;
+  box-shadow:0 1px 3px rgba(0,0,0,0.22);
+  pointer-events:none;   /* il badge non intercetta il click: passa al pulsante */
+  z-index:7;             /* sopra l'icona */
+  letter-spacing:0;
+  white-space:nowrap;
+}
+.card-img .stock-trigger .stock-qty-badge.lvl-under{
+  color:#b45309;
+  border-color:#f59e0b;
+}
+.card-img .stock-trigger .stock-qty-badge.lvl-out{
+  color:#b91c1c;
+  border-color:#ef4444;
+}
+.card-img .stock-trigger .stock-min-badge{
+  position:absolute;
+  top:50%;
+  right:calc(100% + 4px);   /* tutto a sinistra dell'icona */
+  transform:translateY(-50%);
+  min-width:16px;
+  height:16px;
+  padding:0 4px;
+  border-radius:8px;
+  background:#fff;
+  color:#6b7280;
+  border:1.5px solid #cbd5e1;
+  font-size:9px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1;
+  box-shadow:0 1px 2px rgba(0,0,0,0.18);
+  pointer-events:none;
+  z-index:7;
+  letter-spacing:0;
+  white-space:nowrap;
+}
+/* In light mode i badge restano leggibili: sfondo bianco è già coerente. */
+
 /* === V2.10.295: Icona pacchetto STOCK MANAGED nella vista lista === */
 .row-stock-trigger{
   display:inline-flex;
@@ -9032,7 +9101,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.301</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.302</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9056,6 +9125,8 @@ body.theme-light .dlg-input{background:var(--bg3)}
          L'input file #fileIn resta qui ma nascosto — viene cliccato
          programmaticamente dal bottone Importa nella topbar. -->
     <input type="file" id="fileIn" accept=".xlsx,.xls,.csv,.tsv" style="display:none">
+    <!-- V2.10.302: input dedicato all'import giacenze magazzino (CSV rotazione) -->
+    <input type="file" id="fileMag" accept=".csv,.tsv,.txt" style="display:none">
 
     <!-- V2.2.35: header "Filtri di ricerca" rimosso - i filtri sono sempre visibili.
          Il div#filters mantiene la classe sb-group-body.open per CSS layout esistente. -->
@@ -9533,6 +9604,12 @@ body.theme-light .dlg-input{background:var(--bg3)}
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Salva sorgente
           </button>
+          <!-- V2.10.302: divisore + import giacenze magazzino (file rotazione_magazzino) -->
+          <div role="separator" style="height:1px;margin:5px 8px;background:var(--border,rgba(0,0,0,0.12))"></div>
+          <button class="tb-dropdown-item" onclick="document.getElementById('fileMag').click(); closeAllTopbarDropdowns()" role="menuitem" title="Aggiorna le giacenze (Giac.Lentiai / Min) dal file rotazione magazzino — i codici non in catalogo vengono ignorati">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4l-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            Importa Magazzino
+          </button>
         </div>
       </div>
 
@@ -9589,7 +9666,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.301');
+console.info('[bootstrap] script avvio — V2.10.302');
 
 window.openStatsDashboard = function(){
   try {
@@ -11040,7 +11117,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.301';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.302';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12879,6 +12956,174 @@ function toggleOnlyStockManagedFilter(){
 // Inizializzazione: carico la lista subito al parse del modulo
 loadStockManaged();
 /* ============== FINE SISTEMA STOCK MANAGED ============== */
+
+/* ========== SISTEMA GIACENZE MAGAZZINO (V2.10.302) ==========
+   Importa periodicamente il file "rotazione_magazzino" (CSV ; UTF-8) e associa a
+   ogni prodotto del catalogo (match per `name` canonico = colonna "Codice") due
+   numeri del magazzino di Lentiai:
+     - giac = colonna "Giac.Lentiai"  → badge numerico SOPRA il pacchetto stock
+     - min  = colonna "Min"           → badge a SINISTRA del pacchetto stock
+   I codici presenti nel file ma NON nel database vengono ignorati.
+   Persistenza: localStorage 'vt_stock_qty' (oggetto {code:{giac,min}}) + Drive Sync
+   (chiave inclusa in SETTINGS_KEYS / BACKUP_SETTINGS_KEYS).
+   Il match è per nome di colonna (non per indice fisso): l'ordine delle colonne
+   nel file può cambiare senza rompere l'import.
+   ============================================================ */
+let STOCK_QTY = {};  // { [codeCanonico]: { giac:Number, min:Number } }
+const STOCK_QTY_LS_KEY = 'vt_stock_qty';
+
+function loadStockQty(){
+  try {
+    const raw = localStorage.getItem(STOCK_QTY_LS_KEY);
+    if(raw){
+      const obj = JSON.parse(raw);
+      if(obj && typeof obj === 'object' && !Array.isArray(obj)){
+        STOCK_QTY = obj;
+      }
+    }
+  } catch(e){
+    console.warn('[stock-qty] errore lettura localStorage:', e);
+  }
+}
+
+function saveStockQty(){
+  try {
+    localStorage.setItem(STOCK_QTY_LS_KEY, JSON.stringify(STOCK_QTY));
+  } catch(e){
+    console.warn('[stock-qty] errore scrittura localStorage:', e);
+  }
+}
+
+/** Ritorna {giac,min} per un codice, oppure null se non presente. */
+function getStockQty(code){
+  if(!code) return null;
+  const c = String(code).trim();
+  const v = STOCK_QTY[c];
+  return (v && typeof v === 'object') ? v : null;
+}
+
+/** Classe di salute della giacenza rispetto al minimo:
+ *  'out'  = giac == 0
+ *  'under'= 0 < giac < min  (min>0)
+ *  'ok'   = giac >= min (o min non definito) */
+function stockQtyLevel(giac, min){
+  const g = Number(giac) || 0;
+  const m = Number(min) || 0;
+  if(g <= 0) return 'out';
+  if(m > 0 && g < m) return 'under';
+  return 'ok';
+}
+
+/** Parser CSV robusto: gestisce delimitatore configurabile, virgolette doppie
+ *  (con escape ""), e newline interni ai campi quotati. Ritorna array di righe
+ *  (ogni riga = array di celle stringa). */
+function parseCSVRobust(text, delim){
+  const d = delim || ';';
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  const n = text.length;
+  for(let i = 0; i < n; i++){
+    const ch = text[i];
+    if(inQuotes){
+      if(ch === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; }  // "" → "
+        else { inQuotes = false; }
+      } else {
+        field += ch;
+      }
+    } else {
+      if(ch === '"'){ inQuotes = true; }
+      else if(ch === d){ row.push(field); field = ''; }
+      else if(ch === '\r'){ /* ignora: il \n gestisce il fine riga */ }
+      else if(ch === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+      else { field += ch; }
+    }
+  }
+  // ultima cella/riga (se il file non termina con newline)
+  if(field !== '' || row.length > 0){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+/** Rileva il delimitatore guardando la prima riga (priorità ; poi , poi TAB). */
+function _detectDelimiter(firstLine){
+  const counts = { ';': (firstLine.match(/;/g)||[]).length,
+                   ',': (firstLine.match(/,/g)||[]).length,
+                   '\t': (firstLine.match(/\t/g)||[]).length };
+  let best = ';', bestN = -1;
+  for(const k of [';', ',', '\t']){ if(counts[k] > bestN){ bestN = counts[k]; best = k; } }
+  return bestN > 0 ? best : ';';
+}
+
+/** Importa il file magazzino. Aggiorna STOCK_QTY solo per i codici presenti in DATA.
+ *  Mostra un riepilogo (aggiornati / ignorati / non in catalogo). */
+async function importMagazzino(file){
+  if(!file){ return; }
+  try {
+    let text = await file.text();
+    // rimuovi BOM
+    if(text.charCodeAt(0) === 0xFEFF){ text = text.slice(1); }
+    const firstNl = text.indexOf('\n');
+    const firstLine = firstNl >= 0 ? text.slice(0, firstNl) : text;
+    const delim = _detectDelimiter(firstLine);
+    const rows = parseCSVRobust(text, delim);
+    if(!rows.length){
+      if(typeof toast === 'function') toast('File magazzino vuoto o illeggibile.', 'err', 4000);
+      return;
+    }
+    // Header → indici per nome colonna
+    const header = rows[0].map(h => String(h || '').trim());
+    const idxCodice = header.indexOf('Codice');
+    const idxGiac   = header.indexOf('Giac.Lentiai');
+    const idxMin    = header.indexOf('Min');
+    if(idxCodice < 0 || idxGiac < 0){
+      if(typeof toast === 'function') toast('Colonne "Codice"/"Giac.Lentiai" non trovate nel file.', 'err', 5000);
+      console.warn('[stock-qty] header trovato:', header);
+      return;
+    }
+    // Set dei codici validi (nel database). Identifier = name canonico.
+    const validNames = new Set();
+    if(Array.isArray(DATA)){
+      DATA.forEach(p => {
+        const nm = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
+        if(nm) validNames.add(nm);
+      });
+    }
+    let updated = 0, skippedNotInDb = 0, skippedNoCode = 0;
+    const next = {};  // ricostruisco da zero: l'import è la nuova fotografia del magazzino
+    for(let r = 1; r < rows.length; r++){
+      const cells = rows[r];
+      if(!cells || cells.length === 0) continue;
+      const code = String(cells[idxCodice] || '').trim();
+      if(!code){ skippedNoCode++; continue; }
+      if(!validNames.has(code)){ skippedNotInDb++; continue; }
+      const giac = parseFloat(String(cells[idxGiac] != null ? cells[idxGiac] : '0').replace(',', '.')) || 0;
+      const min  = idxMin >= 0 ? (parseFloat(String(cells[idxMin] != null ? cells[idxMin] : '0').replace(',', '.')) || 0) : 0;
+      next[code] = { giac: giac, min: min };
+      updated++;
+    }
+    STOCK_QTY = next;
+    saveStockQty();
+    // Sync verso Drive (chiave vt_stock_qty in SETTINGS_KEYS)
+    if(typeof driveNotifyChange === 'function'){
+      try { driveNotifyChange('settings', 'vt_stock_qty', null); } catch(_){}
+    }
+    // Re-render della vista corrente per mostrare i badge aggiornati
+    if(typeof render === 'function') render();
+    const msg = '✓ Magazzino aggiornato: ' + updated + ' articoli'
+      + (skippedNotInDb > 0 ? ' · ' + skippedNotInDb + ' non in catalogo (ignorati)' : '');
+    if(typeof toast === 'function') toast(msg, 'ok', 5000);
+    console.info('[stock-qty] import:', { updated, skippedNotInDb, skippedNoCode, delim });
+  } catch(e){
+    console.error('[stock-qty] errore import magazzino:', e);
+    if(typeof toast === 'function') toast('Errore durante l\'import del magazzino: ' + (e && e.message || e), 'err', 5000);
+  }
+}
+
+// Inizializzazione: carico le giacenze subito al parse del modulo
+loadStockQty();
+/* ============== FINE SISTEMA GIACENZE MAGAZZINO ============== */
 
 /* ========== SISTEMA OUTLET (V2.10.297) ==========
    Permette di marcare prodotti da "far uscire rapidamente dal magazzino" (icona
@@ -14960,7 +15205,8 @@ function _driveBuildFullPayload(){
     'vt_text_phrases', 'vt_text_words',
     'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
     'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
-    'vt_outlet'  // V2.10.297: sincronizza la lista outlet (uscita rapida)
+    'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
+    'vt_stock_qty'  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
   ];
   SETTINGS_KEYS.forEach(k => {
     let v = localStorage.getItem(k);
@@ -16997,7 +17243,8 @@ function driveNotifyChange(kind, key, record){
           'vt_text_phrases', 'vt_text_words',
           'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
           'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
-          'vt_outlet'  // V2.10.297: sincronizza la lista outlet (uscita rapida)
+          'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
+          'vt_stock_qty'  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
         ];
         SETTINGS_KEYS.forEach(k => {
           let v = localStorage.getItem(k);
@@ -18251,7 +18498,8 @@ async function driveApplyRemoteData(payload){
       'vt_text_phrases', 'vt_text_words',
       'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
       'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
-      'vt_outlet'  // V2.10.297: sincronizza la lista outlet (uscita rapida)
+      'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
+      'vt_stock_qty'  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
     ];
     Object.keys(payload.settings).forEach(k => {
       if(!SETTINGS_KEYS.includes(k) || typeof payload.settings[k] !== 'string') return;
@@ -18296,6 +18544,8 @@ async function driveApplyRemoteData(payload){
     // V2.10.297: idem per la lista outlet (vt_outlet)
     if(typeof loadOutlet === 'function') loadOutlet();
     if(typeof _updateOutletToolbarButton === 'function') _updateOutletToolbarButton();
+    // V2.10.302: ricarico le giacenze magazzino (vt_stock_qty) dopo il merge Drive
+    if(typeof loadStockQty === 'function') loadStockQty();
   }
 
   // V2.8.0: 4. CASCADE DISCOUNTS — sconti aggiuntivi a cascata su marca/macrocat/cat
@@ -19633,7 +19883,8 @@ const BACKUP_SETTINGS_KEYS = [
   'vt_text_phrases', 'vt_text_words', 'vt_sidebar_width',
   'vt_favorites',  // V2.10.284: include preferiti nei backup locali
   'vt_stock_managed',  // V2.10.295: include lista gestiti a magazzino nei backup locali
-  'vt_outlet'  // V2.10.297: include lista outlet nei backup locali
+  'vt_outlet',  // V2.10.297: include lista outlet nei backup locali
+  'vt_stock_qty'  // V2.10.302: include giacenze magazzino nei backup locali
 ];
 
 // Stato runtime del sistema di backup
@@ -26113,6 +26364,18 @@ function renderGallery(main, list){
           const _stkCode = String(getField(p, 'name') || '').trim();
           if(!_stkCode) return '';
           const _stkOn = (typeof isStockManaged === 'function') && isStockManaged(_stkCode);
+          // V2.10.302: badge giacenza (Giac.Lentiai) sopra + minimo (Min) a sinistra.
+          let _qtyBadges = '';
+          const _sq = (typeof getStockQty === 'function') ? getStockQty(_stkCode) : null;
+          if(_sq){
+            const _g = Number(_sq.giac) || 0;
+            const _m = Number(_sq.min) || 0;
+            const _lvl = (typeof stockQtyLevel === 'function') ? stockQtyLevel(_g, _m) : 'ok';
+            const _lvlClass = _lvl === 'out' ? ' lvl-out' : (_lvl === 'under' ? ' lvl-under' : '');
+            _qtyBadges =
+              `<span class="stock-qty-badge${_lvlClass}" title="Giacenza Lentiai: ${_g}${_m>0?' · minimo '+_m:''}">${_g}</span>`
+              + (_m > 0 ? `<span class="stock-min-badge" title="Quantità minima a magazzino: ${_m}">${_m}</span>` : '');
+          }
           return `<button class="stock-trigger${_stkOn ? ' is-managed' : ''}" type="button"
             data-stock-code="${escapeAttr(_stkCode)}"
             aria-label="${_stkOn ? 'Rimuovi da gestione a magazzino' : 'Aggiungi a gestione a magazzino'}"
@@ -26123,7 +26386,7 @@ function renderGallery(main, list){
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
               <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
               <line x1="12" y1="22.08" x2="12" y2="12"/>
-            </svg>
+            </svg>${_qtyBadges}
           </button>`;
         })()}
         ${(() => {
@@ -58051,6 +58314,13 @@ function bindUIListeners(){
   };
   safe('fileIn', 'change', onFile);
   safe('fileIn2', 'change', onFile);
+  // V2.10.302: import giacenze magazzino (file rotazione). Reset value per
+  // permettere il re-import dello stesso file consecutivamente.
+  safe('fileMag', 'change', e => {
+    const f = e.target.files[0];
+    if(f && typeof importMagazzino === 'function') importMagazzino(f);
+    e.target.value = '';
+  });
 
   // V2.2.43: Modalità Preventivo — listener su voce menu + switch.
   // Click sulla voce → toggle. Click sullo switch interno → toggle (con stopPropagation).
