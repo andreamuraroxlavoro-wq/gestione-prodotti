@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.306</title>
+<title>Gestione Prodotti V2.10.307</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9079,7 +9079,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.306</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.307</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9584,7 +9584,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
           </button>
           <!-- V2.10.302: divisore + import giacenze magazzino (file rotazione_magazzino) -->
           <div role="separator" style="height:1px;margin:5px 8px;background:var(--border,rgba(0,0,0,0.12))"></div>
-          <button class="tb-dropdown-item" onclick="document.getElementById('fileMag').click(); closeAllTopbarDropdowns()" role="menuitem" title="Aggiorna le giacenze dal Report Magazzini (foglio Lentiai, col. A=codice, col. D=giacenza) — i codici non in catalogo vengono ignorati">
+          <button class="tb-dropdown-item" onclick="document.getElementById('fileMag').click(); closeAllTopbarDropdowns()" role="menuitem" title="Aggiorna le giacenze dal file del magazzino (XLSX Report Magazzini · foglio Lentiai, oppure CSV stock con Riferimento prodotto/Quantità disponibile) — i codici non in catalogo vengono ignorati">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4l-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
             Importa Magazzino
           </button>
@@ -9644,7 +9644,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.306');
+console.info('[bootstrap] script avvio — V2.10.307');
 
 window.openStatsDashboard = function(){
   try {
@@ -11095,7 +11095,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.306';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.307';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13078,8 +13078,11 @@ async function importMagazzino(file){
         records.push({ code: code, giac: giac, min: 0 });
       }
     } else {
-      // === Formato CSV/TSV (retrocompat: rotazione_magazzino) ===
-      // Match colonne per nome: "Codice", "Giac.Lentiai", "Min".
+      // === Formato CSV/TSV ===
+      // Riconosce due formati per intestazione (accent/case-insensitive):
+      //   A) "rotazione_magazzino": Codice + Giac.Lentiai (+ Min)
+      //   B) "stock" (export PrestaShop): Riferimento prodotto (col C) + Quantità disponibile (col K)
+      // Fallback B per posizione: colonna C (idx 2) = codice, colonna K (idx 10) = quantità.
       let text = await file.text();
       if(text.charCodeAt(0) === 0xFEFF){ text = text.slice(1); }
       const firstNl = text.indexOf('\n');
@@ -13091,15 +13094,36 @@ async function importMagazzino(file){
         return;
       }
       const header = rows[0].map(h => String(h || '').trim());
-      const idxCodice = header.indexOf('Codice');
-      const idxGiac   = header.indexOf('Giac.Lentiai');
-      const idxMin    = header.indexOf('Min');
+      // normalizzazione header: minuscolo + senza accenti, per match robusto
+      const _normHdr = (s) => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      const _hNorm = header.map(_normHdr);
+      const _findCol = (names) => { for(const n of names){ const i = _hNorm.indexOf(_normHdr(n)); if(i >= 0) return i; } return -1; };
+
+      let idxCodice = _findCol(['Codice']);
+      let idxGiac   = _findCol(['Giac.Lentiai']);
+      let idxMin    = _findCol(['Min']);
+
+      if(idxCodice >= 0 && idxGiac >= 0){
+        // Formato A
+        sourceLabel = 'Lentiai (CSV)';
+      } else {
+        // Formato B (stock PrestaShop)
+        const idxRif = _findCol(['Riferimento prodotto']);
+        const idxQ   = _findCol(['Quantità disponibile', 'Quantita disponibile']);
+        if(idxRif >= 0 && idxQ >= 0){
+          idxCodice = idxRif; idxGiac = idxQ; idxMin = -1;
+          sourceLabel = 'Stock disponibile';
+        } else if(header.length > 10){
+          // fallback per posizione: C=2 (codice), K=10 (quantità)
+          idxCodice = 2; idxGiac = 10; idxMin = -1;
+          sourceLabel = 'Stock (col. C/K)';
+        }
+      }
       if(idxCodice < 0 || idxGiac < 0){
-        if(typeof toast === 'function') toast('Colonne "Codice"/"Giac.Lentiai" non trovate nel file.', 'err', 5000);
-        console.warn('[stock-qty] header CSV trovato:', header);
+        if(typeof toast === 'function') toast('Formato file non riconosciuto: attese colonne "Codice"/"Giac.Lentiai" oppure "Riferimento prodotto"/"Quantità disponibile".', 'err', 6500);
+        console.warn('[stock-qty] header CSV non riconosciuto:', header);
         return;
       }
-      sourceLabel = 'Lentiai (CSV)';
       for(let r = 1; r < rows.length; r++){
         const cells = rows[r];
         if(!cells || cells.length === 0) continue;
