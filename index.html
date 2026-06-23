@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.317</title>
+<title>Gestione Prodotti V2.10.318</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9168,7 +9168,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.317</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.318</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9745,7 +9745,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.317');
+console.info('[bootstrap] script avvio — V2.10.318');
 
 window.openStatsDashboard = function(){
   try {
@@ -11196,7 +11196,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.317';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.318';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -50994,7 +50994,8 @@ function _stampaMagStato(r, hi){
   if(hi.fav && r.fav) tags.push('Preferito');
   if(hi.outlet && r.outlet) tags.push('Outlet');
   if(hi.esaurito && r.esaurito) tags.push('Esaurito');
-  if(hi.disponibile && r.hasQty && !r.esaurito) tags.push('Disponibile');
+  // V2.10.318: niente tag "Disponibile" nella colonna Stato — la riga resta solo
+  // evidenziata in verde (vedi _stampaMagRowColor) quando il flag hi.disponibile è attivo.
   return tags.join(' · ');
 }
 
