@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.326 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.328 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9182,6 +9182,8 @@ body.theme-light .dlg-input{background:var(--bg3)}
    topbar essenziale con ricerca in evidenza, galleria a una colonna.
    ========================================================================== */
 .mobile-hamburger{ display:none; }           /* nascosto su desktop */
+.mobile-tools-btn{ display:none; }            /* nascosto su desktop */
+.topbar-tools{ display:contents; }            /* desktop: i figli restano in linea nella topbar (layout 326 invariato) */
 #mobileDrawerOverlay{ display:none; }         /* nascosto su desktop */
 
 @media (max-width: 768px){
@@ -9251,6 +9253,53 @@ body.theme-light .dlg-input{background:var(--bg3)}
 
   /* 7) Modali a tutto schermo, con margini ridotti */
   .modal, .dlg, .adv-modal-bg .adv-modal, .editor-modal{ max-width:100vw; }
+
+  /* 8) SV2.10.327: tutte le icone/azioni della topbar in un PANNELLO a scomparsa
+        da destra (apri con ▦), così la topbar resta alta una sola "riga" e si
+        ottimizza lo spazio verticale. */
+  .mobile-tools-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:46px; height:46px; flex-shrink:0; order:4; margin-left:auto; padding:0;
+    background:var(--bg3); border:1px solid var(--border2); border-radius:12px; color:var(--fg);
+  }
+  .mobile-tools-btn svg{ width:24px; height:24px; }
+
+  .topbar-tools{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:16px 8px; align-content:start; justify-items:center;
+    position:fixed; top:0; right:0; bottom:0;
+    width:88vw; max-width:380px; height:100vh;
+    background:var(--bg2);
+    transform:translateX(100%);
+    transition:transform .26s cubic-bezier(.4,0,.2,1);
+    z-index:6000; box-shadow:-4px 0 28px rgba(0,0,0,.5);
+    overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
+    padding:20px 18px 48px;
+  }
+  body.mtools-open .topbar-tools{ transform:translateX(0); }
+  /* intestazione del pannello (tutta la riga) */
+  .topbar-tools::before{
+    content:"Strumenti e azioni"; grid-column:1 / -1; justify-self:start; display:block;
+    font-weight:800; font-size:13px; letter-spacing:.8px; text-transform:uppercase;
+    color:var(--fg3); padding-bottom:8px; border-bottom:1px solid var(--border2);
+    width:100%; box-sizing:border-box;
+  }
+  /* i gruppi "spariscono" come box: le loro icone diventano celle della griglia */
+  .topbar-tools .view-toggle,
+  .topbar-tools .topbar-right,
+  .topbar-tools .topbar-actions,
+  .topbar-tools .tb-dropdown,
+  .topbar-tools .export-dropdown{ display:contents; }
+  /* i contatori su una riga intera */
+  .topbar-tools .stats{ grid-column:1 / -1; display:flex; gap:18px; justify-content:space-around; margin:6px 0; }
+  .topbar-tools .topbar-divider{ display:none; }
+  /* icone grandi e comode al tocco */
+  .topbar-tools .btn.icon-btn{ width:56px; height:56px; min-width:56px; min-height:56px; position:relative; }
+  .topbar-tools .btn.icon-btn svg{ width:26px; height:26px; }
+
+  /* l'overlay copre anche il pannello strumenti */
+  body.mtools-open #mobileDrawerOverlay{ opacity:1; pointer-events:auto; }
 }
 
 </style>
@@ -9296,7 +9345,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.326</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.328</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9485,6 +9534,13 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <input type="text" class="search topbar-search" id="search" placeholder="Cerca per nome, codice, marca, descrizione…">
+    <!-- SV2.10.327: pulsante Strumenti (solo mobile) — apre il pannello con filtri rapidi, viste, azioni -->
+    <button class="mobile-tools-btn" id="mobileToolsBtn" onclick="toggleMobileTools()" aria-label="Strumenti e azioni" title="Strumenti / Azioni">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>
+    </button>
+    <!-- SV2.10.327: contenitore di tutte le icone/azioni della topbar. Desktop: invariato
+         (display:contents, in linea). Mobile: pannello a scomparsa da destra. -->
+    <div class="topbar-tools" id="topbarTools">
     <button class="btn icon-btn" id="btnResetFilters" onclick="resetAllFilters()" title="Azzera tutti i filtri attivi" aria-label="Reset filtri">
       <svg viewBox="0 0 24 24">
         <path d="M3 4h14l-5 6v7l-4-2v-5L3 4z"/>
@@ -9832,6 +9888,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       </div>
     </div>
     </div><!-- /topbar-right -->
+    </div><!-- /topbar-tools (SV2.10.327) -->
     </div>
     <!-- /V2.2.27 fine topbar-main-row -->
 
@@ -9875,7 +9932,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.326 mobile");
+console.info("[bootstrap] script avvio — SV2.10.328 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11326,7 +11383,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.326';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.328';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -59288,12 +59345,41 @@ if(document.readyState === 'loading'){
 init();
 </script>
 <script>
-/* SV2.10.326: controllo del drawer mobile (sidebar a scomparsa) */
+/* SV2.10.327: controllo dei due pannelli mobili (filtri a sinistra, strumenti a destra) */
 (function(){
-  window.toggleMobileDrawer = function(){ document.body.classList.toggle('mdrawer-open'); };
-  window.closeMobileDrawer  = function(){ document.body.classList.remove('mdrawer-open'); };
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') document.body.classList.remove('mdrawer-open'); });
-  window.addEventListener('resize', function(){ if(window.innerWidth > 768) document.body.classList.remove('mdrawer-open'); });
+  var B = document.body;
+  function closeAll(){ B.classList.remove('mdrawer-open'); B.classList.remove('mtools-open'); }
+  window.closeMobileDrawer = function(){ closeAll(); };              // l'overlay chiama questa → chiude entrambi
+  window.toggleMobileDrawer = function(){ var on = B.classList.contains('mdrawer-open'); closeAll(); if(!on) B.classList.add('mdrawer-open'); };
+  window.toggleMobileTools  = function(){ var on = B.classList.contains('mtools-open');  closeAll(); if(!on) B.classList.add('mtools-open'); };
+  window.closeMobileTools   = function(){ B.classList.remove('mtools-open'); };
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeAll(); });
+  window.addEventListener('resize', function(){ if(window.innerWidth > 768) closeAll(); });
+
+  /* SV2.10.328: su mobile il pannello strumenti deve stare FUORI dall'header,
+     altrimenti l'header (stacking context) lo confina sotto l'overlay e le icone
+     non ricevono il tap, né il pannello scorre. Lo sposto come figlio del body su
+     mobile e lo rimetto al suo posto in topbar su desktop (via un segnaposto). */
+  function placeTools(){
+    var t = document.getElementById('topbarTools');
+    if(!t) return;
+    if(!t._ph){ t._ph = document.createComment('topbarTools-anchor'); }
+    var mobile = window.innerWidth <= 768;
+    if(mobile){
+      if(t.parentElement !== document.body){
+        t.parentNode.insertBefore(t._ph, t);   // memorizzo la posizione originale
+        document.body.appendChild(t);
+      }
+    } else {
+      if(t.parentElement === document.body && t._ph && t._ph.parentNode){
+        t._ph.parentNode.replaceChild(t, t._ph);  // rimetto nella topbar
+      }
+    }
+  }
+  function initTools(){ placeTools(); }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initTools);
+  else initTools();
+  window.addEventListener('resize', placeTools);
 })();
 </script>
 </body>
