@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.310</title>
+<title>Gestione Prodotti V2.10.317</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8558,6 +8558,17 @@ body.theme-light .tree-adj-badge.tree-adj-badge-downstream{
 .page-btn:hover:not(:disabled){background:var(--accent);border-color:var(--accent)}
 .page-btn:disabled{opacity:0.3;cursor:not-allowed}
 .page-info{padding:0 12px}
+/* V2.10.311: pulsante "Mostra tutto" / "Visualizza Pagine" — accento distintivo */
+.page-btn-allpages{
+  margin-left:12px;
+  font-weight:600;
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+}
+.page-btn-allpages:hover:not(:disabled){
+  filter:brightness(1.08);
+}
 
 /* ==========================================================================
    V2.1.9 — RICERCA AVANZATA (modale)
@@ -9157,7 +9168,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.310</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.317</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9645,6 +9656,14 @@ body.theme-light .dlg-input{background:var(--bg3)}
          Il bottone Svuota DB è stato spostato dentro il dropdown Impostazioni come
          voce "Elimina Database Articoli" con stile rosso danger. -->
     <div class="view-toggle topbar-actions">
+      <!-- V2.10.312: STAMPA MAGAZZINO — stampa/esporta i prodotti attualmente filtrati -->
+      <button class="btn icon-btn stampa-magazzino-btn" id="btnStampaMagazzino" onclick="openStampaMagazzino()" title="Stampa magazzino: esporta i prodotti attualmente visibili/filtrati (PDF, Word, Excel)" aria-label="Stampa magazzino">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+      </button>
       <!-- 2. Esporta (dropdown) - verde Excel -->
       <div class="tb-dropdown export-dropdown" data-dropdown="export">
         <button class="btn icon-btn dropdown-btn export-btn" onclick="toggleTopbarDropdown('export', this)" title="Esportazione dati" aria-label="Esportazione" aria-haspopup="true" aria-expanded="false">
@@ -9726,7 +9745,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.310');
+console.info('[bootstrap] script avvio — V2.10.317');
 
 window.openStatsDashboard = function(){
   try {
@@ -11177,7 +11196,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.310';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.317';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12676,6 +12695,9 @@ let PRESETS = [];        // preset export
 let ACTIVE_PRESET_IDX = null;  // indice del preset attualmente caricato (per evidenziazione)
 let VIEW = 'gallery';
 let PAGE = 0;
+// V2.10.311: modalità "Mostra tutto" — disattiva la paginazione e mostra tutti
+// i prodotti filtrati in un'unica pagina (non persistita: parte OFF al refresh).
+let SHOW_ALL_PRODUCTS = false;
 const PAGE_SIZE = 100;
 let FILTERED = [];
 let CURRENT_EDIT = null;
@@ -26333,14 +26355,15 @@ function render(){
     return;
   }
   const total = FILTERED.length;
-  const start = PAGE * PAGE_SIZE;
-  const end = Math.min(start+PAGE_SIZE, total);
+  // V2.10.311: in modalità "Mostra tutto" niente paginazione (slice = tutto).
+  const start = SHOW_ALL_PRODUCTS ? 0 : PAGE * PAGE_SIZE;
+  const end = SHOW_ALL_PRODUCTS ? total : Math.min(start+PAGE_SIZE, total);
   const slice = FILTERED.slice(start,end);
 
   if(VIEW==='gallery') renderGallery(main, slice);
   else renderTable(main, slice);
 
-  if(total > PAGE_SIZE) renderPagination(main, total);
+  if(total > PAGE_SIZE || SHOW_ALL_PRODUCTS) renderPagination(main, total);
 
   // Ripristina le evidenziazioni "già visto" sulle card/tr visibili
   // (il DOM è stato appena ricreato da zero)
@@ -27570,16 +27593,49 @@ function initHoverPreview(){
 // Chiamo l'inizializzazione quando DATA viene popolato
 // (l'init è idempotente: chiamate multiple sono sicure)
 
+// V2.10.311: porta in cima la griglia (il contenitore #main ha overflow:auto).
+function _scrollMainTop(){
+  try {
+    const m = document.getElementById('main');
+    if(m){ if(typeof m.scrollTo === 'function') m.scrollTo({ top:0, left:0, behavior:'auto' }); else m.scrollTop = 0; }
+    if(typeof window !== 'undefined' && window.scrollTo) window.scrollTo(0, 0);
+  } catch(_){}
+}
+
+// V2.10.311: cambia pagina e riposiziona sempre in cima alla griglia.
+function gotoPage(n){
+  const maxPage = Math.max(0, Math.floor((FILTERED.length - 1) / PAGE_SIZE));
+  PAGE = Math.min(Math.max(0, n|0), maxPage);
+  render();
+  _scrollMainTop();
+}
+
+// V2.10.311: alterna "Mostra tutto" / "Visualizza Pagine".
+function toggleShowAll(){
+  SHOW_ALL_PRODUCTS = !SHOW_ALL_PRODUCTS;
+  if(!SHOW_ALL_PRODUCTS) PAGE = 0;  // tornando alle pagine riparto dalla prima
+  render();
+  _scrollMainTop();
+}
+
 function renderPagination(main, total){
   const p = document.createElement('div');
   p.className='pagination';
   const maxPage = Math.floor((total-1)/PAGE_SIZE);
-  p.innerHTML = `
-    <button class="page-btn" ${PAGE===0?'disabled':''} onclick="PAGE=0;render()">« Inizio</button>
-    <button class="page-btn" ${PAGE===0?'disabled':''} onclick="PAGE--;render()">‹ Prec</button>
-    <span class="page-info">Pagina ${PAGE+1} di ${maxPage+1} — ${total.toLocaleString('it-IT')} prodotti</span>
-    <button class="page-btn" ${PAGE>=maxPage?'disabled':''} onclick="PAGE++;render()">Succ ›</button>
-    <button class="page-btn" ${PAGE>=maxPage?'disabled':''} onclick="PAGE=${maxPage};render()">Fine »</button>`;
+  if(SHOW_ALL_PRODUCTS){
+    // Pagina unica: solo info + pulsante per tornare alle pagine.
+    p.innerHTML = `
+      <span class="page-info">Pagina unica — ${total.toLocaleString('it-IT')} prodotti</span>
+      <button class="page-btn page-btn-allpages" onclick="toggleShowAll()" title="Torna alla visualizzazione divisa in pagine">Visualizza Pagine</button>`;
+  } else {
+    p.innerHTML = `
+      <button class="page-btn" ${PAGE===0?'disabled':''} onclick="gotoPage(0)">« Inizio</button>
+      <button class="page-btn" ${PAGE===0?'disabled':''} onclick="gotoPage(PAGE-1)">‹ Prec</button>
+      <span class="page-info">Pagina ${PAGE+1} di ${maxPage+1} — ${total.toLocaleString('it-IT')} prodotti</span>
+      <button class="page-btn" ${PAGE>=maxPage?'disabled':''} onclick="gotoPage(PAGE+1)">Succ ›</button>
+      <button class="page-btn" ${PAGE>=maxPage?'disabled':''} onclick="gotoPage(${maxPage})">Fine »</button>
+      <button class="page-btn page-btn-allpages" onclick="toggleShowAll()" title="Mostra tutti i prodotti in un'unica pagina">Mostra tutto</button>`;
+  }
   main.appendChild(p);
 }
 
@@ -50883,6 +50939,375 @@ function updateClientRowAfterDiscountChange(inputEl){
 
 
 /* ─── Dialog Esportazione ─── */
+
+/* ============================================================================
+   V2.10.312: STAMPA MAGAZZINO
+   Esporta i prodotti attualmente filtrati/visibili (FILTERED) in PDF / Word / Excel,
+   con selezione delle colonne ed evidenziazione di Preferiti, Outlet (uscita rapida)
+   ed Esauriti (giacenza <= 0). Struttura ispirata al modale "Genera preventivo".
+   ============================================================================ */
+const STAMPA_MAG_LS_KEY = 'vt_stampa_magazzino_opts';
+let STAMPA_MAG_OPTS = {
+  cols: { code:true, desc:true, brand:true, cat:true, listino:true, giac:true, min:false, valore:false },
+  valoreBase: 'listino',   // 'listino' | 'acquisto'
+  hi:   { fav:true, outlet:true, esaurito:true, disponibile:true }
+};
+function _stampaMagLoadOpts(){
+  try {
+    const raw = localStorage.getItem(STAMPA_MAG_LS_KEY);
+    if(raw){ const o = JSON.parse(raw); if(o && o.cols && o.hi){ STAMPA_MAG_OPTS = o; } }
+  } catch(_){}
+}
+function _stampaMagSaveOpts(){
+  try { localStorage.setItem(STAMPA_MAG_LS_KEY, JSON.stringify(STAMPA_MAG_OPTS)); } catch(_){}
+}
+
+// Costruisce le righe dai prodotti filtrati, rispettando le colonne scelte.
+function _stampaMagBuildRows(){
+  const rows = [];
+  const src = (typeof FILTERED !== 'undefined' && Array.isArray(FILTERED)) ? FILTERED : [];
+  for(const p of src){
+    let code = String(getField(p,'name') || '').trim();
+    if(typeof resolveDisplayCode === 'function') code = resolveDisplayCode(code) || code;
+    // V2.10.313: in stampa magazzino si usa SEMPRE e SOLO la descrizione breve.
+    const desc  = String(getField(p,'short_description') || getField(p,'short_description_html') || '').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    const brand = String(getField(p,'brand') || '').trim();
+    const cat   = String(getField(p,'category') || '').trim();
+    const listinoRaw = getField(p,'PVP') || getField(p,'precio_venta_cliente_final');
+    const listino = (typeof priceNum === 'function') ? priceNum(listinoRaw) : parseFloat(listinoRaw) || 0;
+    const acquistoRaw = getField(p,'precio_neto_compra');
+    const acquisto = (typeof priceNum === 'function') ? priceNum(acquistoRaw) : parseFloat(acquistoRaw) || 0;
+    const sq = (typeof getStockQty === 'function') ? getStockQty(code) : null;
+    const giac = sq ? (Number(sq.giac) || 0) : null;
+    const min  = sq ? (Number(sq.min) || 0) : null;
+    const fav  = (typeof isFavorite === 'function') && isFavorite(code);
+    const outlet = (typeof isOutlet === 'function') && isOutlet(code);
+    const esaurito = sq && giac <= 0;
+    rows.push({ code, desc, brand, cat, listino, acquisto, giac, min, fav, outlet, esaurito, hasQty: !!sq });
+  }
+  return rows;
+}
+
+// Etichetta "Stato" (testo semplice, niente emoji: jsPDF non le rende).
+function _stampaMagStato(r, hi){
+  const tags = [];
+  if(hi.fav && r.fav) tags.push('Preferito');
+  if(hi.outlet && r.outlet) tags.push('Outlet');
+  if(hi.esaurito && r.esaurito) tags.push('Esaurito');
+  if(hi.disponibile && r.hasQty && !r.esaurito) tags.push('Disponibile');
+  return tags.join(' · ');
+}
+
+// Prezzo unitario per il calcolo del valore di magazzino, in base alla scelta.
+function _stampaMagUnit(r, valoreBase){
+  return valoreBase === 'acquisto' ? (Number(r.acquisto) || 0) : (Number(r.listino) || 0);
+}
+// Valore di magazzino della riga = giacenza × prezzo unitario (solo se a magazzino).
+function _stampaMagValore(r, valoreBase){
+  if(!r.hasQty) return null;
+  const g = Number(r.giac) || 0;
+  return g * _stampaMagUnit(r, valoreBase);
+}
+
+// Colori riga (RGB) per evidenziazione, in ordine di priorità.
+function _stampaMagRowColor(r, hi){
+  if(hi.esaurito && r.esaurito) return [254, 226, 226];               // rosso chiaro — giacenza <= 0
+  if(hi.disponibile && r.hasQty && !r.esaurito) return [220, 252, 231]; // verde chiaro — giacenza > 0
+  if(hi.outlet && r.outlet)     return [237, 233, 254];               // viola chiaro
+  if(hi.fav && r.fav)           return [254, 243, 199];               // ambra chiaro
+  return null;
+}
+
+// Definizione colonne attive (ordine + intestazioni).
+function _stampaMagActiveCols(opts){
+  const c = opts.cols;
+  const anyHi = opts.hi.fav || opts.hi.outlet || opts.hi.esaurito || opts.hi.disponibile;
+  const cols = [];
+  if(c.code)    cols.push({ key:'code',    label:'Codice' });
+  if(c.desc)    cols.push({ key:'desc',    label:'Descrizione' });
+  if(c.brand)   cols.push({ key:'brand',   label:'Marca' });
+  if(c.cat)     cols.push({ key:'cat',     label:'Categoria' });
+  if(c.listino) cols.push({ key:'listino', label:'Listino' });
+  if(c.giac)    cols.push({ key:'giac',    label:'Giacenza' });
+  if(c.min)     cols.push({ key:'min',     label:'Min' });
+  if(c.valore)  cols.push({ key:'valore',  label:'Valore ' + (opts.valoreBase === 'acquisto' ? '(acq.)' : '(list.)') });
+  if(anyHi)     cols.push({ key:'stato',   label:'Stato' });
+  return cols;
+}
+
+function _stampaMagCellValue(r, key, opts){
+  const fmt = (n) => (typeof _qFmtEur === 'function' ? _qFmtEur(n) : ('€ ' + Number(n).toFixed(2)));
+  switch(key){
+    case 'code':    return r.code || '';
+    case 'desc':    return r.desc || '';
+    case 'brand':   return r.brand || '';
+    case 'cat':     return r.cat || '';
+    case 'listino': return r.listino ? fmt(r.listino) : '';
+    case 'giac':    return r.hasQty ? String(r.giac) : '—';
+    case 'min':     return r.hasQty && r.min ? String(r.min) : (r.hasQty ? '0' : '—');
+    case 'valore': { const v = _stampaMagValore(r, opts.valoreBase); return v == null ? '—' : fmt(v); }
+    case 'stato':   return _stampaMagStato(r, opts.hi);
+    default:        return '';
+  }
+}
+
+// Totale del valore di magazzino su tutte le righe (solo articoli tracciati).
+function _stampaMagTotValore(rows, valoreBase){
+  let tot = 0;
+  rows.forEach(r => { const v = _stampaMagValore(r, valoreBase); if(v != null) tot += v; });
+  return tot;
+}
+
+// Etichetta del totale che specifica SEMPRE la base (listino / acquisto).
+function _stampaMagTotLabel(valoreBase){
+  return 'TOTALE VALORE MAGAZZINO (' + (valoreBase === 'acquisto' ? 'ad acquisto' : 'a listino') + ')';
+}
+
+// ----- Export PDF (jsPDF + autoTable) -----
+function _stampaMagPDF(opts, preview){
+  if(typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF){
+    toast('Libreria PDF non disponibile.', 'err', 4000); return;
+  }
+  const rows = _stampaMagBuildRows();
+  if(!rows.length){ toast('Nessun prodotto da stampare.', 'warn', 3500); return; }
+  const cols = _stampaMagActiveCols(opts);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4', orientation:'landscape' });
+  const PAGE_W = doc.internal.pageSize.getWidth();
+  const dateStr = new Date().toLocaleDateString('it-IT');
+  // intestazione
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(20,30,48);
+  doc.text('STAMPA MAGAZZINO', 40, 38);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(110,116,128);
+  doc.text(rows.length + ' articoli · ' + dateStr, 40, 54);
+
+  const head = [ cols.map(c => c.label) ];
+  const body = rows.map(r => cols.map(c => _stampaMagCellValue(r, c.key, opts)));
+
+  // larghezze colonne indicative
+  const colStyles = {};
+  cols.forEach((c, i) => {
+    if(c.key === 'desc') colStyles[i] = { cellWidth:'auto' };
+    else if(c.key === 'listino' || c.key === 'giac' || c.key === 'min' || c.key === 'valore') colStyles[i] = { halign:'right', cellWidth: (c.key==='valore'?72:(c.key==='listino'?60:46)) };
+    else if(c.key === 'code') colStyles[i] = { cellWidth:'wrap', overflow:'visible', fontStyle:'bold', minCellWidth:60 };
+    else if(c.key === 'brand') colStyles[i] = { cellWidth:70 };
+    else if(c.key === 'cat') colStyles[i] = { cellWidth:90 };
+    else if(c.key === 'stato') colStyles[i] = { cellWidth:110 };
+  });
+
+  // Riga TOTALE valore magazzino (solo se la colonna Valore è attiva).
+  const _valIdx = cols.findIndex(c => c.key === 'valore');
+  let foot;
+  if(_valIdx >= 0){
+    const tot = _stampaMagTotValore(rows, opts.valoreBase);
+    const footRow = cols.map((c, i) => {
+      if(i === 0) return _stampaMagTotLabel(opts.valoreBase);
+      if(i === _valIdx) return (typeof _qFmtEur === 'function' ? _qFmtEur(tot) : ('€ ' + tot.toFixed(2)));
+      return '';
+    });
+    foot = [ footRow ];
+  }
+
+  const autoCfg = {
+    startY: 66,
+    head: head,
+    body: body,
+    theme: 'grid',
+    styles: { font:'helvetica', fontSize:7.5, cellPadding:3, textColor:[45,45,45], lineColor:[224,228,233], lineWidth:0.4, overflow:'linebreak' },
+    headStyles: { fillColor:[37,99,235], textColor:[255,255,255], fontStyle:'bold', fontSize:7.5 },
+    columnStyles: colStyles,
+    didParseCell: (data) => {
+      if(data.section !== 'body') return;
+      const r = rows[data.row.index];
+      const col = _stampaMagRowColor(r, opts.hi);
+      if(col) data.cell.styles.fillColor = col;
+    }
+  };
+  if(foot){ autoCfg.foot = foot; autoCfg.footStyles = { fillColor:[241,245,249], textColor:[20,30,48], fontStyle:'bold', halign:'right', fontSize:8 }; }
+  doc.autoTable(autoCfg);
+
+  // piè di pagina con numerazione
+  const pages = doc.internal.getNumberOfPages();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,150);
+    doc.text('Pagina ' + i + ' di ' + pages, PAGE_W - 40, doc.internal.pageSize.getHeight() - 16, { align:'right' });
+  }
+
+  const fname = 'Magazzino_' + new Date().toISOString().slice(0,10) + '.pdf';
+  if(preview){
+    try { window.open(doc.output('bloburl'), '_blank'); }
+    catch(e){ doc.save(fname); }
+  } else {
+    doc.save(fname);
+  }
+}
+
+// ----- Export Excel (SheetJS) -----
+function _stampaMagExcel(opts){
+  if(typeof XLSX === 'undefined'){ toast('Libreria Excel non disponibile.', 'err', 4000); return; }
+  const rows = _stampaMagBuildRows();
+  if(!rows.length){ toast('Nessun prodotto da stampare.', 'warn', 3500); return; }
+  const cols = _stampaMagActiveCols(opts);
+  const aoa = [ cols.map(c => c.label) ];
+  rows.forEach(r => {
+    aoa.push(cols.map(c => {
+      // per Excel uso valori "grezzi" su listino/giacenza/valore per consentire calcoli
+      if(c.key === 'listino') return r.listino || '';
+      if(c.key === 'giac') return r.hasQty ? r.giac : '';
+      if(c.key === 'min')  return r.hasQty ? (r.min||0) : '';
+      if(c.key === 'valore'){ const v = _stampaMagValore(r, opts.valoreBase); return v == null ? '' : v; }
+      return _stampaMagCellValue(r, c.key, opts);
+    }));
+  });
+  // riga TOTALE valore magazzino
+  const _valIdx = cols.findIndex(c => c.key === 'valore');
+  if(_valIdx >= 0){
+    const tot = _stampaMagTotValore(rows, opts.valoreBase);
+    const totRow = cols.map((c, i) => i === 0 ? _stampaMagTotLabel(opts.valoreBase) : (i === _valIdx ? tot : ''));
+    aoa.push(totRow);
+  }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  // larghezze indicative
+  ws['!cols'] = cols.map(c => ({ wch: c.key==='desc'?50 : c.key==='stato'?22 : c.key==='cat'?20 : 14 }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Magazzino');
+  XLSX.writeFile(wb, 'Magazzino_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+// ----- Export Word (HTML .doc con colori riga) -----
+function _stampaMagWord(opts){
+  const rows = _stampaMagBuildRows();
+  if(!rows.length){ toast('Nessun prodotto da stampare.', 'warn', 3500); return; }
+  const cols = _stampaMagActiveCols(opts);
+  const esc = (s) => (typeof escapeHtml === 'function' ? escapeHtml(String(s==null?'':s)) : String(s==null?'':s));
+  const dateStr = new Date().toLocaleDateString('it-IT');
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>'
+    + 'table{border-collapse:collapse;width:100%;font-family:Calibri,Arial,sans-serif;font-size:9pt}'
+    + 'th{background:#2563eb;color:#fff;border:1px solid #c8ccd3;padding:4px 6px;text-align:left}'
+    + 'td{border:1px solid #c8ccd3;padding:3px 6px;vertical-align:top}'
+    + 'h1{font-family:Calibri,Arial,sans-serif;font-size:16pt;margin:0 0 2px 0}'
+    + '.sub{color:#6e7480;font-size:10pt;margin:0 0 10px 0}'
+    + '</style></head><body>'
+    + '<h1>STAMPA MAGAZZINO</h1><p class="sub">' + rows.length + ' articoli &middot; ' + dateStr + '</p>'
+    + '<table><thead><tr>' + cols.map(c => '<th>' + esc(c.label) + '</th>').join('') + '</tr></thead><tbody>';
+  rows.forEach(r => {
+    const col = _stampaMagRowColor(r, opts.hi);
+    const bg = col ? (' style="background:rgb(' + col.join(',') + ')"') : '';
+    html += '<tr' + bg + '>' + cols.map(c => {
+      const ha = (c.key==='listino'||c.key==='giac'||c.key==='min'||c.key==='valore') ? ' align="right"' : '';
+      const cs = (c.key==='code') ? ' style="white-space:nowrap"' : '';
+      return '<td' + ha + cs + '>' + esc(_stampaMagCellValue(r, c.key, opts)) + '</td>';
+    }).join('') + '</tr>';
+  });
+  html += '</tbody>';
+  // riga TOTALE valore magazzino
+  const _valIdx = cols.findIndex(c => c.key === 'valore');
+  if(_valIdx >= 0){
+    const tot = _stampaMagTotValore(rows, opts.valoreBase);
+    const totFmt = (typeof _qFmtEur === 'function' ? _qFmtEur(tot) : ('€ ' + tot.toFixed(2)));
+    html += '<tfoot><tr style="background:#f1f5f9;font-weight:bold">' + cols.map((c, i) => {
+      if(i === 0) return '<td>' + esc(_stampaMagTotLabel(opts.valoreBase)) + '</td>';
+      if(i === _valIdx) return '<td align="right">' + esc(totFmt) + '</td>';
+      return '<td></td>';
+    }).join('') + '</tr></tfoot>';
+  }
+  html += '</table></body></html>';
+  const blob = new Blob(['\ufeff', html], { type:'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'Magazzino_' + new Date().toISOString().slice(0,10) + '.doc';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+function openStampaMagazzino(){
+  const total = (typeof FILTERED !== 'undefined' && Array.isArray(FILTERED)) ? FILTERED.length : 0;
+  if(total === 0){ toast('Nessun prodotto da stampare con i filtri attuali.', 'warn', 3500); return; }
+  _stampaMagLoadOpts();
+  const o = STAMPA_MAG_OPTS;
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.style.zIndex = '510';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+
+  const colDefs = [
+    ['code','Codice'], ['desc','Descrizione'], ['brand','Marca'], ['cat','Categoria'],
+    ['listino','Listino'], ['giac','Giacenza'], ['min','Min'], ['valore','Valore magazzino']
+  ];
+  const hiDefs = [
+    ['fav','★ Preferiti'], ['outlet','⚡ Outlet (uscita rapida)'],
+    ['disponibile','🟢 Disponibili (giacenza > 0)'], ['esaurito','⛔ Esauriti (giacenza ≤ 0)']
+  ];
+  const chip = (checked, label, group, key) =>
+    '<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);padding:4px 9px;border-radius:5px;margin:2px 4px 2px 0;font-size:11.5px">' +
+      '<input type="checkbox" class="stmag-' + group + '" data-key="' + key + '"' + (checked?' checked':'') + ' style="margin:0;cursor:pointer">' +
+      escapeHtml(label) +
+    '</label>';
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:560px">' +
+      '<div class="modal-head"><h3>🖨️ Stampa Magazzino</h3></div>' +
+      '<div class="modal-body" style="display:block;padding:18px 22px">' +
+        '<p style="font-size:13px;color:var(--fg2);line-height:1.6;margin:0 0 14px 0"><b>' + total + '</b> articoli filtrati verranno stampati.</p>' +
+
+        '<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:14px">' +
+          '<div style="font-size:10px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Colonne incluse</div>' +
+          '<div>' + colDefs.map(([k,l]) => chip(o.cols[k], l, 'col', k)).join('') + '</div>' +
+          '<div style="margin-top:8px;display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--fg2)">' +
+            '<span style="font-weight:600">Valore magazzino calcolato su:</span>' +
+            '<label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="radio" name="stmagBase" value="listino"' + (o.valoreBase !== 'acquisto' ? ' checked' : '') + ' style="margin:0;cursor:pointer">Listino</label>' +
+            '<label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="radio" name="stmagBase" value="acquisto"' + (o.valoreBase === 'acquisto' ? ' checked' : '') + ' style="margin:0;cursor:pointer">Acquisto</label>' +
+          '</div>' +
+        '</div>' +
+
+        '<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:16px">' +
+          '<div style="font-size:10px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Evidenzia</div>' +
+          '<div>' + hiDefs.map(([k,l]) => chip(o.hi[k], l, 'hi', k)).join('') + '</div>' +
+          '<div style="font-size:10.5px;color:var(--fg3);margin-top:6px">Le righe evidenziate ottengono un colore di sfondo e una colonna "Stato" nei documenti.</div>' +
+        '</div>' +
+
+        '<button id="stmagPreview" type="button" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;font-size:14px;font-weight:700;background:#0178d4;color:#fff;border:1px solid #0178d4;border-radius:8px;cursor:pointer;margin-bottom:14px">👁️ Vedi anteprima PDF</button>' +
+        '<div style="font-size:10.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Oppure scarica direttamente</div>' +
+        '<div style="display:flex;gap:8px">' +
+          '<button class="stmag-dl" data-format="pdf" type="button" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:6px;cursor:pointer">📄 PDF</button>' +
+          '<button class="stmag-dl" data-format="docx" type="button" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:6px;cursor:pointer">📝 Word</button>' +
+          '<button class="stmag-dl" data-format="xlsx" type="button" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:6px;cursor:pointer">📊 Excel</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-foot"><button class="btn ghost" id="stmagCancel">Annulla</button></div>' +
+    '</div>';
+
+  document.body.appendChild(bg);
+
+  // raccoglie le opzioni correnti dai checkbox
+  const collect = () => {
+    bg.querySelectorAll('.stmag-col').forEach(el => { STAMPA_MAG_OPTS.cols[el.dataset.key] = el.checked; });
+    bg.querySelectorAll('.stmag-hi').forEach(el => { STAMPA_MAG_OPTS.hi[el.dataset.key] = el.checked; });
+    const baseEl = bg.querySelector('input[name="stmagBase"]:checked');
+    if(baseEl) STAMPA_MAG_OPTS.valoreBase = baseEl.value;
+    _stampaMagSaveOpts();
+  };
+  const anyCol = () => Object.values(STAMPA_MAG_OPTS.cols).some(Boolean) ||
+    STAMPA_MAG_OPTS.hi.fav || STAMPA_MAG_OPTS.hi.outlet || STAMPA_MAG_OPTS.hi.esaurito || STAMPA_MAG_OPTS.hi.disponibile;
+
+  bg.querySelector('#stmagCancel').addEventListener('click', () => bg.remove());
+  bg.querySelector('#stmagPreview').addEventListener('click', () => {
+    collect(); if(!anyCol()){ toast('Seleziona almeno una colonna.', 'warn', 3000); return; }
+    _stampaMagPDF(STAMPA_MAG_OPTS, true);
+  });
+  bg.querySelectorAll('.stmag-dl').forEach(btn => {
+    btn.addEventListener('click', () => {
+      collect(); if(!anyCol()){ toast('Seleziona almeno una colonna.', 'warn', 3000); return; }
+      const f = btn.dataset.format;
+      if(f === 'pdf') _stampaMagPDF(STAMPA_MAG_OPTS, false);
+      else if(f === 'xlsx') _stampaMagExcel(STAMPA_MAG_OPTS);
+      else if(f === 'docx') _stampaMagWord(STAMPA_MAG_OPTS);
+      bg.remove();
+    });
+  });
+}
 
 function openQuoteExportDialog(){
   if(window._QUOTE_STATE.items.length === 0){
