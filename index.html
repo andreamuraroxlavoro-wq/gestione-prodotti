@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.326</title>
+<title>Gestione Prodotti SV2.10.326 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9175,6 +9175,84 @@ body.theme-light .dlg-input{background:var(--bg3)}
   pointer-events:none;
 }
 
+/* ==========================================================================
+   SV2.10.326 — LAYER MOBILE (smartphone in verticale, es. Samsung S22 Ultra)
+   Attivo solo su schermo stretto. Trasforma la UI desktop in un'esperienza
+   touch: scala piena (no zoom 80%), sidebar a scomparsa (drawer + hamburger),
+   topbar essenziale con ricerca in evidenza, galleria a una colonna.
+   ========================================================================== */
+.mobile-hamburger{ display:none; }           /* nascosto su desktop */
+#mobileDrawerOverlay{ display:none; }         /* nascosto su desktop */
+
+@media (max-width: 768px){
+  /* 1) Niente rimpicciolimento su mobile: scala piena, elementi toccabili.
+        Annullo lo zoom 0.8 ovunque era applicato. */
+  :root{ --ui-zoom: 1; }
+  .app-sidebar, .app-main-area, .app-main-area > header, #main > *{ zoom: 1 !important; }
+
+  /* 2) Layout: l'area principale occupa tutta la larghezza; la sidebar esce dal
+        flusso e diventa un pannello a scomparsa (drawer). */
+  .app-main-area{ width:100% !important; flex:1 1 100% !important; min-width:0; height:100vh !important; }
+  .app-sidebar{
+    position:fixed; top:0; left:0; bottom:0;
+    width:86vw; max-width:360px;
+    height:100vh !important; max-height:100vh !important;
+    transform:translateX(-100%);
+    transition:transform .26s cubic-bezier(.4,0,.2,1);
+    z-index:6000;
+    box-shadow:4px 0 28px rgba(0,0,0,.5);
+    overflow-y:auto; overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+  }
+  body.mdrawer-open .app-sidebar{ transform:translateX(0); }
+  .sb-resize-handle{ display:none !important; }
+
+  /* overlay scuro che chiude il drawer al tocco */
+  #mobileDrawerOverlay{
+    display:block; position:fixed; inset:0;
+    background:rgba(0,0,0,.55); z-index:5999;
+    opacity:0; pointer-events:none; transition:opacity .26s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  body.mdrawer-open #mobileDrawerOverlay{ opacity:1; pointer-events:auto; }
+
+  /* 3) Hamburger nella topbar (apre il drawer dei filtri) */
+  .mobile-hamburger{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:46px; height:46px; flex-shrink:0; order:0; padding:0;
+    background:var(--accent); border:none; border-radius:12px; color:#fff;
+  }
+  .mobile-hamburger svg{ width:24px; height:24px; }
+
+  /* 4) Topbar: sticky in alto, ricerca su riga propria a tutta larghezza,
+        comandi sotto. Font ricerca 16px per evitare lo zoom automatico del
+        browser mobile al focus. */
+  header{ position:sticky; top:0; z-index:50; }
+  .topbar-main-row{ padding:8px 10px; gap:8px; align-items:center; flex-wrap:wrap; }
+  .topbar-search{ order:-1; flex:1 1 100%; min-width:0; height:46px; font-size:16px; }
+  .topbar-divider{ display:none; }
+  .topbar-right{ order:5; margin-left:auto; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .topbar-right .stats{ gap:12px; }
+  .topbar-right .stats .stat b{ font-size:16px; }
+  .topbar-right .stats .stat span{ font-size:8px; letter-spacing:.5px; }
+  .topbar-pills-bar{ padding-left:10px; padding-right:10px; }
+
+  /* pulsanti icona: area di tocco comoda */
+  .btn.icon-btn{ min-width:42px; min-height:42px; }
+  .topbar-main-row .btn.icon-btn svg{ width:22px; height:22px; }
+
+  /* 5) Galleria a una colonna, card ampie; più spazio in fondo per il pollice */
+  .gallery{ grid-template-columns:1fr !important; gap:14px; }
+  main{ padding:12px 12px 96px !important; }
+
+  /* 6) Dropdown della topbar più larghi e leggibili al tocco */
+  .tb-dropdown-menu{ min-width:min(82vw,300px); }
+  .tb-dropdown-item{ padding-top:12px; padding-bottom:12px; }
+
+  /* 7) Modali a tutto schermo, con margini ridotti */
+  .modal, .dlg, .adv-modal-bg .adv-modal, .editor-modal{ max-width:100vw; }
+}
+
 </style>
 </head>
 <body>
@@ -9185,6 +9263,8 @@ body.theme-light .dlg-input{background:var(--bg3)}
      IMPORTANTE: tutti gli id continuano a funzionare perche' il JS li cerca
      via getElementById, non via selettore strutturale.
      ========================================================================== -->
+<!-- SV2.10.326: overlay che oscura il contenuto e chiude il drawer al tocco (solo mobile) -->
+<div id="mobileDrawerOverlay" onclick="closeMobileDrawer()" aria-hidden="true"></div>
 <aside class="app-sidebar" id="appSidebar">
   <!-- Blocco logo S&CURITY — V2.2.8: logo vettoriale dedicato, pulito da
        font-set IcoMoon e metadata Inkscape. Ampersand #e62d52 = sidebar-accent
@@ -9216,7 +9296,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.326</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.326</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9400,6 +9480,10 @@ body.theme-light .dlg-input{background:var(--bg3)}
   <header>
     <!-- V2.2.27: riga principale della topbar (originale, invariata) -->
     <div class="topbar-main-row">
+    <!-- SV2.10.326: pulsante menu (solo mobile) — apre il drawer dei filtri/menu -->
+    <button class="mobile-hamburger" id="mobileHamburger" onclick="toggleMobileDrawer()" aria-label="Apri filtri e menu" title="Filtri / Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <input type="text" class="search topbar-search" id="search" placeholder="Cerca per nome, codice, marca, descrizione…">
     <button class="btn icon-btn" id="btnResetFilters" onclick="resetAllFilters()" title="Azzera tutti i filtri attivi" aria-label="Reset filtri">
       <svg viewBox="0 0 24 24">
@@ -9791,7 +9875,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — V2.10.326");
+console.info("[bootstrap] script avvio — SV2.10.326 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11242,7 +11326,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.326';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.326';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -59202,6 +59286,15 @@ if(document.readyState === 'loading'){
 })();
 
 init();
+</script>
+<script>
+/* SV2.10.326: controllo del drawer mobile (sidebar a scomparsa) */
+(function(){
+  window.toggleMobileDrawer = function(){ document.body.classList.toggle('mdrawer-open'); };
+  window.closeMobileDrawer  = function(){ document.body.classList.remove('mdrawer-open'); };
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') document.body.classList.remove('mdrawer-open'); });
+  window.addEventListener('resize', function(){ if(window.innerWidth > 768) document.body.classList.remove('mdrawer-open'); });
+})();
 </script>
 </body>
 </html>
