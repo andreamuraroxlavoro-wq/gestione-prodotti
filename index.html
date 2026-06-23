@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.318</title>
+<title>Gestione Prodotti V2.10.321</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -433,6 +433,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 </script>
 <style>
 :root{
+  /* V2.10.321: scala di default dell'interfaccia (80%). Applicata ai due pannelli
+     principali (sidebar + area centrale), NON ai modali/overlay che restano a
+     piena scala per coprire correttamente il viewport. */
+  --ui-zoom: 0.8;
   --bg:#0f1419; --bg2:#161c24; --bg3:#1f2731; --bg4:#2a3441;
   --fg:#e8ecf1; --fg2:#a8b2bd; --fg3:#6b7684;
   --accent:#ff6b35; --accent2:#ffb627; --accent3:#00d9a3;
@@ -547,10 +551,13 @@ body{flex-direction:row;min-height:100vh;height:100vh;overflow:hidden}
   transition:width 0.2s ease;
   position:relative;
   z-index:10;
-  height:100vh;  /* garantisce che il flex container abbia un'altezza definita,
-                    necessaria perché il figlio .sb-menu con flex:1 + min-height:0
-                    attivi correttamente il proprio overflow:auto */
-  max-height:100vh;
+  /* V2.10.321: scala dell'interfaccia all'80%. L'altezza è compensata
+     (100%/zoom = 125% del body) così dopo lo zoom torna esattamente 100vh,
+     senza spazi vuoti sotto. Il body resta a piena scala, quindi i modali
+     (suoi figli) non vengono rimpiccioliti. */
+  zoom: var(--ui-zoom);
+  height: calc(100% / var(--ui-zoom));      /* 125% del body (100vh) → 100vh visivi */
+  max-height: calc(100% / var(--ui-zoom));
 }
 .app-sidebar.collapsed{ width:var(--sidebar-w-collapsed); }  /* legacy, non più usata ma preservata */
 
@@ -1308,7 +1315,19 @@ body.sb-resizing *{user-select:none !important}
 .app-main-area{
   flex:1;min-width:0;
   display:flex;flex-direction:column;
-  height:100vh;overflow:hidden;
+  /* V2.10.321: scala dell'interfaccia all'80% (come la sidebar). Altezza
+     compensata 100%/zoom così dopo lo zoom torna 100vh esatti. I modali/overlay
+     sono figli del body (NON di quest'area) → restano a piena scala. */
+  zoom: var(--ui-zoom);
+  height: calc(100% / var(--ui-zoom));
+  overflow:hidden;
+  /* V2.10.319: contesto di impilamento sopra la sidebar (z-index:10), così i
+     dropdown della topbar (es. menu ingranaggio) non finiscono coperti dalla
+     sidebar su viewport stretti. Le colonne sono affiancate (flex) e non si
+     sovrappongono: nessun impatto visivo. I popup dei filtri (.ms-popup) sono
+     agganciati a document.body (z-index 9999) e restano sopra a tutto. */
+  position:relative;
+  z-index:11;
 }
 
 /* Topbar (ex header): stats + search + reset + view toggle.
@@ -9168,7 +9187,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.318</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.321</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9745,7 +9764,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.318');
+console.info('[bootstrap] script avvio — V2.10.321');
 
 window.openStatsDashboard = function(){
   try {
@@ -11196,7 +11215,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.318';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.321';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -33957,7 +33976,57 @@ function toggleTopbarDropdown(name, triggerBtn){
   if(!wasOpen){
     wrap.classList.add('open');
     if(triggerBtn) triggerBtn.setAttribute('aria-expanded', 'true');
+    // V2.10.320: posiziona il menu in fixed ancorato al bottone. Il menu era
+    // position:absolute dentro .app-main-area (overflow:hidden), quindi su
+    // viewport stretti veniva RITAGLIATO al bordo dell'area principale (dove
+    // inizia la sidebar) e sembrava finire "sotto" la sidebar. In fixed esce
+    // dal clipping dell'antenato e dallo stacking, e lo clampo nel viewport.
+    positionTopbarDropdownMenu(wrap);
   }
+}
+
+/* V2.10.320 — Posiziona il .tb-dropdown-menu del dropdown indicato usando
+   position:fixed, ancorandolo sotto al bottone trigger e allineandone il bordo
+   destro a quello del bottone (come il vecchio right:0). Poi clampa entro i
+   bordi del viewport (mai fuori a sinistra/destra) e, se il menu è più alto
+   dello spazio disponibile, ne limita l'altezza rendendolo scrollabile.
+   Risolve definitivamente il menu coperto/tagliato dalla sidebar. */
+function positionTopbarDropdownMenu(wrap){
+  if(!wrap) return;
+  const menu = wrap.querySelector('.tb-dropdown-menu');
+  const btn  = wrap.querySelector('.dropdown-btn') || wrap.querySelector('button');
+  if(!menu || !btn) return;
+  const MARGIN = 8;   // distanza minima dai bordi del viewport
+  const GAP    = 8;   // distanza verticale dal bottone
+  // Imposta fixed e azzera i vincoli CSS (right:0 / top:calc) prima di misurare
+  menu.style.position  = 'fixed';
+  menu.style.right     = 'auto';
+  menu.style.left      = '0px';
+  menu.style.top       = '0px';
+  menu.style.maxHeight = 'none';
+  menu.style.zIndex    = '9999';   // sopra la sidebar (z-index:10/11) e tutto il resto
+  const btnRect  = btn.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  // Allinea il bordo destro del menu al bordo destro del bottone, poi clampa
+  let left = btnRect.right - menuRect.width;
+  if(left + menuRect.width > vw - MARGIN) left = vw - MARGIN - menuRect.width;
+  if(left < MARGIN) left = MARGIN;
+  // Sotto il bottone; se il menu sfora in basso, limita l'altezza + scroll
+  const top   = btnRect.bottom + GAP;
+  const avail = vh - top - MARGIN;
+  if(menuRect.height > avail){
+    menu.style.maxHeight = Math.max(120, avail) + 'px';
+    menu.style.overflowY = 'auto';
+  }
+  // V2.10.321: il menu è dentro l'area principale scalata (zoom < 1), quindi un
+  // valore in px su un elemento fixed viene moltiplicato per lo zoom ereditato.
+  // getBoundingClientRect ritorna invece coordinate VISIVE: divido per il fattore
+  // zoom così la posizione finale (visiva) resta ancorata al bottone.
+  let zf = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1;
+  if(!(zf > 0)) zf = 1;
+  menu.style.left = Math.round(left / zf) + 'px';
+  menu.style.top  = Math.round(top  / zf) + 'px';
 }
 
 function closeAllTopbarDropdowns(){
@@ -33965,8 +34034,26 @@ function closeAllTopbarDropdowns(){
     w.classList.remove('open');
     const btn = w.querySelector('.dropdown-btn');
     if(btn) btn.setAttribute('aria-expanded', 'false');
+    // V2.10.320: ripristina gli stili inline applicati dal posizionamento fixed,
+    // così il menu torna a regolarsi dal CSS (position:absolute) quando chiuso.
+    const menu = w.querySelector('.tb-dropdown-menu');
+    if(menu){
+      menu.style.position  = '';
+      menu.style.top       = '';
+      menu.style.left      = '';
+      menu.style.right     = '';
+      menu.style.zIndex    = '';
+      menu.style.maxHeight = '';
+      menu.style.overflowY = '';
+    }
   });
 }
+
+// V2.10.320: se la finestra cambia dimensione mentre un dropdown è aperto, il
+// posizionamento fixed non è più valido → chiudi (riaprendo si riposiziona).
+window.addEventListener('resize', () => {
+  if(document.querySelector('.tb-dropdown.open')) closeAllTopbarDropdowns();
+});
 
 // Listener globale: click fuori dai dropdown → chiude.
 // Si aggancia una volta sola al document al primo uso.
