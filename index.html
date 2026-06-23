@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.325</title>
+<title>Gestione Prodotti V2.10.326</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6995,6 +6995,20 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   color:#b91c1c;
   border-color:#ef4444;
 }
+/* V2.10.326: badge giacenza nella cella FOTO delle righe del carrello/preventivo.
+   Stesso aspetto del badge sulle card della galleria (teal / amber / rosso),
+   posizionato in alto a destra della miniatura. */
+.qcart-foto-wrap{ position:relative; display:inline-block; line-height:0; }
+.qcart-foto-wrap .qcart-stock-badge{
+  position:absolute; top:-6px; right:-6px;
+  min-width:18px; height:18px; padding:0 5px; border-radius:9px;
+  background:#fff; color:#0d9488; border:1.5px solid #14b8a6;
+  font-size:10.5px; font-weight:800; font-variant-numeric:tabular-nums;
+  display:inline-flex; align-items:center; justify-content:center; line-height:1;
+  box-shadow:0 1px 3px rgba(0,0,0,0.22); pointer-events:none; z-index:3; white-space:nowrap;
+}
+.qcart-foto-wrap .qcart-stock-badge.lvl-under{ color:#b45309; border-color:#f59e0b; }
+.qcart-foto-wrap .qcart-stock-badge.lvl-out{ color:#b91c1c; border-color:#ef4444; }
 /* MINIMO: angolo in alto a destra dell'icona dettagli (eye-trigger top:8px right:8px). */
 .card-img .stock-min-badge{
   position:absolute;
@@ -9202,7 +9216,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.325</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.326</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9777,7 +9791,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — V2.10.325");
+console.info("[bootstrap] script avvio — V2.10.326");
 
 window.openStatsDashboard = function(){
   try {
@@ -11228,7 +11242,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.325';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.326';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -50058,7 +50072,25 @@ function renderQuoteCartContent(){
               'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0">' +
           '</td>' +
           '<td>' +
-            (function(){ const u = _qResolveImg(it); return u ? '<img src="' + escapeAttr(u) + '" loading="lazy" style="width:52px;height:52px;object-fit:contain;border-radius:5px;background:var(--bg)" onerror="this.style.display=\'none\'">' : ''; })() +
+            (function(){
+              const u = _qResolveImg(it);
+              const _img = u ? '<img src="' + escapeAttr(u) + '" loading="lazy" style="width:52px;height:52px;object-fit:contain;border-radius:5px;background:var(--bg)" onerror="this.style.display=\'none\'">' : '';
+              // V2.10.326: badge giacenza in alto a destra della foto, come nelle card della galleria
+              let _stk = '';
+              try {
+                const _p = (typeof DATA !== 'undefined' && it && it.idx != null) ? DATA[it.idx] : null;
+                const _code = _p ? String((typeof getField === 'function' ? getField(_p, 'name') : '') || '').trim() : '';
+                const _sq = (_code && typeof getStockQty === 'function') ? getStockQty(_code) : null;
+                if(_sq){
+                  const _g = Number(_sq.giac) || 0;
+                  const _m = Number(_sq.min) || 0;
+                  const _lvl = (typeof stockQtyLevel === 'function') ? stockQtyLevel(_g, _m) : 'ok';
+                  const _lc = _lvl === 'out' ? ' lvl-out' : (_lvl === 'under' ? ' lvl-under' : '');
+                  _stk = '<span class="qcart-stock-badge' + _lc + '" title="Giacenza Lentiai: ' + _g + (_m > 0 ? ' \u00b7 minimo ' + _m : '') + '">' + _g + '</span>';
+                }
+              } catch(_e){}
+              return (_img || _stk) ? '<span class="qcart-foto-wrap">' + _img + _stk + '</span>' : '';
+            })() +
           '</td>' +
           '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(getDisplayCode(it)) + ((function(){ const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
           '<td style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
@@ -50191,7 +50223,25 @@ function renderQuoteCartContent(){
               'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0">' +
           '</td>' +
           '<td>' +
-            (function(){ const u = _qResolveImg(it); return u ? '<img src="' + escapeAttr(u) + '" loading="lazy" style="width:52px;height:52px;object-fit:contain;border-radius:5px;background:var(--bg)" onerror="this.style.display=\'none\'">' : ''; })() +
+            (function(){
+              const u = _qResolveImg(it);
+              const _img = u ? '<img src="' + escapeAttr(u) + '" loading="lazy" style="width:52px;height:52px;object-fit:contain;border-radius:5px;background:var(--bg)" onerror="this.style.display=\'none\'">' : '';
+              // V2.10.326: badge giacenza in alto a destra della foto, come nelle card della galleria
+              let _stk = '';
+              try {
+                const _p = (typeof DATA !== 'undefined' && it && it.idx != null) ? DATA[it.idx] : null;
+                const _code = _p ? String((typeof getField === 'function' ? getField(_p, 'name') : '') || '').trim() : '';
+                const _sq = (_code && typeof getStockQty === 'function') ? getStockQty(_code) : null;
+                if(_sq){
+                  const _g = Number(_sq.giac) || 0;
+                  const _m = Number(_sq.min) || 0;
+                  const _lvl = (typeof stockQtyLevel === 'function') ? stockQtyLevel(_g, _m) : 'ok';
+                  const _lc = _lvl === 'out' ? ' lvl-out' : (_lvl === 'under' ? ' lvl-under' : '');
+                  _stk = '<span class="qcart-stock-badge' + _lc + '" title="Giacenza Lentiai: ' + _g + (_m > 0 ? ' \u00b7 minimo ' + _m : '') + '">' + _g + '</span>';
+                }
+              } catch(_e){}
+              return (_img || _stk) ? '<span class="qcart-foto-wrap">' + _img + _stk + '</span>' : '';
+            })() +
           '</td>' +
           '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(getDisplayCode(it)) + ((function(){ const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
           '<td style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
