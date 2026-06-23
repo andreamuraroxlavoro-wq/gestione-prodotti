@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.321</title>
+<title>Gestione Prodotti V2.10.323</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -556,8 +556,8 @@ body{flex-direction:row;min-height:100vh;height:100vh;overflow:hidden}
      senza spazi vuoti sotto. Il body resta a piena scala, quindi i modali
      (suoi figli) non vengono rimpiccioliti. */
   zoom: var(--ui-zoom);
-  height: calc(100% / var(--ui-zoom));      /* 125% del body (100vh) → 100vh visivi */
-  max-height: calc(100% / var(--ui-zoom));
+  height: calc(100vh / var(--ui-zoom));      /* 125% del body (100vh) → 100vh visivi */
+  max-height: calc(100vh / var(--ui-zoom));
 }
 .app-sidebar.collapsed{ width:var(--sidebar-w-collapsed); }  /* legacy, non più usata ma preservata */
 
@@ -1315,11 +1315,12 @@ body.sb-resizing *{user-select:none !important}
 .app-main-area{
   flex:1;min-width:0;
   display:flex;flex-direction:column;
-  /* V2.10.321: scala dell'interfaccia all'80% (come la sidebar). Altezza
-     compensata 100%/zoom così dopo lo zoom torna 100vh esatti. I modali/overlay
-     sono figli del body (NON di quest'area) → restano a piena scala. */
-  zoom: var(--ui-zoom);
-  height: calc(100% / var(--ui-zoom));
+  /* V2.10.323: l'area principale NON è più scalata. Lo zoom è applicato alla
+     topbar (header) e ai contenuti della griglia (main > *), così il contenitore
+     di scroll (#main) resta a scala 1: lo scroll è nativo e affidabile su tutti i
+     browser (in WebKit/Safari un overflow:auto DENTRO un elemento con zoom non
+     raggiunge il fondo → ultima riga di card tagliata). */
+  height:100vh;
   overflow:hidden;
   /* V2.10.319: contesto di impilamento sopra la sidebar (z-index:10), così i
      dropdown della topbar (es. menu ingranaggio) non finiscono coperti dalla
@@ -1329,6 +1330,14 @@ body.sb-resizing *{user-select:none !important}
   position:relative;
   z-index:11;
 }
+
+/* V2.10.323: scala interfaccia all'80% applicata SOLO a topbar e contenuti della
+   griglia. Il contenitore di scroll (#main) resta a scala 1 (vedi sopra), così lo
+   scorrimento è nativo e l'ultima riga di card è sempre raggiungibile, Safari
+   incluso. I figli di #main (gallery, banner speciale, paginazione, dropzone,
+   messaggi) vengono scalati uniformemente. */
+.app-main-area > header{ zoom: var(--ui-zoom); }
+#main > *{ zoom: var(--ui-zoom); }
 
 /* Topbar (ex header): stats + search + reset + view toggle.
    Ridisegnata per il nuovo layout: più compatta, full-width, su una sola riga */
@@ -4393,7 +4402,7 @@ body.theme-light .advs-foot{background:rgba(0,0,0,0.03)}
 }
 
 /* === MAIN === */
-main{flex:1;overflow:auto;padding:20px;position:relative}
+main{flex:1;min-height:0;overflow:auto;padding:20px 20px 32px;position:relative}
 
 /* === DROP ZONE === */
 .dropzone{
@@ -9187,7 +9196,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.321</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.323</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9764,7 +9773,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info('[bootstrap] script avvio — V2.10.321');
+console.info("[bootstrap] script avvio — V2.10.323");
 
 window.openStatsDashboard = function(){
   try {
@@ -11215,7 +11224,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.321';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.323';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -59078,10 +59087,15 @@ if(document.readyState === 'loading'){
     const header = document.querySelector('.app-main-area > header');
     if(!logo || !header) return;
     const apply = function(){
+      // V2.10.323: l'header ha ora lo zoom PROPRIO (vedi CSS), quindi offsetHeight
+      // ne restituisce l'altezza LOGICA (pre-zoom) in modo consistente su tutti i
+      // browser — a differenza di getBoundingClientRect()+zoom, che diverge tra
+      // Chrome e Safari. Il blocco logo vive nella sidebar con lo STESSO fattore di
+      // zoom: assegnandogli lo stesso valore logico come min-height, le due altezze
+      // VISIVE coincidono al pixel e le linee arancioni in fondo si allineano,
+      // sia con una sola riga di icone sia quando la topbar va a capo.
       const h = header.offsetHeight;
       if(h > 0){
-        // box-sizing:border-box: min-height include già il border-bottom 2px,
-        // quindi assegniamo l'intero offsetHeight (NON sottrarre il border).
         logo.style.minHeight = h + 'px';
       }
     };
