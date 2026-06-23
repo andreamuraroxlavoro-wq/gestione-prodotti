@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti V2.10.323</title>
+<title>Gestione Prodotti V2.10.325</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -1357,6 +1357,12 @@ body.sb-resizing *{user-select:none !important}
 .topbar-search{flex:1;min-width:120px;max-width:600px}  /* V2.9.15: min-width ridotto per evitare overflow su viewport stretti */
 .topbar-search .search{width:100%}
 .topbar-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
+/* V2.10.324: gruppo destro = contatori + azioni, ancorato a destra. flex-wrap
+   permette al gruppo di andare a capo intero su viewport stretti restando a
+   destra. Il margin-left:auto di .stats va neutralizzato qui (è il wrapper ad
+   assorbire lo spazio), altrimenti separerebbe i contatori dalle azioni. */
+.topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.topbar-right .stats{margin-left:0}
 
 /* Tema chiaro: sidebar rimane scura (è parte dell'identità visiva dell'app) */
 /* V2.10.290: in tema chiaro, la sidebar diventa chiara come il resto della UI,
@@ -9196,7 +9202,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. 2.10.323</span>
+      <span class="sb-title-ver" id="app-version">Ver. 2.10.325</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9571,13 +9577,75 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <button class="btn icon-btn" id="btnTheme" onclick="toggleTheme()" title="Cambia tema chiaro/scuro" aria-label="Cambia tema"></button>
     </div>
 
-    <!-- V2.1.17: divider tra preferenze (tema) e Impostazioni generali -->
+
+    <!-- V2.10.324: gruppo destro (contatori + azioni Stampa/Esporta/Importa)
+         ancorato a destra con margin-left:auto. Così le azioni restano SEMPRE sul
+         lato destro della topbar e, se la riga va a capo, il gruppo intero scende
+         insieme rimanendo a destra (non si separano né scivolano a sinistra). -->
+    <div class="topbar-right">
+    <div class="stats" id="stats" style="display:none">
+      <div class="stat"><b id="st-tot">0</b><span>Totali</span></div>
+      <div class="stat"><b id="st-flt">0</b><span>Visibili</span></div>
+      <!-- V2.2.42: il badge Modificati è cliccabile e funziona come toggle del filtro
+           "Solo modificati". Click → attiva filtro (memorizza stato precedente).
+           Re-click → ripristina lo stato precedente del filtro. -->
+      <div class="stat stat-clickable" id="stat-mod-badge" onclick="toggleModFilter()" role="button" tabindex="0" title="Clicca per filtrare solo i prodotti modificati"><b id="st-mod">0</b><span>Modificati</span></div>
+    </div>
+
+    <!-- V2.1.6: divider prima del gruppo azioni principali -->
     <div class="topbar-divider" aria-hidden="true"></div>
 
-    <!-- V2.1.17: Impostazioni spostate qui (prima era in fondo a destra).
-         Sono concettualmente più vicine alle preferenze (tema/occhio) che
-         alle azioni principali (esporta/importa). -->
-    <div class="view-toggle topbar-settings">
+    <!-- V2.1.14: Gruppo azioni principali (da sx a dx: Esporta, Importa, Impostazioni)
+         Il bottone Svuota DB è stato spostato dentro il dropdown Impostazioni come
+         voce "Elimina Database Articoli" con stile rosso danger. -->
+    <div class="view-toggle topbar-actions">
+      <!-- V2.10.312: STAMPA MAGAZZINO — stampa/esporta i prodotti attualmente filtrati -->
+      <button class="btn icon-btn stampa-magazzino-btn" id="btnStampaMagazzino" onclick="openStampaMagazzino()" title="Stampa magazzino: esporta i prodotti attualmente visibili/filtrati (PDF, Word, Excel)" aria-label="Stampa magazzino">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+      </button>
+      <!-- 2. Esporta (dropdown) - verde Excel -->
+      <div class="tb-dropdown export-dropdown" data-dropdown="export">
+        <button class="btn icon-btn dropdown-btn export-btn" onclick="toggleTopbarDropdown('export', this)" title="Esportazione dati" aria-label="Esportazione" aria-haspopup="true" aria-expanded="false">
+          <svg class="dd-main" viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <svg class="dd-caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="tb-dropdown-menu" id="ddMenuExport" role="menu">
+          <button class="tb-dropdown-item" onclick="openExport(); closeAllTopbarDropdowns()" role="menuitem">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+            Esporta Excel
+          </button>
+          <button class="tb-dropdown-item" onclick="openSourceExport(); closeAllTopbarDropdowns()" role="menuitem" title="Salva il file completo con tutte le modifiche locali">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Salva sorgente
+          </button>
+          <!-- V2.10.302: divisore + import giacenze magazzino (file rotazione_magazzino) -->
+          <div role="separator" style="height:1px;margin:5px 8px;background:var(--border,rgba(0,0,0,0.12))"></div>
+          <button class="tb-dropdown-item" onclick="document.getElementById('fileMag').click(); closeAllTopbarDropdowns()" role="menuitem" title="Aggiorna le giacenze dal file del magazzino (XLSX Report Magazzini · foglio Lentiai, oppure CSV stock con Riferimento prodotto/Quantità disponibile) — i codici non in catalogo vengono ignorati">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4l-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            Importa Magazzino
+          </button>
+        </div>
+      </div>
+
+      <!-- 3. Importa -->
+      <button class="btn icon-btn import-btn" onclick="document.getElementById('fileIn').click()" title="Importa un file Excel/CSV del fornitore" aria-label="Importa file">
+        <svg viewBox="0 0 24 24">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <polyline points="9 15 12 18 15 15"/>
+          <line x1="12" y1="12" x2="12" y2="18"/>
+        </svg>
+      </button>
+
+      <!-- V2.10.325: Impostazioni spostate qui, a destra dell'Importa CSV -->
       <div class="tb-dropdown" data-dropdown="settings">
         <button class="btn icon-btn dropdown-btn" onclick="toggleTopbarDropdown('settings', this)" title="Impostazioni e strumenti" aria-label="Impostazioni" aria-haspopup="true" aria-expanded="false">
           <svg class="dd-main" viewBox="0 0 24 24">
@@ -9665,71 +9733,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
         </div>
       </div>
     </div>
-
-    <div style="flex:1"></div>
-
-    <div class="stats" id="stats" style="display:none">
-      <div class="stat"><b id="st-tot">0</b><span>Totali</span></div>
-      <div class="stat"><b id="st-flt">0</b><span>Visibili</span></div>
-      <!-- V2.2.42: il badge Modificati è cliccabile e funziona come toggle del filtro
-           "Solo modificati". Click → attiva filtro (memorizza stato precedente).
-           Re-click → ripristina lo stato precedente del filtro. -->
-      <div class="stat stat-clickable" id="stat-mod-badge" onclick="toggleModFilter()" role="button" tabindex="0" title="Clicca per filtrare solo i prodotti modificati"><b id="st-mod">0</b><span>Modificati</span></div>
-    </div>
-
-    <!-- V2.1.6: divider prima del gruppo azioni principali -->
-    <div class="topbar-divider" aria-hidden="true"></div>
-
-    <!-- V2.1.14: Gruppo azioni principali (da sx a dx: Esporta, Importa, Impostazioni)
-         Il bottone Svuota DB è stato spostato dentro il dropdown Impostazioni come
-         voce "Elimina Database Articoli" con stile rosso danger. -->
-    <div class="view-toggle topbar-actions">
-      <!-- V2.10.312: STAMPA MAGAZZINO — stampa/esporta i prodotti attualmente filtrati -->
-      <button class="btn icon-btn stampa-magazzino-btn" id="btnStampaMagazzino" onclick="openStampaMagazzino()" title="Stampa magazzino: esporta i prodotti attualmente visibili/filtrati (PDF, Word, Excel)" aria-label="Stampa magazzino">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 6 2 18 2 18 9"/>
-          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-          <rect x="6" y="14" width="12" height="8"/>
-        </svg>
-      </button>
-      <!-- 2. Esporta (dropdown) - verde Excel -->
-      <div class="tb-dropdown export-dropdown" data-dropdown="export">
-        <button class="btn icon-btn dropdown-btn export-btn" onclick="toggleTopbarDropdown('export', this)" title="Esportazione dati" aria-label="Esportazione" aria-haspopup="true" aria-expanded="false">
-          <svg class="dd-main" viewBox="0 0 24 24">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          <svg class="dd-caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="tb-dropdown-menu" id="ddMenuExport" role="menu">
-          <button class="tb-dropdown-item" onclick="openExport(); closeAllTopbarDropdowns()" role="menuitem">
-            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
-            Esporta Excel
-          </button>
-          <button class="tb-dropdown-item" onclick="openSourceExport(); closeAllTopbarDropdowns()" role="menuitem" title="Salva il file completo con tutte le modifiche locali">
-            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            Salva sorgente
-          </button>
-          <!-- V2.10.302: divisore + import giacenze magazzino (file rotazione_magazzino) -->
-          <div role="separator" style="height:1px;margin:5px 8px;background:var(--border,rgba(0,0,0,0.12))"></div>
-          <button class="tb-dropdown-item" onclick="document.getElementById('fileMag').click(); closeAllTopbarDropdowns()" role="menuitem" title="Aggiorna le giacenze dal file del magazzino (XLSX Report Magazzini · foglio Lentiai, oppure CSV stock con Riferimento prodotto/Quantità disponibile) — i codici non in catalogo vengono ignorati">
-            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4l-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-            Importa Magazzino
-          </button>
-        </div>
-      </div>
-
-      <!-- 3. Importa -->
-      <button class="btn icon-btn import-btn" onclick="document.getElementById('fileIn').click()" title="Importa un file Excel/CSV del fornitore" aria-label="Importa file">
-        <svg viewBox="0 0 24 24">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <polyline points="9 15 12 18 15 15"/>
-          <line x1="12" y1="12" x2="12" y2="18"/>
-        </svg>
-      </button>
-    </div>
+    </div><!-- /topbar-right -->
     </div>
     <!-- /V2.2.27 fine topbar-main-row -->
 
@@ -9773,7 +9777,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — V2.10.323");
+console.info("[bootstrap] script avvio — V2.10.325");
 
 window.openStatsDashboard = function(){
   try {
@@ -11224,7 +11228,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'V2.10.323';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'V2.10.325';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
