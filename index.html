@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.334 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.336 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -1294,6 +1294,17 @@ body.sb-resizing *{user-select:none !important}
   background:rgba(232,92,40,0.08);
 }
 .ms-btn:active{ transform:scale(0.97); }
+/* SV2.10.336: pulsante CHIUDI rosso a tutta larghezza nel popup dei filtri
+   (MARCA/MACROCATEGORIA/CATEGORIA), per chiudere in sicurezza su touch. */
+.ms-btn-close{
+  display:block; width:100%; margin-top:5px;
+  background:#ef4444; border:1px solid #ef4444; color:#fff;
+  font-family:inherit; font-size:12px; font-weight:800;
+  text-transform:uppercase; letter-spacing:0.7px;
+  padding:10px 8px; border-radius:5px; cursor:pointer; transition:all 0.1s;
+}
+.ms-btn-close:hover{ background:#dc2626; border-color:#dc2626; }
+.ms-btn-close:active{ transform:scale(0.99); }
 
 /* Footer della sidebar: utilità compatte (theme+eye). Una riga in basso */
 .sb-footer{
@@ -9186,6 +9197,8 @@ body.theme-light .dlg-input{background:var(--bg3)}
 .mobile-hamburger{ display:none; }           /* nascosto su desktop */
 .mobile-tools-btn{ display:none; }            /* nascosto su desktop */
 .tools-panel-header{ display:none; }          /* solo nel pannello mobile */
+.qcart-actions-toggle{ display:none; }        /* solo su mobile */
+.qcart-actions{ display:contents; }           /* desktop: pulsanti azione in linea nell'header del carrello */
 .topbar-tools{ display:contents; }            /* desktop: i figli restano in linea nella topbar (layout 326 invariato) */
 #mobileDrawerOverlay{ display:none; }         /* nascosto su desktop */
 
@@ -9327,6 +9340,26 @@ body.theme-light .dlg-input{background:var(--bg3)}
 
   /* l'overlay copre anche il pannello strumenti */
   body.mtools-open #mobileDrawerOverlay{ opacity:1; pointer-events:auto; }
+
+  /* 9) SV2.10.335: pulsanti azione del preventivo raccolti in un menu a comparsa (☰ Azioni) */
+  .qcart-actions-toggle{
+    display:inline-flex; align-items:center; gap:6px; flex-shrink:0;
+    height:40px; padding:0 16px; border-radius:10px;
+    background:var(--accent); color:#fff; border:none;
+    font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap;
+  }
+  #quoteCartModal .modal-head{ flex-wrap:wrap; position:relative; row-gap:8px; }
+  #quoteCartModal .modal-head h3{ font-size:16px; }
+  .qcart-actions{
+    display:none;
+    position:absolute; top:100%; right:0; margin-top:8px;
+    flex-direction:column; align-items:stretch; gap:8px;
+    background:var(--bg2); border:1px solid var(--border2); border-radius:12px;
+    padding:10px; box-shadow:0 12px 32px rgba(0,0,0,.45);
+    z-index:30; min-width:min(80vw,280px); max-height:64vh; overflow-y:auto;
+  }
+  #quoteCartModal.qc-actions-open .qcart-actions{ display:flex; }
+  .qcart-actions .btn{ width:100%; justify-content:flex-start; font-size:14px !important; height:auto; padding:11px 13px; }
 }
 
 </style>
@@ -9372,7 +9405,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.334</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.336</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9968,7 +10001,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.334 mobile");
+console.info("[bootstrap] script avvio — SV2.10.336 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11419,7 +11452,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.334';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.336';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -24642,7 +24675,8 @@ function msOpen(key, trigger, event){
     <div class="ms-foot">
       <button type="button" class="ms-btn" onclick="msSelectAll('${key}')">Tutte</button>
       <button type="button" class="ms-btn" onclick="msSelectNone('${key}')">Nessuna</button>
-    </div>`;
+    </div>
+    <button type="button" class="ms-btn-close" onclick="msClose()">✕ Chiudi</button>`;
   document.body.appendChild(popup);
 
   // Posiziona il popup sotto il trigger
@@ -49409,6 +49443,10 @@ function openQuoteCart(){
         '<h3 style="margin:0">🛒 Carrello preventivo</h3>' +
         modeSwitchHtml +
         '<span style="flex:1"></span>' +
+        // SV2.10.335: su mobile gli 8 pulsanti azione finiscono in un menu a comparsa
+        // (☰ Azioni). Su desktop il wrapper è display:contents → pulsanti in linea, invariato.
+        '<button type="button" class="qcart-actions-toggle" id="qcartActionsToggle" aria-label="Azioni preventivo" title="Azioni">☰ Azioni</button>' +
+        '<div class="qcart-actions" id="qcartActions">' +
         // V2.4.7: due pulsanti separati
         // - Impostazioni preventivo: configurazione semantica del preventivo
         //   (Modalità Cliente/Analisi, Descrizione breve/completa)
@@ -49431,6 +49469,7 @@ function openQuoteCart(){
         // del preventivo (composizione per marca/categoria, margini, sconti, ecc.).
         '<button class="btn small" id="quoteCartChartsBtn" type="button" title="Analisi statistica del preventivo con grafici" style="font-size:13px;background:#7c3aed;color:#fff;border-color:#7c3aed">📊 Grafici</button>' +
         '<button class="btn small ghost" id="quoteCartPrintSettingsBtn" type="button" title="Cosa includere nelle esportazioni" style="font-size:13px">🖨️ Impostazioni di stampa</button>' +
+        '</div>' +   // SV2.10.335: /qcart-actions
       '</div>' +
       // V2.10.11: barra dinamica "bound info" - mostra cliente/nome/data/versione del preventivo collegato.
       // Popolata da renderQuoteCartBoundInfo(). Nascosta se _QUOTE_STATE.boundQuote=null.
@@ -49472,6 +49511,14 @@ function openQuoteCart(){
     }
     bg.remove();
   });
+  // SV2.10.335: menu "Azioni" a comparsa su mobile. Il toggle apre/chiude il
+  // wrapper; cliccando un pulsante azione il menu si richiude da solo.
+  (function(){
+    const tgl = document.getElementById('qcartActionsToggle');
+    const acts = document.getElementById('qcartActions');
+    if(tgl) tgl.addEventListener('click', (e) => { e.stopPropagation(); bg.classList.toggle('qc-actions-open'); });
+    if(acts) acts.addEventListener('click', (e) => { if(e.target.closest('.btn')) bg.classList.remove('qc-actions-open'); });
+  })();
   document.getElementById('quoteCartSettingsBtn').addEventListener('click', () => openQuoteSettingsDialog());
   // V2.10.263: handler pulsante "Grafici" — cruscotto analisi statistica
   (function(){
