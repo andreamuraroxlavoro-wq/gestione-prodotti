@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.328 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.331 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9183,6 +9183,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    ========================================================================== */
 .mobile-hamburger{ display:none; }           /* nascosto su desktop */
 .mobile-tools-btn{ display:none; }            /* nascosto su desktop */
+.tools-panel-header{ display:none; }          /* solo nel pannello mobile */
 .topbar-tools{ display:contents; }            /* desktop: i figli restano in linea nella topbar (layout 326 invariato) */
 #mobileDrawerOverlay{ display:none; }         /* nascosto su desktop */
 
@@ -9231,7 +9232,10 @@ body.theme-light .dlg-input{background:var(--bg3)}
         browser mobile al focus. */
   header{ position:sticky; top:0; z-index:50; }
   .topbar-main-row{ padding:8px 10px; gap:8px; align-items:center; flex-wrap:wrap; }
-  .topbar-search{ order:-1; flex:1 1 100%; min-width:0; height:46px; font-size:16px; }
+  .topbar-search{ order:1; flex:1 1 120px; min-width:0; height:46px; font-size:16px; }
+  /* SV2.10.329: Reset filtri sempre visibile, subito a destra della ricerca */
+  .topbar-main-row > #btnResetFilters{ order:2; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; min-width:46px; min-height:46px; position:relative; }
+  .topbar-main-row > #btnResetFilters svg{ width:22px; height:22px; }
   .topbar-divider{ display:none; }
   .topbar-right{ order:5; margin-left:auto; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
   .topbar-right .stats{ gap:12px; }
@@ -9259,7 +9263,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
         ottimizza lo spazio verticale. */
   .mobile-tools-btn{
     display:inline-flex; align-items:center; justify-content:center;
-    width:46px; height:46px; flex-shrink:0; order:4; margin-left:auto; padding:0;
+    width:46px; height:46px; flex-shrink:0; order:3; margin-left:0; padding:0;
     background:var(--bg3); border:1px solid var(--border2); border-radius:12px; color:var(--fg);
   }
   .mobile-tools-btn svg{ width:24px; height:24px; }
@@ -9279,12 +9283,23 @@ body.theme-light .dlg-input{background:var(--bg3)}
   }
   body.mtools-open .topbar-tools{ transform:translateX(0); }
   /* intestazione del pannello (tutta la riga) */
-  .topbar-tools::before{
-    content:"Strumenti e azioni"; grid-column:1 / -1; justify-self:start; display:block;
-    font-weight:800; font-size:13px; letter-spacing:.8px; text-transform:uppercase;
-    color:var(--fg3); padding-bottom:8px; border-bottom:1px solid var(--border2);
-    width:100%; box-sizing:border-box;
+  /* intestazione del pannello: titolo + pulsante CHIUDI, fissa in alto durante lo scroll */
+  .tools-panel-header{
+    grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:12px;
+    position:sticky; top:-20px; z-index:2;
+    margin:-20px -18px 4px; padding:16px 18px 10px;
+    background:var(--bg2); border-bottom:1px solid var(--border2);
   }
+  .tools-panel-title{
+    font-weight:800; font-size:13px; letter-spacing:.8px; text-transform:uppercase; color:var(--fg3);
+  }
+  .tools-close-btn{
+    display:inline-flex; align-items:center; gap:7px; flex-shrink:0;
+    height:40px; padding:0 16px; border-radius:10px;
+    background:var(--accent); color:#fff; border:none;
+    font-size:14px; font-weight:700; cursor:pointer;
+  }
+  .tools-close-btn svg{ width:18px; height:18px; }
   /* i gruppi "spariscono" come box: le loro icone diventano celle della griglia */
   .topbar-tools .view-toggle,
   .topbar-tools .topbar-right,
@@ -9345,7 +9360,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.328</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.331</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9534,13 +9549,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <input type="text" class="search topbar-search" id="search" placeholder="Cerca per nome, codice, marca, descrizione…">
-    <!-- SV2.10.327: pulsante Strumenti (solo mobile) — apre il pannello con filtri rapidi, viste, azioni -->
-    <button class="mobile-tools-btn" id="mobileToolsBtn" onclick="toggleMobileTools()" aria-label="Strumenti e azioni" title="Strumenti / Azioni">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>
-    </button>
-    <!-- SV2.10.327: contenitore di tutte le icone/azioni della topbar. Desktop: invariato
-         (display:contents, in linea). Mobile: pannello a scomparsa da destra. -->
-    <div class="topbar-tools" id="topbarTools">
+    <!-- SV2.10.329: Reset filtri spostato fuori dal menu, subito a destra della ricerca -->
     <button class="btn icon-btn" id="btnResetFilters" onclick="resetAllFilters()" title="Azzera tutti i filtri attivi" aria-label="Reset filtri">
       <svg viewBox="0 0 24 24">
         <path d="M3 4h14l-5 6v7l-4-2v-5L3 4z"/>
@@ -9551,6 +9560,21 @@ body.theme-light .dlg-input{background:var(--bg3)}
            Mostrato solo se il pulsante ha .has-active-filters (gestito da CSS). -->
       <span class="reset-badge" id="resetBadge" aria-hidden="true"></span>
     </button>
+    <!-- SV2.10.327: pulsante Strumenti (solo mobile) — apre il pannello con filtri rapidi, viste, azioni -->
+    <button class="mobile-tools-btn" id="mobileToolsBtn" onclick="toggleMobileTools()" aria-label="Strumenti e azioni" title="Strumenti / Azioni">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>
+    </button>
+    <!-- SV2.10.327: contenitore di tutte le icone/azioni della topbar. Desktop: invariato
+         (display:contents, in linea). Mobile: pannello a scomparsa da destra. -->
+    <div class="topbar-tools" id="topbarTools">
+    <!-- SV2.10.330: intestazione del pannello con pulsante CHIUDI (solo mobile) -->
+    <div class="tools-panel-header">
+      <span class="tools-panel-title">Strumenti e azioni</span>
+      <button type="button" class="tools-close-btn" onclick="closeMobileTools()" aria-label="Chiudi menu strumenti">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        <span>Chiudi</span>
+      </button>
+    </div>
 
     <!-- V2.1.12: Ricerca avanzata spostata qui, subito dopo Reset filtri.
          I due bottoni formano il gruppo "operazioni sui filtri": uno pulisce,
@@ -9932,7 +9956,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.328 mobile");
+console.info("[bootstrap] script avvio — SV2.10.331 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11383,7 +11407,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.328';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.331';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -59376,7 +59400,15 @@ init();
       }
     }
   }
-  function initTools(){ placeTools(); }
+  function initTools(){ placeTools(); bindCloudAutoClose(); }
+  /* SV2.10.331: quando si avvia upload/download verso il cloud, chiudo il pannello
+     strumenti così resta visibile l'avanzamento del sync. */
+  function bindCloudAutoClose(){
+    ['btnDriveManualPush','btnDriveManualPull','btnDriveRefresh'].forEach(function(id){
+      var b = document.getElementById(id);
+      if(b && !b._mClose){ b._mClose = true; b.addEventListener('click', function(){ window.closeMobileTools(); }); }
+    });
+  }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initTools);
   else initTools();
   window.addEventListener('resize', placeTools);
