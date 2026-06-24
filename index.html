@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.332 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.334 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -888,6 +888,7 @@ body{flex-direction:row;min-height:100vh;min-height:100dvh;height:100vh;height:1
   z-index:20;
   background:transparent;
   transition:background 0.12s;
+  touch-action:none;  /* SV2.10.333: il drag col dito non deve attivare lo scroll */
 }
 /* Linea verticale sottile dentro la hit area — appare al hover/drag */
 .sb-resize-handle::before{
@@ -9210,7 +9211,16 @@ body.theme-light .dlg-input{background:var(--bg3)}
     -webkit-overflow-scrolling:touch;
   }
   body.mdrawer-open .app-sidebar{ transform:translateX(0); }
-  .sb-resize-handle{ display:none !important; }
+  .sb-resize-handle{
+    display:block !important; width:24px;
+    background:transparent;
+  }
+  /* indicatore "grip" sempre visibile su touch (niente hover): pillola verticale */
+  .sb-resize-handle::before{
+    right:7px; width:4px; height:48px; top:50%; transform:translateY(-50%);
+    border-radius:3px; background:var(--border2);
+  }
+  body.sb-resizing .sb-resize-handle::before{ background:var(--accent); }
 
   /* overlay scuro che chiude il drawer al tocco */
   #mobileDrawerOverlay{
@@ -9362,7 +9372,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.332</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.334</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9958,7 +9968,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.332 mobile");
+console.info("[bootstrap] script avvio — SV2.10.334 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11409,7 +11419,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.332';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.334';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -24687,7 +24697,8 @@ function msOpen(key, trigger, event){
       document.addEventListener('click', _msOutsideClickHandler, true);
     }
     document.addEventListener('keydown', _msEscKeyHandler);
-    window.addEventListener('resize', msClose);
+    MS_OPEN_VW = window.innerWidth;                       // SV2.10.334
+    window.addEventListener('resize', _msResizeHandler);  // SV2.10.334: non chiude per la tastiera
     window.addEventListener('scroll', _msScrollHandler, true);
   }, 0);
 
@@ -24767,10 +24778,27 @@ function _msEscKeyHandler(e){
 function _msScrollHandler(e){
   // Se scrolla dentro il popup stesso, non chiudere
   if(MS_OPEN_POPUP && MS_OPEN_POPUP.contains(e.target)) return;
+  // SV2.10.334: mentre si digita nel campo "Cerca" su touch, la tastiera può
+  // generare scroll/reflow: non chiudere finché il campo ha il focus.
+  if(IS_TOUCH_DEVICE && _msKeyboardActive()) return;
   // V2.2.42: ignora gli scroll fantasma generati da Android nei primi 500ms
   // dopo l'apertura del popup. Tap su touch device può generare un piccolo
   // scroll detection che chiuderebbe immediatamente il dropdown.
   if(IS_TOUCH_DEVICE && (Date.now() - MS_LAST_OPEN_TS) < 500) return;
+  msClose();
+}
+
+// SV2.10.334: il focus è dentro il popup aperto (es. campo "Cerca")?
+function _msKeyboardActive(){
+  return !!(MS_OPEN_POPUP && document.activeElement && MS_OPEN_POPUP.contains(document.activeElement));
+}
+// SV2.10.334: chiusura su resize SOLO per veri ridimensionamenti (rotazione,
+// finestra). Su touch la comparsa della tastiera virtuale cambia solo l'altezza
+// del viewport (stessa larghezza) e NON deve chiudere il dropdown, altrimenti
+// non si riesce a digitare nel campo "Cerca".
+let MS_OPEN_VW = 0;
+function _msResizeHandler(){
+  if(IS_TOUCH_DEVICE && (_msKeyboardActive() || window.innerWidth === MS_OPEN_VW)) return;
   msClose();
 }
 
@@ -24793,7 +24821,7 @@ function msClose(){
   document.removeEventListener('click', _msOutsideClickHandler, true);
   document.removeEventListener('pointerdown', _msOutsideClickHandler, true);
   document.removeEventListener('keydown', _msEscKeyHandler);
-  window.removeEventListener('resize', msClose);
+  window.removeEventListener('resize', _msResizeHandler);
   window.removeEventListener('scroll', _msScrollHandler, true);
 }
 
@@ -35100,23 +35128,25 @@ function initSidebarResizer(){
   const sb = document.getElementById('appSidebar');
   if(!handle || !sb) return;
 
-  let startX = 0;       // X del mouse al mousedown
-  let startWidth = 0;   // larghezza sidebar al mousedown
+  let startX = 0;       // X del puntatore al pointerdown
+  let startWidth = 0;   // larghezza sidebar al pointerdown
+  let pid = null;       // pointerId attivo
 
-  const onMouseMove = (e) => {
+  const onMove = (e) => {
     const delta = e.clientX - startX;
     let newWidth = startWidth + delta;
-    // Clamp ai limiti min/max
     if(newWidth < SB_MIN_WIDTH) newWidth = SB_MIN_WIDTH;
     if(newWidth > SB_MAX_WIDTH) newWidth = SB_MAX_WIDTH;
     sb.style.width = newWidth + 'px';
+    sb.style.maxWidth = newWidth + 'px';   // SV2.10.333: vince sul max-width 86vw del drawer mobile
   };
 
-  const onMouseUp = () => {
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
+  const onUp = () => {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
     document.body.classList.remove('sb-resizing');
-    // Persistenza: leggo la width finale dallo style e la salvo
+    try { handle.releasePointerCapture(pid); } catch(_){}
     try {
       const finalWidth = parseInt(sb.style.width, 10);
       if(finalWidth >= SB_MIN_WIDTH && finalWidth <= SB_MAX_WIDTH){
@@ -35125,13 +35155,18 @@ function initSidebarResizer(){
     } catch(_){}
   };
 
-  handle.addEventListener('mousedown', (e) => {
+  // SV2.10.333: Pointer Events al posto dei soli Mouse Events, così il
+  // ridimensionamento funziona anche col dito su tablet/smartphone touch.
+  handle.addEventListener('pointerdown', (e) => {
     e.preventDefault();
+    pid = e.pointerId;
+    try { handle.setPointerCapture(pid); } catch(_){}
     startX = e.clientX;
     startWidth = sb.getBoundingClientRect().width;
     document.body.classList.add('sb-resizing');
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
   });
 }
 
@@ -35170,6 +35205,7 @@ function restoreSidebarState(){
     const savedWidth = parseInt(localStorage.getItem('vt_sidebar_width'), 10);
     if(savedWidth >= SB_MIN_WIDTH && savedWidth <= SB_MAX_WIDTH){
       sb.style.width = savedWidth + 'px';
+      sb.style.maxWidth = savedWidth + 'px';   // SV2.10.333: coerente col drawer mobile (vince sul max-width 86vw)
     }
     // 2) Stato di ogni gruppo expandable
     const heads = Array.from(document.querySelectorAll('.sb-group-head'));
