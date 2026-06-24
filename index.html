@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.339 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.342 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -1036,7 +1036,7 @@ body.sb-resizing *{user-select:none !important}
 }
 .sb-filter-group label{
   font-family:-apple-system, 'SF Pro Text', 'Segoe UI', 'Inter', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size:10px;color:var(--sidebar-fg-dim);
+  font-size:14px;color:var(--sidebar-fg-dim);  /* SV2.10.342: era 10px, ingrandito anche su desktop */
   text-transform:uppercase;letter-spacing:1px;font-weight:700;
   padding-left:0;
 }
@@ -1045,7 +1045,7 @@ body.sb-resizing *{user-select:none !important}
   padding:6px 8px;border-radius:4px;
   background:var(--sidebar-bg-hover);
   border:1px solid var(--sidebar-border);
-  color:#fff;font-size:12px;
+  color:#fff;font-size:16px;  /* SV2.10.342: era 12px, ingrandito anche su desktop */
 }
 .sb-filter-group .filter-select:focus{outline:none;border-color:var(--sidebar-accent)}
 .sb-filter-group .filter-select option{background:var(--sidebar-bg);color:#fff}
@@ -1066,7 +1066,7 @@ body.sb-resizing *{user-select:none !important}
   border:1px solid var(--sidebar-border);
   border-radius:6px;
   color:#fff;
-  font-size:12px;
+  font-size:16px;  /* SV2.10.342: era 12px, ingrandito anche su desktop */
   font-family:inherit;
   cursor:pointer;
   transition:border-color 0.12s, background 0.12s;
@@ -1407,8 +1407,25 @@ body.theme-light .sb-title-backup:hover{
   background:rgba(15,20,30,0.10);
   color:var(--sidebar-fg);
 }
-/* La pillola orologio mantiene il suo accent cyano: già OK su entrambi i temi grazie
-   alla saturazione. Non serve override. */
+/* SV2.10.341: in tema CHIARO l'orologio e la modalità erano poco leggibili
+   (colore tenue su sfondo chiaro). Riempimento pieno + testo bianco come il badge versione. */
+body.theme-light .sb-title-clock{
+  color:#fff;
+  background:#0891b2;
+  border-color:#0891b2;
+  font-weight:600;
+}
+body.theme-light .sb-title-clock svg{ opacity:1; }
+body.theme-light .sb-title-localmode{
+  color:#fff;
+  background:#d97706;
+  border-color:#d97706;
+}
+body.theme-light .sb-title-localmode.has-pending{
+  color:#fff;
+  background:#b45309;
+  border-color:#b45309;
+}
 
 /* === V2.10.290: Override elementi sidebar con colori hard-coded per dark mode ===
    I select/trigger dei filtri Marca/Macrocategoria/Categoria, l'input di ricerca veloce
@@ -2038,7 +2055,7 @@ body.theme-light .topbar-pills-bar{
 #fltQuickSearch{
   width:100%;
   padding:8px 28px 8px 10px;
-  font-size:12px;
+  font-size:16px;  /* SV2.10.342: era 12px, coerente con i filtri ingranditi */
   background:rgba(0,0,0,0.42);
   border:1px solid rgba(255,255,255,0.12);
   border-radius:5px;
@@ -9201,6 +9218,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
 .qcart-actions{ display:contents; }           /* desktop: pulsanti azione in linea nell'header del carrello */
 .topbar-tools{ display:contents; }            /* desktop: i figli restano in linea nella topbar (layout 326 invariato) */
 #mobileDrawerOverlay{ display:none; }         /* nascosto su desktop */
+#mobileDrawerCloseFab{ display:none; }        /* nascosto su desktop; visibile solo col drawer aperto su mobile */
 
 @media (max-width: 768px){
   /* 1) Niente rimpicciolimento su mobile: scala piena, elementi toccabili.
@@ -9243,6 +9261,19 @@ body.theme-light .dlg-input{background:var(--bg3)}
     -webkit-tap-highlight-color:transparent;
   }
   body.mdrawer-open #mobileDrawerOverlay{ opacity:1; pointer-events:auto; }
+  /* SV2.10.343: X fluttuante di chiusura del menu, ancorata al bordo destro del drawer */
+  #mobileDrawerCloseFab{
+    position:fixed; top:78px;
+    left:min(86vw, 360px); transform:translateX(-50%);
+    width:46px; height:46px; border-radius:50%;
+    background:var(--accent); color:#fff; border:2px solid #fff;
+    box-shadow:0 4px 16px rgba(0,0,0,.4);
+    font-size:22px; line-height:1; font-weight:700;
+    align-items:center; justify-content:center;
+    z-index:6200; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  #mobileDrawerCloseFab:active{ transform:translateX(-50%) scale(0.94); }
+  body.mdrawer-open #mobileDrawerCloseFab{ display:flex; }
 
   /* 3) Hamburger nella topbar (apre il drawer dei filtri) */
   .mobile-hamburger{
@@ -9342,6 +9373,9 @@ body.theme-light .dlg-input{background:var(--bg3)}
   /* icone grandi e comode al tocco */
   .topbar-tools .btn.icon-btn{ width:56px; height:56px; min-width:56px; min-height:56px; position:relative; }
   .topbar-tools .btn.icon-btn svg{ width:26px; height:26px; }
+  /* SV2.10.340: vwToggle/vwTooltip (gruppo .view-toggle) erano 40x40 → ora 56x56 come le altre */
+  .topbar-tools .view-toggle button{ width:56px; height:56px; min-width:56px; min-height:56px; border-radius:8px; }
+  .topbar-tools .view-toggle button svg{ width:26px; height:26px; }
 
   /* l'overlay copre anche il pannello strumenti */
   body.mtools-open #mobileDrawerOverlay{ opacity:1; pointer-events:auto; }
@@ -9383,6 +9417,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
      ========================================================================== -->
 <!-- SV2.10.326: overlay che oscura il contenuto e chiude il drawer al tocco (solo mobile) -->
 <div id="mobileDrawerOverlay" onclick="closeMobileDrawer()" aria-hidden="true"></div>
+<button id="mobileDrawerCloseFab" onclick="closeMobileDrawer()" aria-label="Chiudi menu" title="Chiudi menu">✕</button>
 <aside class="app-sidebar" id="appSidebar">
   <!-- Blocco logo S&CURITY — V2.2.8: logo vettoriale dedicato, pulito da
        font-set IcoMoon e metadata Inkscape. Ampersand #e62d52 = sidebar-accent
@@ -9414,7 +9449,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.339</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.342</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -10010,7 +10045,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.339 mobile");
+console.info("[bootstrap] script avvio — SV2.10.342 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11461,7 +11496,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.339';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.342';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -21624,7 +21659,7 @@ function _bkUpdateLastBackupBadge(){
     try {
       const d = new Date(BACKUP_STATE.lastBackupAt);
       const pad = n => String(n).padStart(2,'0');
-      txt = `Ultimo Backup: ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      txt = `Ultimo Backup Locale: ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     } catch(_){}
   } else {
     txt = 'Backup non configurato';
