@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.331 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.332 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -538,7 +538,7 @@ input,select,textarea{font-family:inherit}
   --sidebar-border: rgba(255,255,255,0.06);
   --topbar-h: 60px;
 }
-body{flex-direction:row;min-height:100vh;height:100vh;overflow:hidden}
+body{flex-direction:row;min-height:100vh;min-height:100dvh;height:100vh;height:100dvh;overflow:hidden}
 
 /* --- SIDEBAR --- */
 .app-sidebar{
@@ -1321,6 +1321,7 @@ body.sb-resizing *{user-select:none !important}
      browser (in WebKit/Safari un overflow:auto DENTRO un elemento con zoom non
      raggiunge il fondo → ultima riga di card tagliata). */
   height:100vh;
+  height:100dvh;
   overflow:hidden;
   /* V2.10.319: contesto di impilamento sopra la sidebar (z-index:10), così i
      dropdown della topbar (es. menu ingranaggio) non finiscono coperti dalla
@@ -4408,7 +4409,7 @@ body.theme-light .advs-foot{background:rgba(0,0,0,0.03)}
 }
 
 /* === MAIN === */
-main{flex:1;min-height:0;overflow:auto;padding:20px 20px 32px;position:relative}
+main{flex:1;min-height:0;overflow:auto;padding:20px 20px max(48px, env(safe-area-inset-bottom));position:relative}
 
 /* === DROP ZONE === */
 .dropzone{
@@ -9195,11 +9196,12 @@ body.theme-light .dlg-input{background:var(--bg3)}
 
   /* 2) Layout: l'area principale occupa tutta la larghezza; la sidebar esce dal
         flusso e diventa un pannello a scomparsa (drawer). */
-  .app-main-area{ width:100% !important; flex:1 1 100% !important; min-width:0; height:100vh !important; }
+  .app-main-area{ width:100% !important; flex:1 1 100% !important; min-width:0; height:100vh !important; height:100dvh !important; }
   .app-sidebar{
     position:fixed; top:0; left:0; bottom:0;
     width:86vw; max-width:360px;
     height:100vh !important; max-height:100vh !important;
+    height:100dvh !important; max-height:100dvh !important;
     transform:translateX(-100%);
     transition:transform .26s cubic-bezier(.4,0,.2,1);
     z-index:6000;
@@ -9360,7 +9362,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.331</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.332</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9956,7 +9958,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.331 mobile");
+console.info("[bootstrap] script avvio — SV2.10.332 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11407,7 +11409,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.331';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.332';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
