@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.352 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.355 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -3200,7 +3200,10 @@ select.filled:focus{
 }
 
 /* Card: blocco prezzi con listino e sconto */
-.card-prices{display:flex;flex-direction:column;align-items:flex-end;gap:2px;line-height:1.2}
+/* SV2.10.353: altezza minima = 3 righe (Prezzo/Netto + Sconto + Listino) così la card
+   NON cambia altezza quando un prodotto ha meno righe (es. senza netto/sconto in vendita)
+   o quando si nasconde prezzo/sconto con l'occhio. Tiene la griglia allineata. */
+.card-prices{display:flex;flex-direction:column;align-items:flex-end;gap:2px;line-height:1.2;min-height:60px}
 /* Listino BARRATO (variante usata nella modalità "sconto" della tabella) */
 .card-listino{
   font-size:10px;color:var(--fg3);text-decoration:line-through;
@@ -5008,10 +5011,14 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
 }
 /* SV2.10.350: l'area info della card (card-body) ha sfondo SEMPRE rosso tenue
    se il prodotto è scatalogato, verde tenue se è nuovo. Calibrato per tema. */
-.card.is-obsolete .card-body{ background:rgba(239,68,68,0.13); }
-.card.is-new .card-body{ background:rgba(34,197,94,0.13); }
-body.theme-light .card.is-obsolete .card-body{ background:rgba(239,68,68,0.09); }
-body.theme-light .card.is-new .card-body{ background:rgba(34,197,94,0.09); }
+/* SV2.10.354: sfondo card-body OPACO (color-mix con --bg2) invece di rgba semi-trasparente,
+   così il colore non si mescola con la tinta della galleria (#main verde in vendita / rosso
+   in acquisto) che trasparirebbe attraverso la card scatalogata. Resta rosso per gli scatalogati
+   e verde per i nuovi in QUALSIASI modalità. */
+.card.is-obsolete .card-body{ background:color-mix(in srgb, var(--bg2) 87%, #ef4444); }
+.card.is-new .card-body{ background:color-mix(in srgb, var(--bg2) 87%, #22c55e); }
+body.theme-light .card.is-obsolete .card-body{ background:color-mix(in srgb, var(--bg2) 91%, #ef4444); }
+body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg2) 91%, #22c55e); }
 
 /* Tabella: badge inline accanto al nome */
 .row-state-badge{
@@ -9512,7 +9519,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.352</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.355</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -10108,7 +10115,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.352 mobile");
+console.info("[bootstrap] script avvio — SV2.10.355 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11559,7 +11566,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.352';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.355';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -26866,7 +26873,7 @@ function renderGallery(main, list){
         priceBlock = `
           <div class="card-prices card-prices-sale${_saleInfo.hasAdj ? ' has-cascade-adj' : ''}" title="${escapeAttr(_vTip)}">
             ${priceNum(listino) ? `<span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(listino)}</span>` : ''}
-            <span class="card-discount${_saleInfo.hasAdj ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_scVend)}${_saleInfo.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span>' : ''}</span>
+            <span class="card-discount${_saleInfo.hasAdj ? ' card-discount-cascade' : ''}">${_saleInfo.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span> ' : ''}Sc. ${fmtDiscount(_scVend)}</span>
             <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_prezzoVend)}</span>
           </div>`;
       } else if(showDisc){
@@ -26883,7 +26890,7 @@ function renderGallery(main, list){
         priceBlock = `
           <div class="card-prices${_showEff ? ' has-cascade-adj' : ''}"${_adjTip ? ` title="${escapeAttr(_adjTip)}"` : ''}>
             ${priceNum(listino) ? `<span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(listino)}</span>` : ''}
-            ${_displayDisc !== null ? `<span class="card-discount${_showEff ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_displayDisc)}${_showEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span>' : ''}</span>` : ''}
+            ${_displayDisc !== null ? `<span class="card-discount${_showEff ? ' card-discount-cascade' : ''}">${_showEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span> ' : ''}Sc. ${fmtDiscount(_displayDisc)}</span>` : ''}
             ${priceNum(_displayNetto) ? `<span class="card-price card-listino-neutral"><span class="card-price-label">Netto</span> € ${fmtPrice(_displayNetto)}</span>` : ''}
           </div>`;
       } else {
@@ -27236,7 +27243,7 @@ function renderTable(main, list){
       let _vTipRow = _saleInfoRow.hasAdj
         ? `Sconto di vendita specifico (${escapeAttr(_saleInfoRow.adjPath || '')}) — base ${fmtDiscount(_saleInfoRow.scontoBase)} → applicato ${fmtDiscount(_saleInfoRow.scontoEff)}`
         : `Sconto di vendita base del listino: ${fmtDiscount(_saleInfoRow.scontoBase)}`;
-      const scontoTxt = `<span class="card-discount${_saleInfoRow.hasAdj ? ' card-discount-cascade' : ''}" style="font-size:11px">Sc. ${fmtDiscount(_scV)}${_saleInfoRow.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span>' : ''}</span>`;
+      const scontoTxt = `<span class="card-discount${_saleInfoRow.hasAdj ? ' card-discount-cascade' : ''}" style="font-size:11px">${_saleInfoRow.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span> ' : ''}Sc. ${fmtDiscount(_scV)}</span>`;
       // Ordine invariato: Listino | Sconto | Prezzo vendita (blu). SV2.10.352: Listino verde.
       priceCells = `
         <td style="color:var(--accent3);font-size:12px;font-weight:700">${listinoTxt}</td>
@@ -27247,7 +27254,7 @@ function renderTable(main, list){
       // V2.5.4: netto e sconto sono quelli effettivi (con ★ se ci sono sconti aggiuntivi)
       const nettoTxt = priceNum(_displayNetto) ? `€ ${fmtPrice(_displayNetto)}` : '—';
       const scontoTxt = _displayDisc !== null
-        ? `<span class="card-discount${_showEff ? ' card-discount-cascade' : ''}" style="font-size:11px">Sc. ${fmtDiscount(_displayDisc)}${_showEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span>' : ''}</span>`
+        ? `<span class="card-discount${_showEff ? ' card-discount-cascade' : ''}" style="font-size:11px">${_showEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span> ' : ''}Sc. ${fmtDiscount(_displayDisc)}</span>`
         : '—';
       // Tooltip ricco di dettaglio cascata (solo se applicato)
       let adjTip = '';
@@ -29199,7 +29206,7 @@ function renderRelatedList(){
           _relPriceBlock = `
             <div class="card-prices card-prices-sale${_relSaleInfo.hasAdj ? ' has-cascade-adj' : ''}" title="${escapeAttr(_vTip)}">
               <span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
-              <span class="card-discount${_relSaleInfo.hasAdj ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_scV)}${_relSaleInfo.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span>' : ''}</span>
+              <span class="card-discount${_relSaleInfo.hasAdj ? ' card-discount-cascade' : ''}">${_relSaleInfo.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span> ' : ''}Sc. ${fmtDiscount(_scV)}</span>
               <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_prezzoV)}</span>
             </div>`;
         } else if(_relShowDisc){
@@ -29214,7 +29221,7 @@ function renderRelatedList(){
           _relPriceBlock = `
             <div class="card-prices${_relShowEff ? ' has-cascade-adj' : ''}"${_adjTip ? ` title="${escapeAttr(_adjTip)}"` : ''}>
               <span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
-              ${_relEffDisc !== null ? `<span class="card-discount${_relShowEff ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_relEffDisc)}${_relShowEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span>' : ''}</span>` : ''}
+              ${_relEffDisc !== null ? `<span class="card-discount${_relShowEff ? ' card-discount-cascade' : ''}">${_relShowEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span> ' : ''}Sc. ${fmtDiscount(_relEffDisc)}</span>` : ''}
               ${priceNum(_relEffNetto) ? `<span class="card-price card-listino-neutral"><span class="card-price-label">Netto</span> € ${fmtPrice(_relEffNetto)}</span>` : ''}
             </div>`;
         } else {
