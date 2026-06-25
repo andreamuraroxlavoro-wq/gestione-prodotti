@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.359 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.360 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9519,7 +9519,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.359</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.360</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -10115,7 +10115,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.359 mobile");
+console.info("[bootstrap] script avvio — SV2.10.360 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11566,7 +11566,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.359';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.360';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -50972,7 +50972,8 @@ function renderQuoteCartContent(){
               (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)
                 ? '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
                     '<input type="text" inputmode="decimal" class="qcart-nettoacq-input" data-code="' + escapeAttr(it.code) + '" ' +
-                      'value="' + (it.netto != null ? _qFmtNum(_roundCents(it.netto), 2) : '0') + '" ' +
+                      'value="' + (it.netto != null ? _qFmtNum(_roundCents(it.netto), 2) : (it.isFreeField ? '' : '0')) + '" ' +
+                      (it.isFreeField ? 'placeholder="—" ' : '') +
                       'title="Netto d\'acquisto (costo) — modificabile. Il prezzo di vendita resta invariato." ' +
                       'style="width:78px;padding:3px 6px;font-size:12px;text-align:right;color:#dc2626;font-weight:600">' +
                   '</div>'
@@ -51302,6 +51303,16 @@ function renderQuoteCartContent(){
     // vuoto, "-", virgola sospesa — non tocco nulla e aspetto il tasto dopo.
     inp.addEventListener('input', () => {
       const code = inp.dataset.code;
+      // SV2.10.360: voci libere → costo liberamente modificabile (vuoto/0/negativo).
+      // Durante la digitazione aggiorno solo il modello; il re-render avviene al blur
+      // (change), così il campo può restare vuoto senza far "saltare" il cursore.
+      const _it = window._QUOTE_STATE.items.find(x => x.code === code);
+      if(_it && _it.isFreeField){
+        const raw = String(inp.value).trim();
+        if(raw === ''){ _it.netto = null; _it.nettoOrig = null; }
+        else { const nv = _parsePriceInput(inp.value); if(nv != null){ _it.netto = nv; _it.nettoOrig = nv; } }
+        return;
+      }
       const v = _parsePriceInput(inp.value);
       if(v == null || v <= 0) return;   // valore intermedio non valido: aspetto
       updateCartItemNetto(code, v);
@@ -51312,6 +51323,21 @@ function renderQuoteCartContent(){
       const code = inp.dataset.code;
       const item = window._QUOTE_STATE.items.find(it => it.code === code);
       if(!item){ renderQuoteCartContent(); return; }
+      // SV2.10.360: voci libere → costo azzerabile (0) o lasciabile vuoto (null),
+      // anche negativo (storno). Nessun vincolo "> 0".
+      if(item.isFreeField){
+        const raw = String(inp.value).trim();
+        if(raw === ''){
+          item.netto = null; item.nettoOrig = null;
+        } else {
+          const nv = _parsePriceInput(inp.value);
+          if(nv == null){ renderQuoteCartContent(); return; }  // non numerico: ripristino
+          item.netto = nv; item.nettoOrig = nv;
+        }
+        if(typeof saveQuoteState === 'function'){ try { saveQuoteState(); } catch(_){} }
+        renderQuoteCartContent();
+        return;
+      }
       const v = _parsePriceInput(inp.value);
       if(v == null || v <= 0){
         toast && toast('Inserisci un netto d\'acquisto valido (> 0)');
