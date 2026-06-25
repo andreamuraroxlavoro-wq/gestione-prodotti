@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.355 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.356 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9519,7 +9519,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.355</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.356</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -10115,7 +10115,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.355 mobile");
+console.info("[bootstrap] script avvio — SV2.10.356 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11566,7 +11566,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.355';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.356';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -15804,11 +15804,33 @@ function _driveBuildFullPayload(){
   const quotesPayload = null;
   const servicesPayload = null;
 
+  // SV2.10.356: listini di vendita (SPL) sincronizzati DENTRO il master.
+  // Leggo da localStorage 'salesPriceLists_v1' (mappa {id: listino}) e l'id attivo
+  // 'activeSalesPriceList_v1'. Stesso pattern dei cascadeDiscounts: il dato deve
+  // partecipare al sync anche se window._SPL_CACHE non è ancora popolata in sessione.
+  let salesPriceLists = null;
+  let activeSalesPriceList = null;
+  try {
+    const rawSpl = localStorage.getItem('salesPriceLists_v1');
+    if(rawSpl){
+      const parsedSpl = JSON.parse(rawSpl);
+      if(parsedSpl && typeof parsedSpl === 'object' && Object.keys(parsedSpl).length > 0){
+        salesPriceLists = parsedSpl;
+      }
+    }
+    const rawActiveSpl = localStorage.getItem('activeSalesPriceList_v1');
+    if(rawActiveSpl) activeSalesPriceList = rawActiveSpl;
+  } catch(e){
+    console.warn('[drive] errore lettura listini di vendita:', e);
+  }
+
   return {
     data: DATA,
     edits: EDITS,
     settings: settingsObj,
     cascadeDiscounts: cascadeDiscounts,  // V2.8.0: sconti aggiuntivi a cascata
+    salesPriceLists: salesPriceLists,        // SV2.10.356: listini di vendita
+    activeSalesPriceList: activeSalesPriceList, // SV2.10.356: id listino attivo
     clients: clientsPayload,              // V2.10.51: archivio clienti
     quotesArchive: quotesPayload,         // V2.10.51: archivio preventivi
     servicesArchive: servicesPayload,     // V2.10.59: archivio servizi
@@ -15817,6 +15839,7 @@ function _driveBuildFullPayload(){
       count: DATA.length,
       editsCount: Object.keys(EDITS).length,
       cascadeAdjCount: cascadeDiscounts ? Object.keys(cascadeDiscounts).length : 0,
+      salesPriceListsCount: salesPriceLists ? Object.keys(salesPriceLists).length : 0,  // SV2.10.356
       clientsCount: clientsPayload ? clientsPayload.clients.length : 0,
       quotesCount: quotesPayload ? quotesPayload.quotes.length : 0,
       servicesCount: servicesPayload ? servicesPayload.services.length : 0,
@@ -19109,6 +19132,11 @@ async function driveApplyRemoteData(payload){
     await _driveApplyCascadeDiscounts(payload.cascadeDiscounts);
   }
 
+  // SV2.10.356: LISTINI DI VENDITA — ripristina i listini dal master, se presenti.
+  if(payload.salesPriceLists && typeof payload.salesPriceLists === 'object'){
+    _driveApplySalesPriceLists(payload.salesPriceLists, payload.activeSalesPriceList);
+  }
+
   // V2.10.51: 5. CLIENTI — ripristina archivio clienti se presente nel payload.
   // Backward-compat: i payload vecchi non hanno questo campo, ignoriamo silenziosamente.
   if(payload.clients && typeof payload.clients === 'object' && Array.isArray(payload.clients.clients)){
@@ -19274,6 +19302,57 @@ function _driveWriteCascadeDiscounts(obj){
     }
   } catch(e){
     console.error('[drive] scrittura cascadeDiscounts fallita:', e);
+  }
+}
+
+/* SV2.10.356: applica i listini di vendita ricevuti dal master Drive.
+   Safety: se il remoto è vuoto ma il locale ha listini, NON sovrascrive
+   (evita cancellazioni accidentali, come avviene per i clienti). Se locale e
+   remoto sono identici (listini + id attivo) non fa nulla. */
+function _driveApplySalesPriceLists(remote, remoteActiveId){
+  if(!remote || typeof remote !== 'object') return;
+  const remoteKeys = Object.keys(remote);
+  let localCount = 0;
+  try {
+    const raw = localStorage.getItem('salesPriceLists_v1');
+    if(raw){
+      const p = JSON.parse(raw);
+      if(p && typeof p === 'object') localCount = Object.keys(p).length;
+    }
+  } catch(e){ localCount = 0; }
+  // Safety anti-cancellazione: remoto vuoto ma locale pieno → non sovrascrivo
+  if(localCount > 0 && remoteKeys.length === 0){
+    console.warn('[drive] listini vendita: locale ' + localCount + ', remoto 0 → sovrascrittura saltata');
+    return;
+  }
+  // Se identici (listini + id attivo) non faccio nulla
+  try {
+    const localRaw = localStorage.getItem('salesPriceLists_v1') || '{}';
+    if(JSON.stringify(_sortKeys(JSON.parse(localRaw))) === JSON.stringify(_sortKeys(remote))){
+      const localActive = localStorage.getItem('activeSalesPriceList_v1') || '';
+      if(!remoteActiveId || localActive === remoteActiveId) return;
+    }
+  } catch(e){ /* in dubbio, procedo con la scrittura sotto */ }
+  try {
+    localStorage.setItem('salesPriceLists_v1', JSON.stringify(remote));
+    window._SPL_CACHE = remote;
+    if(typeof remoteActiveId === 'string' && remoteActiveId){
+      localStorage.setItem('activeSalesPriceList_v1', remoteActiveId);
+    }
+    // I prezzi di vendita su card/tabella dipendono dal listino attivo → ri-renderizzo
+    if(typeof render === 'function' && Array.isArray(window.FILTERED)){
+      try { render(); } catch(_){}
+    }
+    if(typeof toast === 'function'){
+      toast({
+        type: 'ok',
+        title: 'Listini di vendita sincronizzati',
+        message: 'Caricati ' + remoteKeys.length + ' listini di vendita da Drive.',
+        duration: 3500
+      });
+    }
+  } catch(e){
+    console.error('[drive] scrittura listini di vendita fallita:', e);
   }
 }
 
@@ -20597,6 +20676,22 @@ function bkBuildPayload(includeData, includeSettings){
     } catch(e){
       console.warn('[backup] errore lettura sconti cascata:', e);
     }
+
+    // 5. SV2.10.356: listini di vendita (SPL) + id listino attivo
+    try {
+      const splRaw = localStorage.getItem('salesPriceLists_v1');
+      if(splRaw){
+        const splParsed = JSON.parse(splRaw);
+        if(splParsed && typeof splParsed === 'object' && Object.keys(splParsed).length > 0){
+          payload.salesPriceLists = splParsed;
+          payload.stats.totalSalesPriceLists = Object.keys(splParsed).length;
+        }
+      }
+      const splActive = localStorage.getItem('activeSalesPriceList_v1');
+      if(splActive) payload.activeSalesPriceList = splActive;
+    } catch(e){
+      console.warn('[backup] errore lettura listini di vendita:', e);
+    }
   }
   if(includeSettings){
     const s = _bkBuildSettingsPayload();
@@ -21143,6 +21238,20 @@ async function bkRestoreFromPayload(payload, opts){
         stats.restored.push(`${Object.keys(payload.cascadeDiscounts).length} sconti cascata`);
       } catch(e){
         console.error('[restore] errore salvataggio cascade discounts:', e);
+      }
+    }
+
+    // 5. SV2.10.356: listini di vendita (SPL) + id listino attivo
+    if(payload.salesPriceLists && typeof payload.salesPriceLists === 'object'){
+      try {
+        localStorage.setItem('salesPriceLists_v1', JSON.stringify(payload.salesPriceLists));
+        window._SPL_CACHE = payload.salesPriceLists;
+        if(payload.activeSalesPriceList){
+          localStorage.setItem('activeSalesPriceList_v1', payload.activeSalesPriceList);
+        }
+        stats.restored.push(`${Object.keys(payload.salesPriceLists).length} listini di vendita`);
+      } catch(e){
+        console.error('[restore] errore salvataggio listini di vendita:', e);
       }
     }
   }
@@ -36237,6 +36346,11 @@ function splLoadAll(){
 function splSaveAll(){
   try {
     localStorage.setItem(SPL_STORAGE_KEY, JSON.stringify(window._SPL_CACHE || {}));
+    // SV2.10.356: ogni modifica ai listini marca il master come da-sincronizzare,
+    // così i listini risalgono su Drive come ogni altra modifica obbligata.
+    if(typeof driveNotifyChange === 'function'){
+      driveNotifyChange('settings', '__salesPriceLists__', null);
+    }
   } catch(e){
     console.error('[listini-vendita] errore salvataggio localStorage:', e);
     if(typeof toast === 'function'){
