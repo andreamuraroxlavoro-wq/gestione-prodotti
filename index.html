@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.356 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.357 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9519,7 +9519,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.356</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.357</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -10115,7 +10115,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.356 mobile");
+console.info("[bootstrap] script avvio — SV2.10.357 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11566,7 +11566,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.356';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.357';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12749,7 +12749,7 @@ function openAddRowChoiceDialog(){
   bg.style.zIndex = '545';  // sopra al carrello (~500), sotto editor catalogo (550)
 
   bg.innerHTML =
-    '<div class="modal" style="max-width:640px">' +
+    '<div class="modal" style="max-width:780px">' +
       '<div class="modal-head">' +
         '<h3>➕ Aggiungi Riga al preventivo</h3>' +
       '</div>' +
@@ -12757,7 +12757,7 @@ function openAddRowChoiceDialog(){
         '<p class="settings-hint" style="margin:0 0 22px 0;text-align:center;font-size:14px">' +
           'Cosa vuoi aggiungere al preventivo?' +
         '</p>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:16px">' +
           // Card 1: Prodotti Personali
           '<button id="addRowChoicePersonal" class="add-row-choice-card" type="button" ' +
             'style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;' +
@@ -12778,6 +12778,17 @@ function openAddRowChoiceDialog(){
             '<div style="font-size:17px;font-weight:700;color:var(--fg)">Servizi</div>' +
             '<div style="font-size:13px;color:var(--fg2);line-height:1.45;max-width:220px">' +
               'Servizi del catalogo: installazione, manodopera, sopralluoghi, configurazioni, ecc.' +
+            '</div>' +
+          '</button>' +
+          // Card 3: Campo libero (SV2.10.357) — voce non legata al catalogo
+          '<button id="addRowChoiceFree" class="add-row-choice-card" type="button" ' +
+            'style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;' +
+            'padding:32px 20px;background:var(--bg);border:2px solid var(--border);border-radius:12px;' +
+            'cursor:pointer;transition:all .15s ease;color:var(--fg);font-family:inherit;text-align:center">' +
+            '<div style="font-size:48px;line-height:1">✏️</div>' +
+            '<div style="font-size:17px;font-weight:700;color:var(--fg)">Campo libero</div>' +
+            '<div style="font-size:13px;color:var(--fg2);line-height:1.45;max-width:220px">' +
+              'Voce con descrizione, costo e prezzo definiti a mano, non legata a un articolo del catalogo.' +
             '</div>' +
           '</button>' +
         '</div>' +
@@ -12857,6 +12868,182 @@ function openAddRowChoiceDialog(){
       }
     }, 80);
   });
+
+  // SV2.10.357: Click "Campo libero": apre direttamente il form di creazione voce
+  // libera. A differenza delle altre due card, NON rimanda alla galleria: crea una
+  // riga al volo dentro il preventivo, non legata ad alcun articolo del catalogo.
+  const _freeBtn = document.getElementById('addRowChoiceFree');
+  if(_freeBtn){
+    _freeBtn.addEventListener('click', () => {
+      bg.remove();
+      if(typeof openFreeFieldDialog === 'function') openFreeFieldDialog(null);
+    });
+  }
+}
+
+/* ============================================================================
+   SV2.10.357: VOCE "CAMPO LIBERO" — riga di preventivo non legata al catalogo.
+
+   A differenza di Prodotti Personali e Servizi (che sono articoli di DATA[]),
+   la voce campo libero vive SOLO dentro _QUOTE_STATE.items, creata al volo.
+   Struttura item: { isFreeField:true, freeFieldType:'materiale'|'servizio'|'altro',
+     code:'FREE-XXXXXX', name/nameShort/nameFull = descrizione, pvp = prezzo,
+     netto = costo (può essere null), qty, discountPct:0, isService (se servizio) }.
+   - pvp = prezzo  → l'analisi lo usa come prezzo di vendita (sconto 0)
+   - netto = costo → l'analisi lo usa come costo per il margine
+   - freeFieldType guida la classificazione prodotti/servizi nell'analisi
+   - viene ESCLUSA dall'aggiorna-preventivo (non è nel catalogo)
+   ============================================================================ */
+
+/* Genera un codice univoco FREE-XXXXXX tra gli item del carrello. */
+function _freeFieldGenCode(){
+  const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : [];
+  let attempts = 0;
+  while(attempts < 200){
+    const hex = Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase().padStart(6, '0');
+    const code = 'FREE-' + hex;
+    if(!items.some(it => it && it.code === code)) return code;
+    attempts++;
+  }
+  return 'FREE-' + Date.now().toString(36).toUpperCase();
+}
+
+/* Apre il form di creazione/modifica di una voce campo libero.
+   existingItem null = creazione; oggetto item (isFreeField) = modifica. */
+function openFreeFieldDialog(existingItem){
+  const isEdit = !!(existingItem && existingItem.isFreeField);
+  const ex = document.getElementById('freeFieldModal');
+  if(ex) ex.remove();
+
+  const curDesc  = isEdit ? String(existingItem.nameFull || existingItem.nameShort || existingItem.name || '') : '';
+  const curType  = isEdit ? (existingItem.freeFieldType || 'materiale') : 'materiale';
+  const curCost  = (isEdit && existingItem.netto != null && existingItem.netto !== '') ? existingItem.netto : '';
+  const curPrice = (isEdit && existingItem.pvp   != null && existingItem.pvp   !== '') ? existingItem.pvp   : '';
+  const curQty   = (isEdit && existingItem.qty   != null) ? existingItem.qty : 1;
+
+  const opt = (val, label) => '<option value="' + val + '"' + (curType === val ? ' selected' : '') + '>' + label + '</option>';
+  const inputStyle = 'width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:14px';
+  const labStyle = 'display:block;font-size:12px;font-weight:700;color:var(--fg2);margin:0 0 5px 2px;text-transform:uppercase;letter-spacing:.3px';
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'freeFieldModal';
+  bg.style.zIndex = '548';  // sopra carrello e dialog scelta
+  bg.innerHTML =
+    '<div class="modal" style="max-width:520px">' +
+      '<div class="modal-head">' +
+        '<h3>✏️ ' + (isEdit ? 'Modifica voce libera' : 'Nuova voce libera') + '</h3>' +
+      '</div>' +
+      '<div class="modal-body" style="display:block;padding:22px 26px">' +
+        '<div style="margin-bottom:16px">' +
+          '<label style="' + labStyle + '" for="ffDesc">Descrizione</label>' +
+          '<textarea id="ffDesc" rows="3" style="' + inputStyle + ';resize:vertical;min-height:64px" ' +
+            'placeholder="Testo libero della voce (es. Trasferta tecnico, Materiale di consumo, ...)">' + escapeHtml(curDesc) + '</textarea>' +
+        '</div>' +
+        '<div style="margin-bottom:16px">' +
+          '<label style="' + labStyle + '" for="ffType">Tipo voce (per l\'analisi)</label>' +
+          '<select id="ffType" style="' + inputStyle + '">' +
+            opt('materiale', '📦 Materiale') +
+            opt('servizio',  '🔧 Servizio') +
+            opt('altro',     '▫️ Altro') +
+          '</select>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:6px">' +
+          '<div>' +
+            '<label style="' + labStyle + '" for="ffCost">Costo (€) <span style="font-weight:400;text-transform:none;color:var(--fg3)">opz.</span></label>' +
+            '<input id="ffCost" type="text" inputmode="decimal" style="' + inputStyle + '" placeholder="—" value="' + (curCost === '' ? '' : escapeAttr(String(curCost))) + '">' +
+          '</div>' +
+          '<div>' +
+            '<label style="' + labStyle + '" for="ffPrice">Prezzo (€)</label>' +
+            '<input id="ffPrice" type="text" inputmode="decimal" style="' + inputStyle + '" placeholder="0,00" value="' + (curPrice === '' ? '' : escapeAttr(String(curPrice))) + '">' +
+          '</div>' +
+          '<div>' +
+            '<label style="' + labStyle + '" for="ffQty">Q.tà</label>' +
+            '<input id="ffQty" type="text" inputmode="numeric" style="' + inputStyle + '" value="' + escapeAttr(String(curQty)) + '">' +
+          '</div>' +
+        '</div>' +
+        '<p class="settings-hint" style="margin:10px 2px 0;font-size:11.5px;color:var(--fg3);line-height:1.4">' +
+          'Il costo è facoltativo. Costo e prezzo restano modificabili anche dalla riga del preventivo. ' +
+          'L\'aggiornamento prezzi del preventivo non tocca questa voce.' +
+        '</p>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="ffCancelBtn">Annulla</button>' +
+        '<button class="btn primary" id="ffSaveBtn">' + (isEdit ? 'Salva modifiche' : 'Aggiungi al preventivo') + '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(bg);
+
+  const _close = () => bg.remove();
+  bg.addEventListener('click', e => { if(e.target === bg) _close(); });
+  const cBtn = document.getElementById('ffCancelBtn'); if(cBtn) cBtn.addEventListener('click', _close);
+  const sBtn = document.getElementById('ffSaveBtn');   if(sBtn) sBtn.addEventListener('click', () => _freeFieldSave(bg, isEdit ? existingItem : null));
+  const dEl = document.getElementById('ffDesc'); if(dEl){ try { dEl.focus(); } catch(_){} }
+}
+
+/* Salva (crea o aggiorna) la voce campo libero dal form. */
+function _freeFieldSave(bg, existingItem){
+  const _num = (raw) => {
+    const s = String(raw == null ? '' : raw).trim().replace(',', '.');
+    if(s === '') return null;
+    const n = parseFloat(s);
+    return (isFinite(n) && n >= 0) ? n : null;
+  };
+  const descEl = bg.querySelector('#ffDesc');
+  const desc = descEl ? descEl.value.trim() : '';
+  if(!desc){
+    if(typeof toast === 'function') toast('Inserisci una descrizione per la voce', 'err');
+    if(descEl){ try { descEl.focus(); } catch(_){} }
+    return;
+  }
+  const type  = (bg.querySelector('#ffType') || {}).value || 'materiale';
+  const cost  = _num((bg.querySelector('#ffCost')  || {}).value);   // null se vuoto
+  const price = _num((bg.querySelector('#ffPrice') || {}).value);   // null se vuoto
+  let qty = parseInt(((bg.querySelector('#ffQty') || {}).value || '1'), 10);
+  if(isNaN(qty) || qty <= 0) qty = 1;
+  const priceVal = (price == null) ? 0 : price;
+
+  if(!window._QUOTE_STATE) window._QUOTE_STATE = { items: [], settings: {} };
+  if(!Array.isArray(window._QUOTE_STATE.items)) window._QUOTE_STATE.items = [];
+
+  if(existingItem && existingItem.isFreeField){
+    existingItem.name = desc;
+    existingItem.nameShort = desc;
+    existingItem.nameFull = desc;
+    existingItem.freeFieldType = type;
+    existingItem.isService = (type === 'servizio') ? true : undefined;
+    existingItem.pvp = priceVal;
+    existingItem.netto = cost;          // può essere null
+    existingItem.nettoOrig = cost;
+    existingItem.qty = qty;
+    existingItem.updatedAt = Date.now();
+  } else {
+    window._QUOTE_STATE.items.push({
+      code: _freeFieldGenCode(),
+      isFreeField: true,
+      freeFieldType: type,
+      isService: (type === 'servizio') ? true : undefined,
+      name: desc,
+      nameShort: desc,
+      nameFull: desc,
+      brand: '', category: '', ean: '', image: '',
+      qty: qty,
+      pvp: priceVal,        // prezzo di vendita
+      netto: cost,          // costo (null = non specificato)
+      nettoOrig: cost,
+      cascadeAdjArr: null,
+      cascadeAdjPath: null,
+      discountPct: 0,
+      addedAt: Date.now(),
+    });
+  }
+  if(typeof saveQuoteState === 'function'){ try { saveQuoteState(); } catch(_){} }
+  if(typeof renderQuoteCartContent === 'function'){ try { renderQuoteCartContent(); } catch(_){} }
+  if(typeof renderQuoteFloatingButton === 'function'){ try { renderQuoteFloatingButton(); } catch(_){} }
+  bg.remove();
+  if(typeof toast === 'function'){
+    toast(existingItem ? 'Voce libera aggiornata' : 'Voce libera aggiunta al preventivo', 'ok');
+  }
 }
 
 function openAddPersonalProductToCartDialog(){
@@ -44551,6 +44738,11 @@ function _refreshQuote_buildDiff(){
   const _applySelectionFilter = _anySelected;
 
   window._QUOTE_STATE.items.forEach((item, itemIdx) => {
+    // SV2.10.357: le voci "campo libero" non sono nel catalogo: l'aggiorna-prezzi
+    // non le tocca mai (né testo né prezzi). Le salto senza segnalarle come notFound.
+    if(item && item.isFreeField){
+      return;
+    }
     // V2.10.263: con selezione parziale, escludo le righe NON spuntate.
     // Se nessuna riga e' spuntata, _applySelectionFilter e' false → confronto tutto.
     if(_applySelectionFilter && item && item._selectedForUpdate !== true){
@@ -47667,6 +47859,8 @@ function computeQuoteTotals(){
 function _isServiceItem(item){
   if(!item) return false;
   if(item.isService === true) return true;
+  // SV2.10.357: voce "campo libero" classificata come Servizio dall'utente
+  if(item.isFreeField && item.freeFieldType === 'servizio') return true;
   // V2.10.170 fix: il code dei servizi nel carrello segue il pattern "SVC-<id_servizio>"
   // (es. "SVC-SRV-682403" deriva dal servizio con id "SRV-682403"). Questo prefisso
   // e' applicato all'add al carrello e identifica il servizio in modo univoco senza
@@ -50580,7 +50774,7 @@ function renderQuoteCartContent(){
               return (_img || _stk) ? '<span class="qcart-foto-wrap">' + _img + _stk + '</span>' : '';
             })() +
           '</td>' +
-          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(getDisplayCode(it)) + ((function(){ const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(getDisplayCode(it)) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
           '<td style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
             const cleanName = getCleanItemName(it);
@@ -50731,7 +50925,7 @@ function renderQuoteCartContent(){
               return (_img || _stk) ? '<span class="qcart-foto-wrap">' + _img + _stk + '</span>' : '';
             })() +
           '</td>' +
-          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(getDisplayCode(it)) + ((function(){ const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(getDisplayCode(it)) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
           '<td style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
             const cleanName = getCleanItemName(it);
@@ -50862,6 +51056,14 @@ function renderQuoteCartContent(){
       if(!item) return;
       updateCartItemQty(code, item.qty - 1);
       renderQuoteCartContent();
+    });
+  });
+  // SV2.10.357: click sul badge "✏️ LIBERA" → riapre il form di modifica della voce
+  container.querySelectorAll('.qcart-free-edit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.dataset.code;
+      const item = window._QUOTE_STATE.items.find(it => it.code === code && it.isFreeField);
+      if(item && typeof openFreeFieldDialog === 'function') openFreeFieldDialog(item);
     });
   });
   container.querySelectorAll('.qcart-qty-plus').forEach(btn => {
