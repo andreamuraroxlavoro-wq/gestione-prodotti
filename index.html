@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.357 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.359 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9519,7 +9519,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.357</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.359</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -10115,7 +10115,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.357 mobile");
+console.info("[bootstrap] script avvio — SV2.10.359 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11566,7 +11566,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.357';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.359';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12987,7 +12987,8 @@ function _freeFieldSave(bg, existingItem){
     const s = String(raw == null ? '' : raw).trim().replace(',', '.');
     if(s === '') return null;
     const n = parseFloat(s);
-    return (isFinite(n) && n >= 0) ? n : null;
+    // SV2.10.359: ammetto anche valori NEGATIVI (storni / sconti manuali)
+    return isFinite(n) ? n : null;
   };
   const descEl = bg.querySelector('#ffDesc');
   const desc = descEl ? descEl.value.trim() : '';
@@ -43048,7 +43049,7 @@ function _computeSnapshotTotals(items){
   let totalSellPrice = 0;
   for(const it of items){
     totalQty += (it.qty || 0);
-    if(it.pvp != null && it.pvp > 0){
+    if(it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)){
       const lineList = it.pvp * (it.qty || 0);
       totalPvp += lineList;
       const dPct = Math.max(0, Math.min(100, parseFloat(it.discountPct) || 0));
@@ -47472,6 +47473,7 @@ function _stripIfHtml(s){
    nell'item non cambia, solo la rappresentazione visiva. */
 function getDisplayCode(item){
   if(!item || !item.code) return '';
+  if(item.isFreeField) return '';  // SV2.10.359: voci libere senza codice visibile (monitor + export)
   return resolveDisplayCode(item.code);
 }
 
@@ -47487,6 +47489,7 @@ function getDisplayCode(item){
 function resolveDisplayCode(rawCode){
   if(!rawCode) return '';
   const code = String(rawCode);
+  if(code.indexOf('FREE-') === 0) return '';  // SV2.10.359: voci libere senza codice visibile
   if(code.indexOf('SVC-') !== 0) return code;
   if(typeof serviceGetById !== 'function') return code;
   const svcId = code.substring(4);
@@ -47784,8 +47787,8 @@ function computeQuoteTotals(){
     // Non incremento contatori, non sommo prezzi, non considero per bucket.
     if(!it || it.qty == null || it.qty <= 0) continue;
     totalQty += it.qty;
-    const pvpValid = (it.pvp != null && it.pvp > 0);
-    const nettoValid = (it.netto != null && it.netto > 0);
+    const pvpValid = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0));
+    const nettoValid = (it.netto != null && (it.isFreeField ? it.netto !== 0 : it.netto > 0));
     // V2.10.170: classificazione riga
     const isSvc = _isServiceItem(it);
     const bucket = isSvc ? split.serv : split.prod;
@@ -47928,7 +47931,7 @@ function computeQuoteAnalytics(){
   for(const it of items){
     if(!it) continue;
     if(it.qty == null || it.qty <= 0){ parked++; continue; }
-    const pvp = (it.pvp != null && it.pvp > 0) ? it.pvp : 0;
+    const pvp = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp : 0;
     if(pvp <= 0){ noPrice++; continue; }
     const qty = it.qty;
     const netto = (it.netto != null && it.netto > 0) ? it.netto : 0;
@@ -50726,9 +50729,9 @@ function renderQuoteCartContent(){
       // numeriche vuote ed esclusa dai calcoli (skip in computeQuoteTotals).
       const isZeroQty = (it.qty === 0);
       const dPct = _normDiscountPct(it.discountPct);
-      const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+      const sellUnit = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - dPct/100) : null;
       const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
-      const subList  = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
+      const subList  = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * it.qty : null;
       const lineDiscountValue = (subList != null && sellUnit != null) ? (subList - subSell) : null;
       const _dash = '<span style="color:var(--fg3)">—</span>';
       tbody +=
@@ -50774,7 +50777,7 @@ function renderQuoteCartContent(){
               return (_img || _stk) ? '<span class="qcart-foto-wrap">' + _img + _stk + '</span>' : '';
             })() +
           '</td>' +
-          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(getDisplayCode(it)) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
           '<td style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
             const cleanName = getCleanItemName(it);
@@ -50788,13 +50791,14 @@ function renderQuoteCartContent(){
               '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
             '</div>' +
           '</td>' +
-          '<td class="num">' + (isZeroQty ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
+          '<td class="num">' + ((it.isFreeField || isZeroQty) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
           '<td>' +
             // V2.6.4: UI compatta identica a quella della colonna "Sc. Cliente"
             // in Modalità Analisi (V2.6.2). Solo casella + simbolo % allineati a destra.
             // Rimosso l'importo in euro sotto (era ridondante: il prezzo finale è
             // già visibile nelle colonne "Vendita unit." e "Tot. Vendita" accanto).
-            (isZeroQty ? _dash :
+            // SV2.10.358: le voci campo libero non hanno listino né sconto → trattino.
+            ((it.isFreeField || isZeroQty) ? _dash :
             '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
               '<input type="number" class="qcart-discount-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + _fmtDiscountForInput(dPct) + '" min="0" max="100" step="0.01" ' +
                 'style="width:54px;padding:3px 6px;font-size:12px" ' +
@@ -50850,13 +50854,13 @@ function renderQuoteCartContent(){
       // numeriche vuote ed esclusa dai calcoli.
       const isZeroQty = (it.qty === 0);
       const _dash = '<span style="color:var(--fg3)">—</span>';
-      const subPvp = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
+      const subPvp = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * it.qty : null;
       const subNetto = (!isZeroQty && it.netto != null && it.netto > 0) ? it.netto * it.qty : null;
       // V2.5.7: calcolo lo sconto effettivo % (include eventuale cascata: il netto
       // salvato nell'item è già quello effettivo grazie a V2.5.4 in addToQuoteCart).
       // hasCascadeAdj indica che gli sconti aggiuntivi sono stati applicati al
       // momento dell'aggiunta — usato per il badge ★ viola di tracciabilità.
-      const scontoPct = (!isZeroQty && it.pvp != null && it.pvp > 0 && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
+      const scontoPct = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0) && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
         ? (1 - it.netto / it.pvp) * 100
         : null;
       const hasCascadeAdj = Array.isArray(it.cascadeAdjArr) && it.cascadeAdjArr.some(x => x > 0);
@@ -50874,7 +50878,7 @@ function renderQuoteCartContent(){
       // commerciale standard "gross margin %"). Più alto è il margine, più
       // alto è il guadagno relativo sulla vendita.
       const scCliente = _normDiscountPct(it.discountPct);  // 0..100, default 0
-      const prezzoVendita = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - scCliente / 100) : null;
+      const prezzoVendita = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - scCliente / 100) : null;
       const margine = (prezzoVendita != null && it.netto != null && it.netto > 0 && prezzoVendita > 0)
         ? (prezzoVendita - it.netto) / prezzoVendita * 100
         : null;
@@ -50925,7 +50929,7 @@ function renderQuoteCartContent(){
               return (_img || _stk) ? '<span class="qcart-foto-wrap">' + _img + _stk + '</span>' : '';
             })() +
           '</td>' +
-          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + escapeHtml(getDisplayCode(it)) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
           '<td style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
             const cleanName = getCleanItemName(it);
@@ -50939,7 +50943,7 @@ function renderQuoteCartContent(){
               '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
             '</div>' +
           '</td>' +
-          '<td class="num">' + (isZeroQty ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
+          '<td class="num">' + ((it.isFreeField || isZeroQty) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
           // V2.5.7: nuova colonna "Sconto" tra PVP e Netto. Viola con ★ se cascata.
           // V2.10.263: cella "Sconto ACQ" EDITABILE. Lo sconto e' derivato dal
           // netto (sconto% = (1-netto/pvp)*100); modificandolo si ricalcola il
@@ -50947,8 +50951,8 @@ function renderQuoteCartContent(){
           // override e' evidenziata con sfondo verde tenue (vedi <tr>), non piu'
           // col pallino. Il badge ★ cascata resta informativo.
           '<td class="num"' + scTip + '>' +
-            (isZeroQty ? _dash :
-              (it.pvp != null && it.pvp > 0
+            ((it.isFreeField || isZeroQty) ? _dash :
+              (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)
                 ? '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
                     '<input type="text" inputmode="decimal" class="qcart-scacq-input" data-code="' + escapeAttr(it.code) + '" ' +
                       'value="' + (scontoPct != null ? _qFmtNum(scontoPct, 1) : '0') + '" ' +
@@ -50965,7 +50969,7 @@ function renderQuoteCartContent(){
           // margine/totali). Rosso = costo d'acquisto; riga override = sfondo verde.
           '<td class="num">' +
             (isZeroQty ? _dash :
-              (it.pvp != null && it.pvp > 0
+              (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)
                 ? '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
                     '<input type="text" inputmode="decimal" class="qcart-nettoacq-input" data-code="' + escapeAttr(it.code) + '" ' +
                       'value="' + (it.netto != null ? _qFmtNum(_roundCents(it.netto), 2) : '0') + '" ' +
@@ -50982,7 +50986,7 @@ function renderQuoteCartContent(){
           // UI compatta: solo casella + simbolo % (niente importo sotto, perché
           // PVP e Netto sono già visibili in colonne dedicate accanto).
           '<td class="num" title="Sconto applicato al cliente — modificabile direttamente (sincronizzato con Modalità Cliente)">' +
-            (isZeroQty ? _dash :
+            ((it.isFreeField || isZeroQty) ? _dash :
             '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
               // V2.6.3: rimosso il segno meno davanti all'input — il contesto della
               // colonna "Sc. Cliente" e l'unita' "%" rendono il significato chiaro.
@@ -51166,6 +51170,17 @@ function renderQuoteCartContent(){
       const item = window._QUOTE_STATE.items.find(it => it.code === code);
       if(!item) return;
       const newPrice = _parsePriceInput(inp.value);
+      // SV2.10.358: voce libera → il prezzo digitato È il prezzo di vendita (pvp),
+      // senza sconto. Aggiorno direttamente pvp e mantengo discountPct = 0.
+      if(item.isFreeField){
+        if(newPrice != null){
+          item.pvp = newPrice;
+          item.discountPct = 0;
+          if(typeof saveQuoteState === 'function'){ try { saveQuoteState(); } catch(_){} }
+        }
+        renderQuoteCartContent();
+        return;
+      }
       // Se input invalido o listino mancante, ripristino il valore precedente
       if(newPrice == null || item.pvp == null || item.pvp <= 0){
         renderQuoteCartContent();
@@ -51181,6 +51196,13 @@ function renderQuoteCartContent(){
     inp.addEventListener('input', () => {
       const code = inp.dataset.code;
       const item = window._QUOTE_STATE.items.find(it => it.code === code);
+      // SV2.10.358: per le voci libere il prezzo digitato è il pvp; nessuno sconto
+      // da ricalcolare. Aggiorno pvp live; il re-render avviene al blur (change).
+      if(item && item.isFreeField){
+        const np = _parsePriceInput(inp.value);
+        if(np != null){ item.pvp = np; item.discountPct = 0; }
+        return;
+      }
       if(!item || item.pvp == null || item.pvp <= 0) return;
       const newPrice = _parsePriceInput(inp.value);
       if(newPrice == null) return;
@@ -52645,8 +52667,8 @@ async function exportQuoteExcel(){
         // V2.10.185: qty=0 → celle numeriche vuote nell'Excel (parcheggiata)
         const isZeroQty = (it.qty === 0);
         const dPct = _normDiscountPct(it.discountPct);
-        const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
-        const subList  = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * it.qty : null;
+        const sellUnit = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - dPct/100) : null;
+        const subList  = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * it.qty : null;
         const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
         const lineDisc = (subList != null && subSell != null) ? (subList - subSell) : null;
         return [
@@ -52683,7 +52705,7 @@ async function exportQuoteExcel(){
       rows = t.items.map((it, i) => {
         // V2.10.185: qty=0 → celle numeriche vuote nell'Excel
         const isZeroQty = (it.qty === 0);
-        const subPvp = (!isZeroQty && it.pvp != null && it.pvp > 0) ? Number((it.pvp * it.qty).toFixed(2)) : '';
+        const subPvp = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? Number((it.pvp * it.qty).toFixed(2)) : '';
         const subNet = (!isZeroQty && it.netto != null && it.netto > 0) ? Number((it.netto * it.qty).toFixed(2)) : '';
         const sconto = (!isZeroQty && it.pvp != null && it.netto != null && it.pvp > 0 && it.netto > 0)
           ? Number(((1 - it.netto / it.pvp) * 100).toFixed(1))
@@ -53998,7 +54020,7 @@ async function exportQuoteDocx(options){
       // V2.10.185: qty=0 → riga "parcheggiata" anche nel Word docx (cifre vuote)
       const isZeroQty = (it.qty === 0);
       const dPct = _normDiscountPct(it.discountPct);
-      const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct / 100) : null;
+      const sellUnit = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - dPct / 100) : null;
       const subSell = (sellUnit != null) ? sellUnit * it.qty : null;
       const dPctStr = (isZeroQty || dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
       const cellShading = undefined;
@@ -54033,7 +54055,7 @@ async function exportQuoteDocx(options){
         },
         desc: () => {
           const descParas = [];
-          if(showCode && it.code){
+          if(showCode && it.code && !it.isFreeField){
             descParas.push(para(mk(getDisplayCode(it), { bold: true, color: TEXT_DARK, size: 21 }), { spacing: { after: 40 } }));
           }
           descParas.push(para(mk(getCleanItemName(it), { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.JUSTIFIED }));
@@ -54677,7 +54699,7 @@ async function exportQuoteWord(){
         // V2.10.185: qty=0 → riga "parcheggiata", celle numeriche vuote
         const isZeroQty = (it.qty === 0);
         const dPct = _normDiscountPct(it.discountPct);
-        const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+        const sellUnit = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - dPct/100) : null;
         const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
         const fmt = (v) => v != null ? _qFmtEur(v) : '—';
         const dPctStr = (isZeroQty || dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
@@ -54687,7 +54709,7 @@ async function exportQuoteWord(){
           : '';
         // Cella descrizione strutturata: codice (opt) + desc + marca (opt)
         const descParts = [];
-        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
+        if(showCode && it.code && !it.isFreeField) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
         descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
@@ -54752,14 +54774,14 @@ async function exportQuoteWord(){
       const wPct = (w) => Math.round((w / wSum) * 100 * 10) / 10;
 
       t.items.forEach((it) => {
-        const subPvp = (it.pvp != null && it.pvp > 0) ? (it.pvp * it.qty) : 0;
+        const subPvp = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? (it.pvp * it.qty) : 0;
         const subNet = (it.netto != null && it.netto > 0) ? (it.netto * it.qty) : 0;
         const fmt = (v) => v != null ? _qFmtEur(v) : '—';
         // V2.6.1: calcoli sc. acquisto, sc. cliente, margine (stessa logica del carrello V2.5.7/V2.5.9)
-        const scAcqPct = (it.pvp != null && it.pvp > 0 && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
+        const scAcqPct = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0) && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
           ? (1 - it.netto / it.pvp) * 100 : null;
         const scCliPct = _normDiscountPct(it.discountPct);
-        const prezzoVendita = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - scCliPct / 100) : null;
+        const prezzoVendita = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - scCliPct / 100) : null;
         const marginePct = (prezzoVendita != null && it.netto != null && it.netto > 0 && prezzoVendita > 0)
           ? (prezzoVendita - it.netto) / prezzoVendita * 100 : null;
         const imgUrlAbs = _qResolveImg(it);
@@ -54767,7 +54789,7 @@ async function exportQuoteWord(){
           ? '<img src="' + escapeAttr(imgUrlAbs) + '" style="width:50pt;height:50pt;object-fit:contain" alt="">'
           : '';
         const descParts = [];
-        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
+        if(showCode && it.code && !it.isFreeField) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
         descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
@@ -55776,12 +55798,12 @@ async function exportQuotePdfNative(options){
       // V2.10.185: qty=0 → riga visibile con celle numeriche vuote (esclusa dai calcoli)
       const isZeroQty = (it.qty === 0);
       const dPct = _normDiscountPct(it.discountPct);
-      const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct / 100) : null;
+      const sellUnit = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - dPct / 100) : null;
       const subSell = (sellUnit != null) ? sellUnit * it.qty : null;
       const dPctStr = (isZeroQty || dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
       // Descrizione composta: codice + descrizione + brand
       const descLines = [];
-      const itCode = (showCode && it.code) ? String(getDisplayCode(it)) : '';
+      const itCode = (showCode && it.code && !it.isFreeField) ? String(getDisplayCode(it)) : '';
       if(itCode) descLines.push(itCode);
       descLines.push(getCleanItemName(it));
       if(showBrand && it.brand) descLines.push(String(it.brand).toUpperCase());
@@ -56414,14 +56436,14 @@ async function exportQuotePdf(){
         // V2.10.185: qty=0 → riga "parcheggiata", celle numeriche vuote
         const isZeroQty = (it.qty === 0);
         const dPct = _normDiscountPct(it.discountPct);
-        const sellUnit = (!isZeroQty && it.pvp != null && it.pvp > 0) ? it.pvp * (1 - dPct/100) : null;
+        const sellUnit = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - dPct/100) : null;
         const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
         const fmt = (v) => v != null ? _qFmtEur(v) : '—';
         const dPctStr = (isZeroQty || dPct === 0) ? '' : (Number.isInteger(dPct) ? dPct + '%' : _qFmtPct(dPct, 1));
         const imgUrlAbs = _qResolveImg(it);
         const imgCell = imgUrlAbs ? '<img src="' + escapeAttr(imgUrlAbs) + '" alt="">' : '';
         const descParts = [];
-        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
+        if(showCode && it.code && !it.isFreeField) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
         descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
@@ -56481,19 +56503,19 @@ async function exportQuotePdf(){
       const wPct = (w) => Math.round((w / wSum) * 100 * 10) / 10;
 
       t.items.forEach((it) => {
-        const subPvp = (it.pvp != null && it.pvp > 0) ? (it.pvp * it.qty) : 0;
+        const subPvp = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? (it.pvp * it.qty) : 0;
         const subNet = (it.netto != null && it.netto > 0) ? (it.netto * it.qty) : 0;
         const fmt = (v) => v != null ? _qFmtEur(v) : '—';
-        const scAcqPct = (it.pvp != null && it.pvp > 0 && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
+        const scAcqPct = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0) && it.netto != null && it.netto > 0 && it.netto <= it.pvp)
           ? (1 - it.netto / it.pvp) * 100 : null;
         const scCliPct = _normDiscountPct(it.discountPct);
-        const prezzoVendita = (it.pvp != null && it.pvp > 0) ? it.pvp * (1 - scCliPct / 100) : null;
+        const prezzoVendita = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - scCliPct / 100) : null;
         const marginePct = (prezzoVendita != null && it.netto != null && it.netto > 0 && prezzoVendita > 0)
           ? (prezzoVendita - it.netto) / prezzoVendita * 100 : null;
         const imgUrlAbs = _qResolveImg(it);
         const imgCell = imgUrlAbs ? '<img src="' + escapeAttr(imgUrlAbs) + '" alt="">' : '';
         const descParts = [];
-        if(showCode && it.code) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
+        if(showCode && it.code && !it.isFreeField) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
         descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
