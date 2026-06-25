@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.348 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.352 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5006,6 +5006,12 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
   border:1px solid rgba(34,197,94,0.45);
   box-shadow:0 0 0 1px rgba(34,197,94,0.15);
 }
+/* SV2.10.350: l'area info della card (card-body) ha sfondo SEMPRE rosso tenue
+   se il prodotto è scatalogato, verde tenue se è nuovo. Calibrato per tema. */
+.card.is-obsolete .card-body{ background:rgba(239,68,68,0.13); }
+.card.is-new .card-body{ background:rgba(34,197,94,0.13); }
+body.theme-light .card.is-obsolete .card-body{ background:rgba(239,68,68,0.09); }
+body.theme-light .card.is-new .card-body{ background:rgba(34,197,94,0.09); }
 
 /* Tabella: badge inline accanto al nome */
 .row-state-badge{
@@ -7509,9 +7515,12 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   padding:12px 12px;background:var(--bg4);color:var(--fg2);
   font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:12.5px;
   position:sticky;top:0;border-bottom:1px solid var(--border);
-  text-align:left;z-index:1;
+  text-align:left;z-index:20;
 }
 .quote-cart-tbl thead th.num{text-align:right}
+/* SV2.10.349: l'header colonne sticky parte in cima al contenitore (padding-top
+   spostato sul primo blocco via margin) e sta sopra le righe che scorrono. */
+#quoteCartContent > *:first-child{ margin-top:18px; }
 .quote-cart-tbl tbody td{
   padding:11px 12px;border-bottom:1px solid var(--border);
   font-size:14px;color:var(--fg2);vertical-align:middle;
@@ -9503,7 +9512,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.348</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.352</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -10099,7 +10108,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.348 mobile");
+console.info("[bootstrap] script avvio — SV2.10.352 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11550,7 +11559,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.348';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.352';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -26856,9 +26865,9 @@ function renderGallery(main, list){
         }
         priceBlock = `
           <div class="card-prices card-prices-sale${_saleInfo.hasAdj ? ' has-cascade-adj' : ''}" title="${escapeAttr(_vTip)}">
-            <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_prezzoVend)}</span>
+            ${priceNum(listino) ? `<span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(listino)}</span>` : ''}
             <span class="card-discount${_saleInfo.hasAdj ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_scVend)}${_saleInfo.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span>' : ''}</span>
-            ${priceNum(listino) ? `<span class="card-price card-listino-neutral"><span class="card-price-label">Listino</span> € ${fmtPrice(listino)}</span>` : ''}
+            <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_prezzoVend)}</span>
           </div>`;
       } else if(showDisc){
         const _displayNetto = _showEff ? effNetto : priceNum(netto);
@@ -26873,16 +26882,20 @@ function renderGallery(main, list){
         }
         priceBlock = `
           <div class="card-prices${_showEff ? ' has-cascade-adj' : ''}"${_adjTip ? ` title="${escapeAttr(_adjTip)}"` : ''}>
-            ${priceNum(_displayNetto) ? `<span class="card-price card-netto-green"><span class="card-price-label">Netto</span> € ${fmtPrice(_displayNetto)}</span>` : ''}
+            ${priceNum(listino) ? `<span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(listino)}</span>` : ''}
             ${_displayDisc !== null ? `<span class="card-discount${_showEff ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_displayDisc)}${_showEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span>' : ''}</span>` : ''}
-            ${priceNum(listino) ? `<span class="card-price card-listino-neutral"><span class="card-price-label">Listino</span> € ${fmtPrice(listino)}</span>` : ''}
+            ${priceNum(_displayNetto) ? `<span class="card-price card-listino-neutral"><span class="card-price-label">Netto</span> € ${fmtPrice(_displayNetto)}</span>` : ''}
           </div>`;
       } else {
-        // Solo listino (se c'è), altrimenti fallback al netto
+        // showDiscount OFF: mostro solo il Listino. Per NON cambiare l'altezza della
+        // card (che sfalserebbe la griglia), aggiungo 2 righe placeholder INVISIBILI
+        // (Prezzo + Sconto) che occupano lo stesso spazio della modalità ON. SV2.10.351
         const shownPrice = priceNum(listino) || priceNum(netto);
         priceBlock = `
           <div class="card-prices">
-            <span class="card-price"><span class="card-price-label">Listino</span> € ${fmtPrice(shownPrice)}</span>
+            <span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(shownPrice)}</span>
+            <span class="card-discount" style="visibility:hidden" aria-hidden="true">Sc. 0%</span>
+            <span class="card-price" style="visibility:hidden" aria-hidden="true"><span class="card-price-label">Netto</span> € 0,00</span>
           </div>`;
       }
     }
@@ -27224,9 +27237,9 @@ function renderTable(main, list){
         ? `Sconto di vendita specifico (${escapeAttr(_saleInfoRow.adjPath || '')}) — base ${fmtDiscount(_saleInfoRow.scontoBase)} → applicato ${fmtDiscount(_saleInfoRow.scontoEff)}`
         : `Sconto di vendita base del listino: ${fmtDiscount(_saleInfoRow.scontoBase)}`;
       const scontoTxt = `<span class="card-discount${_saleInfoRow.hasAdj ? ' card-discount-cascade' : ''}" style="font-size:11px">Sc. ${fmtDiscount(_scV)}${_saleInfoRow.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span>' : ''}</span>`;
-      // Ordine: Listino | Sconto | Prezzo vendita (blu)
+      // Ordine invariato: Listino | Sconto | Prezzo vendita (blu). SV2.10.352: Listino verde.
       priceCells = `
-        <td style="color:var(--fg2);font-size:12px">${listinoTxt}</td>
+        <td style="color:var(--accent3);font-size:12px;font-weight:700">${listinoTxt}</td>
         <td title="${_vTipRow}">${scontoTxt}</td>
         <td style="color:#3b82f6;font-weight:700" title="${_vTipRow}">${prezzoTxt}</td>`;
     } else if(showDisc){
@@ -27242,11 +27255,12 @@ function renderTable(main, list){
         const slots = _eff.adjArr.filter(x => x > 0).map(x => fmtDiscount(x)).join(' · ');
         adjTip = ` title="Sconti aggiuntivi (${escapeAttr(_eff.adjPath)}): ${escapeAttr(slots)} | Sc. orig: ${fmtDiscount(_eff.scOrig)} → effettivo: ${fmtDiscount(_eff.scEff)}"`;
       }
-      // Ordine: Listino | Sconto | Netto (Sconto al centro)
+      // Ordine invariato: Listino | Sconto | Netto. SV2.10.352: colori scambiati
+      // (Listino verde, Netto neutro).
       priceCells = `
-        <td style="color:var(--fg2);font-size:12px">${listinoTxt}</td>
+        <td style="color:var(--accent3);font-size:12px;font-weight:700">${listinoTxt}</td>
         <td${adjTip}>${scontoTxt}</td>
-        <td style="color:var(--accent3);font-weight:700"${adjTip}>${nettoTxt}</td>`;
+        <td style="color:var(--fg2);font-weight:700"${adjTip}>${nettoTxt}</td>`;
     } else {
       // OFF: mostra solo il listino
       const listinoTxt = priceNum(listino) ? `€ ${fmtPrice(listino)}` : '—';
@@ -29184,9 +29198,9 @@ function renderRelatedList(){
             : ('Sconto di vendita base del listino: ' + fmtDiscount(_relSaleInfo.scontoBase));
           _relPriceBlock = `
             <div class="card-prices card-prices-sale${_relSaleInfo.hasAdj ? ' has-cascade-adj' : ''}" title="${escapeAttr(_vTip)}">
-              <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_prezzoV)}</span>
+              <span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
               <span class="card-discount${_relSaleInfo.hasAdj ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_scV)}${_relSaleInfo.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span>' : ''}</span>
-              <span class="card-price card-listino-neutral"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
+              <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_prezzoV)}</span>
             </div>`;
         } else if(_relShowDisc){
           // ── Modalità ACQUISTO ──
@@ -29199,15 +29213,17 @@ function renderRelatedList(){
           }
           _relPriceBlock = `
             <div class="card-prices${_relShowEff ? ' has-cascade-adj' : ''}"${_adjTip ? ` title="${escapeAttr(_adjTip)}"` : ''}>
-              ${priceNum(_relEffNetto) ? `<span class="card-price card-netto-green"><span class="card-price-label">Netto</span> € ${fmtPrice(_relEffNetto)}</span>` : ''}
+              <span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
               ${_relEffDisc !== null ? `<span class="card-discount${_relShowEff ? ' card-discount-cascade' : ''}">Sc. ${fmtDiscount(_relEffDisc)}${_relShowEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span>' : ''}</span>` : ''}
-              <span class="card-price card-listino-neutral"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
+              ${priceNum(_relEffNetto) ? `<span class="card-price card-listino-neutral"><span class="card-price-label">Netto</span> € ${fmtPrice(_relEffNetto)}</span>` : ''}
             </div>`;
         } else {
-          // ── Sconti OFF: solo listino ──
+          // ── Sconti OFF: solo listino (verde, in alto), altezza mantenuta ──
           _relPriceBlock = `
             <div class="card-prices">
-              <span class="card-price"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
+              <span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(pvp)}</span>
+              <span class="card-discount" style="visibility:hidden" aria-hidden="true">Sc. 0%</span>
+              <span class="card-price" style="visibility:hidden" aria-hidden="true"><span class="card-price-label">Netto</span> € 0,00</span>
             </div>`;
         }
       }
@@ -49579,7 +49595,7 @@ function openQuoteCart(){
       // padding:0 + grid-template-columns:none per neutralizzare il CSS base
       // di .modal-body (che è disegnato per l'editor prodotti).
       '<div class="modal-body" style="display:flex;flex-direction:column;padding:0;overflow:hidden;flex:1;min-height:0;grid-template-columns:none">' +
-        '<div id="quoteCartContent" style="flex:1;min-height:0;overflow-y:auto;overflow-x:auto;padding:18px 24px"></div>' +
+        '<div id="quoteCartContent" style="flex:1;min-height:0;overflow-y:auto;overflow-x:auto;padding:0 24px 18px"></div>' +
       '</div>' +
       '<div class="modal-foot">' +
         '<button class="btn ghost" id="quoteCartCloseBtn">Chiudi</button>' +
