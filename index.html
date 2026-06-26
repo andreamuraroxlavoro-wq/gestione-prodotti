@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.360 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.366 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -3203,7 +3203,7 @@ select.filled:focus{
 /* SV2.10.353: altezza minima = 3 righe (Prezzo/Netto + Sconto + Listino) così la card
    NON cambia altezza quando un prodotto ha meno righe (es. senza netto/sconto in vendita)
    o quando si nasconde prezzo/sconto con l'occhio. Tiene la griglia allineata. */
-.card-prices{display:flex;flex-direction:column;align-items:flex-end;gap:2px;line-height:1.2;min-height:60px}
+.card-prices{display:flex;flex-direction:column;align-items:flex-end;gap:2px;line-height:1.2;min-height:40px}
 /* Listino BARRATO (variante usata nella modalità "sconto" della tabella) */
 .card-listino{
   font-size:10px;color:var(--fg3);text-decoration:line-through;
@@ -3310,7 +3310,10 @@ body.theme-light .card-prices .card-price.card-netto-green{
   color:#00a87f;  /* variante scura per tema chiaro (accent3 tema chiaro) */
 }
 .card-prices .card-price.card-listino-neutral{
-  color:var(--fg);
+  color:#dc2626;  /* SV2.10.364: NETTO rosso, coerente con la pillola sconto d'acquisto */
+}
+body.theme-light .card-prices .card-price.card-listino-neutral{
+  color:#dc2626;
 }
 /* V2.10.263: prezzo di VENDITA al cliente (modalita' Vendita).
    Blu, per distinguersi a colpo d'occhio dal verde del netto d'acquisto:
@@ -4442,13 +4445,10 @@ body.theme-light .advs-foot{background:rgba(0,0,0,0.03)}
 
 /* === MAIN === */
 main{flex:1;min-height:0;overflow:auto;padding:20px 20px max(48px, env(safe-area-inset-bottom));position:relative}
-/* SV2.10.345: sfondo della galleria tinto in base alla modalità prezzo
-   (verde tenue in VENDITA, rosso tenue in ACQUISTO). Intensità calibrata per tema:
-   più carica su scuro (sfondo nero "assorbe" il colore), moderata su chiaro. */
-body.price-vendita #main{ background:rgba(34,197,94,0.30); }
-body.price-acquisto #main{ background:rgba(239,68,68,0.24); }
-body.theme-light.price-vendita #main{ background:rgba(34,197,94,0.13); }
-body.theme-light.price-acquisto #main{ background:rgba(239,68,68,0.11); }
+/* SV2.10.365: rimossa la tinta di sfondo della galleria per modalità prezzo.
+   Ora che le pillole sconto e i prezzi indicano già la modalità (rosso = acquisto,
+   blu = vendita), lo sfondo della griglia resta neutro in entrambe le modalità
+   (bianco/chiaro su tema chiaro, scuro su tema scuro) — niente tinta verde/rossa. */
 
 /* === DROP ZONE === */
 .dropzone{
@@ -4992,6 +4992,33 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
   color:#fff;
   border:1px solid rgba(255,255,255,0.18);
 }
+
+/* SV2.10.361: badge SCONTO in alto a sinistra (stile foto richiesta: arancione,
+   arrotondato, testo bianco in grassetto). Mostra lo sconto d'ACQUISTO in modalità
+   acquisto e lo sconto di VENDITA in modalità vendita. */
+.card-disc-badge{
+  position:absolute;
+  top:8px; left:8px;
+  z-index:6;
+  padding:4px 9px;
+  border-radius:7px;
+  font-size:14px; font-weight:800;
+  letter-spacing:0.2px;
+  font-family:-apple-system, 'SF Pro Text', 'Segoe UI', sans-serif;
+  background:#dc2626;   /* ACQUISTO: rosso (sconto d'acquisto) */
+  color:#fff;
+  box-shadow:0 2px 6px rgba(0,0,0,0.28);
+  pointer-events:none;
+  user-select:none;
+  white-space:nowrap;
+}
+/* VENDITA: la pillola sconto usa lo stesso colore del prezzo di vendita (blu). */
+.card-disc-badge.is-sale{ background:#3b82f6; }
+body.theme-light .card-disc-badge.is-sale{ background:#2563eb; }
+/* Quando è presente il badge sconto, le indicazioni di stato (MODIFICATO, NUOVO,
+   SCATALOGATO, SERVIZIO, PERSONALE) scendono SOTTO per non sovrapporsi al badge. */
+.card.has-disc-badge .card-state-badge{ top:40px; }
+.card.has-disc-badge.edited::after{ top:40px; }
 
 /* Visual treatment per card SCATALOGATA: solo card-level (opacità leggera + sfondo rosa).
    V2.2.36: rimossa la desaturazione/trasparenza sull'immagine — l'immagine resta nitida
@@ -9519,7 +9546,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.360</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.366</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -10115,7 +10142,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.360 mobile");
+console.info("[bootstrap] script avvio — SV2.10.366 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11566,7 +11593,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.360';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.366';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -27144,6 +27171,25 @@ function renderGallery(main, list){
         _saleInfo = splGetEffectiveSaleDiscount(p, _activeId);
       }
     }
+    // SV2.10.361: badge SCONTO in alto a sinistra. In modalità vendita mostra lo
+    // sconto di vendita del listino attivo; altrimenti lo sconto d'acquisto
+    // (effettivo se ci sono sconti a cascata, altrimenti quello base listino→netto).
+    let discBadge = '';
+    if(showDisc){
+      // SV2.10.362: il badge sconto segue il toggle "occhio" (showDiscount), esattamente
+      // come il prezzo netto: occhio attivo → badge visibile; occhio disattivo → niente badge.
+      let _badgeDiscVal = null;
+      if(_isSaleMode){
+        if(_saleInfo) _badgeDiscVal = _saleInfo.scontoEff;
+      } else {
+        _badgeDiscVal = (_eff && _eff.hasAdj) ? effDisc : discountPct;
+      }
+      if(_badgeDiscVal != null && _badgeDiscVal > 0){
+        const _dTip = _isSaleMode ? 'Sconto di vendita' : 'Sconto d\'acquisto';
+        discBadge = `<span class="card-disc-badge${_isSaleMode ? ' is-sale' : ''}" title="${_dTip}: ${fmtDiscount(_badgeDiscVal)}">- ${fmtDiscount(_badgeDiscVal)}</span>`;
+        card.classList.add('has-disc-badge');
+      }
+    }
     let priceBlock = '';
     if(hasPrice){
       if(showDisc && _isSaleMode && _saleInfo && priceNum(listino)){
@@ -27170,7 +27216,6 @@ function renderGallery(main, list){
         priceBlock = `
           <div class="card-prices card-prices-sale${_saleInfo.hasAdj ? ' has-cascade-adj' : ''}" title="${escapeAttr(_vTip)}">
             ${priceNum(listino) ? `<span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(listino)}</span>` : ''}
-            <span class="card-discount${_saleInfo.hasAdj ? ' card-discount-cascade' : ''}">${_saleInfo.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span> ' : ''}Sc. ${fmtDiscount(_scVend)}</span>
             <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_prezzoVend)}</span>
           </div>`;
       } else if(showDisc){
@@ -27187,18 +27232,17 @@ function renderGallery(main, list){
         priceBlock = `
           <div class="card-prices${_showEff ? ' has-cascade-adj' : ''}"${_adjTip ? ` title="${escapeAttr(_adjTip)}"` : ''}>
             ${priceNum(listino) ? `<span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(listino)}</span>` : ''}
-            ${_displayDisc !== null ? `<span class="card-discount${_showEff ? ' card-discount-cascade' : ''}">${_showEff ? '<span class="card-cascade-badge" title="Sconti aggiuntivi applicati">★</span> ' : ''}Sc. ${fmtDiscount(_displayDisc)}</span>` : ''}
             ${priceNum(_displayNetto) ? `<span class="card-price card-listino-neutral"><span class="card-price-label">Netto</span> € ${fmtPrice(_displayNetto)}</span>` : ''}
           </div>`;
       } else {
         // showDiscount OFF: mostro solo il Listino. Per NON cambiare l'altezza della
-        // card (che sfalserebbe la griglia), aggiungo 2 righe placeholder INVISIBILI
-        // (Prezzo + Sconto) che occupano lo stesso spazio della modalità ON. SV2.10.351
+        // card (che sfalserebbe la griglia), aggiungo 1 riga placeholder INVISIBILE
+        // (Netto) che occupa lo stesso spazio della modalità ON. SV2.10.362: lo Sc.%
+        // è stato spostato nel badge in alto, quindi qui resta solo il placeholder Netto.
         const shownPrice = priceNum(listino) || priceNum(netto);
         priceBlock = `
           <div class="card-prices">
             <span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(shownPrice)}</span>
-            <span class="card-discount" style="visibility:hidden" aria-hidden="true">Sc. 0%</span>
             <span class="card-price" style="visibility:hidden" aria-hidden="true"><span class="card-price-label">Netto</span> € 0,00</span>
           </div>`;
       }
@@ -27219,6 +27263,7 @@ function renderGallery(main, list){
     card.innerHTML = `
       <div class="card-img">
         ${selBox}
+        ${discBadge}
         ${stateBadge}
         ${img? `<img loading="lazy" src="${img}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder',textContent:'NO IMG'}))">` : '<div class="placeholder">NO IMG</div>'}
         <span class="eye-trigger" role="button" tabindex="-1" aria-label="Mostra dettagli prodotto" title="Mostra dettagli prodotto">
