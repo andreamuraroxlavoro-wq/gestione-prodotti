@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.366 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.367 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9546,7 +9546,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.366</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.367</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9906,6 +9906,12 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <!-- Gruppo "preferenze" wrappato per ereditare lo stesso gap 8px dei bottoni vista -->
     <div class="view-toggle topbar-prefs">
       <button class="btn icon-btn" id="btnEye" onclick="toggleShowDiscount()" title="Mostra/nascondi listino e sconto sulle card" aria-label="Toggle sconto"></button>
+      <!-- SV2.10.367: toggle dedicato per la PILLOLA SCONTO (badge % in alto sulle card).
+           Indipendente dall'occhio: mostra/nasconde lo sconto sia in modalità Acquisto
+           che Vendita. Icona "%". Stato gestito da updateDiscBadgeButton(). -->
+      <button class="btn icon-btn" id="btnDiscBadge" onclick="toggleDiscountBadge()" title="Mostra/nascondi la pillola sconto sulle card" aria-label="Toggle pillola sconto">
+        <svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+      </button>
       <!-- V2.10.263: toggle MODALITA' PREZZO Acquisto/Vendita. In "Vendita" le
            card mostrano prezzo e sconto di VENDITA (dal listino di vendita
            attivo) invece di quelli d'acquisto. Click apre/usa il listino. -->
@@ -10142,7 +10148,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.366 mobile");
+console.info("[bootstrap] script avvio — SV2.10.367 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11593,7 +11599,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.366';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.367';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14142,6 +14148,7 @@ function _updateQuoteFloatBtnFilterState(){
 const SETTINGS_DEFAULT = {
   lastImport: null,        // ISO timestamp ultima importazione riuscita
   showDiscount: false,     // mostra/nasconde prezzo listino e % sconto sulle card
+  showDiscountBadge: true, // SV2.10.367: mostra/nasconde la pillola sconto in alto sulle card (toggle dedicato "%")
   theme: 'dark',           // 'dark' (default) | 'light'
   // Quali colonne mostrare nel tooltip hover-preview (al passaggio del mouse sull'immagine).
   // L'ordine di visualizzazione è definito da previewColsOrder.
@@ -14677,6 +14684,7 @@ async function importConfig(file){
     // Rirender se visibile
     if(typeof render === 'function') render();
     if(typeof updateEyeButton === 'function') updateEyeButton();
+    if(typeof updateDiscBadgeButton === 'function') updateDiscBadgeButton();  // SV2.10.367
     // Chiudo il modale Impostazioni e lo riapro per rinfrescare tutto
     if(document.querySelector('.modal-bg')){
       closeSettings();
@@ -24873,6 +24881,7 @@ function showUI(){
   if(statsEl) statsEl.style.display='flex';
   // Sincronizza stato dei pulsanti toolbar con le impostazioni
   updateEyeButton();
+  if(typeof updateDiscBadgeButton === 'function') updateDiscBadgeButton();  // SV2.10.367
   if(typeof updatePriceModeButton === 'function') updatePriceModeButton();  // V2.10.263
   if(typeof _initPriceModeDualClick === 'function') _initPriceModeDualClick();  // V2.10.263
   updateThemeButton();
@@ -27175,9 +27184,9 @@ function renderGallery(main, list){
     // sconto di vendita del listino attivo; altrimenti lo sconto d'acquisto
     // (effettivo se ci sono sconti a cascata, altrimenti quello base listino→netto).
     let discBadge = '';
-    if(showDisc){
-      // SV2.10.362: il badge sconto segue il toggle "occhio" (showDiscount), esattamente
-      // come il prezzo netto: occhio attivo → badge visibile; occhio disattivo → niente badge.
+    if(SETTINGS.showDiscountBadge){
+      // SV2.10.367: la pillola sconto ha un toggle dedicato ("%"), indipendente
+      // dall'occhio (showDiscount). Funziona sia in acquisto sia in vendita.
       let _badgeDiscVal = null;
       if(_isSaleMode){
         if(_saleInfo) _badgeDiscVal = _saleInfo.scontoEff;
@@ -31837,6 +31846,28 @@ function updateEyeButton(){
     btn.innerHTML = SVG_EYE_CLOSED;
     btn.classList.remove('active');
     btn.title = 'Listino e sconto NASCOSTI — click per mostrare';
+  }
+}
+
+/* SV2.10.367: toggle dedicato per la PILLOLA SCONTO (badge "%" in alto sulle card).
+   Indipendente dall'occhio (showDiscount): controlla SOLO la visibilità della pillola
+   sconto, sia in modalità Acquisto sia in modalità Vendita. */
+function toggleDiscountBadge(){
+  SETTINGS.showDiscountBadge = !SETTINGS.showDiscountBadge;
+  saveSettings();
+  updateDiscBadgeButton();
+  render();
+}
+
+function updateDiscBadgeButton(){
+  const btn = document.getElementById('btnDiscBadge');
+  if(!btn) return;
+  if(SETTINGS.showDiscountBadge){
+    btn.classList.add('active');
+    btn.title = 'Pillola sconto VISIBILE — click per nascondere';
+  } else {
+    btn.classList.remove('active');
+    btn.title = 'Pillola sconto NASCOSTA — click per mostrare';
   }
 }
 
