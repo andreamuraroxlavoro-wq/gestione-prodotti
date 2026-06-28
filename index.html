@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.374 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.380 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -707,6 +707,69 @@ body{flex-direction:row;min-height:100vh;min-height:100dvh;height:100vh;height:1
 .sb-title-clock .sb-title-clock-time{
   font-variant-numeric:tabular-nums;
   letter-spacing:0.3px;
+}
+/* ==========================================================================
+   SV2.10.379 — Box logo come "drawer": branding + dettagli in un pannello
+   collassabile (#sbInfoPanel), con MANIGLIA-FRECCIA centrata sul bordo inferiore
+   del box (#sbInfoToggle). Ultimo Backup e stato Drive restano sempre visibili.
+   Lo stato (aperto/chiuso) è salvato in localStorage.
+   ========================================================================== */
+.sb-title-block{ position:relative; margin-bottom:12px; }  /* ancora la maniglia + spazio sotto */
+.sb-info-panel{
+  display:flex;flex-direction:column;
+  gap:8px;
+  overflow:hidden;
+  max-height:240px;opacity:1;
+  transition:max-height .28s ease, opacity .2s ease, margin-bottom .2s ease;
+}
+.sb-info-panel.collapsed{
+  max-height:0;opacity:0;
+  margin-bottom:-8px;          /* assorbe il gap verso le righe Backup/Drive */
+  pointer-events:none;
+}
+/* Maniglia-freccia (drawer handle) centrata sul bordo inferiore del box */
+.sb-info-handle{
+  position:absolute;
+  left:50%;
+  bottom:-11px;
+  transform:translateX(-50%);
+  width:46px;height:20px;
+  display:flex;align-items:center;justify-content:center;
+  padding:0;
+  background:var(--sidebar-bg-hover, rgba(255,255,255,0.07));
+  border:1px solid var(--sidebar-border);
+  border-radius:0 0 11px 11px;     /* semipillola verso il basso */
+  cursor:pointer;
+  color:var(--sidebar-fg-dim, #aaa);
+  z-index:2;
+  transition:background .15s, border-color .15s, color .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.sb-info-handle:hover{
+  background:var(--sidebar-accent);
+  border-color:var(--sidebar-accent);
+  color:#fff;
+}
+.sb-info-handle:active{ transform:translateX(-50%) scale(0.95); }
+.sb-info-handle:focus-visible{ outline:2px solid var(--sidebar-accent);outline-offset:2px; }
+.sb-info-handle-chevron{
+  width:16px;height:16px;
+  transition:transform .25s ease;
+  transform:rotate(180deg);        /* espanso (default): freccia su = "comprimi" */
+}
+.sb-info-handle.collapsed .sb-info-handle-chevron{
+  transform:rotate(0deg);          /* collassato: freccia giù = "espandi" */
+}
+/* tema chiaro: maniglia coerente con lo sfondo chiaro */
+body.theme-light .sb-info-handle{
+  background:#ffffff;
+  border-color:rgba(15,20,30,0.16);
+  color:var(--sidebar-fg-dim, #667);
+}
+body.theme-light .sb-info-handle:hover{
+  background:var(--sidebar-accent);
+  border-color:var(--sidebar-accent);
+  color:#fff;
 }
 /* V2.2.35: badge "Ultimo Backup" sotto alla versione. Stile discreto, simile
    alla versione ma con colore neutro per non competere visivamente. Nascosto
@@ -1410,6 +1473,11 @@ body.sb-resizing *{user-select:none !important}
 .ms-foot .ms-btn.tag-clear-btn:hover{
   background:#DFFF5C !important; border-color:#DFFF5C !important;
 }
+/* SV2.10.380: conteggio articoli senza tag nel pulsante "Senza TAG" */
+.tag-untag-count{
+  opacity:0.7;font-weight:600;font-variant-numeric:tabular-nums;margin-left:1px;
+}
+#tagUntaggedBtn.is-active .tag-untag-count{ opacity:0.9; }
 
 /* Pannello TAG: header con AGGIUNGI / MODIFICA */
 .tag-panel-head{
@@ -9905,26 +9973,39 @@ body.theme-light .dlg-input{background:var(--bg3)}
     </a>
   </div>
 
-  <!-- Blocco titolo: "Gestione Prodotti" + credit + versione (sotto) -->
+  <!-- Blocco titolo (SV2.10.379): branding + dettagli in un pannello collassabile;
+       Ultimo Backup e stato Drive sempre visibili; maniglia-freccia sul bordo inferiore. -->
   <div class="sb-title-block">
-    <span class="sb-title">Gestione Prodotti</span>
-    <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
-    <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.374</span>
-      <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9"/>
-          <polyline points="12 7 12 12 15.5 14"/>
-        </svg>
-        <span class="sb-title-clock-time" id="app-clock-time">--:--:--</span>
+    <!-- Pannello collassabile (drawer): titolo, credit, versione, orologio, Modalità Locale -->
+    <div class="sb-info-panel" id="sbInfoPanel">
+      <span class="sb-title">Gestione Prodotti</span>
+      <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
+      <span class="sb-title-ver-row">
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.380</span>
+        <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/>
+            <polyline points="12 7 12 12 15.5 14"/>
+          </svg>
+          <span class="sb-title-clock-time" id="app-clock-time">--:--:--</span>
+        </span>
       </span>
-    </span>
-    <span class="sb-title-localmode" id="sb-localmode-badge" title="Modalità Locale attiva — sincronizza prima di chiudere"></span>
+      <span class="sb-title-localmode" id="sb-localmode-badge" title="Modalità Locale attiva — sincronizza prima di chiudere"></span>
+    </div>
+
+    <!-- SEMPRE VISIBILI: ultimo backup locale + stato Google Drive -->
     <span class="sb-title-backup" id="app-last-backup" title="Ultimo backup automatico"></span>
     <span class="sb-title-backup drive-status-line" id="app-drive-status" title="Stato Google Drive Sync" style="display:none">
       <span class="drive-status-dot drive-dot-gray"></span>
       <span class="drive-status-label">Drive non configurato</span>
     </span>
+
+    <!-- Maniglia-freccia (drawer handle) centrata sul bordo inferiore del box -->
+    <button type="button" class="sb-info-handle" id="sbInfoToggle" onclick="toggleSbInfo()" aria-expanded="true" aria-controls="sbInfoPanel" title="Mostra o nascondi le informazioni">
+      <svg class="sb-info-handle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </button>
   </div>
 
   <nav class="sb-menu">
@@ -10517,7 +10598,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.374 mobile");
+console.info("[bootstrap] script avvio — SV2.10.380 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11968,7 +12049,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.374';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.380';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14483,6 +14564,20 @@ function tagGetForProduct(name){
   const s = PRODUCT_TAGS.get(_tagNorm(name));
   return s ? [...s].sort((a,b)=>a.localeCompare(b,'it',{sensitivity:'base'})) : [];
 }
+// SV2.10.380: numero di articoli del catalogo che NON hanno alcun tag.
+function tagUntaggedCount(){
+  if(typeof DATA === 'undefined' || !Array.isArray(DATA)) return 0;
+  let c = 0;
+  for(const p of DATA){
+    let name = '';
+    try { name = _tagNorm(getField(p, 'name')); }
+    catch(_){ name = _tagNorm(p && p.name); }
+    if(!name) continue;
+    const s = PRODUCT_TAGS.get(name);
+    if(!s || s.size === 0) c++;
+  }
+  return c;
+}
 function tagAllNames(){
   return Object.keys(TAGS_DATA).filter(t => TAGS_DATA[t] && TAGS_DATA[t].size > 0)
     .sort((a,b)=>a.localeCompare(b,'it',{sensitivity:'base'}));
@@ -14624,7 +14719,7 @@ function tagPanelOpen(trigger, event){
       <button type="button" class="tag-mode-btn" id="tagModeBtn" onclick="tagToggleMode()"></button>
     </div>
     <div class="ms-foot">
-      <button type="button" class="ms-btn" onclick="tagToggleUntagged()" id="tagUntaggedBtn">Senza TAG</button>
+      <button type="button" class="ms-btn" onclick="tagToggleUntagged()" id="tagUntaggedBtn">Senza TAG <span class="tag-untag-count" id="tagUntaggedCount"></span></button>
       <button type="button" class="ms-btn tag-clear-btn" onclick="tagFilterClearOnly()">Azzera ricerca</button>
     </div>
     <button type="button" class="ms-btn-close" onclick="tagPanelClose()">✕ Chiudi</button>`;
@@ -14675,6 +14770,9 @@ function tagPanelUpdateModeBtn(){
   }
   const u = document.getElementById('tagUntaggedBtn');
   if(u) u.classList.toggle('is-active', TAG_UNTAGGED_ONLY);
+  // SV2.10.380: numero di articoli senza alcun tag, mostrato nel pulsante
+  const uc = document.getElementById('tagUntaggedCount');
+  if(uc) uc.textContent = '(' + tagUntaggedCount() + ')';
 }
 
 function tagPanelRenderList(){
@@ -14832,6 +14930,20 @@ function tagAssignClear(){
   TAG_ASSIGN_SEL.clear();
   document.querySelectorAll('.tag-sel').forEach(el => el.classList.remove('tag-sel'));
   _tagAssignUpdateBar();
+}
+/* SV2.10.375 — La selezione prodotti per i TAG (TAG_ASSIGN_SEL) deve persistere
+   tra le pagine. Il Set vive in RAM e NON si svuota cambiando pagina, ma il DOM
+   della galleria/tabella viene ricreato da zero a ogni render: senza ripristino,
+   le card della nuova pagina non mostrano lo stato selezionato e — peggio — i click
+   successivi si desincronizzano dal Set. Dopo ogni render ri-applico .tag-sel alle
+   card/righe il cui prodotto è nel Set (e la tolgo dalle altre). Chiamata in render(). */
+function _tagAssignRestoreSelection(){
+  if(typeof TAG_ASSIGN_MODE === 'undefined' || !TAG_ASSIGN_MODE) return;
+  document.querySelectorAll('[data-prod-name]').forEach(el => {
+    const n = _tagNorm(el.getAttribute('data-prod-name'));
+    if(n && TAG_ASSIGN_SEL.has(n)) el.classList.add('tag-sel');
+    else el.classList.remove('tag-sel');
+  });
 }
 function tagAssignConfirm(){
   if(TAG_ASSIGN_SEL.size === 0) return;
@@ -26286,20 +26398,13 @@ function msOpen(key, trigger, event){
     }, 100);
   };
   const cancelAutoClose = () => _msClearAutoCloseTimer();
-  if(!IS_TOUCH_DEVICE){
-    popup.addEventListener('mouseenter', cancelAutoClose);
-    popup.addEventListener('mouseleave', scheduleAutoClose);
-    // Il trigger è parte della safe-zone: mouse su trigger non attiva autoclose
-    trigger.addEventListener('mouseenter', cancelAutoClose);
-    trigger.addEventListener('mouseleave', (e) => {
-      // Se il mouse va DENTRO al popup è ok (il popup ha il suo mouseenter).
-      // Se va altrove, partiamo col timer.
-      if(!MS_OPEN_POPUP) return;
-      const rel = e.relatedTarget;
-      if(rel && (MS_OPEN_POPUP.contains(rel) || rel === MS_OPEN_POPUP)) return;
-      scheduleAutoClose();
-    });
-  }
+  // SV2.10.376: RIMOSSA la chiusura automatica su mouseleave (quando il mouse esce
+  // dal popup o dal trigger). Su richiesta, i filtri Marca/Macrocategoria/Categoria
+  // restano aperti anche se il cursore esce dalla finestra di ricerca: si chiudono
+  // SOLO con il tasto "✕ Chiudi", con un clic fuori dalla zona, con Esc o con un
+  // nuovo click sul trigger. (scheduleAutoClose/cancelAutoClose restano definite
+  // sopra ma non sono più agganciate ad alcun evento.)
+  void scheduleAutoClose; void cancelAutoClose;
   // Memorizza per la pulizia in msClose
   MS_OPEN_POPUP._msTriggerRef = trigger;
   MS_OPEN_POPUP._msHandlers = { scheduleAutoClose, cancelAutoClose };
@@ -26599,14 +26704,14 @@ function msTriggerHoverEnter(key, el){
 }
 
 function msTriggerHoverLeave(key, event){
-  // Se il mouse sta andando DENTRO al popup aperto, non cancellare nulla
-  // (il popup gestisce il proprio mouseenter/leave)
+  // Se il mouse sta andando DENTRO al popup aperto, non fare nulla.
   const rel = event && event.relatedTarget;
   if(rel && MS_OPEN_POPUP && MS_OPEN_POPUP.contains(rel)) return;
-  // Cancella l'apertura in sospeso (il mouse ha lasciato il trigger prima del delay)
+  // Cancella un eventuale timer di apertura hover residuo (l'apertura su hover è
+  // comunque disabilitata).
   _msClearHoverOpenTimer();
-  // L'auto-close del popup aperto partirà normalmente se MS_OPEN_POPUP esiste
-  // (gestito dall'handler mouseleave del trigger aperto — già presente)
+  // SV2.10.376: NON viene più avviata alcuna chiusura automatica all'uscita del
+  // mouse. Il popup aperto resta aperto e si chiude solo con tasto/clic fuori/Esc.
 }
 
 // Helpers escape (evitano collisioni con escapeHtml/escapeJs esistenti)
@@ -28213,6 +28318,8 @@ function render(){
   // Ripristina le evidenziazioni "già visto" sulle card/tr visibili
   // (il DOM è stato appena ricreato da zero)
   if(typeof applyViewedMarks === 'function') applyViewedMarks();
+  // SV2.10.375: ripristina la selezione TAG (persiste tra le pagine, il DOM è nuovo)
+  if(typeof _tagAssignRestoreSelection === 'function') _tagAssignRestoreSelection();
 }
 
 function renderGallery(main, list){
@@ -61141,6 +61248,40 @@ if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', start);
   } else {
     start();
+  }
+})();
+
+// SV2.10.377: pannello informazioni collassabile sotto il box del logo.
+// L'ancora #sbInfoToggle estende/ritrae #sbInfoPanel; lo stato è in localStorage.
+function toggleSbInfo(){
+  const panel = document.getElementById('sbInfoPanel');
+  const toggle = document.getElementById('sbInfoToggle');
+  if(!panel || !toggle) return;
+  const collapsed = panel.classList.toggle('collapsed');
+  toggle.classList.toggle('collapsed', collapsed);
+  toggle.setAttribute('aria-expanded', String(!collapsed));
+  try { localStorage.setItem('sbInfoCollapsed', collapsed ? '1' : '0'); } catch(_){}
+}
+(function initSbInfo(){
+  function apply(){
+    let collapsed = false;
+    try { collapsed = localStorage.getItem('sbInfoCollapsed') === '1'; } catch(_){}
+    if(!collapsed) return;  // default: pannello espanso
+    const panel = document.getElementById('sbInfoPanel');
+    const toggle = document.getElementById('sbInfoToggle');
+    if(panel){
+      const prev = panel.style.transition;
+      panel.style.transition = 'none';   // nessuna animazione al ripristino iniziale
+      panel.classList.add('collapsed');
+      void panel.offsetHeight;           // forza il reflow
+      panel.style.transition = prev;
+    }
+    if(toggle){ toggle.classList.add('collapsed'); toggle.setAttribute('aria-expanded', 'false'); }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', apply);
+  } else {
+    apply();
   }
 })();
 
