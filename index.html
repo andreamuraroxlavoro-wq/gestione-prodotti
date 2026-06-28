@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.367 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.372 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -1305,6 +1305,282 @@ body.sb-resizing *{user-select:none !important}
 }
 .ms-btn-close:hover{ background:#dc2626; border-color:#dc2626; }
 .ms-btn-close:active{ transform:scale(0.99); }
+
+/* ========================================================================
+   SISTEMA TAG (SV2.10.368) — stili
+   ======================================================================== */
+/* Card sidebar "Ricerca per TAG" (sostituisce la ricerca veloce) */
+.tag-search-card{
+  background:linear-gradient(135deg, rgba(232,92,40,0.10), rgba(255,255,255,0.03));
+  border:1px solid var(--sidebar-border, rgba(255,255,255,0.12));
+  border-radius:8px;
+  padding:10px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.15);
+}
+.tag-search-card .quick-search-title{
+  display:flex;align-items:center;gap:7px;
+  font-size:12px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;
+  color:var(--sidebar-accent, var(--accent));
+  margin-bottom:8px;
+}
+.tag-search-card .quick-search-icon{ width:16px;height:16px;flex-shrink:0; }
+.tag-search-card .ms-trigger{ margin:0; }
+
+/* SV2.10.370: quando il filtro TAG è attivo, l'icona 🏷 diventa verde acido
+   (#CCFF00) e lampeggia, coerente con gli altri filtri attivi (verde acido =
+   filtro in corso, idem #btnResetFilters e l'highlight della ricerca). */
+@keyframes tagIconPulse {
+  0%, 100% { color:#CCFF00; filter: drop-shadow(0 0 2px rgba(204,255,0,0.45)); }
+  50%      { color:#E8FF6A; filter: drop-shadow(0 0 7px rgba(204,255,0,0.95)); }
+}
+.tag-search-card.tag-filter-active .quick-search-icon{
+  animation: tagIconPulse 1.6s ease-in-out infinite;
+}
+/* SV2.10.370: pulsante "Azzera TAG" evidenziato in verde acido per maggior
+   evidenza, coerente con il pulsante reset globale (#btnResetFilters attivo). */
+.ms-foot .ms-btn.tag-clear-btn{
+  background:#CCFF00 !important; color:#1a1a00 !important;
+  border-color:#CCFF00 !important; font-weight:700 !important;
+}
+.ms-foot .ms-btn.tag-clear-btn:hover{
+  background:#DFFF5C !important; border-color:#DFFF5C !important;
+}
+
+/* Pannello TAG: header con AGGIUNGI / MODIFICA */
+.tag-panel-head{
+  display:flex;gap:5px;margin-bottom:6px;
+}
+.tag-action-btn{
+  flex:1;
+  font-family:inherit;font-size:11px;font-weight:800;
+  text-transform:uppercase;letter-spacing:0.5px;
+  padding:9px 6px;border-radius:6px;cursor:pointer;
+  transition:all 0.12s;border:1px solid transparent;
+}
+.tag-action-add{
+  background:var(--accent);color:#fff;border-color:var(--accent);
+}
+.tag-action-add:hover{ filter:brightness(1.08); }
+.tag-action-edit{
+  background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);
+  border-color:rgba(255,255,255,0.18);
+}
+.tag-action-edit:hover{ border-color:var(--accent);color:var(--accent); }
+/* SV2.10.372: pulsante "Rimuovi" nell'header del pannello TAG */
+.tag-action-remove{
+  background:rgba(239,68,68,0.10);color:#fca5a5;
+  border-color:rgba(239,68,68,0.35);
+}
+.tag-action-remove:hover{ border-color:#ef4444;color:#fecaca; background:rgba(239,68,68,0.18); }
+.tag-action-btn:active{ transform:scale(0.97); }
+
+/* SV2.10.372: barra azioni in MODALITÀ RIMOZIONE (tinta rossa per distinguerla) */
+.tag-assign-bar-remove{ box-shadow:0 -2px 18px rgba(239,68,68,0.30); }
+.tag-assign-bar-remove .tab-btn-primary{
+  background:#ef4444 !important;border-color:#ef4444 !important;color:#fff !important;
+}
+.tag-assign-bar-remove .tab-btn-primary:hover{ filter:brightness(1.08); }
+body.tag-remove-active [data-prod-name].tag-sel{ outline-color:#ef4444 !important; }
+
+/* SV2.10.372: dialog di SCELTA TAG (lista cliccabile, usato dalla rimozione) */
+.tag-dialog-hint{ font-size:12px;color:var(--fg3);margin:-4px 0 8px; }
+.tag-pick-list{ display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto;margin-bottom:10px; }
+.tag-pick-row{
+  display:flex;align-items:center;gap:8px;width:100%;
+  padding:9px 11px;border-radius:7px;cursor:pointer;text-align:left;
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);
+  color:inherit;font-family:inherit;font-size:13px;transition:all 0.12s;
+}
+.tag-pick-row:hover{ background:rgba(239,68,68,0.14);border-color:rgba(239,68,68,0.5); }
+.tag-pick-row .tpk-name{ flex:1;font-weight:600; }
+.tag-pick-row .tpk-count{
+  flex-shrink:0;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;
+  background:rgba(255,255,255,0.12);color:var(--fg3);
+}
+
+/* SV2.10.372: chip TAG dentro la scheda prodotto (openEditor) con X per rimuovere */
+.editor-tags-box{ display:flex;flex-wrap:wrap;gap:6px;align-items:center; }
+.editor-tag-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 6px 4px 10px;border-radius:999px;font-size:12px;font-weight:600;
+  background:rgba(232,92,40,0.14);border:1px solid rgba(232,92,40,0.4);color:var(--fg,#eee);
+}
+.editor-tag-chip .etc-x{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;border-radius:50%;cursor:pointer;color:#fca5a5;
+  background:rgba(239,68,68,0.18);transition:all 0.12s;
+}
+.editor-tag-chip .etc-x:hover{ background:#ef4444;color:#fff; }
+.editor-tag-empty{ font-size:12px;color:var(--fg3);font-style:italic; }
+.editor-tag-add{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:4px 11px;border-radius:999px;cursor:pointer;
+  font-family:inherit;font-size:12px;font-weight:700;
+  background:rgba(255,255,255,0.06);border:1px dashed rgba(255,255,255,0.3);color:var(--fg3);
+  transition:all 0.12s;
+}
+.editor-tag-add:hover{ border-color:var(--accent);color:var(--accent);background:rgba(232,92,40,0.10); }
+
+/* Riga toggle AND/OR */
+.tag-mode-row{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:6px 3px 2px;margin-top:2px;
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+.tag-mode-label{ font-size:11px;color:rgba(255,255,255,0.6); }
+.tag-mode-btn{
+  font-family:inherit;font-size:10px;font-weight:800;letter-spacing:0.5px;
+  padding:5px 10px;border-radius:5px;cursor:pointer;
+  background:rgba(232,92,40,0.18);color:#fff;border:1px solid var(--accent);
+  transition:all 0.12s;
+}
+.tag-mode-btn.is-or{ background:rgba(56,139,253,0.20);border-color:#388bfd; }
+.tag-mode-btn:active{ transform:scale(0.97); }
+.ms-btn.is-active{ background:rgba(232,92,40,0.18);border-color:var(--accent);color:#fff; }
+
+/* Pillole filtro TAG sotto al trigger (riusano .ms-tag) */
+.ms-inline-tags[data-filter="tag"] .ms-tag{
+  background:rgba(232,92,40,0.14);border:1px solid rgba(232,92,40,0.35);
+}
+.ms-inline-tags[data-filter="tag"] .ms-tag:hover{ background:rgba(232,92,40,0.22); }
+.tag-pill-untagged{
+  background:rgba(148,163,184,0.18) !important;border-color:rgba(148,163,184,0.4) !important;
+}
+
+/* ---- Modalità ASSEGNAZIONE: card/righe selezionabili ---- */
+body.tag-assign-active [data-prod-name]{
+  cursor:pointer;
+  position:relative;
+}
+body.tag-assign-active .card[data-prod-name]{
+  outline:2px dashed rgba(232,92,40,0.45);
+  outline-offset:-2px;
+  transition:outline-color 0.12s, box-shadow 0.12s;
+}
+body.tag-assign-active .card[data-prod-name]:hover{
+  outline-color:var(--accent);
+}
+body.tag-assign-active .card[data-prod-name].tag-sel{
+  outline:3px solid var(--accent);
+  box-shadow:0 0 0 3px rgba(232,92,40,0.25);
+}
+body.tag-assign-active .card[data-prod-name].tag-sel::after{
+  content:'✓';
+  position:absolute;top:6px;left:6px;z-index:5;
+  width:24px;height:24px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:900;
+  box-shadow:0 1px 4px rgba(0,0,0,0.4);
+}
+body.tag-assign-active tr[data-prod-name]{ cursor:pointer; }
+body.tag-assign-active tr[data-prod-name]:hover{ background:rgba(232,92,40,0.08) !important; }
+body.tag-assign-active tr[data-prod-name].tag-sel{
+  background:rgba(232,92,40,0.20) !important;
+  box-shadow:inset 3px 0 0 var(--accent);
+}
+
+/* Barra azioni assegnazione (fissa in basso) */
+.tag-assign-bar{
+  position:fixed;left:0;right:0;bottom:0;z-index:10000;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:10px 16px;
+  background:#11161d;border-top:2px solid var(--accent);
+  box-shadow:0 -4px 20px rgba(0,0,0,0.45);
+  animation:tagBarUp 0.18s ease-out;
+}
+@keyframes tagBarUp{ from{ transform:translateY(100%); } to{ transform:translateY(0); } }
+.tag-assign-bar .tab-count{
+  font-size:14px;font-weight:800;color:#fff;
+  background:rgba(232,92,40,0.2);padding:6px 14px;border-radius:20px;
+  border:1px solid var(--accent);white-space:nowrap;
+}
+.tag-assign-bar .tab-actions{ display:flex;gap:8px;flex-wrap:wrap; }
+.tab-btn{
+  font-family:inherit;font-size:13px;font-weight:700;
+  padding:10px 16px;border-radius:7px;cursor:pointer;
+  background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.2);
+  transition:all 0.12s;min-height:42px;
+}
+.tab-btn:hover{ background:rgba(255,255,255,0.14); }
+.tab-btn-primary{ background:var(--accent);border-color:var(--accent); }
+.tab-btn-primary:hover{ filter:brightness(1.08);background:var(--accent); }
+.tab-btn-primary:disabled{ opacity:0.4;cursor:not-allowed;filter:none; }
+.tab-btn-exit{ background:transparent;border-color:rgba(255,255,255,0.25); }
+.tab-btn:active{ transform:scale(0.97); }
+
+/* ---- Dialog TAG (nome / conferma / gestione) ---- */
+.tag-dialog-overlay{
+  position:fixed;inset:0;z-index:10001;
+  background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;padding:18px;
+  animation:tagFadeIn 0.12s ease-out;
+}
+@keyframes tagFadeIn{ from{ opacity:0; } to{ opacity:1; } }
+.tag-dialog{
+  width:100%;max-width:420px;
+  background:#1a2029;border:1px solid rgba(255,255,255,0.15);border-radius:12px;
+  box-shadow:0 12px 40px rgba(0,0,0,0.6);
+  padding:18px;box-sizing:border-box;
+  animation:tagDlgIn 0.14s ease-out;
+}
+@keyframes tagDlgIn{ from{ opacity:0;transform:translateY(8px) scale(0.98); } to{ opacity:1;transform:none; } }
+.tag-dialog-title{ font-size:16px;font-weight:800;color:#fff;margin-bottom:14px; }
+.tag-dialog-msg{ font-size:14px;color:#e8e6e1;line-height:1.5;margin-bottom:18px; }
+.tag-dialog-input{
+  width:100%;box-sizing:border-box;
+  padding:12px 14px;font-size:15px;font-family:inherit;
+  background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);
+  border-radius:8px;color:#fff;margin-bottom:16px;
+}
+.tag-dialog-input:focus{ outline:none;border-color:var(--accent);background:rgba(255,255,255,0.09); }
+.tag-dialog-input::placeholder{ color:rgba(255,255,255,0.4); }
+.tag-dialog-foot{ display:flex;gap:10px;justify-content:flex-end; }
+.tag-dlg-btn{
+  font-family:inherit;font-size:14px;font-weight:700;
+  padding:11px 20px;border-radius:8px;cursor:pointer;min-height:44px;
+  background:rgba(255,255,255,0.07);color:#fff;border:1px solid rgba(255,255,255,0.2);
+  transition:all 0.12s;
+}
+.tag-dlg-btn:hover{ background:rgba(255,255,255,0.13); }
+.tag-dlg-primary{ background:var(--accent);border-color:var(--accent); }
+.tag-dlg-primary:hover{ filter:brightness(1.08);background:var(--accent); }
+.tag-dlg-danger{ background:#ef4444;border-color:#ef4444; }
+.tag-dlg-danger:hover{ background:#dc2626; }
+.tag-dlg-btn:active{ transform:scale(0.97); }
+
+/* Gestione TAG (modifica): lista */
+.tag-manage{ max-width:480px; }
+.tag-manage-list{ max-height:50vh;overflow-y:auto;margin-bottom:14px; }
+.tag-manage-row{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;
+  margin-bottom:7px;background:rgba(255,255,255,0.03);
+}
+.tmr-name{ flex:1;font-size:14px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.tmr-count{
+  font-size:11px;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.06);
+  padding:2px 9px;border-radius:10px;font-variant-numeric:tabular-nums;flex-shrink:0;
+}
+.tmr-btn{
+  width:36px;height:36px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;border-radius:7px;cursor:pointer;
+  background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.18);
+  transition:all 0.12s;
+}
+.tmr-btn:hover{ border-color:var(--accent);color:var(--accent); }
+.tmr-del:hover{ border-color:#ef4444;color:#ef4444; }
+.tmr-btn:active{ transform:scale(0.94); }
+
+/* Mobile: barra assegnazione e dialog adattati */
+@media (max-width:768px){
+  .tag-assign-bar{ flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px; }
+  .tag-assign-bar .tab-count{ text-align:center; }
+  .tag-assign-bar .tab-actions{ justify-content:stretch; }
+  .tab-btn{ flex:1;font-size:12px;padding:11px 8px; }
+  .tag-dialog{ max-width:none; }
+}
 
 /* Footer della sidebar: utilità compatte (theme+eye). Una riga in basso */
 .sb-footer{
@@ -9546,7 +9822,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <span class="sb-title">Gestione Prodotti</span>
     <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
     <span class="sb-title-ver-row">
-      <span class="sb-title-ver" id="app-version">Ver. SV2.10.367</span>
+      <span class="sb-title-ver" id="app-version">Ver. SV2.10.372</span>
       <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
@@ -9583,15 +9859,20 @@ body.theme-light .dlg-input{background:var(--bg3)}
            UI: card "elevated" con gradient dei 3 colori filtri (ciano/ambra/verde)
            per comunicare visivamente che questo campo agisce sui 3 filtri sotto. -->
       <div class="sb-filter-group quick-search-group">
-        <div class="quick-search-card">
+        <div class="tag-search-card">
           <label class="quick-search-title">
-            <svg class="quick-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="21" y1="21" x2="16.5" y2="16.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            <span>Ricerca veloce</span>
+            <svg class="quick-search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>
+            <span>Ricerca per TAG</span>
           </label>
-          <div class="quick-search-wrap">
-            <input type="text" class="filter-select" id="fltQuickSearch" placeholder="cerca in macrocat. / categorie" autocomplete="off" spellcheck="false">
-            <button type="button" class="quick-search-clear" id="fltQuickSearchClear" title="Pulisci ricerca veloce" aria-label="Pulisci ricerca veloce">×</button>
+          <div class="ms-trigger" id="tagTrigger" data-filter="tag" tabindex="0" role="button" aria-haspopup="listbox" aria-expanded="false" onclick="tagPanelOpen(this, event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tagPanelOpen(this, event)}">
+            <span class="ms-trigger-label" id="tagTriggerLabel">Tutti</span>
+            <span class="ms-trigger-caret">▾</span>
           </div>
+          <div class="ms-inline-tags" id="tagInlineTags" data-filter="tag"></div>
+          <!-- SV2.10.368: input ricerca veloce mantenuto nascosto per retrocompatibilità
+               del codice esistente che lo referenzia (sempre vuoto → filtro inattivo). -->
+          <input type="text" id="fltQuickSearch" style="display:none" autocomplete="off" tabindex="-1" aria-hidden="true">
+          <button type="button" class="quick-search-clear" id="fltQuickSearchClear" style="display:none" tabindex="-1" aria-hidden="true">×</button>
         </div>
       </div>
 
@@ -10148,7 +10429,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.367 mobile");
+console.info("[bootstrap] script avvio — SV2.10.372 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -11599,7 +11880,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.367';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.372';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14029,6 +14310,690 @@ function toggleOnlyOutletFilter(){
 loadOutlet();
 /* ============== FINE SISTEMA OUTLET ============== */
 
+/* ========================================================================
+   SISTEMA TAG (SV2.10.368) — Ricerca per TAG
+   ------------------------------------------------------------------------
+   Sostituisce la "Ricerca veloce" con un sistema di etichettatura libera
+   dei prodotti. Un prodotto può avere N tag. Il filtro TAG è in AND con
+   tutti gli altri filtri (innesto in applyFilters), default AND tra tag.
+   Identifier prodotto: il `name` canonico (come Preferiti/Outlet/Magazzino).
+   Persistenza: localStorage 'vt_tags' (oggetto {tag:[names]}) + sync Drive
+   come le altre settings (driveNotifyChange('settings','vt_tags',null)).
+   Sorgente di verità: TAGS_DATA (tag -> Set nomi). Indice inverso in RAM.
+   ======================================================================== */
+const TAGS_DATA = Object.create(null);   // { tagName: Set<prodName> }  (verità → vt_tags)
+const PRODUCT_TAGS = new Map();          // prodName -> Set<tagName>  (indice inverso, RAM)
+const TAG_FILTER = new Set();            // tag attualmente selezionati nel filtro
+let   TAG_FILTER_MODE = 'AND';           // 'AND' = tutti i tag · 'OR' = almeno uno
+let   TAG_UNTAGGED_ONLY = false;         // filtro speciale: solo prodotti senza alcun tag
+let   TAG_ASSIGN_MODE = false;           // modalità assegnazione attiva
+const TAG_ASSIGN_SEL = new Set();        // prodName selezionati durante l'assegnazione
+let   TAG_ASSIGN_OP  = 'add';            // SV2.10.372: 'add' = assegna · 'remove' = rimuovi
+const TAGS_LS_KEY = 'vt_tags';
+
+function _tagNorm(s){ return String(s == null ? '' : s).trim(); }
+
+// Carica i tag dal localStorage e ricostruisce l'indice inverso.
+function loadTags(){
+  try {
+    const raw = localStorage.getItem(TAGS_LS_KEY);
+    // reset
+    for(const k in TAGS_DATA) delete TAGS_DATA[k];
+    if(raw){
+      const obj = JSON.parse(raw);
+      if(obj && typeof obj === 'object'){
+        for(const tag in obj){
+          const t = _tagNorm(tag);
+          if(!t) continue;
+          const arr = Array.isArray(obj[tag]) ? obj[tag] : [];
+          const set = new Set();
+          arr.forEach(n => { const s = _tagNorm(n); if(s) set.add(s); });
+          // unione difensiva in caso di chiavi duplicate dopo normalizzazione
+          if(TAGS_DATA[t]){ set.forEach(x => TAGS_DATA[t].add(x)); }
+          else TAGS_DATA[t] = set;
+        }
+      }
+    }
+  } catch(e){
+    console.warn('[tags] errore lettura localStorage:', e);
+  }
+  rebuildProductTagsIndex();
+}
+
+// Serializza TAGS_DATA in localStorage e notifica il sync Drive.
+function saveTags(){
+  try {
+    const obj = Object.create(null);
+    for(const tag in TAGS_DATA){
+      // non persistere tag rimasti vuoti (nessun prodotto)
+      if(TAGS_DATA[tag] && TAGS_DATA[tag].size > 0) obj[tag] = [...TAGS_DATA[tag]];
+    }
+    localStorage.setItem(TAGS_LS_KEY, JSON.stringify(obj));
+  } catch(e){
+    console.warn('[tags] errore scrittura localStorage:', e);
+  }
+  if(typeof driveNotifyChange === 'function'){
+    try { driveNotifyChange('settings', 'vt_tags', null); } catch(_){}
+  }
+}
+
+// Ricostruisce PRODUCT_TAGS (indice inverso) a partire da TAGS_DATA.
+function rebuildProductTagsIndex(){
+  PRODUCT_TAGS.clear();
+  for(const tag in TAGS_DATA){
+    const set = TAGS_DATA[tag];
+    if(!set) continue;
+    set.forEach(name => {
+      let s = PRODUCT_TAGS.get(name);
+      if(!s){ s = new Set(); PRODUCT_TAGS.set(name, s); }
+      s.add(tag);
+    });
+  }
+}
+
+function tagGetForProduct(name){
+  const s = PRODUCT_TAGS.get(_tagNorm(name));
+  return s ? [...s].sort((a,b)=>a.localeCompare(b,'it',{sensitivity:'base'})) : [];
+}
+function tagAllNames(){
+  return Object.keys(TAGS_DATA).filter(t => TAGS_DATA[t] && TAGS_DATA[t].size > 0)
+    .sort((a,b)=>a.localeCompare(b,'it',{sensitivity:'base'}));
+}
+function tagCount(tag){ const s = TAGS_DATA[_tagNorm(tag)]; return s ? s.size : 0; }
+function tagExists(tag){ const t=_tagNorm(tag); return !!(TAGS_DATA[t] && TAGS_DATA[t].size > 0); }
+
+// Assegna un tag a una lista di prodotti (per name). Crea il tag se non esiste.
+// Ritorna {created:bool, added:int}.
+function tagAddToProducts(tag, names){
+  const t = _tagNorm(tag);
+  if(!t) return { created:false, added:0 };
+  const created = !TAGS_DATA[t];
+  if(created) TAGS_DATA[t] = new Set();
+  let added = 0;
+  (names || []).forEach(n => {
+    const name = _tagNorm(n);
+    if(!name) return;
+    if(!TAGS_DATA[t].has(name)){ TAGS_DATA[t].add(name); added++; }
+    let s = PRODUCT_TAGS.get(name);
+    if(!s){ s = new Set(); PRODUCT_TAGS.set(name, s); }
+    s.add(t);
+  });
+  saveTags();
+  return { created, added };
+}
+
+// Rimuove un tag da un singolo prodotto.
+function tagRemoveFromProduct(tag, name){
+  const t = _tagNorm(tag), n = _tagNorm(name);
+  if(TAGS_DATA[t]){ TAGS_DATA[t].delete(n); if(TAGS_DATA[t].size === 0){ delete TAGS_DATA[t]; TAG_FILTER.delete(t); } }
+  const s = PRODUCT_TAGS.get(n);
+  if(s){ s.delete(t); if(s.size === 0) PRODUCT_TAGS.delete(n); }
+  saveTags();
+}
+
+// Rinomina un tag: si propaga su tutti i prodotti. Se il nuovo nome esiste già,
+// fonde i due insiemi. Ritorna true se eseguito.
+function tagRename(oldName, newName){
+  const o = _tagNorm(oldName), nw = _tagNorm(newName);
+  if(!o || !nw || !TAGS_DATA[o]) return false;
+  if(o === nw) return true;
+  const target = TAGS_DATA[nw] || new Set();
+  TAGS_DATA[o].forEach(x => target.add(x));
+  TAGS_DATA[nw] = target;
+  delete TAGS_DATA[o];
+  if(TAG_FILTER.has(o)){ TAG_FILTER.delete(o); TAG_FILTER.add(nw); }
+  rebuildProductTagsIndex();
+  saveTags();
+  return true;
+}
+
+// Elimina completamente un tag (da tutti i prodotti).
+function tagDelete(tag){
+  const t = _tagNorm(tag);
+  if(!TAGS_DATA[t]) return false;
+  delete TAGS_DATA[t];
+  TAG_FILTER.delete(t);
+  rebuildProductTagsIndex();
+  saveTags();
+  return true;
+}
+
+loadTags();
+/* ============== FINE SISTEMA TAG: nucleo dati ============== */
+
+/* ========================================================================
+   SISTEMA TAG — UI (SV2.10.368)
+   Trigger + pillole sidebar, pannello filtro (stile ms-*), modalità
+   assegnazione (AGGIUNGI) e gestione tag (MODIFICA). Touch-first.
+   ======================================================================== */
+
+// --- Trigger + pillole inline sotto al trigger -------------------------
+function renderTagTrigger(){
+  const trig = document.getElementById('tagTrigger');
+  const lab  = document.getElementById('tagTriggerLabel');
+  if(!trig || !lab) return;
+  const n = TAG_FILTER.size;
+  const hasSel = n > 0 || TAG_UNTAGGED_ONLY;
+  if(TAG_UNTAGGED_ONLY){
+    lab.textContent = 'Senza TAG';
+  } else if(n === 0){
+    lab.textContent = 'Tutti';
+  } else if(n === 1){
+    lab.textContent = [...TAG_FILTER][0];
+  } else {
+    lab.textContent = n + ' tag' + (TAG_FILTER_MODE === 'AND' ? ' (tutti)' : ' (almeno 1)');
+  }
+  trig.classList.toggle('has-selection', hasSel);
+  // SV2.10.370: accende/spegne l'icona verde acido lampeggiante sulla card.
+  const card = trig.closest('.tag-search-card');
+  if(card) card.classList.toggle('tag-filter-active', hasSel);
+}
+
+function renderTagInlineTags(){
+  const box = document.getElementById('tagInlineTags');
+  if(!box) return;
+  const sel = [...TAG_FILTER];
+  if(TAG_UNTAGGED_ONLY){
+    box.classList.add('has-tags');
+    box.innerHTML = `<span class="ms-tag tag-pill-untagged"><span class="ms-tag-text">Senza TAG</span>`
+      + `<span class="ms-tag-x" role="button" title="Rimuovi" onclick="event.stopPropagation();tagToggleUntagged(false)">`
+      + `<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="19" y1="5" x2="5" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg></span></span>`;
+    return;
+  }
+  if(sel.length === 0){ box.classList.remove('has-tags'); box.innerHTML = ''; return; }
+  box.classList.add('has-tags');
+  box.innerHTML = sel.map(t =>
+    `<span class="ms-tag tag-pill"><span class="ms-tag-text">${_msHtmlEsc(t)}</span>`
+    + `<span class="ms-tag-x" role="button" title="Rimuovi dal filtro" onclick="event.stopPropagation();tagFilterToggle(${JSON.stringify(t).replace(/"/g,'&quot;')})">`
+    + `<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="19" y1="5" x2="5" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg></span></span>`
+  ).join('');
+}
+
+function _tagSyncUI(){ renderTagTrigger(); renderTagInlineTags(); }
+
+// --- Pannello filtro (riusa CSS ms-*) ----------------------------------
+let TAG_POPUP = null;
+let TAG_POPUP_QUERY = '';
+
+function tagPanelOpen(trigger, event){
+  if(event){ event.stopPropagation(); event.preventDefault(); }
+  if(TAG_POPUP){ tagPanelClose(); return; }
+  if(typeof msClose === 'function') msClose();  // chiudi eventuali popup ms aperti
+  TAG_POPUP_QUERY = '';
+  const popup = document.createElement('div');
+  popup.className = 'ms-popup tag-popup';
+  popup.setAttribute('role','listbox');
+  popup.innerHTML = `
+    <div class="tag-panel-head">
+      <button type="button" class="tag-action-btn tag-action-add" onclick="tagAssignEnter()">➕ Aggiungi</button>
+      <button type="button" class="tag-action-btn tag-action-remove" onclick="tagRemoveEnter()">➖ Rimuovi</button>
+      <button type="button" class="tag-action-btn tag-action-edit" onclick="tagManageOpen()">✎ Modifica</button>
+    </div>
+    <input type="text" class="ms-search" id="tagSearchInput" placeholder="Cerca tag…" autocomplete="off" spellcheck="false">
+    <div class="ms-list" id="tagListBox"></div>
+    <div class="tag-mode-row">
+      <span class="tag-mode-label">Più tag:</span>
+      <button type="button" class="tag-mode-btn" id="tagModeBtn" onclick="tagToggleMode()"></button>
+    </div>
+    <div class="ms-foot">
+      <button type="button" class="ms-btn" onclick="tagToggleUntagged()" id="tagUntaggedBtn">Senza TAG</button>
+      <button type="button" class="ms-btn tag-clear-btn" onclick="tagFilterClearOnly()">Azzera TAG</button>
+    </div>
+    <button type="button" class="ms-btn-close" onclick="tagPanelClose()">✕ Chiudi</button>`;
+  document.body.appendChild(popup);
+  popup._msTriggerRef = trigger;
+  if(typeof _msPositionPopup === 'function') _msPositionPopup(popup, trigger);
+  TAG_POPUP = popup;
+  if(trigger){ trigger.setAttribute('aria-expanded','true'); trigger.classList.add('open'); }
+
+  const search = document.getElementById('tagSearchInput');
+  if(search){
+    search.addEventListener('input', () => { TAG_POPUP_QUERY = search.value; tagPanelRenderList(); });
+  }
+  tagPanelRenderList();
+  tagPanelUpdateModeBtn();
+
+  // listeners di chiusura (propri, indipendenti da ms)
+  setTimeout(() => {
+    document.addEventListener('pointerdown', _tagOutsideClick, true);
+    document.addEventListener('keydown', _tagEscKey);
+  }, 0);
+}
+
+function tagPanelClose(){
+  if(TAG_POPUP){
+    const trig = document.getElementById('tagTrigger');
+    if(trig){ trig.setAttribute('aria-expanded','false'); trig.classList.remove('open'); }
+    TAG_POPUP.remove();
+    TAG_POPUP = null;
+  }
+  document.removeEventListener('pointerdown', _tagOutsideClick, true);
+  document.removeEventListener('keydown', _tagEscKey);
+}
+function _tagOutsideClick(e){
+  if(!TAG_POPUP) return;
+  if(TAG_POPUP.contains(e.target)) return;
+  const trig = document.getElementById('tagTrigger');
+  if(trig && trig.contains(e.target)) return;
+  tagPanelClose();
+}
+function _tagEscKey(e){ if(e.key === 'Escape' && TAG_POPUP) tagPanelClose(); }
+
+function tagPanelUpdateModeBtn(){
+  const b = document.getElementById('tagModeBtn');
+  if(b){
+    b.textContent = TAG_FILTER_MODE === 'AND' ? 'TUTTI (AND)' : 'ALMENO 1 (OR)';
+    b.classList.toggle('is-or', TAG_FILTER_MODE === 'OR');
+  }
+  const u = document.getElementById('tagUntaggedBtn');
+  if(u) u.classList.toggle('is-active', TAG_UNTAGGED_ONLY);
+}
+
+function tagPanelRenderList(){
+  const box = document.getElementById('tagListBox');
+  if(!box) return;
+  const q = _tagNorm(TAG_POPUP_QUERY).toLowerCase();
+  let names = tagAllNames();
+  if(q) names = names.filter(t => t.toLowerCase().includes(q));
+  if(names.length === 0){
+    box.innerHTML = `<div class="ms-empty">${tagAllNames().length === 0 ? 'Nessun tag creato.<br>Usa “➕ Aggiungi”.' : 'Nessun tag corrisponde.'}</div>`;
+    return;
+  }
+  // selezionati in cima, poi alfabetico
+  names.sort((a,b) => {
+    const sa = TAG_FILTER.has(a) ? 0 : 1, sb = TAG_FILTER.has(b) ? 0 : 1;
+    if(sa !== sb) return sa - sb;
+    return a.localeCompare(b,'it',{sensitivity:'base'});
+  });
+  box.innerHTML = names.map(t => {
+    const checked = TAG_FILTER.has(t);
+    return `<div class="ms-item${checked?' checked':''}" onclick="tagFilterToggle(${JSON.stringify(t).replace(/"/g,'&quot;')})">`
+      + `<span class="ms-cbox ${checked?'checked':''}"></span>`
+      + `<span class="ms-item-label">${_msHtmlEsc(t)}</span>`
+      + `<span class="ms-item-count">${tagCount(t)}</span></div>`;
+  }).join('');
+}
+
+function tagFilterToggle(tag){
+  const t = _tagNorm(tag);
+  if(!t) return;
+  if(TAG_UNTAGGED_ONLY) TAG_UNTAGGED_ONLY = false; // mutuamente esclusivo con "senza tag"
+  if(TAG_FILTER.has(t)) TAG_FILTER.delete(t); else TAG_FILTER.add(t);
+  _tagSyncUI();
+  if(document.getElementById('tagListBox')) tagPanelRenderList();
+  tagPanelUpdateModeBtn();
+  if(typeof applyFilters === 'function') applyFilters();
+}
+function tagFilterClearOnly(){
+  TAG_FILTER.clear();
+  TAG_UNTAGGED_ONLY = false;
+  _tagSyncUI();
+  if(document.getElementById('tagListBox')) tagPanelRenderList();
+  tagPanelUpdateModeBtn();
+  if(typeof applyFilters === 'function') applyFilters();
+}
+function tagToggleUntagged(force){
+  TAG_UNTAGGED_ONLY = (typeof force === 'boolean') ? force : !TAG_UNTAGGED_ONLY;
+  if(TAG_UNTAGGED_ONLY) TAG_FILTER.clear();
+  _tagSyncUI();
+  if(document.getElementById('tagListBox')) tagPanelRenderList();
+  tagPanelUpdateModeBtn();
+  if(typeof applyFilters === 'function') applyFilters();
+}
+function tagToggleMode(){
+  TAG_FILTER_MODE = (TAG_FILTER_MODE === 'AND') ? 'OR' : 'AND';
+  tagPanelUpdateModeBtn();
+  renderTagTrigger();
+  if(TAG_FILTER.size > 1 && typeof applyFilters === 'function') applyFilters();
+}
+
+// --- MODALITÀ ASSEGNAZIONE (AGGIUNGI) ----------------------------------
+function tagAssignEnter(op){
+  tagPanelClose();
+  TAG_ASSIGN_OP = (op === 'remove') ? 'remove' : 'add';
+  TAG_ASSIGN_MODE = true;
+  TAG_ASSIGN_SEL.clear();
+  document.body.classList.add('tag-assign-active');
+  document.body.classList.toggle('tag-remove-active', TAG_ASSIGN_OP === 'remove');
+  _tagAssignBuildBar();
+  document.addEventListener('click', _tagAssignClickHandler, true);
+  if(typeof toast === 'function'){
+    toast(TAG_ASSIGN_OP === 'remove'
+      ? 'Modalità rimozione: tocca le card/righe, poi “Rimuovi TAG”.'
+      : 'Modalità assegnazione: tocca le card/righe da etichettare, poi “Assegna TAG”.', 'info', 4000);
+  }
+  _tagAssignUpdateBar();
+}
+// SV2.10.372: entra in modalità rimozione (speculare ad "Aggiungi").
+function tagRemoveEnter(){ tagAssignEnter('remove'); }
+function tagAssignExit(){
+  TAG_ASSIGN_MODE = false;
+  TAG_ASSIGN_SEL.clear();
+  document.body.classList.remove('tag-assign-active');
+  document.body.classList.remove('tag-remove-active');
+  TAG_ASSIGN_OP = 'add';
+  document.removeEventListener('click', _tagAssignClickHandler, true);
+  const bar = document.getElementById('tagAssignBar');
+  if(bar) bar.remove();
+  // pulisci evidenziazioni residue
+  document.querySelectorAll('.tag-sel').forEach(el => el.classList.remove('tag-sel'));
+}
+function _tagAssignBuildBar(){
+  if(document.getElementById('tagAssignBar')) return;
+  const isRemove = (TAG_ASSIGN_OP === 'remove');
+  const primaryLabel = isRemove ? 'Rimuovi TAG…' : 'Assegna TAG…';
+  const bar = document.createElement('div');
+  bar.id = 'tagAssignBar';
+  bar.className = 'tag-assign-bar' + (isRemove ? ' tag-assign-bar-remove' : '');
+  bar.innerHTML = `
+    <span class="tab-count" id="tagAssignCount">0 selezionati</span>
+    <div class="tab-actions">
+      <button type="button" class="tab-btn" onclick="tagAssignSelectAllVisible()">Seleziona visibili</button>
+      <button type="button" class="tab-btn" onclick="tagAssignClear()">Deseleziona</button>
+      <button type="button" class="tab-btn tab-btn-primary" id="tagAssignConfirmBtn" onclick="tagAssignConfirm()">${primaryLabel}</button>
+      <button type="button" class="tab-btn tab-btn-exit" onclick="tagAssignExit()">Esci</button>
+    </div>`;
+  document.body.appendChild(bar);
+}
+function _tagAssignUpdateBar(){
+  const c = document.getElementById('tagAssignCount');
+  if(c) c.textContent = TAG_ASSIGN_SEL.size + (TAG_ASSIGN_SEL.size === 1 ? ' selezionato' : ' selezionati');
+  const btn = document.getElementById('tagAssignConfirmBtn');
+  if(btn) btn.disabled = TAG_ASSIGN_SEL.size === 0;
+}
+// Trova il contenitore prodotto (card o riga) a partire da un nodo cliccato.
+function _tagAssignContainer(target){
+  if(!target || !target.closest) return null;
+  return target.closest('[data-prod-name]');
+}
+function _tagAssignClickHandler(e){
+  if(!TAG_ASSIGN_MODE) return;
+  // ignora i click sulla barra azioni e su dialog/popup
+  if(e.target.closest && (e.target.closest('#tagAssignBar') || e.target.closest('.tag-dialog-overlay'))) return;
+  const cont = _tagAssignContainer(e.target);
+  if(!cont) return;
+  const name = _tagNorm(cont.getAttribute('data-prod-name'));
+  if(!name) return;
+  // in modalità assegnazione il click seleziona/deseleziona e NON apre editor/lightbox
+  e.preventDefault();
+  e.stopPropagation();
+  tagAssignToggle(name, cont);
+}
+function tagAssignToggle(name, el){
+  const n = _tagNorm(name);
+  if(!n) return;
+  if(TAG_ASSIGN_SEL.has(n)){ TAG_ASSIGN_SEL.delete(n); el && el.classList.remove('tag-sel'); }
+  else { TAG_ASSIGN_SEL.add(n); el && el.classList.add('tag-sel'); }
+  _tagAssignUpdateBar();
+}
+function tagAssignSelectAllVisible(){
+  const nodes = document.querySelectorAll('#grid [data-prod-name], #cardGrid [data-prod-name], #results [data-prod-name], [data-prod-name]');
+  const seen = new Set();
+  nodes.forEach(el => {
+    // solo elementi effettivamente visibili
+    if(el.offsetParent === null) return;
+    const n = _tagNorm(el.getAttribute('data-prod-name'));
+    if(!n || seen.has(n)) return;
+    seen.add(n);
+    TAG_ASSIGN_SEL.add(n);
+    el.classList.add('tag-sel');
+  });
+  _tagAssignUpdateBar();
+}
+function tagAssignClear(){
+  TAG_ASSIGN_SEL.clear();
+  document.querySelectorAll('.tag-sel').forEach(el => el.classList.remove('tag-sel'));
+  _tagAssignUpdateBar();
+}
+function tagAssignConfirm(){
+  if(TAG_ASSIGN_SEL.size === 0) return;
+  const names = [...TAG_ASSIGN_SEL];
+
+  // SV2.10.372: modalità RIMOZIONE — mostra i TAG presenti sui prodotti
+  // selezionati (con quanti dei selezionati li hanno) e ne rimuove uno da tutti.
+  if(TAG_ASSIGN_OP === 'remove'){
+    const counts = new Map();  // tag -> n. di prodotti selezionati che lo hanno
+    names.forEach(n => {
+      (typeof tagGetForProduct === 'function' ? tagGetForProduct(n) : []).forEach(t => {
+        counts.set(t, (counts.get(t) || 0) + 1);
+      });
+    });
+    if(counts.size === 0){
+      if(typeof toast === 'function') toast('I prodotti selezionati non hanno TAG da rimuovere.', 'info', 3500);
+      return;
+    }
+    const tags = [...counts.entries()].sort((a,b)=>a[0].localeCompare(b[0],'it',{sensitivity:'base'}));
+    _tagOpenPickDialog({
+      title: `Rimuovi un TAG da ${names.length} ${names.length === 1 ? 'prodotto' : 'prodotti'}`,
+      hint: 'Tocca il TAG da togliere (resta assegnato agli altri prodotti).',
+      tags,
+      onPick: (tag) => {
+        let removed = 0;
+        names.forEach(n => {
+          const has = (typeof tagGetForProduct === 'function' ? tagGetForProduct(n) : []).includes(tag);
+          if(has){ tagRemoveFromProduct(tag, n); removed++; }
+        });
+        if(typeof toast === 'function') toast(`TAG “${tag}” rimosso da ${removed} ${removed === 1 ? 'prodotto' : 'prodotti'}`, 'success', 3000);
+        tagAssignExit();
+        _tagSyncUI();
+        if(typeof applyFilters === 'function') applyFilters();
+      }
+    });
+    return;
+  }
+
+  // modalità ASSEGNAZIONE (comportamento esistente)
+  _tagOpenNameDialog({
+    title: `Assegna un TAG a ${names.length} ${names.length === 1 ? 'prodotto' : 'prodotti'}`,
+    placeholder: 'Nome del TAG (nuovo o esistente)…',
+    confirmLabel: 'Assegna',
+    onConfirm: (val) => {
+      const t = _tagNorm(val);
+      if(!t) return false;
+      const res = tagAddToProducts(t, names);
+      if(typeof toast === 'function'){
+        toast((res.created ? `Creato TAG “${t}” · ` : `TAG “${t}” · `) + `${res.added} assegnati`, 'success', 3000);
+      }
+      tagAssignExit();
+      _tagSyncUI();
+      if(typeof applyFilters === 'function') applyFilters();
+      return true;
+    }
+  });
+}
+
+// --- GESTIONE TAG (MODIFICA): rinomina / elimina / conteggio -----------
+function tagManageOpen(){
+  tagPanelClose();
+  const names = tagAllNames();
+  const overlay = document.createElement('div');
+  overlay.className = 'tag-dialog-overlay';
+  overlay.innerHTML = `
+    <div class="tag-dialog tag-manage">
+      <div class="tag-dialog-title">Gestione TAG</div>
+      <div class="tag-manage-list" id="tagManageList"></div>
+      <div class="tag-dialog-foot">
+        <button type="button" class="tag-dlg-btn" onclick="this.closest('.tag-dialog-overlay').remove()">Chiudi</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('pointerdown', (e) => { if(e.target === overlay) overlay.remove(); });
+  _tagManageRenderList();
+}
+function _tagManageRenderList(){
+  const box = document.getElementById('tagManageList');
+  if(!box) return;
+  const names = tagAllNames();
+  if(names.length === 0){ box.innerHTML = `<div class="ms-empty">Nessun tag creato.</div>`; return; }
+  box.innerHTML = names.map(t => {
+    const j = JSON.stringify(t).replace(/"/g,'&quot;');
+    return `<div class="tag-manage-row">
+      <span class="tmr-name" title="${_msHtmlEsc(t)}">${_msHtmlEsc(t)}</span>
+      <span class="tmr-count">${tagCount(t)}</span>
+      <button type="button" class="tmr-btn" title="Rinomina" onclick="tagManageRename(${j})">✎</button>
+      <button type="button" class="tmr-btn tmr-del" title="Elimina" onclick="tagManageDelete(${j})">🗑</button>
+    </div>`;
+  }).join('');
+}
+function tagManageRename(tag){
+  const old = _tagNorm(tag);
+  _tagOpenNameDialog({
+    title: `Rinomina TAG “${old}”`,
+    placeholder: 'Nuovo nome…',
+    initial: old,
+    confirmLabel: 'Rinomina',
+    onConfirm: (val) => {
+      const nw = _tagNorm(val);
+      if(!nw) return false;
+      const merge = tagExists(nw) && nw.toLowerCase() !== old.toLowerCase();
+      tagRename(old, nw);
+      if(typeof toast === 'function') toast(merge ? `Unito in “${nw}”` : `Rinominato in “${nw}”`, 'success', 2500);
+      _tagManageRenderList();
+      _tagSyncUI();
+      if(typeof applyFilters === 'function') applyFilters();
+      return true;
+    }
+  });
+}
+function tagManageDelete(tag){
+  const t = _tagNorm(tag);
+  _tagConfirmDialog(`Eliminare il TAG “${t}”? Verrà rimosso da ${tagCount(t)} prodotti.`, () => {
+    tagDelete(t);
+    if(typeof toast === 'function') toast(`TAG “${t}” eliminato`, 'success', 2500);
+    _tagManageRenderList();
+    _tagSyncUI();
+    if(typeof applyFilters === 'function') applyFilters();
+  });
+}
+
+// --- Dialog riutilizzabili (nome / conferma) ---------------------------
+function _tagOpenNameDialog(opts){
+  opts = opts || {};
+  const overlay = document.createElement('div');
+  overlay.className = 'tag-dialog-overlay';
+  const listId = 'tagDlgList_' + Math.random().toString(36).slice(2,8);
+  const datalistOptions = tagAllNames().map(t => `<option value="${_msHtmlEsc(t)}"></option>`).join('');
+  overlay.innerHTML = `
+    <div class="tag-dialog">
+      <div class="tag-dialog-title">${_msHtmlEsc(opts.title || 'TAG')}</div>
+      <input type="text" class="tag-dialog-input" id="tagDlgInput" list="${listId}"
+             placeholder="${_msHtmlEsc(opts.placeholder || 'Nome TAG…')}"
+             value="${_msHtmlEsc(opts.initial || '')}" autocomplete="off" spellcheck="false">
+      <datalist id="${listId}">${datalistOptions}</datalist>
+      <div class="tag-dialog-foot">
+        <button type="button" class="tag-dlg-btn" onclick="this.closest('.tag-dialog-overlay').remove()">Annulla</button>
+        <button type="button" class="tag-dlg-btn tag-dlg-primary" id="tagDlgOk">${_msHtmlEsc(opts.confirmLabel || 'OK')}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const input = overlay.querySelector('#tagDlgInput');
+  const ok = overlay.querySelector('#tagDlgOk');
+  const submit = () => { const v = input.value; if(opts.onConfirm && opts.onConfirm(v) !== false) overlay.remove(); };
+  ok.addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } });
+  overlay.addEventListener('pointerdown', (e) => { if(e.target === overlay) overlay.remove(); });
+  setTimeout(() => { input.focus(); input.select(); }, 30);
+}
+function _tagConfirmDialog(message, onYes){
+  const overlay = document.createElement('div');
+  overlay.className = 'tag-dialog-overlay';
+  overlay.innerHTML = `
+    <div class="tag-dialog">
+      <div class="tag-dialog-msg">${_msHtmlEsc(message)}</div>
+      <div class="tag-dialog-foot">
+        <button type="button" class="tag-dlg-btn" onclick="this.closest('.tag-dialog-overlay').remove()">Annulla</button>
+        <button type="button" class="tag-dlg-btn tag-dlg-danger" id="tagCfmYes">Elimina</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#tagCfmYes').addEventListener('click', () => { onYes && onYes(); overlay.remove(); });
+  overlay.addEventListener('pointerdown', (e) => { if(e.target === overlay) overlay.remove(); });
+}
+// SV2.10.372: dialog di SCELTA — mostra una lista di TAG cliccabili.
+// opts: { title, hint?, tags:[[name,count],...], onPick(name) }
+function _tagOpenPickDialog(opts){
+  opts = opts || {};
+  const overlay = document.createElement('div');
+  overlay.className = 'tag-dialog-overlay';
+  const rows = (opts.tags || []).map(([name, count]) => {
+    const cnt = (typeof count === 'number') ? `<span class="tpk-count">${count}</span>` : '';
+    return `<button type="button" class="tag-pick-row" data-tag="${_msHtmlEsc(name)}">`
+      + `<span class="tpk-name">${_msHtmlEsc(name)}</span>${cnt}</button>`;
+  }).join('');
+  overlay.innerHTML = `
+    <div class="tag-dialog tag-pick">
+      <div class="tag-dialog-title">${_msHtmlEsc(opts.title || 'Scegli un TAG')}</div>
+      ${opts.hint ? `<div class="tag-dialog-hint">${_msHtmlEsc(opts.hint)}</div>` : ''}
+      <div class="tag-pick-list">${rows || '<div class="ms-empty">Nessun TAG.</div>'}</div>
+      <div class="tag-dialog-foot">
+        <button type="button" class="tag-dlg-btn" onclick="this.closest('.tag-dialog-overlay').remove()">Annulla</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  // Aggancio l'onPick a ogni riga (passa il nome del tag dal data-attr)
+  overlay.querySelectorAll('.tag-pick-row').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = btn.getAttribute('data-tag');
+      overlay.remove();
+      if(typeof opts.onPick === 'function') opts.onPick(tag);
+    });
+  });
+  overlay.addEventListener('pointerdown', (e) => { if(e.target === overlay) overlay.remove(); });
+}
+// SV2.10.372: sezione TAG nella scheda prodotto (openEditor/renderEditor).
+// Mostra i TAG del prodotto come chip con una X per toglierli al volo, più un
+// pulsante "+ TAG" per assegnarne uno a questo singolo prodotto. Usa le funzioni
+// già esistenti tagGetForProduct / tagRemoveFromProduct / tagAddToProducts.
+function _editorTagsInnerHtml(name){
+  const safe = _attrJsArg(name);
+  const tags = (typeof tagGetForProduct === 'function') ? tagGetForProduct(name) : [];
+  const chips = tags.length
+    ? tags.map(t => {
+        const jt = _attrJsArg(t);
+        return `<span class="editor-tag-chip"><span class="etc-text">${_msHtmlEsc(t)}</span>`
+          + `<span class="etc-x" role="button" title="Rimuovi questo TAG dal prodotto" onclick="editorRemoveTag(${safe}, ${jt})">`
+          + `<svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="19" y1="5" x2="5" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>`
+          + `</span></span>`;
+      }).join('')
+    : `<span class="editor-tag-empty">Nessun TAG assegnato</span>`;
+  return chips + `<button type="button" class="editor-tag-add" title="Assegna un TAG a questo prodotto" onclick="editorAddTag(${safe})">+ TAG</button>`;
+}
+function _editorTagsFieldHtml(name){
+  return `<div class="edit-field">
+          <label>TAG del prodotto</label>
+          <div class="editor-tags-box" id="editorTagsBox">${_editorTagsInnerHtml(name)}</div>
+        </div>`;
+}
+function _editorRefreshTags(name){
+  const box = document.getElementById('editorTagsBox');
+  if(box) box.innerHTML = _editorTagsInnerHtml(name);
+}
+function editorRemoveTag(name, tag){
+  if(typeof tagRemoveFromProduct === 'function') tagRemoveFromProduct(tag, name);
+  _editorRefreshTags(name);
+  if(typeof _tagSyncUI === 'function') _tagSyncUI();
+  if(typeof applyFilters === 'function') applyFilters();
+  if(typeof toast === 'function') toast(`TAG “${tag}” rimosso dal prodotto`, 'success', 2000);
+}
+function editorAddTag(name){
+  _tagOpenNameDialog({
+    title: 'Assegna un TAG a questo prodotto',
+    placeholder: 'Nome del TAG (nuovo o esistente)…',
+    confirmLabel: 'Assegna',
+    onConfirm: (val) => {
+      const t = _tagNorm(val);
+      if(!t) return false;
+      tagAddToProducts(t, [name]);
+      _editorRefreshTags(name);
+      if(typeof _tagSyncUI === 'function') _tagSyncUI();
+      if(typeof applyFilters === 'function') applyFilters();
+      if(typeof toast === 'function') toast(`TAG “${t}” assegnato`, 'success', 2000);
+      return true;
+    }
+  });
+}
+/* ============== FINE SISTEMA TAG: UI ============== */
+
 /* ========== BADGE QUANTITÀ CARRELLO (V2.10.298) ==========
    Helper functions per mostrare la quantità di ogni prodotto nel carrello
    direttamente sull'icona carrello della card galleria.
@@ -15981,6 +16946,7 @@ function _driveBuildFullPayload(){
     'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
     'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
     'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
+    'vt_tags',    // SV2.10.368: sincronizza i TAG prodotti via Drive Sync
     'vt_stock_qty'  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
   ];
   SETTINGS_KEYS.forEach(k => {
@@ -18042,6 +19008,7 @@ function driveNotifyChange(kind, key, record){
           'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
           'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
           'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
+          'vt_tags',    // SV2.10.368: sincronizza i TAG prodotti via Drive Sync
           'vt_stock_qty'  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
         ];
         SETTINGS_KEYS.forEach(k => {
@@ -19297,6 +20264,7 @@ async function driveApplyRemoteData(payload){
       'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
       'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
       'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
+      'vt_tags',    // SV2.10.368: sincronizza i TAG prodotti via Drive Sync
       'vt_stock_qty'  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
     ];
     Object.keys(payload.settings).forEach(k => {
@@ -19346,6 +20314,9 @@ async function driveApplyRemoteData(payload){
     if(typeof loadStockQty === 'function') loadStockQty();
     // V2.10.306: il pulsante "presenti a magazzino" dipende ora da STOCK_QTY → aggiorno dopo il reload
     if(typeof _updateStockManagedToolbarButton === 'function') _updateStockManagedToolbarButton();
+    // SV2.10.368: ricarico i TAG (vt_tags) dopo il merge Drive e aggiorno la UI
+    if(typeof loadTags === 'function') loadTags();
+    if(typeof _tagSyncUI === 'function') _tagSyncUI();
   }
 
   // V2.8.0: 4. CASCADE DISCOUNTS — sconti aggiuntivi a cascata su marca/macrocat/cat
@@ -20740,6 +21711,7 @@ const BACKUP_SETTINGS_KEYS = [
   'vt_favorites',  // V2.10.284: include preferiti nei backup locali
   'vt_stock_managed',  // V2.10.295: include lista gestiti a magazzino nei backup locali
   'vt_outlet',  // V2.10.297: include lista outlet nei backup locali
+  'vt_tags',    // SV2.10.368: include i TAG nei backup locali
   'vt_stock_qty'  // V2.10.302: include giacenze magazzino nei backup locali
 ];
 
@@ -24935,15 +25907,19 @@ function msUpdateTrigger(key){
     const globalSearchEl = document.getElementById('search');
     const gs = globalSearchEl ? globalSearchEl.value.trim().toLowerCase() : '';
     const advActive = !!(window.ADV_SEARCH && window.ADV_SEARCH.active);
-    const hasAnySearch = !!(qs || gs || advActive);
+    // SV2.10.370: anche il filtro TAG attivo fa scattare il conteggio "N trovate"
+    // sui 3 trigger, coerente con ricerca testuale/avanzata. msComputeCounts
+    // applica già il vincolo TAG, quindi i conteggi riflettono i prodotti taggati.
+    const tagActive = !!(typeof TAG_FILTER !== 'undefined' && (TAG_FILTER.size > 0 || (typeof TAG_UNTAGGED_ONLY !== 'undefined' && TAG_UNTAGGED_ONLY)));
+    const hasAnySearch = !!(qs || gs || advActive || tagActive);
     if(hasAnySearch){
       const counts = msComputeCounts(key);
       let matched = 0;
       counts.forEach((cnt) => { if(cnt > 0) matched++; });
       const singNoun = key === 'brand' ? 'marca' : key === 'cat' ? 'categoria' : 'macrocategoria';
       const plurNoun = key === 'brand' ? 'marche' : key === 'cat' ? 'categorie' : 'macrocategorie';
-      // Termine "umano" da mostrare nel tooltip: priorità topbar > quick > avanzata.
-      const searchTerm = gs || qs || (advActive ? 'ricerca avanzata' : '');
+      // Termine "umano" da mostrare nel tooltip: priorità topbar > quick > avanzata > TAG.
+      const searchTerm = gs || qs || (advActive ? 'ricerca avanzata' : '') || (tagActive ? 'filtro TAG' : '');
       if(matched === 0){
         label.textContent = 'Nessuna trovata';
         label.title = `Nessuna ${singNoun} ha prodotti corrispondenti a "${searchTerm}"`;
@@ -25077,6 +26053,25 @@ function msComputeCounts(key){
         if(it && it.code === pName){ found = true; break; }
       }
       if(!found) return false;
+    }
+    // SV2.10.368: filtro TAG — i dropdown MARCA/MACROCAT/CATEGORIA devono mostrare
+    // SOLO i valori dei prodotti che hanno i tag attivi (coerente con gli altri
+    // filtri). Stessa logica del filtro in applyFilters.
+    if(typeof TAG_UNTAGGED_ONLY !== 'undefined' && TAG_UNTAGGED_ONLY){
+      const pName = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
+      const ts = PRODUCT_TAGS.get(pName);
+      if(ts && ts.size > 0) return false;
+    } else if(typeof TAG_FILTER !== 'undefined' && TAG_FILTER.size > 0){
+      const pName = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
+      const ts = PRODUCT_TAGS.get(pName);
+      if(!ts || ts.size === 0) return false;
+      if(TAG_FILTER_MODE === 'AND'){
+        for(const t of TAG_FILTER){ if(!ts.has(t)) return false; }
+      } else {
+        let any = false;
+        for(const t of TAG_FILTER){ if(ts.has(t)){ any = true; break; } }
+        if(!any) return false;
+      }
     }
     return true;
   };
@@ -26054,6 +27049,14 @@ function paramRenderSidebar(){
     if(!hasPrimaryFilter && window.ADV_SEARCH && window.ADV_SEARCH.active){
       hasPrimaryFilter = true;
     }
+    // SV2.10.368: 5. Filtro TAG attivo (selezione di tag o "Senza TAG"). Anche da
+    // solo restringe il catalogo a sufficienza per rendere utile la ricerca per
+    // parametri. I valori/conteggi dei parametri sono già calcolati sul set
+    // filtrato per TAG, perché window._PARAM_NONPARAM_PASS (impostato in
+    // applyFilters) include il vincolo TAG.
+    if(!hasPrimaryFilter && typeof TAG_FILTER !== 'undefined' && (TAG_FILTER.size > 0 || (typeof TAG_UNTAGGED_ONLY !== 'undefined' && TAG_UNTAGGED_ONLY))){
+      hasPrimaryFilter = true;
+    }
   } catch(_){}
 
   // V2.10.129: STILI INLINE con !important per battere DEFINITIVAMENTE la cascade.
@@ -26327,6 +27330,26 @@ function applyFilters(options){
     if(ONLY_OUTLET && OUTLET_CODES.size > 0){
       const pName = String(getField(p, 'name') || '').trim();
       if(!OUTLET_CODES.has(pName)) return false;
+    }
+
+    // SV2.10.368: filtro TAG — in AND con tutti gli altri filtri.
+    //   • TAG_UNTAGGED_ONLY: passa solo se il prodotto NON ha alcun tag
+    //   • TAG_FILTER (set di tag): AND = ha tutti i tag · OR = ha almeno uno
+    if(TAG_UNTAGGED_ONLY){
+      const pName = String(getField(p, 'name') || '').trim();
+      const ts = PRODUCT_TAGS.get(pName);
+      if(ts && ts.size > 0) return false;
+    } else if(TAG_FILTER.size > 0){
+      const pName = String(getField(p, 'name') || '').trim();
+      const ts = PRODUCT_TAGS.get(pName);
+      if(!ts || ts.size === 0) return false;
+      if(TAG_FILTER_MODE === 'AND'){
+        for(const t of TAG_FILTER){ if(!ts.has(t)) return false; }
+      } else { // OR
+        let any = false;
+        for(const t of TAG_FILTER){ if(ts.has(t)){ any = true; break; } }
+        if(!any) return false;
+      }
     }
 
     // V2.10.299: filtro "Solo nel carrello" — in AND con tutti gli altri filtri.
@@ -26698,6 +27721,13 @@ function resetAllFilters(){
     active.push('filtri speciali (' + names.join(' + ') + ')');
   }
 
+  // SV2.10.368: filtro TAG attivo (selezione di tag o "Senza TAG")
+  if(typeof TAG_UNTAGGED_ONLY !== 'undefined' && TAG_UNTAGGED_ONLY){
+    active.push('senza TAG');
+  } else if(typeof TAG_FILTER !== 'undefined' && TAG_FILTER.size > 0){
+    active.push(TAG_FILTER.size === 1 ? 'tag' : `tag (${TAG_FILTER.size})`);
+  }
+
   if(active.length === 0){
     toast('Nessun filtro attivo', 'info', 2000);
     return;
@@ -26719,6 +27749,11 @@ function resetAllFilters(){
   renderInlineTags('cat');
   renderSidebarFilterPills();  // nasconde la barra pillole (ora no-op)
   msClose();  // chiude popup eventualmente aperto
+  // SV2.10.368: azzera anche il filtro TAG (NON cancella i tag salvati, solo la
+  // selezione del filtro corrente). I tag restano nel master DB.
+  if(typeof TAG_FILTER !== 'undefined'){ TAG_FILTER.clear(); TAG_UNTAGGED_ONLY = false; }
+  if(typeof _tagSyncUI === 'function') _tagSyncUI();
+  if(typeof tagPanelClose === 'function') tagPanelClose();
   if(fltStockIT) fltStockIT.value = '';
   if(fltStockES) fltStockES.value = '';
   if(fltMod) fltMod.value = '';
@@ -27109,6 +28144,7 @@ function renderGallery(main, list){
     if(p.isPersonal === true) classes += ' is-personal';
     card.className = classes;
     card.dataset.idx = p._idx;  // per hover-preview (tooltip specifiche tecniche)
+    card.dataset.prodName = String(getField(p, 'name') || '').trim();  // SV2.10.368: per modalità assegnazione TAG
     let name = getField(p,'name');
     // V2.10.263: risoluzione UNIFICATA del codice shadow service tramite resolveDisplayCode.
     // (prima la logica era duplicata inline qui — ora centralizzata).
@@ -27558,6 +28594,7 @@ function renderTable(main, list){
     if(isObsolete) trCls += 'is-obsolete ';
     tr.className = trCls.trim();
     tr.dataset.idx = p._idx;  // per hover-preview specifiche tecniche
+    tr.dataset.prodName = String(getField(p, 'name') || '').trim();  // SV2.10.368: per modalità assegnazione TAG
     const img = imgUrl(getField(p,'image_path'));
     const listino = getField(p,'PVP') || getField(p,'precio_venta_cliente_final');
     const netto = getField(p,'precio_neto_compra');
@@ -28676,6 +29713,7 @@ function renderEditor(){
           <label>Categoria</label>
           <input type="text" id="f_category" value="${escapeAttr(data.category)}" oninput="CURRENT_EDIT.data.category=this.value">
         </div>
+        ${_editorTagsFieldHtml(data.name)}
         <div class="edit-field">
           <label>Stock magazzini</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -34607,6 +35645,9 @@ function updateResetBtnState(){
     check('fltModified',  notEmpty),
     // V2.2.36: filtri speciali "Nuovi prodotti" / "Prodotti scatalogati"
     typeof SPECIAL_FILTERS !== 'undefined' && SPECIAL_FILTERS.size > 0,
+    // SV2.10.371: anche il filtro TAG attivo (tag selezionati o "Senza TAG")
+    // accende il pulsante reset (verde acido + badge), coerente con gli altri filtri.
+    typeof TAG_FILTER !== 'undefined' && (TAG_FILTER.size > 0 || (typeof TAG_UNTAGGED_ONLY !== 'undefined' && TAG_UNTAGGED_ONLY)),
   ];
   // Anche i date range (fltCreatedFrom/To, fltModifiedFrom/To) se presenti
   check('fltCreatedFrom',  notEmpty);
