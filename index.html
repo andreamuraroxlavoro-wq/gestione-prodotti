@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.380 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.381 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9981,7 +9981,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.380</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.381</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10598,7 +10598,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.380 mobile");
+console.info("[bootstrap] script avvio — SV2.10.381 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12049,7 +12049,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.380';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.381';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14578,6 +14578,82 @@ function tagUntaggedCount(){
   }
   return c;
 }
+// SV2.10.381: un prodotto passa i filtri/ricerca ATTUALI, escluso il filtro TAG.
+// Replica la logica di matchExcept (msComputeCounts) SENZA il blocco TAG, così la
+// lista "Ricerca per TAG" può mostrare solo i tag coerenti con la ricerca corrente
+// (semplice, globale o avanzata) e con gli altri filtri attivi.
+function _tagBaseMatch(p){
+  // filtri Marca / Macrocategoria / Categoria
+  if(typeof MS_FILTERS !== 'undefined' && MS_FILTERS){
+    for(const k in MS_FILTERS){
+      const ff = MS_FILTERS[k];
+      if(!ff || !ff.selected || ff.selected.size === 0) continue;
+      if(!ff.selected.has(String(p[ff.fieldName] || ''))) return false;
+    }
+  }
+  // ricerca veloce (#fltQuickSearch) — match su macrocategoria/categoria
+  const qsEl = document.getElementById('fltQuickSearch');
+  const qs = qsEl ? qsEl.value.trim().toLowerCase() : '';
+  if(qs){
+    const cp = String(p.category_parent || '').toLowerCase();
+    const c  = String(p.category || '').toLowerCase();
+    if(!cp.includes(qs) && !c.includes(qs)) return false;
+  }
+  // ricerca globale topbar (#search) — match su _searchHay
+  const gsEl = document.getElementById('search');
+  const gs = gsEl ? gsEl.value.trim().toLowerCase() : '';
+  if(gs){
+    let hay = p._searchHay;
+    if(typeof hay !== 'string'){
+      try { if(typeof buildSearchHay === 'function'){ buildSearchHay(p); hay = p._searchHay; } } catch(_){}
+    }
+    if(typeof hay !== 'string' || !hay.includes(gs)) return false;
+  }
+  // ricerca avanzata
+  if(window.ADV_SEARCH && window.ADV_SEARCH.active && typeof advSearchMatches === 'function'){
+    if(!advSearchMatches(p)) return false;
+  }
+  // filtri toolbar (preferiti / stock / outlet / solo nel carrello)
+  const pName = String((typeof getField === 'function' ? getField(p, 'name') : (p && p.name)) || '').trim();
+  if(typeof ONLY_FAVORITES !== 'undefined' && ONLY_FAVORITES &&
+     typeof FAVORITES_CODES !== 'undefined' && FAVORITES_CODES.size > 0){
+    if(!FAVORITES_CODES.has(pName)) return false;
+  }
+  if(typeof STOCK_FILTER_STATE !== 'undefined' && STOCK_FILTER_STATE !== 0 &&
+     typeof STOCK_QTY !== 'undefined' && STOCK_QTY && Object.keys(STOCK_QTY).length > 0){
+    const _sq = STOCK_QTY[pName];
+    const _g = _sq ? (Number(_sq.giac) || 0) : null;
+    if(STOCK_FILTER_STATE === 1){ if(_g === null || !(_g > 0)) return false; }
+    else if(STOCK_FILTER_STATE === 2){ if(_g === null || !(_g <= 0)) return false; }
+    else if(STOCK_FILTER_STATE === 3){ if(_sq) return false; }
+  }
+  if(typeof ONLY_OUTLET !== 'undefined' && ONLY_OUTLET &&
+     typeof OUTLET_CODES !== 'undefined' && OUTLET_CODES.size > 0){
+    if(!OUTLET_CODES.has(pName)) return false;
+  }
+  if(typeof ONLY_IN_CART !== 'undefined' && ONLY_IN_CART &&
+     window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items) && window._QUOTE_STATE.items.length > 0){
+    let found = false;
+    for(const it of window._QUOTE_STATE.items){ if(it && it.code === pName){ found = true; break; } }
+    if(!found) return false;
+  }
+  return true;
+}
+// SV2.10.381: Map tagName -> numero di prodotti coerenti (che passano _tagBaseMatch)
+// che hanno quel tag. Senza filtri attivi equivale al conteggio totale del tag.
+function _tagCoherentTagCounts(){
+  const counts = new Map();
+  if(typeof DATA === 'undefined' || !Array.isArray(DATA)) return counts;
+  for(const p of DATA){
+    if(!_tagBaseMatch(p)) continue;
+    const name = _tagNorm((typeof getField === 'function' ? getField(p, 'name') : (p && p.name)));
+    if(!name) continue;
+    const ts = PRODUCT_TAGS.get(name);
+    if(!ts || ts.size === 0) continue;
+    for(const t of ts){ counts.set(t, (counts.get(t) || 0) + 1); }
+  }
+  return counts;
+}
 function tagAllNames(){
   return Object.keys(TAGS_DATA).filter(t => TAGS_DATA[t] && TAGS_DATA[t].size > 0)
     .sort((a,b)=>a.localeCompare(b,'it',{sensitivity:'base'}));
@@ -14779,10 +14855,18 @@ function tagPanelRenderList(){
   const box = document.getElementById('tagListBox');
   if(!box) return;
   const q = _tagNorm(TAG_POPUP_QUERY).toLowerCase();
-  let names = tagAllNames();
+  // SV2.10.381: conteggi coerenti con i filtri/ricerca attivi (escluso il TAG stesso).
+  // Mostra solo i tag presenti su prodotti che superano la ricerca corrente; i tag
+  // già selezionati restano sempre visibili (per poterli deselezionare).
+  const coherent = _tagCoherentTagCounts();
+  let names = tagAllNames().filter(t => (coherent.get(t) || 0) > 0 || TAG_FILTER.has(t));
   if(q) names = names.filter(t => t.toLowerCase().includes(q));
   if(names.length === 0){
-    box.innerHTML = `<div class="ms-empty">${tagAllNames().length === 0 ? 'Nessun tag creato.<br>Usa “➕ Aggiungi”.' : 'Nessun tag corrisponde.'}</div>`;
+    let msg;
+    if(tagAllNames().length === 0) msg = 'Nessun tag creato.<br>Usa “➕ Aggiungi”.';
+    else if(q) msg = 'Nessun tag corrisponde.';
+    else msg = 'Nessun tag coerente con la ricerca corrente.';
+    box.innerHTML = `<div class="ms-empty">${msg}</div>`;
     return;
   }
   // selezionati in cima, poi alfabetico
@@ -14793,10 +14877,11 @@ function tagPanelRenderList(){
   });
   box.innerHTML = names.map(t => {
     const checked = TAG_FILTER.has(t);
+    const cnt = coherent.get(t) || 0;   // conteggio coerente con la ricerca corrente
     return `<div class="ms-item${checked?' checked':''}" onclick="tagFilterToggle(${JSON.stringify(t).replace(/"/g,'&quot;')})">`
       + `<span class="ms-cbox ${checked?'checked':''}"></span>`
       + `<span class="ms-item-label">${_msHtmlEsc(t)}</span>`
-      + `<span class="ms-item-count">${tagCount(t)}</span></div>`;
+      + `<span class="ms-item-count">${cnt}</span></div>`;
   }).join('');
 }
 
