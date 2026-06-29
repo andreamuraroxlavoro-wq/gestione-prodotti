@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.381 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.383 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -4874,6 +4874,16 @@ body.theme-light .advs-foot{background:rgba(0,0,0,0.03)}
   fill:none;
   stroke:currentColor;
 }
+/* SV2.10.382: pulsante modalità prezzo — rosso = Acquisto (carrello in ingresso),
+   verde = Vendita (carrello in uscita). Icona sempre bianca per leggibilità. */
+#btnPriceMode.pm-buy{
+  background:#c62828 !important; border-color:#c62828 !important; color:#fff !important;
+}
+#btnPriceMode.pm-buy:hover{ background:#b71c1c !important; border-color:#b71c1c !important; }
+#btnPriceMode.pm-sell{
+  background:#16a34a !important; border-color:#16a34a !important; color:#fff !important;
+}
+#btnPriceMode.pm-sell:hover{ background:#15803d !important; border-color:#15803d !important; }
 
 /* === MAIN === */
 main{flex:1;min-height:0;overflow:auto;padding:20px 20px max(48px, env(safe-area-inset-bottom));position:relative}
@@ -9981,7 +9991,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.381</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.383</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10343,8 +10353,11 @@ body.theme-light .dlg-input{background:var(--bg3)}
         </svg>
       </button>
       <button id="vwTooltip" onclick="toggleTooltipFromToolbar()" title="Attiva/disattiva tooltip dettagli prodotto al passaggio del mouse" aria-label="Toggle tooltip">
-        <svg viewBox="0 0 24 24">
-          <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- SV2.10.382: icona "informazioni" — cerchio con "i" minuscola in corsivo -->
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="11.2" y1="16.6" x2="12.9" y2="11"/>
+          <line x1="13.3" y1="7.6" x2="13.31" y2="7.6"/>
         </svg>
       </button>
     </div>
@@ -10598,7 +10611,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.381 mobile");
+console.info("[bootstrap] script avvio — SV2.10.383 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12049,7 +12062,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.381';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.383';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -33229,9 +33242,11 @@ function setActiveSplId(id){
   } catch(e){ /* ignore */ }
 }
 
-// Icone del toggle: carrello = acquisto, etichetta-prezzo = vendita.
-const SVG_PRICE_BUY = '<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>';
-const SVG_PRICE_SELL = '<svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>';
+// SV2.10.383: icone del toggle — carrello con freccia in INGRESSO (acquisto, sfondo
+// rosso) e carrello con freccia in USCITA (vendita, sfondo verde). Freccia ingrandita
+// e ispessita (stroke-width 3) per renderla più evidente del carrello.
+const SVG_PRICE_BUY  = '<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/><line x1="14" y1="0.5" x2="14" y2="8.2" stroke-width="3"/><polyline points="10.3 4.8 14 8.5 17.7 4.8" stroke-width="3"/></svg>';
+const SVG_PRICE_SELL = '<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/><line x1="14" y1="8.5" x2="14" y2="0.8" stroke-width="3"/><polyline points="10.3 4.2 14 0.5 17.7 4.2" stroke-width="3"/></svg>';
 
 // Aggiorna l'aspetto del pulsante toggle in base alla modalita' corrente.
 function updatePriceModeButton(){
@@ -33241,7 +33256,11 @@ function updatePriceModeButton(){
   // SV2.10.345: classe sul body per tingere lo sfondo della galleria (verde=vendita, rosso=acquisto)
   document.body.classList.toggle('price-vendita', mode === 'vendita');
   document.body.classList.toggle('price-acquisto', mode !== 'vendita');
-  if(mode === 'vendita'){
+  const sell = (mode === 'vendita');
+  // SV2.10.382: rosso=acquisto (carrello in ingresso) · verde=vendita (carrello in uscita)
+  btn.classList.toggle('pm-sell', sell);
+  btn.classList.toggle('pm-buy', !sell);
+  if(sell){
     btn.innerHTML = SVG_PRICE_SELL;
     btn.classList.add('active');
     const l = splGet(getActiveSplId());
