@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.397 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.398 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10118,7 +10118,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.397</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.398</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10745,7 +10745,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.397 mobile");
+console.info("[bootstrap] script avvio — SV2.10.398 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12196,7 +12196,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.397';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.398';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -26358,7 +26358,14 @@ function msUpdateTrigger(key){
     // sui 3 trigger, coerente con ricerca testuale/avanzata. msComputeCounts
     // applica già il vincolo TAG, quindi i conteggi riflettono i prodotti taggati.
     const tagActive = !!(typeof TAG_FILTER !== 'undefined' && (TAG_FILTER.size > 0 || (typeof TAG_UNTAGGED_ONLY !== 'undefined' && TAG_UNTAGGED_ONLY)));
-    const hasAnySearch = !!(qs || gs || advActive || tagActive);
+    // SV2.10.398: anche la selezione di uno degli ALTRI multi-select (Marca/
+    // Macrocategoria/Categoria) fa scattare il conteggio "N trovate" su questo trigger,
+    // coerente con ricerca testuale/avanzata/TAG. Esempio: selezionando una Categoria,
+    // i trigger Marca e Macrocategoria mostrano quante voci hanno prodotti compatibili
+    // invece di restare su "Tutte". msComputeCounts(key) tiene già conto di tutti gli
+    // altri filtri attivi, quindi il numero mostrato è coerente.
+    const otherMsActive = ['brand','catParent','cat'].some(k => k !== key && MS_FILTERS[k] && MS_FILTERS[k].selected && MS_FILTERS[k].selected.size > 0);
+    const hasAnySearch = !!(qs || gs || advActive || tagActive || otherMsActive);
     if(hasAnySearch){
       const counts = msComputeCounts(key);
       let matched = 0;
@@ -26366,7 +26373,7 @@ function msUpdateTrigger(key){
       const singNoun = key === 'brand' ? 'marca' : key === 'cat' ? 'categoria' : 'macrocategoria';
       const plurNoun = key === 'brand' ? 'marche' : key === 'cat' ? 'categorie' : 'macrocategorie';
       // Termine "umano" da mostrare nel tooltip: priorità topbar > quick > avanzata > TAG.
-      const searchTerm = gs || qs || (advActive ? 'ricerca avanzata' : '') || (tagActive ? 'filtro TAG' : '');
+      const searchTerm = gs || qs || (advActive ? 'ricerca avanzata' : '') || (tagActive ? 'filtro TAG' : '') || (otherMsActive ? 'i filtri attivi' : '');
       if(matched === 0){
         label.textContent = 'Nessuna trovata';
         label.title = `Nessuna ${singNoun} ha prodotti corrispondenti a "${searchTerm}"`;
