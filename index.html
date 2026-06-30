@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.386 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.387 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10067,7 +10067,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.386</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.387</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10692,7 +10692,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.386 mobile");
+console.info("[bootstrap] script avvio — SV2.10.387 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12143,7 +12143,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.386';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.387';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -38794,8 +38794,8 @@ function doExportListinoCliente(){
   const prods = _elcSelectedProducts();
   if(prods.length === 0){ if(typeof toast === 'function') toast('Nessun prodotto da esportare con i filtri scelti', 'warn'); return; }
 
-  const header = ['Codice (NOME)','Descrizione (DESCrIZIONE BREVE)','Famiglia (CATEGORIA)','Marca (MARCA)',
-    'Serie (MACROCATEGORIA)','Prezzo di listino (PVP)','Sconto 1','Sconto 2','Sconto 3','Unità Mis.',
+  const header = ['Codice','Descrizione','Famiglia','Marca',
+    'Serie','Prezzo di listino','Sconto 1','Sconto 2','Sconto 3','Unità Mis.',
     'Lotto Minimo','Lotto Riordino','Punto Riordino','Scorta Sicurezza','Lead Time','Non Gestito',
     'Data di obsolescenza','Codice EAN'];
   const aoa = [header];
