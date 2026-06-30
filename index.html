@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.385 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.386 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -4956,6 +4956,10 @@ body.theme-light .advs-foot{background:rgba(0,0,0,0.03)}
 .elc-empty{ padding:10px;text-align:center;color:var(--fg3,#8591a1);font-size:12.5px;font-style:italic; }
 .elc-hint{ font-size:11.5px;color:var(--fg3,#8591a1);line-height:1.45; }
 .elc-hint b{ color:var(--fg2,#a8b2bd);font-weight:700; }
+/* SV2.10.386: multi-select a popup dentro il dialog */
+.elc-ms-popup{ z-index:100050; }                 /* sopra l'overlay del dialog (100000) */
+.elc-ms-trigger{ width:100%;box-sizing:border-box;margin-top:5px; }
+.elc-ms-trigger .ms-trigger-label.has-sel{ color:var(--accent,#ff6b35);font-weight:700; }
 
 /* === MAIN === */
 main{flex:1;min-height:0;overflow:auto;padding:20px 20px max(48px, env(safe-area-inset-bottom));position:relative}
@@ -10063,7 +10067,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.385</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.386</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10688,7 +10692,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.385 mobile");
+console.info("[bootstrap] script avvio — SV2.10.386 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12139,7 +12143,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.385';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.386';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -38579,53 +38583,140 @@ function _elcMatch(p){
   return true;
 }
 function _elcSelectedProducts(){ return _elcAll().filter(_elcMatch); }
-// render di una lista di checkbox
-function _elcRenderChecklist(boxId, values, selSet, toggleFn){
-  const box = document.getElementById(boxId);
-  if(!box) return;
-  const esc = (typeof _msHtmlEsc === 'function') ? _msHtmlEsc : (s)=>String(s==null?'':s);
-  if(!values.length){ box.innerHTML = '<div class="elc-empty">— nessuna opzione disponibile —</div>'; return; }
-  box.innerHTML = values.map(v =>
-    `<label class="elc-chk"><input type="checkbox" value="${esc(v)}" ${selSet.has(v)?'checked':''} onchange="${toggleFn}(this.value, this.checked)"><span>${esc(v)}</span></label>`
-  ).join('');
+// ── SV2.10.386: multi-select a popup (stesso look dei filtri dell'app) ──
+const _ELC_MS = {
+  brand: { field:'brand',           avail:()=>_elcDistinctWhere('brand', null), setGet:()=>_ELC_BRANDS },
+  cp:    { field:'category_parent', avail:()=>_elcAvailCps(),                   setGet:()=>_ELC_CPS },
+  cat:   { field:'category',        avail:()=>_elcAvailCats(),                  setGet:()=>_ELC_CATS },
+};
+let _ELC_MS_OPEN = null, _ELC_MS_POPUP = null, _ELC_MS_DEB = null;
+// conteggio prodotti per ciascun valore, rispettando la cascata "a monte"
+function _elcMsCounts(which){
+  const m = new Map();
+  const fld = _ELC_MS[which].field;
+  let pred;
+  if(which === 'brand') pred = () => true;
+  else if(which === 'cp') pred = p => !_ELC_BRANDS.size || _ELC_BRANDS.has(_elcBrandOf(p));
+  else pred = p => (!_ELC_BRANDS.size || _ELC_BRANDS.has(_elcBrandOf(p))) && (!_ELC_CPS.size || _ELC_CPS.has(_elcCpOf(p)));
+  for(const p of _elcAll()){
+    if(!pred(p)) continue;
+    const v = String(getField(p, fld) || '').trim();
+    if(v) m.set(v, (m.get(v) || 0) + 1);
+  }
+  return m;
 }
-// toggle singolo
-function _elcToggleBrand(v, on){ if(on) _ELC_BRANDS.add(v); else _ELC_BRANDS.delete(v); _elcRebuildCps(); }
-function _elcToggleCp(v, on){    if(on) _ELC_CPS.add(v);    else _ELC_CPS.delete(v);    _elcRebuildCats(); _elcUpdateCount(); }
-function _elcToggleCat(v, on){   if(on) _ELC_CATS.add(v);   else _ELC_CATS.delete(v);   _elcUpdateCount(); }
-// ricostruzione a cascata (rimuove dalle selezioni i valori non più disponibili)
-function _elcRebuildCps(){
-  const cps = _elcAvailCps();
-  const valid = new Set(cps);
-  for(const v of [..._ELC_CPS]) if(!valid.has(v)) _ELC_CPS.delete(v);
-  _elcRenderChecklist('elcCpBox', cps, _ELC_CPS, '_elcToggleCp');
-  _elcRebuildCats();
+function _elcMsUpdateTrigger(which){
+  const lbl = document.getElementById('elcTrigLbl_' + which);
+  if(!lbl) return;
+  const sel = _ELC_MS[which].setGet();
+  const n = sel.size;
+  lbl.textContent = (n === 0) ? 'Tutte' : (n === 1 ? [...sel][0] : (n + ' selezionate'));
+  lbl.classList.toggle('has-sel', n > 0);
+}
+function _elcMsRender(which, query){
+  if(!_ELC_MS_POPUP || _ELC_MS_OPEN !== which) return;
+  const listEl = _ELC_MS_POPUP.querySelector('#elcMsList');
+  if(!listEl) return;
+  const sel = _ELC_MS[which].setGet();
+  const counts = _elcMsCounts(which);
+  const avail = new Set(_ELC_MS[which].avail());
+  const q = (query || '').toLowerCase().trim();
+  let entries = [...counts.entries()].filter(([v]) => avail.has(v) || sel.has(v));
+  if(q) entries = entries.filter(([v]) => v.toLowerCase().includes(q));
+  entries.sort((a,b) => {
+    const aSel = sel.has(a[0]) ? 0 : 1, bSel = sel.has(b[0]) ? 0 : 1;
+    if(aSel !== bSel) return aSel - bSel;
+    return a[0].localeCompare(b[0], 'it');
+  });
+  if(entries.length === 0){ listEl.innerHTML = '<div class="ms-empty">Nessun risultato</div>'; return; }
+  const esc  = (typeof _msHtmlEsc === 'function') ? _msHtmlEsc : (s)=>String(s==null?'':s);
+  const jesc = (typeof _msJsEsc === 'function') ? _msJsEsc : (s)=>String(s==null?'':s).replace(/'/g,"\\'");
+  listEl.innerHTML = entries.map(([val, cnt]) => {
+    const checked = sel.has(val);
+    return `<div class="ms-item ${checked?'checked':''}" role="option" aria-selected="${checked}" onclick="_elcMsToggle('${which}','${jesc(val)}')">`
+      + `<span class="ms-cbox ${checked?'checked':''}"></span>`
+      + `<span class="ms-item-label">${esc(val)}</span>`
+      + `<span class="ms-item-count">${cnt.toLocaleString('it-IT')}</span></div>`;
+  }).join('');
+}
+function _elcMsToggle(which, val){
+  const sel = _ELC_MS[which].setGet();
+  if(sel.has(val)) sel.delete(val); else sel.add(val);
+  if(which === 'brand') _elcCascadeAfterBrand();
+  else if(which === 'cp') _elcCascadeAfterCp();
+  _elcMsUpdateTrigger(which);
+  _elcMsRender(which, (_ELC_MS_POPUP.querySelector('#elcMsSearch')||{}).value || '');
   _elcUpdateCount();
 }
-function _elcRebuildCats(){
-  const cats = _elcAvailCats();
-  const valid = new Set(cats);
-  for(const v of [..._ELC_CATS]) if(!valid.has(v)) _ELC_CATS.delete(v);
-  _elcRenderChecklist('elcCatBox', cats, _ELC_CATS, '_elcToggleCat');
+function _elcMsAll(which, on){
+  const sel = _ELC_MS[which].setGet();
+  const q = ((_ELC_MS_POPUP && _ELC_MS_POPUP.querySelector('#elcMsSearch')) || {}).value || '';
+  const ql = q.toLowerCase().trim();
+  let vals = _ELC_MS[which].avail();
+  if(ql) vals = vals.filter(v => v.toLowerCase().includes(ql));
+  for(const v of vals){ if(on) sel.add(v); else sel.delete(v); }
+  if(which === 'brand') _elcCascadeAfterBrand();
+  else if(which === 'cp') _elcCascadeAfterCp();
+  _elcMsUpdateTrigger(which);
+  _elcMsRender(which, q);
+  _elcUpdateCount();
 }
-// seleziona tutti / nessuno per una sezione
-function _elcSetAll(which, on){
-  if(which === 'brand'){
-    const all = _elcDistinctWhere('brand', null);
-    _ELC_BRANDS = on ? new Set(all) : new Set();
-    _elcRenderChecklist('elcBrandBox', all, _ELC_BRANDS, '_elcToggleBrand');
-    _elcRebuildCps();
-  } else if(which === 'cp'){
-    const cps = _elcAvailCps();
-    _ELC_CPS = on ? new Set(cps) : new Set();
-    _elcRenderChecklist('elcCpBox', cps, _ELC_CPS, '_elcToggleCp');
-    _elcRebuildCats(); _elcUpdateCount();
-  } else if(which === 'cat'){
-    const cats = _elcAvailCats();
-    _ELC_CATS = on ? new Set(cats) : new Set();
-    _elcRenderChecklist('elcCatBox', cats, _ELC_CATS, '_elcToggleCat');
-    _elcUpdateCount();
+function _elcCascadeAfterBrand(){
+  const cps = new Set(_elcAvailCps());
+  for(const v of [..._ELC_CPS]) if(!cps.has(v)) _ELC_CPS.delete(v);
+  const cats = new Set(_elcAvailCats());
+  for(const v of [..._ELC_CATS]) if(!cats.has(v)) _ELC_CATS.delete(v);
+  _elcMsUpdateTrigger('cp'); _elcMsUpdateTrigger('cat');
+}
+function _elcCascadeAfterCp(){
+  const cats = new Set(_elcAvailCats());
+  for(const v of [..._ELC_CATS]) if(!cats.has(v)) _ELC_CATS.delete(v);
+  _elcMsUpdateTrigger('cat');
+}
+function _elcMsOutside(e){
+  if(!_ELC_MS_POPUP) return;
+  if(_ELC_MS_POPUP.contains(e.target)) return;
+  if(e.target.closest && e.target.closest('.elc-ms-trigger')) return; // il trigger gestisce il toggle
+  _elcMsClose();
+}
+function _elcMsClose(){
+  if(_ELC_MS_POPUP){ _ELC_MS_POPUP.remove(); _ELC_MS_POPUP = null; }
+  if(_ELC_MS_OPEN){
+    const tr = document.getElementById('elcTrig_' + _ELC_MS_OPEN);
+    if(tr){ tr.setAttribute('aria-expanded','false'); tr.classList.remove('open'); }
+    _ELC_MS_OPEN = null;
   }
+  document.removeEventListener('click', _elcMsOutside, true);
+}
+function _elcMsOpen(which, trigger, event){
+  if(event){ event.stopPropagation(); event.preventDefault(); }
+  if(_ELC_MS_OPEN === which){ _elcMsClose(); return; }
+  _elcMsClose();
+  const popup = document.createElement('div');
+  popup.className = 'ms-popup elc-ms-popup';
+  popup.setAttribute('data-filter', which);
+  popup.setAttribute('role', 'listbox');
+  popup.setAttribute('aria-multiselectable', 'true');
+  popup.innerHTML =
+    '<input type="text" class="ms-search" id="elcMsSearch" placeholder="Cerca…" autocomplete="off" spellcheck="false">'
+    + '<div class="ms-list" id="elcMsList"></div>'
+    + '<div class="ms-foot">'
+    + '<button type="button" class="ms-btn" onclick="_elcMsAll(\'' + which + '\',true)">Tutte</button>'
+    + '<button type="button" class="ms-btn" onclick="_elcMsAll(\'' + which + '\',false)">Nessuna</button>'
+    + '</div>'
+    + '<button type="button" class="ms-btn-close" onclick="_elcMsClose()">✕ Chiudi</button>';
+  document.body.appendChild(popup);
+  if(typeof _msPositionPopup === 'function') _msPositionPopup(popup, trigger);
+  _ELC_MS_OPEN = which; _ELC_MS_POPUP = popup;
+  trigger.setAttribute('aria-expanded','true'); trigger.classList.add('open');
+  _elcMsRender(which, '');
+  const s = popup.querySelector('#elcMsSearch');
+  if(s){
+    if(!(typeof IS_TOUCH_DEVICE !== 'undefined' && IS_TOUCH_DEVICE)) setTimeout(() => s.focus(), 30);
+    s.addEventListener('input', () => { clearTimeout(_ELC_MS_DEB); _ELC_MS_DEB = setTimeout(() => _elcMsRender(which, s.value), 60); });
+    s.addEventListener('keydown', (e) => { if(e.key === 'Escape'){ _elcMsClose(); e.stopPropagation(); } });
+  }
+  setTimeout(() => { document.addEventListener('click', _elcMsOutside, true); }, 0);
 }
 function _elcUpdateCount(){
   const el = document.getElementById('elcCount');
@@ -38656,10 +38747,11 @@ function openExportListinoCliente(){
   let ov = document.getElementById('elcOverlay'); if(ov) ov.remove();
   const esc = (typeof _msHtmlEsc === 'function') ? _msHtmlEsc : (s)=>String(s==null?'':s);
   const pct = (v) => (typeof splSanitizePct === 'function') ? splSanitizePct(v) : (parseFloat(v)||0);
-  const sectHead = (lab, cntId, which) =>
-    '<div class="elc-sec-head"><span class="elc-lab">' + lab + ' <span class="elc-cnt" id="' + cntId + '"></span></span>'
-    + '<span class="elc-allnone"><button type="button" onclick="_elcSetAll(\'' + which + '\',true)">tutti</button>'
-    + '<button type="button" onclick="_elcSetAll(\'' + which + '\',false)">nessuno</button></span></div>';
+  const msField = (lab, which) =>
+    '<div class="elc-field"><span class="elc-lab">' + lab + '</span>'
+    + '<div class="ms-trigger elc-ms-trigger" id="elcTrig_' + which + '" tabindex="0" role="button" aria-haspopup="listbox" aria-expanded="false" onclick="_elcMsOpen(\'' + which + '\', this, event)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_elcMsOpen(\'' + which + '\',this,event)}">'
+    + '<span class="ms-trigger-label" id="elcTrigLbl_' + which + '">Tutte</span>'
+    + '<span class="ms-trigger-caret">▾</span></div></div>';
   ov = document.createElement('div');
   ov.id = 'elcOverlay';
   ov.className = 'elc-overlay';
@@ -38672,10 +38764,10 @@ function openExportListinoCliente(){
     + '<select id="elcListino" class="elc-select">'
     + listini.map(l => `<option value="${esc(l.id)}">${esc(l.name)} — sconto base ${pct(l.defaultPct)}%</option>`).join('')
     + '</select></label>'
-    + '<div class="elc-field">' + sectHead('Marche', 'elcCntBrand', 'brand') + '<div class="elc-checkbox-box" id="elcBrandBox"></div></div>'
-    + '<div class="elc-field">' + sectHead('Macrocategorie', 'elcCntCp', 'cp') + '<div class="elc-checkbox-box" id="elcCpBox"></div></div>'
-    + '<div class="elc-field">' + sectHead('Categorie', 'elcCntCat', 'cat') + '<div class="elc-checkbox-box" id="elcCatBox"></div></div>'
-    + '<div class="elc-hint">Suggerimento: lascia una sezione vuota per includerla <b>tutta</b>. Selezionando delle Marche, Macrocategorie e Categorie mostrano solo le voci collegate.</div>'
+    + msField('Marche', 'brand')
+    + msField('Macrocategorie', 'cp')
+    + msField('Categorie', 'cat')
+    + '<div class="elc-hint">Suggerimento: lascia una sezione su <b>Tutte</b> per includerla per intero. Selezionando delle Marche, Macrocategorie e Categorie mostrano solo le voci collegate.</div>'
     + '<div class="elc-count" id="elcCount"></div>'
     + '</div>'
     + '<div class="elc-foot">'
@@ -38685,14 +38777,13 @@ function openExportListinoCliente(){
   document.body.appendChild(ov);
   ov.addEventListener('click', (e) => { if(e.target === ov) closeExportListinoCliente(); });
   document.addEventListener('keydown', _elcEscHandler);
-  // popola le tre liste (in cascata: all'inizio macrocat e cat sono complete)
-  _elcRenderChecklist('elcBrandBox', _elcDistinctWhere('brand', null), _ELC_BRANDS, '_elcToggleBrand');
-  _elcRenderChecklist('elcCpBox', _elcAvailCps(), _ELC_CPS, '_elcToggleCp');
-  _elcRenderChecklist('elcCatBox', _elcAvailCats(), _ELC_CATS, '_elcToggleCat');
+  // inizializza i label dei tre trigger ("Tutte")
+  _elcMsUpdateTrigger('brand'); _elcMsUpdateTrigger('cp'); _elcMsUpdateTrigger('cat');
   _elcUpdateCount();
 }
-function _elcEscHandler(e){ if(e.key === 'Escape') closeExportListinoCliente(); }
+function _elcEscHandler(e){ if(e.key === 'Escape'){ if(_ELC_MS_OPEN){ _elcMsClose(); } else { closeExportListinoCliente(); } } }
 function closeExportListinoCliente(){
+  if(typeof _elcMsClose === 'function') _elcMsClose();
   const ov = document.getElementById('elcOverlay'); if(ov) ov.remove();
   document.removeEventListener('keydown', _elcEscHandler);
 }
