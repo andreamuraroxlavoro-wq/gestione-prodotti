@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.387 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.397 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -1224,6 +1224,37 @@ body.sb-resizing *{user-select:none !important}
 .ms-search::placeholder{
   color:rgba(255,255,255,0.35);
 }
+/* SV2.10.392: indicazione "xx Prodotti rientrano nella tua Ricerca" nella sidebar, sopra Marca */
+.sb-filtered-count{
+  box-sizing:border-box;
+  min-height:37px;          /* SV2.10.393: spazio riservato anche da vuoto, così Marca non si sposta */
+  padding:6px 2px 10px;margin:0 0 6px;
+  font-size:13px;line-height:1.35;text-align:center;
+  color:var(--sidebar-fg, #2b3440);
+  border-bottom:1px solid var(--sidebar-border, rgba(0,0,0,0.12));
+}
+.sb-filtered-count b{ color:var(--accent,#ff6b35);font-weight:800;font-size:14.5px; }
+/* SV2.10.388: toggle "Ordina per quantità" nei popup dei filtri */
+.ms-sort-toggle{
+  display:flex;align-items:center;gap:8px;
+  padding:5px 4px 7px;margin-bottom:4px;cursor:pointer;
+  font-size:11.5px;color:rgba(255,255,255,0.7);
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  -webkit-tap-highlight-color:transparent;
+}
+.ms-sort-toggle input{ position:absolute;opacity:0;width:0;height:0;pointer-events:none; }
+.ms-sort-slider{
+  position:relative;width:32px;height:17px;border-radius:9px;flex-shrink:0;
+  background:rgba(255,255,255,0.22);transition:background .2s;
+}
+.ms-sort-slider::after{
+  content:'';position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;
+  background:#fff;transition:transform .2s;
+}
+.ms-sort-toggle input:checked + .ms-sort-slider{ background:var(--accent,#ff6b35); }
+.ms-sort-toggle input:checked + .ms-sort-slider::after{ transform:translateX(15px); }
+.ms-sort-toggle input:focus-visible + .ms-sort-slider{ outline:2px solid var(--accent,#ff6b35);outline-offset:2px; }
+.ms-sort-lab{ user-select:none;font-weight:600; }
 
 .ms-list{
   flex:1;
@@ -2650,6 +2681,26 @@ body.theme-light .app-sidebar .prm-value .prm-value-label{
 
 /* === PULSANTE CLEAR === */
 .prm-clear-row{ padding:2px 0 8px; }
+/* SV2.10.395: campo ricerca incrementale per il NOME del parametro */
+.prm-name-search-row{ position:relative; padding:2px 0 8px; }
+.prm-name-search{
+  width:100%; box-sizing:border-box;
+  padding:7px 28px 7px 10px; border-radius:6px;
+  background:rgba(139,92,246,0.08);
+  border:1px solid rgba(139,92,246,0.30);
+  color:var(--sidebar-fg, #1a2332);
+  font-family:inherit; font-size:12.5px;
+}
+.prm-name-search::placeholder{ color:rgba(139,92,246,0.55); }
+.prm-name-search:focus{ outline:none; border-color:#8b5cf6; background:rgba(139,92,246,0.12); }
+.prm-name-search-clear{
+  position:absolute; top:50%; right:6px; transform:translateY(-50%);
+  width:20px; height:20px; margin-top:-3px;
+  display:inline-flex; align-items:center; justify-content:center;
+  border:none; border-radius:50%; background:transparent;
+  color:#8b5cf6; font-size:16px; line-height:1; cursor:pointer; padding:0;
+}
+.prm-name-search-clear:hover{ background:rgba(139,92,246,0.18); }
 .prm-clear-btn{
   display:inline-flex;
   align-items:center;
@@ -10067,7 +10118,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.387</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.397</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10131,6 +10182,8 @@ body.theme-light .dlg-input{background:var(--bg3)}
         </div>
       </div>
 
+      <!-- SV2.10.392: indicazione dinamica prodotti nella ricerca, sopra il filtro Marca -->
+      <div class="sb-filtered-count" id="sbFilteredCount"></div>
       <div class="sb-filter-group">
         <label>Marca</label>
         <div class="ms-trigger" id="msBrandTrigger" data-filter="brand" tabindex="0" role="button" aria-haspopup="listbox" aria-expanded="false" onclick="msOpen('brand', this, event)" onkeydown="msTriggerKeydown(event, 'brand', this)" onmouseenter="msTriggerHoverEnter('brand', this)" onmouseleave="msTriggerHoverLeave('brand', event)">
@@ -10692,7 +10745,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.387 mobile");
+console.info("[bootstrap] script avvio — SV2.10.397 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12143,7 +12196,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.387';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.397';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14676,6 +14729,19 @@ function tagUntaggedCount(){
 // Replica la logica di matchExcept (msComputeCounts) SENZA il blocco TAG, così la
 // lista "Ricerca per TAG" può mostrare solo i tag coerenti con la ricerca corrente
 // (semplice, globale o avanzata) e con gli altri filtri attivi.
+// SV2.10.391: helper condiviso per i filtri speciali della toolbar
+// (Nuovi / Scatalogati / Personali / Servizi). Ritorna true se il prodotto supera
+// i filtri speciali attivi. Set vuoto = nessun filtro speciale → passa.
+// Logica OR coerente con applyFilters: passa se matcha almeno uno dei filtri attivi.
+function _msMatchSpecialFilters(p){
+  if(typeof SPECIAL_FILTERS === 'undefined' || !SPECIAL_FILTERS || SPECIAL_FILTERS.size === 0) return true;
+  const isService = p.isService === true;
+  const matchNew = SPECIAL_FILTERS.has('new') && !!p._isNew;
+  const matchObs = SPECIAL_FILTERS.has('obsolete') && !!p._obsoleteSince;
+  const matchPersonal = SPECIAL_FILTERS.has('personal') && (p.isPersonal === true && !isService);
+  const matchService = SPECIAL_FILTERS.has('service') && isService;
+  return matchNew || matchObs || matchPersonal || matchService;
+}
 function _tagBaseMatch(p){
   // filtri Marca / Macrocategoria / Categoria
   if(typeof MS_FILTERS !== 'undefined' && MS_FILTERS){
@@ -14731,6 +14797,8 @@ function _tagBaseMatch(p){
     for(const it of window._QUOTE_STATE.items){ if(it && it.code === pName){ found = true; break; } }
     if(!found) return false;
   }
+  // SV2.10.391: filtri speciali toolbar (Nuovi/Scatalogati/Personali/Servizi)
+  if(!_msMatchSpecialFilters(p)) return false;
   return true;
 }
 // SV2.10.381: Map tagName -> numero di prodotti coerenti (che passano _tagBaseMatch)
@@ -26433,6 +26501,10 @@ function msComputeCounts(key){
       }
       if(!found) return false;
     }
+    // SV2.10.391: filtri speciali toolbar (Nuovi / Scatalogati / Personali / Servizi).
+    // Quando attivi, i dropdown MARCA/MACROCAT/CATEGORIA devono mostrare SOLO i valori
+    // dei prodotti che sopravvivono — coerente con applyFilters e con gli altri filtri.
+    if(!_msMatchSpecialFilters(p)) return false;
     // SV2.10.368: filtro TAG — i dropdown MARCA/MACROCAT/CATEGORIA devono mostrare
     // SOLO i valori dei prodotti che hanno i tag attivi (coerente con gli altri
     // filtri). Stessa logica del filtro in applyFilters.
@@ -26471,6 +26543,27 @@ function msComputeCounts(key){
 // Quando chiamato SENZA 'event' (es. da hover) NON fa toggle close: semplicemente
 // non fa nulla se il popup era già aperto. Quando chiamato CON 'event' (click
 // o keyboard), fa toggle close come prima.
+// SV2.10.389: ordinamento liste filtri — alfabetico (default) o per quantità (desc).
+// Stato INDIPENDENTE per ciascun filtro (Marca / Macrocategoria / Categoria), in
+// localStorage. La stessa chiave logica è condivisa tra i filtri di ricerca e il
+// dialog Esporta Listino ('cp' del dialog ≡ 'catParent' della ricerca).
+function _msSortKey(k){ return (k === 'cp') ? 'catParent' : k; }
+function _msGetSortByCount(k){
+  try { return localStorage.getItem('msSortByCount_' + _msSortKey(k)) === '1'; } catch(_){ return false; }
+}
+function _msSetSortByCount(k, on){
+  try { localStorage.setItem('msSortByCount_' + _msSortKey(k), on ? '1' : '0'); } catch(_){}
+}
+function _msToggleSort(k, on){
+  _msSetSortByCount(k, on);
+  // ri-renderizza solo il popup aperto che corrisponde a QUESTO filtro
+  if(typeof MS_OPEN_KEY !== 'undefined' && MS_OPEN_KEY && _msSortKey(MS_OPEN_KEY) === _msSortKey(k)){
+    msRenderList(MS_OPEN_KEY, (document.getElementById('msSearchInput')||{}).value || '');
+  }
+  if(typeof _ELC_MS_OPEN !== 'undefined' && _ELC_MS_OPEN && _msSortKey(_ELC_MS_OPEN) === _msSortKey(k)){
+    _elcMsRender(_ELC_MS_OPEN, (document.getElementById('elcMsSearch')||{}).value || '');
+  }
+}
 function msOpen(key, trigger, event){
   if(event){ event.stopPropagation(); event.preventDefault(); }
   // Se lo stesso popup è già aperto:
@@ -26492,6 +26585,7 @@ function msOpen(key, trigger, event){
   popup.setAttribute('aria-multiselectable', 'true');
   popup.innerHTML = `
     <input type="text" class="ms-search" id="msSearchInput" placeholder="Cerca…" autocomplete="off" spellcheck="false">
+    <label class="ms-sort-toggle"><input type="checkbox" id="msSortToggle" ${_msGetSortByCount(key)?'checked':''} onchange="_msToggleSort('${key}', this.checked)"><span class="ms-sort-slider"></span><span class="ms-sort-lab">Ordina per quantità</span></label>
     <div class="ms-list" id="msListBox"></div>
     <div class="ms-foot">
       <button type="button" class="ms-btn" onclick="msSelectAll('${key}')">Tutte</button>
@@ -26712,10 +26806,12 @@ function msRenderList(key, searchQuery){
   // Le voci già SELEZIONATE restano visibili anche se ora hanno count 0, così
   // l'utente può comunque deselezionarle (evita "filtri fantasma" invisibili).
   entries = entries.filter(([v, cnt]) => cnt > 0 || f.selected.has(v));
+  const _msByCount = _msGetSortByCount(key);
   entries.sort((a, b) => {
     const aSel = f.selected.has(a[0]) ? 0 : 1;
     const bSel = f.selected.has(b[0]) ? 0 : 1;
     if(aSel !== bSel) return aSel - bSel;
+    if(_msByCount && b[1] !== a[1]) return b[1] - a[1];   // quantità desc
     return a[0].localeCompare(b[0], 'it');
   });
 
@@ -26771,6 +26867,47 @@ function msRenderList(key, searchQuery){
 }
 
 // Toggle una selezione del filtro, riapplica i filtri live, rirender popup
+// SV2.10.394: true se è attivo almeno un filtro/ricerca (qualsiasi fonte che
+// restringe i risultati). Usato per mostrare l'indicazione "xx Prodotti…" SOLO
+// quando c'è davvero una ricerca in corso (non il semplice totale del catalogo).
+function _anyFilterActive(){
+  const val = id => { const el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; };
+  if(val('search')) return true;
+  if(val('fltQuickSearch')) return true;
+  if(val('fltStockIT')) return true;
+  if(val('fltStockES')) return true;
+  if(val('fltMod')) return true;
+  try {
+    if(MS_FILTERS.brand.selected.size > 0) return true;
+    if(MS_FILTERS.catParent.selected.size > 0) return true;
+    if(MS_FILTERS.cat.selected.size > 0) return true;
+  } catch(_){}
+  if(window.ADV_SEARCH && window.ADV_SEARCH.active) return true;
+  if(typeof ONLY_FAVORITES !== 'undefined' && ONLY_FAVORITES) return true;
+  if(typeof ONLY_OUTLET !== 'undefined' && ONLY_OUTLET) return true;
+  if(typeof ONLY_IN_CART !== 'undefined' && ONLY_IN_CART) return true;
+  if(typeof STOCK_FILTER_STATE !== 'undefined' && STOCK_FILTER_STATE !== 0) return true;
+  if(typeof SPECIAL_FILTERS !== 'undefined' && SPECIAL_FILTERS && SPECIAL_FILTERS.size > 0) return true;
+  if(typeof TAG_FILTER !== 'undefined' && TAG_FILTER.size > 0) return true;
+  if(typeof TAG_UNTAGGED_ONLY !== 'undefined' && TAG_UNTAGGED_ONLY) return true;
+  try {
+    if(typeof computeCreatedRange === 'function' && computeCreatedRange()) return true;
+    if(typeof computeModifiedRange === 'function' && computeModifiedRange()) return true;
+  } catch(_){}
+  return false;
+}
+// SV2.10.392: indicazione dinamica "xx Prodotti rientrano nella tua Ricerca" mostrata
+// nella sidebar, sopra il filtro Marca (sempre visibile, non solo a popup aperto).
+// Usa FILTERED (prodotti che superano TUTTI i filtri/ricerche attivi) e si aggiorna
+// a ogni applyFilters. SV2.10.394: compare solo se è attivo almeno un filtro/ricerca;
+// lo spazio in altezza resta riservato (min-height) anche quando è vuota.
+function _updateFilteredCountIndicator(){
+  const el = document.getElementById('sbFilteredCount');
+  if(!el) return;
+  if(!_anyFilterActive()){ el.innerHTML = ''; return; }
+  const n = (typeof FILTERED !== 'undefined' && Array.isArray(FILTERED)) ? FILTERED.length : 0;
+  el.innerHTML = '<b>' + n.toLocaleString('it-IT') + '</b> Prodotti rientrano nella tua Ricerca';
+}
 function msToggle(key, value, event){
   if(event){ event.stopPropagation(); }
   const f = MS_FILTERS[key];
@@ -27148,7 +27285,8 @@ function rebuildAllSearchHay(){
 const PARAM_FILTERS = {
   selected: {},   // chiave param → Set di valori selezionati
   expanded: {},   // chiave param → true/false (collapse state)
-  sectionOpen: true, // sezione "Ricerca per parametri" è aperta/chiusa
+  sectionOpen: false, // SV2.10.395: sezione "Ricerca per parametri" chiusa di default (apribile dall'utente)
+  search: '',     // SV2.10.395: ricerca testuale incrementale sul NOME del parametro
 };
 let PARAM_INDEX = null;  // { key: { values: { val: count }, label: string } }
 
@@ -27430,6 +27568,23 @@ function paramRenderSidebar(){
       hasPrimaryFilter = true;
     }
   } catch(_){}
+  // SV2.10.396: auto-espansione/contrazione della sezione "Ricerca per parametri" in
+  // base ai filtri "primari" (ricerca globale, ricerca veloce, marca/macrocategoria/
+  // categoria, ricerca avanzata, TAG). Quando si passa da "nessun filtro" ad "almeno un
+  // filtro" la sezione si ESPANDE; quando si rimuovono TUTTI i filtri si CONTRAE. La
+  // scelta manuale (toggle header) resta possibile: tra una transizione e l'altra lo
+  // stato non viene forzato.
+  if(PARAM_FILTERS._lastPrimary === undefined) PARAM_FILTERS._lastPrimary = false;
+  if(hasPrimaryFilter && !PARAM_FILTERS._lastPrimary){
+    PARAM_FILTERS.sectionOpen = true;
+  } else if(!hasPrimaryFilter && PARAM_FILTERS._lastPrimary){
+    PARAM_FILTERS.sectionOpen = false;
+  }
+  PARAM_FILTERS._lastPrimary = hasPrimaryFilter;
+  // SV2.10.395: la ricerca per parametri è sempre attiva, anche senza un filtro
+  // primario. Il menu resta apribile/chiudibile manualmente; un campo di ricerca
+  // incrementale aiuta a trovare il nome del parametro tra i molti disponibili.
+  hasPrimaryFilter = true;
 
   // V2.10.129: STILI INLINE con !important per battere DEFINITIVAMENTE la cascade.
   // Lo style inline ha specificità massima; con !important batte anche regole
@@ -27560,6 +27715,11 @@ function paramRenderSidebar(){
     container.innerHTML = html;
     return;
   }
+  // SV2.10.395: campo di ricerca testuale incrementale sul NOME del parametro
+  html += '<div class="prm-name-search-row">';
+  html += '<input type="text" id="prmNameSearch" class="prm-name-search" placeholder="Cerca parametro…" autocomplete="off" spellcheck="false" oninput="paramOnNameSearch(this.value)" value="' + escapeHtml(PARAM_FILTERS.search || '') + '">';
+  html += '<button type="button" id="prmNameSearchClear" class="prm-name-search-clear" onclick="paramOnNameSearch(\'\')" title="Azzera ricerca"' + (PARAM_FILTERS.search ? '' : ' style="display:none;"') + '>×</button>';
+  html += '</div>';
   if(totalActive > 0){
     html += '<div class="prm-clear-row">';
     html += '<button type="button" class="prm-clear-btn" onclick="paramClearAll()" title="Rimuovi tutti i filtri parametri">';
@@ -27567,9 +27727,28 @@ function paramRenderSidebar(){
     html += '</button>';
     html += '</div>';
   }
-  // Per ogni gruppo
+  html += '<div id="sbParamGroups"></div>';
+  container.innerHTML = html;
+  // SV2.10.395: cache per il re-render leggero dei soli gruppi (ricerca per nome)
+  window._PRM_CACHE = { dynamicCounts: dynamicCounts, S: S, sortedKeys: sortedKeys };
+  paramRenderGroups();
+}
+
+// SV2.10.395: genera i gruppi parametri (filtrati per NOME) nel sotto-container,
+// senza ricostruire l'input di ricerca → il focus durante la digitazione resta.
+function paramRenderGroups(){
+  const box = document.getElementById('sbParamGroups');
+  if(!box) return;
+  const cache = window._PRM_CACHE || {};
+  const dynamicCounts = cache.dynamicCounts || {};
+  const S = cache.S || {};
+  const sortedKeys = cache.sortedKeys || [];
+  const _q = String(PARAM_FILTERS.search || '').trim().toLowerCase();
+  let html = '';
   sortedKeys.forEach(k => {
     const group = PARAM_INDEX[k];
+    if(!group) return;
+    if(_q){ const _lab = String(group.label || k).toLowerCase(); if(!_lab.includes(_q)) return; }
     const groupDynCounts = dynamicCounts[k] || {};
     const isOpen = !!PARAM_FILTERS.expanded[k];
     const selectedVals = PARAM_FILTERS.selected[k] || new Set();
@@ -27634,7 +27813,22 @@ function paramRenderSidebar(){
     }
     html += '</div>';
   });
-  container.innerHTML = html;
+  if(html === ''){
+    box.innerHTML = _q ? '<div class="prm-empty">Nessun parametro trovato per "' + escapeHtml(PARAM_FILTERS.search) + '"</div>' : '';
+    return;
+  }
+  box.innerHTML = html;
+}
+
+// SV2.10.395: ricerca incrementale per NOME del parametro — aggiorna solo i gruppi,
+// preservando il focus e il cursore nell'input.
+function paramOnNameSearch(val){
+  PARAM_FILTERS.search = val || '';
+  const inp = document.getElementById('prmNameSearch');
+  if(inp && inp.value !== PARAM_FILTERS.search) inp.value = PARAM_FILTERS.search;
+  const clr = document.getElementById('prmNameSearchClear');
+  if(clr) clr.style.display = PARAM_FILTERS.search ? '' : 'none';
+  paramRenderGroups();
 }
 
 function applyFilters(options){
@@ -27900,6 +28094,9 @@ function applyFilters(options){
 
   PAGE = 0;
   render();
+  // SV2.10.392: aggiorna l'indicatore "xx Prodotti rientrano nella tua Ricerca"
+  // nella sidebar (sopra il filtro Marca), coerente con FILTERED.
+  if(typeof _updateFilteredCountIndicator === 'function') _updateFilteredCountIndicator();
 }
 
 // Converte qualsiasi formato di data al Date JS
@@ -28082,8 +28279,15 @@ function resetAllFilters(){
   // V2.1.9: ricerca avanzata attiva?
   if(window.ADV_SEARCH && window.ADV_SEARCH.active) active.push('ricerca avanzata');
 
-  // V2.10.118: conteggio filtri parametri tecnici attivi (riportato sotto)
-  // [il reset effettivo + push in active è in fondo alla funzione]
+  // SV2.10.397: i filtri "Ricerca per parametri" vanno conteggiati QUI, PRIMA del
+  // controllo "active.length === 0". Altrimenti, se l'unico filtro attivo è un
+  // parametro tecnico, il reset uscirebbe subito con "Nessun filtro attivo" senza
+  // azzerare nulla — pur essendo il pulsante reset acceso (verde) per quel filtro.
+  const _hadParamFilters = (typeof PARAM_FILTERS !== 'undefined') &&
+    Object.keys(PARAM_FILTERS.selected || {}).some(k =>
+      PARAM_FILTERS.selected[k] && PARAM_FILTERS.selected[k].size > 0
+    );
+  if(_hadParamFilters) active.push('parametri tecnici');
 
   // V2.2.36: filtri speciali (Nuovi prodotti / Prodotti scatalogati)
   if(typeof SPECIAL_FILTERS !== 'undefined' && SPECIAL_FILTERS.size > 0){
@@ -28154,13 +28358,16 @@ function resetAllFilters(){
     if(typeof _renderSpecialBanner === 'function') _renderSpecialBanner();
   }
 
-  // V2.10.118: svuota anche i filtri parametri tecnici
+  // V2.10.118: svuota anche i filtri parametri tecnici (già rilevati sopra in
+  // _hadParamFilters, prima del controllo "nessun filtro attivo").
   if(typeof PARAM_FILTERS !== 'undefined'){
-    const hadParams = Object.keys(PARAM_FILTERS.selected).some(k =>
-      PARAM_FILTERS.selected[k] && PARAM_FILTERS.selected[k].size > 0
-    );
     PARAM_FILTERS.selected = {};
-    if(hadParams) active.push('parametri tecnici');
+    // SV2.10.396: il reset azzera anche la ricerca per nome parametro e contrae la
+    // sezione (coerente con "nessun filtro attivo"). _lastPrimary riallineato così la
+    // sezione non viene ri-espansa dalla logica di auto-espansione.
+    PARAM_FILTERS.search = '';
+    PARAM_FILTERS.sectionOpen = false;
+    PARAM_FILTERS._lastPrimary = false;
   }
 
   // Ri-applica (equivale a "nessun filtro")
@@ -36028,6 +36235,9 @@ function updateResetBtnState(){
     // SV2.10.371: anche il filtro TAG attivo (tag selezionati o "Senza TAG")
     // accende il pulsante reset (verde acido + badge), coerente con gli altri filtri.
     typeof TAG_FILTER !== 'undefined' && (TAG_FILTER.size > 0 || (typeof TAG_UNTAGGED_ONLY !== 'undefined' && TAG_UNTAGGED_ONLY)),
+    // SV2.10.396: anche i filtri "Ricerca per parametri" attivi accendono il pulsante
+    // reset (verde acido + badge), coerentemente con tutti gli altri filtri.
+    typeof PARAM_FILTERS !== 'undefined' && Object.keys(PARAM_FILTERS.selected || {}).some(k => PARAM_FILTERS.selected[k] && PARAM_FILTERS.selected[k].size > 0),
   ];
   // Anche i date range (fltCreatedFrom/To, fltModifiedFrom/To) se presenti
   check('fltCreatedFrom',  notEmpty);
@@ -38623,9 +38833,11 @@ function _elcMsRender(which, query){
   const q = (query || '').toLowerCase().trim();
   let entries = [...counts.entries()].filter(([v]) => avail.has(v) || sel.has(v));
   if(q) entries = entries.filter(([v]) => v.toLowerCase().includes(q));
+  const _msByCount = _msGetSortByCount(which);
   entries.sort((a,b) => {
     const aSel = sel.has(a[0]) ? 0 : 1, bSel = sel.has(b[0]) ? 0 : 1;
     if(aSel !== bSel) return aSel - bSel;
+    if(_msByCount && b[1] !== a[1]) return b[1] - a[1];   // quantità desc
     return a[0].localeCompare(b[0], 'it');
   });
   if(entries.length === 0){ listEl.innerHTML = '<div class="ms-empty">Nessun risultato</div>'; return; }
@@ -38699,6 +38911,7 @@ function _elcMsOpen(which, trigger, event){
   popup.setAttribute('aria-multiselectable', 'true');
   popup.innerHTML =
     '<input type="text" class="ms-search" id="elcMsSearch" placeholder="Cerca…" autocomplete="off" spellcheck="false">'
+    + '<label class="ms-sort-toggle"><input type="checkbox" id="elcMsSortToggle" ' + (_msGetSortByCount(which)?'checked':'') + ' onchange="_msToggleSort(\'' + which + '\', this.checked)"><span class="ms-sort-slider"></span><span class="ms-sort-lab">Ordina per quantità</span></label>'
     + '<div class="ms-list" id="elcMsList"></div>'
     + '<div class="ms-foot">'
     + '<button type="button" class="ms-btn" onclick="_elcMsAll(\'' + which + '\',true)">Tutte</button>'
