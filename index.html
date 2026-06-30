@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.383 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.385 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -4884,6 +4884,78 @@ body.theme-light .advs-foot{background:rgba(0,0,0,0.03)}
   background:#16a34a !important; border-color:#16a34a !important; color:#fff !important;
 }
 #btnPriceMode.pm-sell:hover{ background:#15803d !important; border-color:#15803d !important; }
+/* SV2.10.384: dialog "Esporta Listino Cliente" */
+.elc-overlay{
+  position:fixed;inset:0;z-index:100000;
+  background:rgba(0,0,0,0.55);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+}
+.elc-dialog{
+  width:100%;max-width:440px;
+  background:var(--bg2,#161c24);color:var(--fg,#e8ecf1);
+  border:1px solid var(--border,rgba(255,255,255,0.1));
+  border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  overflow:hidden;font-family:inherit;
+}
+.elc-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 18px;border-bottom:1px solid var(--border,rgba(255,255,255,0.08));
+}
+.elc-title{ font-size:16px;font-weight:800;letter-spacing:0.3px; }
+.elc-close{
+  background:none;border:none;cursor:pointer;color:var(--fg3,#8591a1);
+  font-size:18px;line-height:1;padding:4px 8px;border-radius:6px;
+}
+.elc-close:hover{ background:rgba(255,255,255,0.08);color:var(--fg,#fff); }
+.elc-body{ padding:16px 18px;display:flex;flex-direction:column;gap:13px; }
+.elc-field{ display:flex;flex-direction:column;gap:5px; }
+.elc-lab{ font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--fg2,#a8b2bd); }
+.elc-select{
+  width:100%;box-sizing:border-box;padding:9px 11px;font-size:14px;font-family:inherit;
+  background:var(--bg,#0f1419);color:var(--fg,#e8ecf1);
+  border:1px solid var(--border,rgba(255,255,255,0.14));border-radius:8px;cursor:pointer;
+}
+.elc-select:focus{ outline:none;border-color:var(--accent,#ff6b35); }
+.elc-count{
+  margin-top:2px;padding:8px 11px;border-radius:8px;
+  background:var(--accent-soft,rgba(255,107,53,0.12));color:var(--fg,#e8ecf1);
+  font-size:13px;font-weight:600;text-align:center;
+}
+.elc-count.elc-count-zero{ background:rgba(198,40,40,0.16);color:#e57373; }
+.elc-foot{
+  display:flex;gap:10px;justify-content:flex-end;
+  padding:14px 18px;border-top:1px solid var(--border,rgba(255,255,255,0.08));
+}
+.elc-btn{ padding:9px 18px;font-size:14px;font-weight:700;font-family:inherit;border-radius:8px;cursor:pointer;border:1px solid transparent; }
+.elc-btn-cancel{ background:transparent;border-color:var(--border,rgba(255,255,255,0.18));color:var(--fg2,#a8b2bd); }
+.elc-btn-cancel:hover{ background:rgba(255,255,255,0.06);color:var(--fg,#fff); }
+.elc-btn-go{ background:var(--accent,#ff6b35);color:#fff; }
+.elc-btn-go:hover{ filter:brightness(1.08); }
+/* SV2.10.385: selezione multipla a cascata */
+.elc-body{ max-height:min(74vh, 640px); overflow-y:auto; }
+.elc-sec-head{ display:flex;align-items:center;justify-content:space-between;gap:8px; }
+.elc-cnt{ font-weight:700;color:var(--accent,#ff6b35);font-size:10.5px;letter-spacing:0.2px; }
+.elc-allnone{ display:inline-flex;gap:4px; }
+.elc-allnone button{
+  background:none;border:none;cursor:pointer;font-family:inherit;
+  color:var(--fg3,#8591a1);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;
+  padding:2px 5px;border-radius:4px;
+}
+.elc-allnone button:hover{ color:var(--accent,#ff6b35);background:rgba(255,255,255,0.06); }
+.elc-checkbox-box{
+  margin-top:5px;max-height:132px;overflow-y:auto;
+  border:1px solid var(--border,rgba(255,255,255,0.14));border-radius:8px;
+  background:var(--bg,#0f1419);padding:4px;
+  display:flex;flex-direction:column;gap:1px;
+}
+.elc-chk{ display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13.5px; }
+.elc-chk:hover{ background:rgba(255,255,255,0.06); }
+.elc-chk input{ width:16px;height:16px;accent-color:var(--accent,#ff6b35);cursor:pointer;flex-shrink:0; }
+.elc-chk span{ overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.elc-empty{ padding:10px;text-align:center;color:var(--fg3,#8591a1);font-size:12.5px;font-style:italic; }
+.elc-hint{ font-size:11.5px;color:var(--fg3,#8591a1);line-height:1.45; }
+.elc-hint b{ color:var(--fg2,#a8b2bd);font-weight:700; }
 
 /* === MAIN === */
 main{flex:1;min-height:0;overflow:auto;padding:20px 20px max(48px, env(safe-area-inset-bottom));position:relative}
@@ -9991,7 +10063,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.383</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.385</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10455,6 +10527,11 @@ body.theme-light .dlg-input{background:var(--bg3)}
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
             Esporta Excel
           </button>
+          <!-- SV2.10.384: esporta un listino Cliente (formato importazione gestionale) -->
+          <button class="tb-dropdown-item" onclick="openExportListinoCliente(); closeAllTopbarDropdowns()" role="menuitem" title="Esporta un listino Cliente (Marca/Macrocategoria/Categoria a scelta) nel formato di importazione gestionale">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            Esporta Listino Cliente
+          </button>
           <button class="tb-dropdown-item" onclick="openSourceExport(); closeAllTopbarDropdowns()" role="menuitem" title="Salva il file completo con tutte le modifiche locali">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Salva sorgente
@@ -10611,7 +10688,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.383 mobile");
+console.info("[bootstrap] script avvio — SV2.10.385 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12062,7 +12139,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.383';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.385';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -38457,6 +38534,216 @@ function splGetEffectiveSaleDiscount(product, listId){
 }
 
 /* ═══ Fine Blocco 1 — Listini di vendita (motore dati) ═══ */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SV2.10.385 — ESPORTA LISTINO CLIENTE
+   Esporta un listino di vendita (SPL) in formato di importazione gestionale
+   (template AJAX/SECURITY, 18 colonne). L'utente sceglie il listino e filtra
+   per Marca / Macrocategoria / Categoria con SELEZIONE MULTIPLA e filtri a
+   CASCATA: scegliendo delle Marche, Macrocategorie e Categorie mostrano solo le
+   voci collegate (una sezione lasciata vuota = "tutte"). Prezzo = PVP del
+   prodotto · Sconto 1 = % sconto di vendita del listino.
+   ═══════════════════════════════════════════════════════════════════════ */
+function _elcAll(){ return (typeof DATA !== 'undefined' && Array.isArray(DATA)) ? DATA : []; }
+function _elcBrandOf(p){ return String(getField(p,'brand') || '').trim(); }
+function _elcCpOf(p){    return String(getField(p,'category_parent') || '').trim(); }
+function _elcCatOf(p){   return String(getField(p,'category') || '').trim(); }
+// SV2.10.385: stato selezioni multiple
+let _ELC_BRANDS = new Set();
+let _ELC_CPS    = new Set();
+let _ELC_CATS   = new Set();
+// valori distinti di un campo tra i prodotti che soddisfano il predicato
+function _elcDistinctWhere(field, pred){
+  const set = new Set();
+  for(const p of _elcAll()){
+    if(pred && !pred(p)) continue;
+    const v = String(getField(p, field) || '').trim();
+    if(v) set.add(v);
+  }
+  return [...set].sort((a,b)=>a.localeCompare(b,'it',{sensitivity:'base'}));
+}
+// liste disponibili a CASCATA: macrocat dipende dalle marche scelte, cat dipende da marche+macrocat
+function _elcAvailCps(){
+  return _elcDistinctWhere('category_parent', p => !_ELC_BRANDS.size || _ELC_BRANDS.has(_elcBrandOf(p)));
+}
+function _elcAvailCats(){
+  return _elcDistinctWhere('category', p =>
+    (!_ELC_BRANDS.size || _ELC_BRANDS.has(_elcBrandOf(p))) &&
+    (!_ELC_CPS.size    || _ELC_CPS.has(_elcCpOf(p))));
+}
+// un Set vuoto significa "tutti"
+function _elcMatch(p){
+  if(_ELC_BRANDS.size && !_ELC_BRANDS.has(_elcBrandOf(p))) return false;
+  if(_ELC_CPS.size    && !_ELC_CPS.has(_elcCpOf(p)))       return false;
+  if(_ELC_CATS.size   && !_ELC_CATS.has(_elcCatOf(p)))     return false;
+  return true;
+}
+function _elcSelectedProducts(){ return _elcAll().filter(_elcMatch); }
+// render di una lista di checkbox
+function _elcRenderChecklist(boxId, values, selSet, toggleFn){
+  const box = document.getElementById(boxId);
+  if(!box) return;
+  const esc = (typeof _msHtmlEsc === 'function') ? _msHtmlEsc : (s)=>String(s==null?'':s);
+  if(!values.length){ box.innerHTML = '<div class="elc-empty">— nessuna opzione disponibile —</div>'; return; }
+  box.innerHTML = values.map(v =>
+    `<label class="elc-chk"><input type="checkbox" value="${esc(v)}" ${selSet.has(v)?'checked':''} onchange="${toggleFn}(this.value, this.checked)"><span>${esc(v)}</span></label>`
+  ).join('');
+}
+// toggle singolo
+function _elcToggleBrand(v, on){ if(on) _ELC_BRANDS.add(v); else _ELC_BRANDS.delete(v); _elcRebuildCps(); }
+function _elcToggleCp(v, on){    if(on) _ELC_CPS.add(v);    else _ELC_CPS.delete(v);    _elcRebuildCats(); _elcUpdateCount(); }
+function _elcToggleCat(v, on){   if(on) _ELC_CATS.add(v);   else _ELC_CATS.delete(v);   _elcUpdateCount(); }
+// ricostruzione a cascata (rimuove dalle selezioni i valori non più disponibili)
+function _elcRebuildCps(){
+  const cps = _elcAvailCps();
+  const valid = new Set(cps);
+  for(const v of [..._ELC_CPS]) if(!valid.has(v)) _ELC_CPS.delete(v);
+  _elcRenderChecklist('elcCpBox', cps, _ELC_CPS, '_elcToggleCp');
+  _elcRebuildCats();
+  _elcUpdateCount();
+}
+function _elcRebuildCats(){
+  const cats = _elcAvailCats();
+  const valid = new Set(cats);
+  for(const v of [..._ELC_CATS]) if(!valid.has(v)) _ELC_CATS.delete(v);
+  _elcRenderChecklist('elcCatBox', cats, _ELC_CATS, '_elcToggleCat');
+}
+// seleziona tutti / nessuno per una sezione
+function _elcSetAll(which, on){
+  if(which === 'brand'){
+    const all = _elcDistinctWhere('brand', null);
+    _ELC_BRANDS = on ? new Set(all) : new Set();
+    _elcRenderChecklist('elcBrandBox', all, _ELC_BRANDS, '_elcToggleBrand');
+    _elcRebuildCps();
+  } else if(which === 'cp'){
+    const cps = _elcAvailCps();
+    _ELC_CPS = on ? new Set(cps) : new Set();
+    _elcRenderChecklist('elcCpBox', cps, _ELC_CPS, '_elcToggleCp');
+    _elcRebuildCats(); _elcUpdateCount();
+  } else if(which === 'cat'){
+    const cats = _elcAvailCats();
+    _ELC_CATS = on ? new Set(cats) : new Set();
+    _elcRenderChecklist('elcCatBox', cats, _ELC_CATS, '_elcToggleCat');
+    _elcUpdateCount();
+  }
+}
+function _elcUpdateCount(){
+  const el = document.getElementById('elcCount');
+  if(el){
+    const n = _elcSelectedProducts().length;
+    el.textContent = (n === 0)
+      ? 'Nessun prodotto corrisponde ai filtri scelti'
+      : (n + (n === 1 ? ' prodotto verrà esportato' : ' prodotti verranno esportati'));
+    el.classList.toggle('elc-count-zero', n === 0);
+  }
+  const setCnt = (id, sz) => { const e = document.getElementById(id); if(e) e.textContent = sz ? ('· ' + sz + ' selez.') : ''; };
+  setCnt('elcCntBrand', _ELC_BRANDS.size);
+  setCnt('elcCntCp',    _ELC_CPS.size);
+  setCnt('elcCntCat',   _ELC_CATS.size);
+}
+function openExportListinoCliente(){
+  if(typeof DATA === 'undefined' || !Array.isArray(DATA) || DATA.length === 0){
+    if(typeof toast === 'function') toast('Nessun prodotto in catalogo da esportare', 'warn');
+    return;
+  }
+  const listini = (typeof splList === 'function') ? splList() : [];
+  if(listini.length === 0){
+    if(typeof toast === 'function') toast('Nessun listino di vendita salvato: creane uno dalla modalità Vendita.', 'warn');
+    return;
+  }
+  // reset selezioni
+  _ELC_BRANDS = new Set(); _ELC_CPS = new Set(); _ELC_CATS = new Set();
+  let ov = document.getElementById('elcOverlay'); if(ov) ov.remove();
+  const esc = (typeof _msHtmlEsc === 'function') ? _msHtmlEsc : (s)=>String(s==null?'':s);
+  const pct = (v) => (typeof splSanitizePct === 'function') ? splSanitizePct(v) : (parseFloat(v)||0);
+  const sectHead = (lab, cntId, which) =>
+    '<div class="elc-sec-head"><span class="elc-lab">' + lab + ' <span class="elc-cnt" id="' + cntId + '"></span></span>'
+    + '<span class="elc-allnone"><button type="button" onclick="_elcSetAll(\'' + which + '\',true)">tutti</button>'
+    + '<button type="button" onclick="_elcSetAll(\'' + which + '\',false)">nessuno</button></span></div>';
+  ov = document.createElement('div');
+  ov.id = 'elcOverlay';
+  ov.className = 'elc-overlay';
+  ov.innerHTML =
+    '<div class="elc-dialog" role="dialog" aria-modal="true" aria-label="Esporta Listino Cliente">'
+    + '<div class="elc-head"><span class="elc-title">Esporta Listino Cliente</span>'
+    + '<button type="button" class="elc-close" onclick="closeExportListinoCliente()" aria-label="Chiudi">✕</button></div>'
+    + '<div class="elc-body">'
+    + '<label class="elc-field"><span class="elc-lab">Listino di vendita (Cliente)</span>'
+    + '<select id="elcListino" class="elc-select">'
+    + listini.map(l => `<option value="${esc(l.id)}">${esc(l.name)} — sconto base ${pct(l.defaultPct)}%</option>`).join('')
+    + '</select></label>'
+    + '<div class="elc-field">' + sectHead('Marche', 'elcCntBrand', 'brand') + '<div class="elc-checkbox-box" id="elcBrandBox"></div></div>'
+    + '<div class="elc-field">' + sectHead('Macrocategorie', 'elcCntCp', 'cp') + '<div class="elc-checkbox-box" id="elcCpBox"></div></div>'
+    + '<div class="elc-field">' + sectHead('Categorie', 'elcCntCat', 'cat') + '<div class="elc-checkbox-box" id="elcCatBox"></div></div>'
+    + '<div class="elc-hint">Suggerimento: lascia una sezione vuota per includerla <b>tutta</b>. Selezionando delle Marche, Macrocategorie e Categorie mostrano solo le voci collegate.</div>'
+    + '<div class="elc-count" id="elcCount"></div>'
+    + '</div>'
+    + '<div class="elc-foot">'
+    + '<button type="button" class="elc-btn elc-btn-cancel" onclick="closeExportListinoCliente()">Annulla</button>'
+    + '<button type="button" class="elc-btn elc-btn-go" onclick="doExportListinoCliente()">Esporta Excel</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', (e) => { if(e.target === ov) closeExportListinoCliente(); });
+  document.addEventListener('keydown', _elcEscHandler);
+  // popola le tre liste (in cascata: all'inizio macrocat e cat sono complete)
+  _elcRenderChecklist('elcBrandBox', _elcDistinctWhere('brand', null), _ELC_BRANDS, '_elcToggleBrand');
+  _elcRenderChecklist('elcCpBox', _elcAvailCps(), _ELC_CPS, '_elcToggleCp');
+  _elcRenderChecklist('elcCatBox', _elcAvailCats(), _ELC_CATS, '_elcToggleCat');
+  _elcUpdateCount();
+}
+function _elcEscHandler(e){ if(e.key === 'Escape') closeExportListinoCliente(); }
+function closeExportListinoCliente(){
+  const ov = document.getElementById('elcOverlay'); if(ov) ov.remove();
+  document.removeEventListener('keydown', _elcEscHandler);
+}
+function doExportListinoCliente(){
+  const listId = (document.getElementById('elcListino') || {}).value || '';
+  const l = (typeof splGet === 'function') ? splGet(listId) : null;
+  if(!l){ if(typeof toast === 'function') toast('Seleziona un listino valido', 'warn'); return; }
+  const prods = _elcSelectedProducts();
+  if(prods.length === 0){ if(typeof toast === 'function') toast('Nessun prodotto da esportare con i filtri scelti', 'warn'); return; }
+
+  const header = ['Codice (NOME)','Descrizione (DESCrIZIONE BREVE)','Famiglia (CATEGORIA)','Marca (MARCA)',
+    'Serie (MACROCATEGORIA)','Prezzo di listino (PVP)','Sconto 1','Sconto 2','Sconto 3','Unità Mis.',
+    'Lotto Minimo','Lotto Riordino','Punto Riordino','Scorta Sicurezza','Lead Time','Non Gestito',
+    'Data di obsolescenza','Codice EAN'];
+  const aoa = [header];
+  for(const p of prods){
+    const pvpN = (typeof priceNum === 'function') ? priceNum(getField(p,'PVP')) : parseFloat(getField(p,'PVP'));
+    const eff  = (typeof splGetEffectiveSaleDiscount === 'function') ? splGetEffectiveSaleDiscount(p, listId) : null;
+    const sc1  = (eff && eff.scontoEff != null) ? Number(eff.scontoEff) : '';
+    aoa.push([
+      getField(p,'name') || '',
+      getField(p,'short_description') || '',
+      getField(p,'category') || '',
+      getField(p,'brand') || '',
+      getField(p,'category_parent') || '',
+      (pvpN != null && !isNaN(pvpN)) ? pvpN : '',
+      sc1,
+      '', '',          // Sconto 2, Sconto 3
+      '', '', '',       // Unità Mis., Lotto Minimo, Lotto Riordino
+      '', '', '',       // Punto Riordino, Scorta Sicurezza, Lead Time
+      '', '',           // Non Gestito, Data di obsolescenza
+      getField(p,'ean') || ''
+    ]);
+  }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:23},{wch:25.5},{wch:22.7},{wch:21},{wch:21.3},{wch:21},{wch:16.5},{wch:14.2},
+    {wch:15.3},{wch:9.8},{wch:12.8},{wch:13.7},{wch:14.5},{wch:15.2},{wch:10},{wch:11.5},{wch:19.7},{wch:19.3}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Foglio1');
+  const safe = (s) => String(s||'').replace(/[^\w\-]+/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');
+  const parts = ['Listino', safe(l.name)];
+  // nome file: una sola marca selezionata → la includo; più marche → "PiuMarche"
+  if(_ELC_BRANDS.size === 1) parts.push(safe([..._ELC_BRANDS][0]));
+  else if(_ELC_BRANDS.size > 1) parts.push('PiuMarche');
+  const d = new Date();
+  const ds = '' + d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  const filename = parts.join('_') + '_' + ds + '.xlsx';
+  XLSX.writeFile(wb, filename);
+  if(typeof toast === 'function') toast('Esportati ' + prods.length + (prods.length===1?' articolo':' articoli') + ' · ' + filename, 'ok');
+  closeExportListinoCliente();
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    V2.10.263 — APPLICAZIONE DEL LISTINO AL PREVENTIVO (Blocco 4, Step 1)
