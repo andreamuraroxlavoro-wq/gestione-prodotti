@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.411 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.412 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10237,7 +10237,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.411</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.412</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10442,7 +10442,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <button class="mobile-hamburger" id="mobileHamburger" onclick="toggleMobileDrawer()" aria-label="Apri filtri e menu" title="Filtri / Menu">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
-    <input type="text" class="search topbar-search" id="search" placeholder="Cerca per nome, codice, marca, descrizione…">
+    <input type="text" class="search topbar-search" id="search" placeholder="Cerca per nome, codice, marca… (usa ; per più termini)">
     <!-- SV2.10.329: Reset filtri spostato fuori dal menu, subito a destra della ricerca -->
     <button class="btn icon-btn" id="btnResetFilters" onclick="resetAllFilters()" title="Azzera tutti i filtri attivi" aria-label="Reset filtri">
       <svg viewBox="0 0 24 24">
@@ -10900,7 +10900,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.411 mobile");
+console.info("[bootstrap] script avvio — SV2.10.412 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12351,7 +12351,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.411';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.412';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14922,7 +14922,7 @@ function _tagBaseMatch(p){
     if(typeof hay !== 'string'){
       try { if(typeof buildSearchHay === 'function'){ buildSearchHay(p); hay = p._searchHay; } } catch(_){}
     }
-    if(typeof hay !== 'string' || !hay.includes(gs)) return false;
+    if(typeof hay !== 'string' || !_searchHayMatches(hay, gs)) return false;
   }
   // ricerca avanzata
   if(window.ADV_SEARCH && window.ADV_SEARCH.active && typeof advSearchMatches === 'function'){
@@ -26626,7 +26626,7 @@ function msComputeCounts(key){
       if(typeof hay !== 'string'){
         try { if(typeof buildSearchHay === 'function'){ buildSearchHay(p); hay = p._searchHay; } } catch(_){}
       }
-      if(typeof hay !== 'string' || !hay.includes(gs)) return false;
+      if(typeof hay !== 'string' || !_searchHayMatches(hay, gs)) return false;
     }
     // V2.10.133: ricerca avanzata — se attiva, il prodotto deve matchare
     // tutte le condizioni avanzate (engine advSearchMatches).
@@ -27362,6 +27362,27 @@ function _stripHtmlForSearch(s){
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ');  // collassa whitespace multipli
+}
+
+// SV2.10.412: match della ricerca semplice con sintassi multi-termine.
+//  - ";" separa GRUPPI valutati in OR: basta che UNO sia soddisfatto.
+//  - dentro un gruppo, gli SPAZI separano parole valutate in AND: devono esserci tutte.
+// Esempi: "SF-MNT22; SF-MNT24" → OR di due codici;
+//         "monitor safire" → prodotti con "monitor" E "safire";
+//         "monitor safire; telecamera hikvision" → (monitor E safire) OPPURE (telecamera E hikvision).
+// `hay` e `query` arrivano già in minuscolo/trim dai chiamanti.
+function _searchHayMatches(hay, query){
+  if(typeof hay !== 'string') return false;
+  if(!query) return true;
+  const groups = query.split(';').map(g => g.trim()).filter(Boolean);
+  if(groups.length === 0) return true;
+  for(const g of groups){
+    const words = g.split(/\s+/).filter(Boolean);
+    let allIn = true;
+    for(const w of words){ if(!hay.includes(w)){ allIn = false; break; } }
+    if(allIn) return true;   // un gruppo pienamente soddisfatto → match (OR)
+  }
+  return false;
 }
 
 function buildSearchHay(p){
@@ -28168,13 +28189,13 @@ function applyFilters(options){
       // legacy se per qualche motivo la cache non fosse stata costruita
       // (es. primo render dopo un'operazione di ripristino).
       if(typeof p._searchHay === 'string'){
-        if(!p._searchHay.includes(q)) return false;
+        if(!_searchHayMatches(p._searchHay, q)) return false;
       } else {
         // Fallback: costruisco al volo questo singolo prodotto e lo uso.
         // Non blocca ma è un segnale che qualcosa nella sequenza di rebuild
         // è saltato.
         buildSearchHay(p);
-        if(!p._searchHay.includes(q)) return false;
+        if(!_searchHayMatches(p._searchHay, q)) return false;
       }
     }
     return true;
