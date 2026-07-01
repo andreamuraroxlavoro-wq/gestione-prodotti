@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.404 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.409 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -4375,6 +4375,88 @@ body.theme-light .tb-dropdown.export-dropdown .tb-dropdown-menu .tb-dropdown-ite
    Bottone con icona principale + caret che ruota al click. Il menu appare
    sotto, allineato a destra per non uscire dalla viewport.
    ========================================================================== */
+/* SV2.10.405: freccia-menu ordinamento articoli sul pulsante "%" */
+/* SV2.10.408: "%" e freccia in un UNICO pulsante uniforme (come foto 2). Il CONTENITORE
+   fa da pulsante (un solo sfondo/bordo/radius); "%" e freccia sono due zone cliccabili
+   TRASPARENTI al suo interno, con le rispettive funzioni. Lo stato "pillola attiva" tinge
+   tutto il box di blu; l'ordinamento attivo è segnalato da un piccolo punto viola. */
+.disc-badge-wrap{
+  position:relative;
+  box-sizing:border-box;
+  height:40px;
+  display:inline-flex; align-items:stretch;
+  background:var(--bg3); color:var(--fg2);
+  border:1px solid var(--border2);
+  border-radius:8px;
+  transition:background .12s, border-color .12s, color .12s;
+}
+.disc-badge-wrap.badge-on{ background:#3B82F6; border-color:#3B82F6; color:#fff; }
+.disc-badge-wrap .btn.icon-btn{
+  height:auto; align-self:stretch; width:38px;
+  background:transparent !important;
+  border:none !important; border-radius:0 !important;
+  color:inherit;
+}
+.disc-badge-wrap .btn.icon-btn:active{ transform:none; }
+.disc-badge-wrap .sort-caret{
+  height:auto; align-self:stretch; width:23px; padding:0; margin:0;
+  display:inline-flex; align-items:center; justify-content:center;
+  background:transparent !important; color:inherit;
+  border:none; border-left:1px solid rgba(255,255,255,0.12);
+  border-radius:0 !important;
+  cursor:pointer; z-index:7;
+  transition:background .12s;
+}
+.disc-badge-wrap .btn.icon-btn:hover,
+.disc-badge-wrap .sort-caret:hover{ background:rgba(255,255,255,0.14) !important; }
+.disc-badge-wrap .sort-caret svg{ width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+/* indicatore ordinamento attivo: punto viola in alto a destra del box */
+.disc-badge-wrap.sort-on::after{
+  content:''; position:absolute; top:-3px; right:-3px;
+  width:9px; height:9px; border-radius:50%;
+  background:#8b5cf6; border:2px solid var(--bg2,#0f1720); z-index:8;
+}
+body.theme-light .disc-badge-wrap .sort-caret{ border-left-color:rgba(0,0,0,0.12); }
+body.theme-light .disc-badge-wrap .btn.icon-btn:hover,
+body.theme-light .disc-badge-wrap .sort-caret:hover{ background:rgba(0,0,0,0.06) !important; }
+.sort-menu{
+  position:absolute; top:calc(100% + 10px); right:0; z-index:100000;
+  min-width:248px;
+  background:var(--bg2,#151d27);
+  border:1px solid var(--border,#2a3441);
+  border-radius:12px;
+  box-shadow:0 16px 40px rgba(0,0,0,0.45);
+  padding:7px;
+  display:none;
+}
+.sort-menu.open{ display:block; animation:sortMenuIn .14s ease-out; }
+@keyframes sortMenuIn{ from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:translateY(0);} }
+.sort-menu-title{
+  font-size:11px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+  color:var(--accent,#ff6b35); padding:6px 10px 8px;
+}
+.sort-menu-group{
+  font-size:10.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+  color:var(--fg2,#8b98a5); padding:6px 10px 3px;
+}
+.sort-menu-item{
+  display:flex; align-items:center; gap:9px;
+  padding:8px 10px; border-radius:7px; cursor:pointer;
+  font-size:13px; color:var(--fg,#e6edf3);
+  transition:background .1s;
+}
+.sort-menu-item:hover{ background:var(--bg3,#1c2530); }
+.sort-menu-item.active{ background:rgba(139,92,246,0.16); color:#a78bfa; font-weight:600; }
+.sort-menu-item .smi-ico{
+  width:20px; text-align:center; font-size:11px; font-weight:700;
+  color:var(--fg2,#8b98a5); flex:0 0 auto;
+}
+.sort-menu-item.active .smi-ico{ color:#a78bfa; }
+.sort-menu-item .smi-lab{ flex:1 1 auto; }
+.sort-menu-item .smi-chk{ opacity:0; color:#a78bfa; font-weight:800; flex:0 0 auto; }
+.sort-menu-item.active .smi-chk{ opacity:1; }
+.sort-menu-sep{ height:1px; background:var(--border,#2a3441); margin:5px 4px; }
+body.theme-light .sort-menu{ background:#fff; box-shadow:0 16px 40px rgba(0,0,0,0.18); }
 .tb-dropdown{position:relative;display:inline-block}
 .btn.icon-btn.dropdown-btn{
   /* Stesso stile di .icon-btn base, ma leggermente più largo per la caret */
@@ -10154,7 +10236,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.404</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.409</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10537,9 +10619,45 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <!-- SV2.10.367: toggle dedicato per la PILLOLA SCONTO (badge % in alto sulle card).
            Indipendente dall'occhio: mostra/nasconde lo sconto sia in modalità Acquisto
            che Vendita. Icona "%". Stato gestito da updateDiscBadgeButton(). -->
-      <button class="btn icon-btn" id="btnDiscBadge" onclick="toggleDiscountBadge()" title="Mostra/nascondi la pillola sconto sulle card" aria-label="Toggle pillola sconto">
-        <svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
-      </button>
+      <div class="disc-badge-wrap">
+        <button class="btn icon-btn" id="btnDiscBadge" onclick="toggleDiscountBadge()" title="Mostra/nascondi la pillola sconto sulle card" aria-label="Toggle pillola sconto">
+          <svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+        </button>
+        <!-- SV2.10.405: freccia-menu per l'ordinamento degli articoli -->
+        <button class="sort-caret" id="btnSortCaret" onclick="toggleSortMenu(event)" title="Ordina articoli" aria-label="Ordina articoli" aria-haspopup="true">
+          <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="sort-menu" id="sortMenu" role="menu" aria-hidden="true">
+          <div class="sort-menu-title">Ordina articoli</div>
+          <div class="sort-menu-item" data-mode="alpha" role="menuitemradio" onclick="selectSortMode('alpha')">
+            <span class="smi-ico">A↓</span><span class="smi-lab">Alfabetico (A → Z)</span><span class="smi-chk">✓</span>
+          </div>
+          <div class="sort-menu-sep"></div>
+          <div class="sort-menu-group">Sconto d'acquisto</div>
+          <div class="sort-menu-item" data-mode="acq_desc" role="menuitemradio" onclick="selectSortMode('acq_desc')">
+            <span class="smi-ico">▼</span><span class="smi-lab">dal più alto</span><span class="smi-chk">✓</span>
+          </div>
+          <div class="sort-menu-item" data-mode="acq_asc" role="menuitemradio" onclick="selectSortMode('acq_asc')">
+            <span class="smi-ico">▲</span><span class="smi-lab">dal più basso</span><span class="smi-chk">✓</span>
+          </div>
+          <div class="sort-menu-sep"></div>
+          <div class="sort-menu-group">Sconto di vendita</div>
+          <div class="sort-menu-item" data-mode="sale_desc" role="menuitemradio" onclick="selectSortMode('sale_desc')">
+            <span class="smi-ico">▼</span><span class="smi-lab">dal più alto</span><span class="smi-chk">✓</span>
+          </div>
+          <div class="sort-menu-item" data-mode="sale_asc" role="menuitemradio" onclick="selectSortMode('sale_asc')">
+            <span class="smi-ico">▲</span><span class="smi-lab">dal più basso</span><span class="smi-chk">✓</span>
+          </div>
+          <div class="sort-menu-sep"></div>
+          <div class="sort-menu-group">Margine</div>
+          <div class="sort-menu-item" data-mode="margin_desc" role="menuitemradio" onclick="selectSortMode('margin_desc')">
+            <span class="smi-ico">▼</span><span class="smi-lab">dal più alto</span><span class="smi-chk">✓</span>
+          </div>
+          <div class="sort-menu-item" data-mode="margin_asc" role="menuitemradio" onclick="selectSortMode('margin_asc')">
+            <span class="smi-ico">▲</span><span class="smi-lab">dal più basso</span><span class="smi-chk">✓</span>
+          </div>
+        </div>
+      </div>
       <!-- V2.10.263: toggle MODALITA' PREZZO Acquisto/Vendita. In "Vendita" le
            card mostrano prezzo e sconto di VENDITA (dal listino di vendita
            attivo) invece di quelli d'acquisto. Click apre/usa il listino. -->
@@ -10781,7 +10899,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.404 mobile");
+console.info("[bootstrap] script avvio — SV2.10.409 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12232,7 +12350,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.404';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.409';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -16133,6 +16251,7 @@ async function importConfig(file){
     if(typeof render === 'function') render();
     if(typeof updateEyeButton === 'function') updateEyeButton();
     if(typeof updateDiscBadgeButton === 'function') updateDiscBadgeButton();  // SV2.10.367
+    if(typeof _updateSortCaret === 'function') _updateSortCaret();  // SV2.10.405
     // Chiudo il modale Impostazioni e lo riapro per rinfrescare tutto
     if(document.querySelector('.modal-bg')){
       closeSettings();
@@ -28112,6 +28231,11 @@ function applyFilters(options){
     });
   }
 
+  // SV2.10.405: ordinamento articoli scelto dall'utente (menu sul pulsante "%").
+  // 'alpha' non tocca l'ordine base; gli altri riordinano per sconto acquisto/vendita
+  // o margine. Applicato dopo tutti i filtri, sull'insieme FILTERED corrente.
+  _applyProductSort();
+
   // V2.2.35: refreshFilterOptions aggiorna i LABEL dei 3 trigger multi-select
   // (es. "N trovate" quando quickSearch è attiva). Questo è sempre sicuro da fare:
   // non rigenera più le <option> perché i dropdown nativi sono stati sostituiti
@@ -33572,6 +33696,9 @@ function toggleDiscountBadge(){
 function updateDiscBadgeButton(){
   const btn = document.getElementById('btnDiscBadge');
   if(!btn) return;
+  // SV2.10.408: lo stato "pillola attiva" tinge tutto il pulsante integrato (contenitore).
+  const wrap = btn.closest('.disc-badge-wrap');
+  if(wrap) wrap.classList.toggle('badge-on', !!SETTINGS.showDiscountBadge);
   if(SETTINGS.showDiscountBadge){
     btn.classList.add('active');
     btn.title = 'Pillola sconto VISIBILE — click per nascondere';
@@ -33579,6 +33706,141 @@ function updateDiscBadgeButton(){
     btn.classList.remove('active');
     btn.title = 'Pillola sconto NASCOSTA — click per mostrare';
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SV2.10.405 — ORDINAMENTO ARTICOLI (menu sul pulsante "%")
+   ───────────────────────────────────────────────────────────────────────
+   Una freccia-menu sul pulsante della pillola sconto permette di scegliere
+   l'ordine con cui vengono mostrati gli articoli (totali o dopo i filtri):
+     • 'alpha'       → alfabetico A→Z (default, ordine base di FILTERED)
+     • 'acq_desc/asc'→ sconto d'ACQUISTO effettivo, decrescente/crescente
+     • 'sale_desc/asc'→ sconto di VENDITA del listino attivo, dec./cresc.
+     • 'margin_desc/asc'→ margine (vendita−netto)/vendita, dec./cresc.
+   I prodotti senza valore calcolabile (es. sconto vendita/margine senza un
+   listino Cliente attivo) finiscono sempre in coda, in ordine alfabetico.
+   ═══════════════════════════════════════════════════════════════════════ */
+const SORT_MODE_KEY = 'sortMode_v1';
+function getSortMode(){
+  try { return localStorage.getItem(SORT_MODE_KEY) || 'alpha'; }
+  catch(e){ return 'alpha'; }
+}
+function setSortMode(m){
+  try { localStorage.setItem(SORT_MODE_KEY, m || 'alpha'); } catch(e){}
+}
+function _sortModeLabel(m){
+  return ({
+    alpha:      'Alfabetico (A → Z)',
+    acq_desc:   'Sconto acquisto (dal più alto)',
+    acq_asc:    'Sconto acquisto (dal più basso)',
+    sale_desc:  'Sconto vendita (dal più alto)',
+    sale_asc:   'Sconto vendita (dal più basso)',
+    margin_desc:'Margine (dal più alto)',
+    margin_asc: 'Margine (dal più basso)',
+  })[m] || 'Alfabetico (A → Z)';
+}
+
+// Ordina FILTERED in base alla modalità corrente. 'alpha' non tocca l'ordine base.
+function _applyProductSort(){
+  const mode = getSortMode();
+  if(mode === 'alpha' || !Array.isArray(FILTERED) || FILTERED.length < 2) return;
+  const crit = mode.split('_')[0];           // 'acq' | 'sale' | 'margin'
+  const asc  = mode.endsWith('_asc');
+  const activeId = (typeof getActiveSplId === 'function') ? getActiveSplId() : null;
+  const keyCache = new Map();
+  const keyOf = (p) => {
+    if(keyCache.has(p)) return keyCache.get(p);
+    const listino = priceNum(getField(p,'PVP') || getField(p,'precio_venta_cliente_final'));
+    const netto   = priceNum(getField(p,'precio_neto_compra'));
+    let val = null;
+    if(crit === 'acq'){
+      val = computeDiscount(listino, netto);
+      if(typeof getEffectiveProductPrices === 'function'){
+        const e = getEffectiveProductPrices(p);
+        if(e && e.hasAdj && e.scEff != null) val = e.scEff;
+      }
+    } else if(activeId && typeof splGetEffectiveSaleDiscount === 'function'){
+      const si = splGetEffectiveSaleDiscount(p, activeId);
+      if(si){
+        if(crit === 'sale'){
+          val = si.scontoEff;
+        } else { // margin
+          if(listino != null){
+            const pv = listino * (1 - si.scontoEff / 100);
+            let ne = netto;
+            if(typeof getEffectiveProductPrices === 'function'){
+              const e = getEffectiveProductPrices(p);
+              if(e && e.hasAdj && e.nettoEff != null) ne = e.nettoEff;
+            }
+            if(pv > 0 && ne != null && ne > 0) val = (pv - ne) / pv * 100;
+          }
+        }
+      }
+    }
+    if(val != null && (typeof val !== 'number' || isNaN(val))) val = null;
+    keyCache.set(p, val);
+    return val;
+  };
+  FILTERED.forEach(keyOf);
+  FILTERED.sort((a, b) => {
+    const ka = keyOf(a), kb = keyOf(b);
+    const na = (ka == null), nb = (kb == null);
+    if(na && nb) return String(getField(a,'name')||'').localeCompare(String(getField(b,'name')||''), 'it', {sensitivity:'base'});
+    if(na) return 1;   // valori mancanti sempre in coda
+    if(nb) return -1;
+    if(ka !== kb) return asc ? (ka - kb) : (kb - ka);
+    return String(getField(a,'name')||'').localeCompare(String(getField(b,'name')||''), 'it', {sensitivity:'base'});
+  });
+}
+
+// Aggiorna l'aspetto della freccia (evidenziata se un ordinamento ≠ alfabetico è attivo).
+function _updateSortCaret(){
+  const c = document.getElementById('btnSortCaret');
+  if(!c) return;
+  const active = getSortMode() !== 'alpha';
+  c.classList.toggle('sort-active', active);
+  // SV2.10.408: il punto indicatore va sul contenitore del pulsante integrato.
+  const wrap = c.closest('.disc-badge-wrap');
+  if(wrap) wrap.classList.toggle('sort-on', active);
+  c.title = 'Ordina articoli — attuale: ' + _sortModeLabel(getSortMode());
+}
+// Evidenzia nel menu la voce corrispondente alla modalità attiva.
+function _updateSortMenuActive(){
+  const cur = getSortMode();
+  document.querySelectorAll('#sortMenu .sort-menu-item').forEach(it => {
+    it.classList.toggle('active', it.getAttribute('data-mode') === cur);
+  });
+}
+function _sortMenuOutside(e){
+  if(!e.target.closest('.disc-badge-wrap')) _closeSortMenu();
+}
+function _closeSortMenu(){
+  const m = document.getElementById('sortMenu');
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+  document.removeEventListener('click', _sortMenuOutside);
+}
+function toggleSortMenu(ev){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  const m = document.getElementById('sortMenu');
+  if(!m) return;
+  const willOpen = !m.classList.contains('open');
+  if(typeof closeAllTopbarDropdowns === 'function') closeAllTopbarDropdowns();
+  if(willOpen){
+    _updateSortMenuActive();
+    m.classList.add('open');
+    m.setAttribute('aria-hidden','false');
+    setTimeout(() => document.addEventListener('click', _sortMenuOutside), 0);
+  } else {
+    _closeSortMenu();
+  }
+}
+function selectSortMode(mode){
+  setSortMode(mode);
+  _updateSortMenuActive();
+  _updateSortCaret();
+  _closeSortMenu();
+  if(typeof applyFilters === 'function') applyFilters();
+  if(typeof toast === 'function') toast('Ordinamento: ' + _sortModeLabel(mode), 'ok', 1600);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -61562,6 +61824,7 @@ async function init(){
   updateEyeButton();
   if(typeof updatePriceModeButton === 'function') updatePriceModeButton();  // V2.10.263
   if(typeof _initPriceModeDualClick === 'function') _initPriceModeDualClick();  // V2.10.263
+  if(typeof _updateSortCaret === 'function') _updateSortCaret();  // SV2.10.405
   // V2.2.9: applica l'URL del logo in sidebar (cliccabile o no)
   applyLogoLink();
   // V2.9.0: applica logo aziendale personalizzato (o nasconde blocco se assente)
