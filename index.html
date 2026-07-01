@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.412 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.417 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5428,6 +5428,15 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
 .hover-preview-panel .hp-col-content *{
   text-align:left !important;
 }
+/* SV2.10.413: evidenziazione giallo fluo dei termini trovati dalla ricerca */
+.hover-preview-panel .search-hl{
+  background:#fff200;
+  color:#000;
+  border-radius:2px;
+  padding:0 1px;
+  font-weight:700;
+  box-shadow:0 0 0 1px rgba(0,0,0,0.06);
+}
 .hover-preview-panel .hp-params{
   width:100%;
   border-collapse:collapse;
@@ -5680,6 +5689,44 @@ body.theme-light .card-disc-badge.is-sale{ background:#2563eb; }
   align-items:flex-start;
 }
 .card-badge-tl .card-disc-badge, .card-badge-tl .card-margin-badge{ position:static; top:auto; left:auto; }
+/* SV2.10.415: barra "grado di corrispondenza" ricerca — sotto il prezzo, a tutta
+   larghezza della card (lo spazio ai lati è dato dal padding del .card-body), senza
+   sfondo. La frazione (es. 2/4) sta a sinistra, poi i segmenti riempiono la larghezza. */
+.card-match{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  box-sizing:border-box;
+  margin-top:2px;
+  padding:2px 0;
+}
+.card-match .cm-lbl{
+  flex:0 0 auto;
+  min-width:26px;
+  font-size:11px; font-weight:800;
+  letter-spacing:.3px;
+  text-align:left;
+  font-family:-apple-system,'SF Pro Text','Segoe UI',sans-serif;
+}
+.card-match .cm-segs{
+  display:flex;
+  flex:1 1 auto;
+  gap:4px;
+}
+.card-match .cm-seg{
+  flex:1 1 0;
+  height:6px;
+  border-radius:3px;
+  background:rgba(128,140,150,0.28);
+  transition:background .15s;
+}
+.card-match.lvl-full .cm-seg.on{ background:#22c55e; }
+.card-match.lvl-mid  .cm-seg.on{ background:#f59e0b; }
+.card-match.lvl-low  .cm-seg.on{ background:#ef4444; }
+.card-match.lvl-full .cm-lbl{ color:#22c55e; }
+.card-match.lvl-mid  .cm-lbl{ color:#f59e0b; }
+.card-match.lvl-low  .cm-lbl{ color:#ef4444; }
 /* SV2.10.399: pillola MARGINE (viola) — solo in modalità acquisto. Sta appena SOTTO la
    pillola sconto d'acquisto; se la pillola sconto non è presente resta in alto. */
 .card-margin-badge{
@@ -10237,7 +10284,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.412</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.417</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10442,7 +10489,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <button class="mobile-hamburger" id="mobileHamburger" onclick="toggleMobileDrawer()" aria-label="Apri filtri e menu" title="Filtri / Menu">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
-    <input type="text" class="search topbar-search" id="search" placeholder="Cerca per nome, codice, marca… (usa ; per più termini)">
+    <input type="text" class="search topbar-search" id="search" placeholder="Cerca per nome, codice, marca… (più parole; &quot;frase esatta&quot; tra virgolette)">
     <!-- SV2.10.329: Reset filtri spostato fuori dal menu, subito a destra della ricerca -->
     <button class="btn icon-btn" id="btnResetFilters" onclick="resetAllFilters()" title="Azzera tutti i filtri attivi" aria-label="Reset filtri">
       <svg viewBox="0 0 24 24">
@@ -10632,6 +10679,9 @@ body.theme-light .dlg-input{background:var(--bg3)}
           <div class="sort-menu-title">Ordina articoli</div>
           <div class="sort-menu-item" data-mode="alpha" role="menuitemradio" onclick="selectSortMode('alpha')">
             <span class="smi-ico">A↓</span><span class="smi-lab">Alfabetico (A → Z)</span><span class="smi-chk">✓</span>
+          </div>
+          <div class="sort-menu-item" data-mode="relevance" role="menuitemradio" onclick="selectSortMode('relevance')">
+            <span class="smi-ico">◈</span><span class="smi-lab">Corrispondenza ricerca</span><span class="smi-chk">✓</span>
           </div>
           <div class="sort-menu-sep"></div>
           <div class="sort-menu-group">Sconto d'acquisto</div>
@@ -10900,7 +10950,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.412 mobile");
+console.info("[bootstrap] script avvio — SV2.10.417 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12351,7 +12401,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.412';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.417';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -27364,25 +27414,70 @@ function _stripHtmlForSearch(s){
     .replace(/\s+/g, ' ');  // collassa whitespace multipli
 }
 
-// SV2.10.412: match della ricerca semplice con sintassi multi-termine.
-//  - ";" separa GRUPPI valutati in OR: basta che UNO sia soddisfatto.
-//  - dentro un gruppo, gli SPAZI separano parole valutate in AND: devono esserci tutte.
-// Esempi: "SF-MNT22; SF-MNT24" → OR di due codici;
-//         "monitor safire" → prodotti con "monitor" E "safire";
-//         "monitor safire; telecamera hikvision" → (monitor E safire) OPPURE (telecamera E hikvision).
-// `hay` e `query` arrivano già in minuscolo/trim dai chiamanti.
+// SV2.10.416/417: parsing dei termini di ricerca.
+//  - le parole separate da spazi sono termini SINGOLI da cercare come SOTTOSTRINGA
+//    (permissivi: "sim" trova anche "massimo");
+//  - un testo tra "virgolette" è un termine ESATTO: parola/sequenza intera, delimitata
+//    da confini di parola ("sim" trova SIM isolato ma NON "massimo").
+// Ritorna array di oggetti {t, exact}: t = testo (spazi normalizzati), exact = quotato.
+function _searchTerms(query){
+  if(!query) return [];
+  const terms = [];
+  const re = /"([^"]+)"|(\S+)/g;   // gruppo 1 = testo tra virgolette; gruppo 2 = parola
+  let m;
+  while((m = re.exec(query)) !== null){
+    if(m[1] !== undefined){
+      const t = m[1].replace(/\s+/g, ' ').trim();
+      if(t) terms.push({ t, exact: true });    // esatto (parola/sequenza intera)
+    } else if(m[2] !== undefined){
+      const t = m[2].trim();
+      if(t) terms.push({ t, exact: false });   // sottostringa
+    }
+  }
+  return terms;
+}
+
+// SV2.10.417: regex "parola intera" per i termini esatti (cache per performance:
+// una sola regex per termine, riusata su tutti i prodotti della stessa ricerca).
+const _exactReCache = new Map();
+function _exactTermRegex(t){
+  if(_exactReCache.has(t)) return _exactReCache.get(t);
+  const esc = String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let re = null;
+  try { re = new RegExp('\\b' + esc + '\\b', 'i'); } catch(_){ re = null; }
+  _exactReCache.set(t, re);
+  return re;
+}
+// SV2.10.417: un singolo termine è presente in hay?
+//  - exact  → deve comparire come parola intera (word boundary);
+//  - normale → sottostringa in qualsiasi punto.
+function _termInHay(hay, term){
+  if(term.exact){
+    const re = _exactTermRegex(term.t);
+    return re ? re.test(hay) : hay.includes(term.t);
+  }
+  return hay.includes(term.t);
+}
+
+// SV2.10.416: match della ricerca — logica OR. Un prodotto matcha se contiene
+// ALMENO UN termine. `hay` e `query` arrivano già in minuscolo/trim dai chiamanti.
 function _searchHayMatches(hay, query){
   if(typeof hay !== 'string') return false;
-  if(!query) return true;
-  const groups = query.split(';').map(g => g.trim()).filter(Boolean);
-  if(groups.length === 0) return true;
-  for(const g of groups){
-    const words = g.split(/\s+/).filter(Boolean);
-    let allIn = true;
-    for(const w of words){ if(!hay.includes(w)){ allIn = false; break; } }
-    if(allIn) return true;   // un gruppo pienamente soddisfatto → match (OR)
-  }
+  const terms = _searchTerms(query);
+  if(terms.length === 0) return true;    // ricerca vuota → nessun filtro
+  for(const term of terms){ if(_termInHay(hay, term)) return true; }   // OR
   return false;
+}
+
+// SV2.10.416: grado di corrispondenza — quanti termini (su quanti totali) il
+// prodotto contiene. Base del ranking di rilevanza e della barra a segmenti.
+function _searchMatchGrade(hay, query){
+  const terms = _searchTerms(query);
+  const total = terms.length;
+  if(total === 0 || typeof hay !== 'string') return { matched: 0, total: total };
+  let matched = 0;
+  for(const term of terms){ if(_termInHay(hay, term)) matched++; }
+  return { matched, total };
 }
 
 function buildSearchHay(p){
@@ -29051,6 +29146,33 @@ function renderGallery(main, list){
         }
       }
     }
+    // SV2.10.414: barra "grado di corrispondenza" — mostrata solo quando la ricerca
+    // ha ≥2 termini. Conta quanti termini il prodotto soddisfa e li rappresenta con
+    // una barra a segmenti colorata (verde=totale, ambra=parziale, rosso=scarso).
+    let matchBar = '';
+    {
+      const _mq = _currentSearchQuery();
+      const _terms = _searchTerms(_mq);
+      if(_terms.length >= 2){
+        const _hay = (typeof p._searchHay === 'string') ? p._searchHay : '';
+        const _grade = _searchMatchGrade(_hay, _mq);
+        const _tot = _grade.total, _mat = _grade.matched;
+        if(_tot >= 2){
+          const _ratio = _mat / _tot;
+          const _lvl = (_mat >= _tot) ? 'full' : (_ratio >= 0.5 ? 'mid' : 'low');
+          // cap visivo a 8 segmenti per non allungare troppo la barra
+          const _segN = Math.min(_tot, 8);
+          const _segOn = Math.round((_mat / _tot) * _segN);
+          let _segs = '';
+          for(let i = 0; i < _segN; i++){
+            _segs += `<span class="cm-seg${i < _segOn ? ' on' : ''}"></span>`;
+          }
+          matchBar = `<div class="card-match lvl-${_lvl}" title="Corrispondenza ricerca: ${_mat} termini su ${_tot}">`
+            + `<span class="cm-lbl">${_mat}/${_tot}</span><span class="cm-segs">${_segs}</span></div>`;
+        }
+      }
+    }
+
     let priceBlock = '';
     if(hasPrice){
       if(showDisc && _isSaleMode && _saleInfo && priceNum(listino)){
@@ -29256,6 +29378,7 @@ function renderGallery(main, list){
           })()}
           ${priceBlock}
         </div>
+        ${matchBar}
       </div>`;
     // V2.2.42: nuova UX di apertura.
     // - Doppio click sulla FOTO (.card-img) apre l'editor di modifica
@@ -29699,6 +29822,33 @@ function _hpGetParams(p, mode){
   return getParams(p);
 }
 
+// SV2.10.413: evidenzia in giallo fluo i termini della ricerca dentro l'HTML del
+// tooltip (le 4 colonne). SV2.10.416: usa _searchTerms (parole singole + frasi tra
+// virgolette). Avvolge le occorrenze case-insensitive in <mark class="search-hl">,
+// processando SOLO il testo fuori dai tag così non rompe l'HTML di specifiche/parametri.
+function _highlightSearchTerms(html, query){
+  if(!html || !query) return html;
+  const terms = _searchTerms(String(query));
+  if(terms.length === 0) return html;
+  // dedup (per testo+tipo) e match dei più lunghi per primi
+  const seen = new Set(); const uniq = [];
+  terms.forEach(term => {
+    const key = (term.exact ? '"' : '') + term.t;
+    if(!seen.has(key)){ seen.add(key); uniq.push(term); }
+  });
+  uniq.sort((a,b) => b.t.length - a.t.length);
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // gli esatti si evidenziano solo come parola intera (\b), gli altri come sottostringa
+  const parts = uniq.map(term => term.exact ? ('\\b' + esc(term.t) + '\\b') : esc(term.t));
+  let re;
+  try { re = new RegExp('(' + parts.join('|') + ')', 'gi'); }
+  catch(_){ return html; }
+  return html.replace(/<[^>]+>|[^<]+/g, seg => {
+    if(seg.charAt(0) === '<') return seg;         // tag: intatto
+    return seg.replace(re, '<mark class="search-hl">$1</mark>');
+  });
+}
+
 function buildHoverPreviewHtml(p, mode){
   // mode: 'edited' (default) | 'original'
   mode = mode === 'original' ? 'original' : 'edited';
@@ -29881,6 +30031,8 @@ function buildHoverPreviewHtml(p, mode){
   // di contenuti - ma header e footer restano per mostrare almeno dati anagrafici e prezzi)
   let bodyHtml = '';
   if(colDefs.length > 0){
+    // SV2.10.413: leggo il testo di ricerca corrente per evidenziare i termini trovati
+    const _q = (function(){ const el = document.getElementById('search'); return el ? el.value.trim() : ''; })();
     // Classe body con il numero attuale di colonne (utile per eventuali stili dedicati)
     // e ogni colonna renderizzata con la stessa struttura
     const colsInnerHtml = colDefs.map((col, i) => {
@@ -29889,7 +30041,7 @@ function buildHoverPreviewHtml(p, mode){
       return `
         <div class="hp-col${borderClass}">
           <div class="hp-section-title">${escapeHtml(col.title)}</div>
-          <div class="hp-col-content">${col.html}</div>
+          <div class="hp-col-content">${_highlightSearchTerms(col.html, _q)}</div>
         </div>`;
     }).join('');
     bodyHtml = `<div class="hp-body-cols" data-n="${colDefs.length}">${colsInnerHtml}</div>`;
@@ -33755,6 +33907,7 @@ function setSortMode(m){
 function _sortModeLabel(m){
   return ({
     alpha:      'Alfabetico (A → Z)',
+    relevance:  'Corrispondenza ricerca (rilevanza)',
     acq_desc:   'Sconto acquisto (dal più alto)',
     acq_asc:    'Sconto acquisto (dal più basso)',
     sale_desc:  'Sconto vendita (dal più alto)',
@@ -33764,10 +33917,53 @@ function _sortModeLabel(m){
   })[m] || 'Alfabetico (A → Z)';
 }
 
+// SV2.10.414: legge il testo di ricerca corrente (minuscolo/trim).
+function _currentSearchQuery(){
+  const el = document.getElementById('search');
+  return el ? el.value.trim().toLowerCase() : '';
+}
+// SV2.10.414: true se la ricerca corrente ha ≥2 termini (→ il ranking per
+// rilevanza ha senso e l'ordinamento automatico può attivarsi).
+function _isMultiTermSearch(){
+  return _searchTerms(_currentSearchQuery()).length >= 2;
+}
+// SV2.10.414: modalità di ordinamento EFFETTIVA. Se l'utente è ancora sul
+// default alfabetico e sta cercando più termini, passo automaticamente a
+// 'relevance' (senza sovrascrivere la scelta salvata). Se ha scelto manualmente
+// un'altra modalità, la rispetto.
+function _effectiveSortMode(){
+  const saved = getSortMode();
+  if(saved === 'alpha' && _isMultiTermSearch()) return 'relevance';
+  return saved;
+}
+
 // Ordina FILTERED in base alla modalità corrente. 'alpha' non tocca l'ordine base.
 function _applyProductSort(){
-  const mode = getSortMode();
+  const mode = _effectiveSortMode();
   if(mode === 'alpha' || !Array.isArray(FILTERED) || FILTERED.length < 2) return;
+
+  // SV2.10.414: ordinamento per grado di corrispondenza della ricerca.
+  // I prodotti che soddisfano PIÙ termini vanno per primi; a parità, ordine alfabetico.
+  if(mode === 'relevance'){
+    const q = _currentSearchQuery();
+    if(!q){ return; }   // senza ricerca non c'è nulla da classificare
+    const gradeCache = new Map();
+    const gradeOf = (p) => {
+      if(gradeCache.has(p)) return gradeCache.get(p);
+      const hay = (typeof p._searchHay === 'string') ? p._searchHay : '';
+      const g = _searchMatchGrade(hay, q).matched;
+      gradeCache.set(p, g);
+      return g;
+    };
+    FILTERED.forEach(gradeOf);
+    FILTERED.sort((a, b) => {
+      const ga = gradeOf(a), gb = gradeOf(b);
+      if(ga !== gb) return gb - ga;   // più termini soddisfatti → prima
+      return String(getField(a,'name')||'').localeCompare(String(getField(b,'name')||''), 'it', {sensitivity:'base'});
+    });
+    return;
+  }
+
   const crit = mode.split('_')[0];           // 'acq' | 'sale' | 'margin'
   const asc  = mode.endsWith('_asc');
   const activeId = (typeof getActiveSplId === 'function') ? getActiveSplId() : null;
@@ -33828,9 +34024,10 @@ function _updateSortCaret(){
   if(wrap) wrap.classList.toggle('sort-on', active);
   c.title = 'Ordina articoli — attuale: ' + _sortModeLabel(getSortMode());
 }
-// Evidenzia nel menu la voce corrispondente alla modalità attiva.
+// Evidenzia nel menu la voce corrispondente alla modalità attiva (inclusa quella
+// automatica per rilevanza quando si cerca più termini).
 function _updateSortMenuActive(){
-  const cur = getSortMode();
+  const cur = _effectiveSortMode();
   document.querySelectorAll('#sortMenu .sort-menu-item').forEach(it => {
     it.classList.toggle('active', it.getAttribute('data-mode') === cur);
   });
@@ -37074,16 +37271,21 @@ function collectSearchTerms(){
   // In caso di conflitti vince l'ULTIMO assegnato → ordino le sezioni così che
   // i filtri più "primary" (brand) sovrascrivano quelli "secondary" (cat).
   const typesMap = {};
+  // SV2.10.417: insieme dei termini "esatti" (quotati) → evidenziati solo come parola intera.
+  const exactSet = new Set();
 
-  // 1) Barra ricerca principale
+  // 1) Barra ricerca principale — SV2.10.416: evidenzio ogni TERMINE separato
+  // (parole singole e frasi tra virgolette), non più la query intera.
   const searchEl = document.getElementById('search');
   if(searchEl && searchEl.value){
-    const q = searchEl.value.trim();
-    if(q.length >= HIGHLIGHT_MIN_LEN){
-      const k = q.toLowerCase();
-      terms.add(k);
-      typesMap[k] = 'text';
-    }
+    const q = searchEl.value.trim().toLowerCase();
+    _searchTerms(q).forEach(term => {
+      if(term.t.length >= HIGHLIGHT_MIN_LEN){
+        terms.add(term.t);
+        typesMap[term.t] = 'text';
+        if(term.exact) exactSet.add(term.t);
+      }
+    });
   }
 
   // V2.2.36: 1b) Ricerca veloce sidebar (cerca in macrocategoria/categoria)
@@ -37140,6 +37342,7 @@ function collectSearchTerms(){
   }
 
   window.SEARCH_HIGHLIGHTS_MAP = typesMap;
+  window.SEARCH_HL_EXACT = exactSet;
   return Array.from(terms);
 }
 
@@ -37150,7 +37353,12 @@ function highlightMatches(textSafeHtml, terms){
   // Costruisco regex unica con tutti i termini in OR, case-insensitive
   // Ordino per lunghezza decrescente così i match più lunghi vincono
   const sorted = terms.slice().sort((a,b) => b.length - a.length);
-  const pattern = sorted.map(_escapeRegex).join('|');
+  // SV2.10.417: i termini "esatti" (quotati) si evidenziano solo come parola intera (\b).
+  const exactSet = window.SEARCH_HL_EXACT || new Set();
+  const pattern = sorted.map(t => {
+    const e = _escapeRegex(t);
+    return exactSet.has(String(t).toLowerCase()) ? ('\\b' + e + '\\b') : e;
+  }).join('|');
   if(!pattern) return textSafeHtml;
   let re;
   try {
