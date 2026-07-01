@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.398 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.404 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5584,10 +5584,46 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
 /* VENDITA: la pillola sconto usa lo stesso colore del prezzo di vendita (blu). */
 .card-disc-badge.is-sale{ background:#3b82f6; }
 body.theme-light .card-disc-badge.is-sale{ background:#2563eb; }
+/* SV2.10.402: contenitore in alto a sinistra che affianca la pillola sconto d'acquisto
+   (rossa) e quella dello sconto di vendita (blu) del listino attivo, in modalità acquisto.
+   Le pillole al suo interno diventano statiche e si dispongono in fila. */
+.card-badge-tl{
+  position:absolute;
+  top:8px; left:8px;
+  z-index:6;
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+  align-items:flex-start;
+}
+.card-badge-tl .card-disc-badge, .card-badge-tl .card-margin-badge{ position:static; top:auto; left:auto; }
+/* SV2.10.399: pillola MARGINE (viola) — solo in modalità acquisto. Sta appena SOTTO la
+   pillola sconto d'acquisto; se la pillola sconto non è presente resta in alto. */
+.card-margin-badge{
+  position:absolute;
+  top:8px; left:8px;
+  z-index:6;
+  padding:4px 9px;
+  border-radius:7px;
+  font-size:14px; font-weight:800;
+  letter-spacing:0.2px;
+  font-family:-apple-system, 'SF Pro Text', 'Segoe UI', sans-serif;
+  background:#8b5cf6;   /* viola */
+  color:#fff;
+  box-shadow:0 2px 6px rgba(0,0,0,0.28);
+  pointer-events:none;
+  user-select:none;
+  white-space:nowrap;
+}
+body.theme-light .card-margin-badge{ background:#7c3aed; }
 /* Quando è presente il badge sconto, le indicazioni di stato (MODIFICATO, NUOVO,
    SCATALOGATO, SERVIZIO, PERSONALE) scendono SOTTO per non sovrapporsi al badge. */
 .card.has-disc-badge .card-state-badge{ top:40px; }
 .card.has-disc-badge.edited::after{ top:40px; }
+/* SV2.10.402: sconto, sconto-vendita e margine stanno tutti sulla stessa riga (nel
+   wrapper .card-badge-tl), quindi i badge di stato scendono di una sola riga. */
+.card.has-margin-badge .card-state-badge{ top:40px; }
+.card.has-margin-badge.edited::after{ top:40px; }
 
 /* Visual treatment per card SCATALOGATA: solo card-level (opacità leggera + sfondo rosa).
    V2.2.36: rimossa la desaturazione/trasparenza sull'immagine — l'immagine resta nitida
@@ -10118,7 +10154,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.398</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.404</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10745,7 +10781,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.398 mobile");
+console.info("[bootstrap] script avvio — SV2.10.404 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12196,7 +12232,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.398';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.404';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -28804,6 +28840,15 @@ function renderGallery(main, list){
         _saleInfo = splGetEffectiveSaleDiscount(p, _activeId);
       }
     }
+    // SV2.10.402: in modalità ACQUISTO calcolo comunque lo sconto di vendita del listino
+    // Cliente attivo — serve sia per la pillola sconto-vendita affiancata sia per il margine.
+    let _saleInfoAcq = null;
+    if(!_isSaleMode){
+      const _activeIdA = (typeof getActiveSplId === 'function') ? getActiveSplId() : null;
+      if(_activeIdA && typeof splGetEffectiveSaleDiscount === 'function'){
+        _saleInfoAcq = splGetEffectiveSaleDiscount(p, _activeIdA);
+      }
+    }
     // SV2.10.361: badge SCONTO in alto a sinistra. In modalità vendita mostra lo
     // sconto di vendita del listino attivo; altrimenti lo sconto d'acquisto
     // (effettivo se ci sono sconti a cascata, altrimenti quello base listino→netto).
@@ -28821,6 +28866,41 @@ function renderGallery(main, list){
         const _dTip = _isSaleMode ? 'Sconto di vendita' : 'Sconto d\'acquisto';
         discBadge = `<span class="card-disc-badge${_isSaleMode ? ' is-sale' : ''}" title="${_dTip}: ${fmtDiscount(_badgeDiscVal)}">- ${fmtDiscount(_badgeDiscVal)}</span>`;
         card.classList.add('has-disc-badge');
+      }
+    }
+    // SV2.10.402: pillola SCONTO DI VENDITA (blu) affiancata a DESTRA dello sconto
+    // d'acquisto, SOLO in modalità acquisto e con un listino Cliente attivo. Segue lo
+    // stesso toggle "%" (showDiscountBadge) della pillola sconto d'acquisto.
+    let saleDiscBadge = '';
+    if(!_isSaleMode && SETTINGS.showDiscountBadge && _saleInfoAcq && _saleInfoAcq.scontoEff != null && _saleInfoAcq.scontoEff > 0){
+      saleDiscBadge = `<span class="card-disc-badge is-sale" title="Sconto di vendita (listino Cliente attivo): ${fmtDiscount(_saleInfoAcq.scontoEff)}">- ${fmtDiscount(_saleInfoAcq.scontoEff)}</span>`;
+      card.classList.add('has-disc-badge');
+    }
+    // SV2.10.399: pillola MARGINE (viola) — SOLO in modalità ACQUISTO. Mostra il margine
+    // commerciale tra il prezzo di acquisto (netto effettivo) e il prezzo di vendita del
+    // listino Cliente attualmente attivo. Formula coerente con "Verifica margini" e con
+    // la colonna Margine: (prezzo_vendita − netto) / prezzo_vendita × 100. Il segno "+" è
+    // esplicito quando il margine è positivo (per i negativi ci pensa già fmtDiscount).
+    let marginBadge = '';
+    // SV2.10.404: la pillola margine segue lo STESSO toggle delle pillole sconto, cioè
+    // solo "%" (showDiscountBadge): resta visibile anche con l'occhio (€ / showDiscount)
+    // chiuso, e sparisce insieme alle pillole sconto quando "%" è disattivato.
+    if(!_isSaleMode && SETTINGS.showDiscountBadge){
+      if(_saleInfoAcq && priceNum(listino)){
+        {
+          const _prezzoVendM = priceNum(listino) * (1 - _saleInfoAcq.scontoEff / 100);
+          const _acqNettoM = (_eff && _eff.hasAdj) ? effNetto : priceNum(netto);
+          if(_prezzoVendM > 0 && _acqNettoM != null && _acqNettoM > 0){
+            const _marginePct = (_prezzoVendM - _acqNettoM) / _prezzoVendM * 100;
+            const _segnoM = _marginePct > 0 ? '+' : '';
+            const _mTip = 'Margine sul listino Cliente attivo'
+              + '\nPrezzo di vendita: € ' + fmtPrice(_prezzoVendM)
+              + '\nPrezzo di acquisto: € ' + fmtPrice(_acqNettoM)
+              + '\nMargine: ' + _segnoM + fmtDiscount(_marginePct);
+            marginBadge = `<span class="card-margin-badge" title="${escapeAttr(_mTip)}">${_segnoM}${fmtDiscount(_marginePct)}</span>`;
+            card.classList.add('has-margin-badge');
+          }
+        }
       }
     }
     let priceBlock = '';
@@ -28896,7 +28976,7 @@ function renderGallery(main, list){
     card.innerHTML = `
       <div class="card-img">
         ${selBox}
-        ${discBadge}
+        ${(discBadge || saleDiscBadge || marginBadge) ? `<div class="card-badge-tl">${discBadge}${saleDiscBadge}${marginBadge}</div>` : ''}
         ${stateBadge}
         ${img? `<img loading="lazy" src="${img}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder',textContent:'NO IMG'}))">` : '<div class="placeholder">NO IMG</div>'}
         <span class="eye-trigger" role="button" tabindex="-1" aria-label="Mostra dettagli prodotto" title="Mostra dettagli prodotto">
@@ -33456,8 +33536,12 @@ function toggleShowDiscount(){
 /* V2.0.9: le icone sono ora SVG inline (non più emoji). Le inseriamo come
    innerHTML a seconda dello stato. La classe .active gestisce il colore
    attivo/inattivo (blu #3B82F6 vs grigio). */
-const SVG_EYE_OPEN = '<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
-const SVG_EYE_CLOSED = '<svg viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+// SV2.10.401: il toggle "mostra/nascondi prezzi" (btnEye) usa ora un simbolo € ben
+// visibile al posto dell'occhio: pieno quando listino/sconto/margine sono visibili,
+// barrato quando sono nascosti. Il <text> forza fill:currentColor/stroke:none per
+// sovrascrivere il fill:none delle altre icone SVG (che sono a solo contorno).
+const SVG_EYE_OPEN = '<svg viewBox="0 0 24 24"><text x="12" y="18" text-anchor="middle" style="fill:currentColor;stroke:none;font-size:20px;font-weight:800;font-family:sans-serif">€</text></svg>';
+const SVG_EYE_CLOSED = '<svg viewBox="0 0 24 24"><text x="12" y="18" text-anchor="middle" style="fill:currentColor;stroke:none;font-size:20px;font-weight:800;font-family:sans-serif">€</text><line x1="3" y1="3" x2="21" y2="21" style="stroke:currentColor;stroke-width:2.4"/></svg>';
 const SVG_SUN = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
 const SVG_MOON = '<svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
