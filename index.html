@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.419 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.421 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6461,6 +6461,16 @@ body.theme-light .modal-foot{background:rgba(0,0,0,0.04)}
 .sfx-lbltoggle-txt{font-size:12px;color:var(--fg2);line-height:1.3}
 .sfx-lbltoggle-txt b{color:var(--fg);font-weight:700}
 .sfx-lbltoggle-sub{display:block;font-size:10.5px;color:var(--fg3);font-weight:400;margin-top:1px}
+/* SV2.10.420: pulsanti filtro di stato (Voci attive / Voci disattive) */
+.sfx-statefilter{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border)}
+.sfx-statebtn{
+  flex:1;font-size:11.5px;font-weight:700;padding:6px 8px;border-radius:7px;cursor:pointer;
+  border:1px solid var(--border);background:var(--bg3);color:var(--fg3);
+  transition:background .12s,color .12s,border-color .12s;
+}
+.sfx-statebtn:hover{color:var(--fg2)}
+.sfx-statebtn.active.is-on{background:rgba(22,163,74,0.15);border-color:#16a34a;color:#16a34a}
+.sfx-statebtn.inactive.is-on{background:rgba(239,68,68,0.14);border-color:#ef4444;color:#ef4444}
 .sfx-tools{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .sfx-search{
   flex:1;min-width:120px;padding:6px 10px;border-radius:8px;
@@ -10364,7 +10374,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.419</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.421</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11036,7 +11046,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.419 mobile");
+console.info("[bootstrap] script avvio — SV2.10.421 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12487,7 +12497,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.419';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.421';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -30098,10 +30108,11 @@ function _highlightSearchTerms(html, query){
   let re;
   try { re = new RegExp('(' + parts.join('|') + ')', 'gi'); }
   catch(_){ return html; }
-  return html.replace(/<[^>]+>|[^<]+/g, seg => {
+  // SV2.10.421: rispetta le zone <span class="nohl"> (campi esclusi dalla ricerca)
+  return _withNoHlMask(html, h => h.replace(/<[^>]+>|[^<]+/g, seg => {
     if(seg.charAt(0) === '<') return seg;         // tag: intatto
     return seg.replace(re, '<mark class="search-hl">$1</mark>');
-  });
+  }));
 }
 
 function buildHoverPreviewHtml(p, mode){
@@ -30229,8 +30240,10 @@ function buildHoverPreviewHtml(p, mode){
       // numero-unità-parola (es. "25.2 mRiconoscere" → "25.2 m<br/>Riconoscere").
       // Idempotente: se HTML già valido, non altera nulla.
       const specs = normalizeSpecsHtml(specsRaw);
+      // SV2.10.421: avvolgo in nohl le celle non indicizzate (etichette/valori esclusi)
+      const specsProtected = _specsHtmlWithNoHl(specs);
       const inner = specs
-        ? `<div class="hp-html">${highlightHtml(specs, terms)}</div>`
+        ? `<div class="hp-html">${highlightHtml(specsProtected, terms)}</div>`
         : `<div class="hp-empty-col">Nessuna specifica disponibile.</div>`;
       return { title: 'Specifiche', html: inner };
     }
@@ -30252,10 +30265,23 @@ function buildHoverPreviewHtml(p, mode){
           .map(k => {
             // transKey(): utente (DICT) → built-in (DICT_DEFAULT) → chiave prettificata.
             const labelIt = transKey(k);
+            // SV2.10.421: coerenza con l'indice di ricerca. La cella non indicizzata
+            // (voce esclusa, oppure etichetta quando le etichette Parametri sono escluse)
+            // viene avvolta in nohl così non viene evidenziata nel tooltip.
+            const kl = String(k).toLowerCase();
+            const voceEsclusa = SEARCH_EXCL_PARAMS.has(kl);
+            const labelSafe = escapeHtml(labelIt);
+            const labelHtml = (voceEsclusa || SEARCH_EXCL_PARAMS_LABELS)
+              ? `<span class="nohl">${labelSafe}</span>`
+              : highlightMatches(labelSafe, terms);
+            const valSafe = escapeHtml(String(params[k]));
+            const valHtml = voceEsclusa
+              ? `<span class="nohl">${valSafe}</span>`
+              : highlightMatches(valSafe, terms);
             return `
               <tr>
-                <td class="hp-key">${escapeHtml(labelIt)}</td>
-                <td class="hp-val">${highlightMatches(escapeHtml(String(params[k])), terms)}</td>
+                <td class="hp-key">${labelHtml}</td>
+                <td class="hp-val">${valHtml}</td>
               </tr>`;
           }).join('');
         inner = rows
@@ -33959,7 +33985,10 @@ function openSearchFieldsSettings(){
       exclParams: new Set((sfe.params || []).map(k => String(k).toLowerCase())),
       exclLabelsSpecs:  (sfe.exclLabelsSpecs === true),      // default false
       exclLabelsParams: (sfe.exclLabelsParams !== false),    // default true
-      qSpecs: '', qParams: ''
+      qSpecs: '', qParams: '',
+      // SV2.10.420: filtri di visualizzazione per stato (attive/disattive), per colonna.
+      // Default: entrambi attivi → all'apertura si vedono tutte le voci.
+      stateFilter: { specs: { active: true, inactive: true }, params: { active: true, inactive: true } }
     };
     loadingBg.remove();
     _renderSearchFieldsDialog();
@@ -33990,18 +34019,29 @@ function _sfxRowHtml(kind, item){
 function _sfxFilteredItems(kind){
   const st = _sfxState;
   const items = (kind === 'specs') ? st.specs : st.params;
+  const excl  = (kind === 'specs') ? st.exclSpecs : st.exclParams;
+  const sf = st.stateFilter[kind];   // { active, inactive }
   const q = ((kind === 'specs') ? st.qSpecs : st.qParams).trim().toLowerCase();
-  if(!q) return items;
-  return items.filter(it => String(it.label).toLowerCase().indexOf(q) !== -1);
+  return items.filter(it => {
+    if(q && String(it.label).toLowerCase().indexOf(q) === -1) return false;   // filtro testuale
+    const id = (kind === 'specs') ? it.id : it.idLower;
+    const isOff = excl.has(id);           // voce esclusa (disattiva)
+    return isOff ? !!sf.inactive : !!sf.active;   // filtro di stato attive/disattive
+  });
 }
 
 function _sfxRenderList(kind){
+  const st = _sfxState;
   const wrap = document.getElementById('sfxList-' + kind);
   if(!wrap) return;
   const items = _sfxFilteredItems(kind);
+  const sf = st.stateFilter[kind];
+  const emptyMsg = (!sf.active && !sf.inactive)
+    ? 'Attiva “Voci attive” o “Voci disattive” per vedere le voci.'
+    : 'Nessuna voce corrisponde al filtro.';
   wrap.innerHTML = items.length
     ? items.map(it => _sfxRowHtml(kind, it)).join('')
-    : `<div class="sfx-empty">Nessuna voce corrisponde al filtro.</div>`;
+    : `<div class="sfx-empty">${emptyMsg}</div>`;
   _sfxUpdateCount(kind);
 }
 
@@ -34022,7 +34062,8 @@ function _sfxUpdateCount(kind){
 
 function _sfxColHtml(kind, title, subtitle){
   const st = _sfxState;
-  const labelsExcl = (kind === 'specs') ? st.exclLabelsSpecs : st.exclLabelsParams;
+  const labelsIncl = (kind === 'specs') ? !st.exclLabelsSpecs : !st.exclLabelsParams;
+  const sf = st.stateFilter[kind];
   return `
     <div class="sfx-col">
       <div class="sfx-col-head">
@@ -34031,17 +34072,21 @@ function _sfxColHtml(kind, title, subtitle){
       </div>
       <label class="sfx-lbltoggle">
         <span class="sfx-switch">
-          <input type="checkbox" id="sfxLblToggle-${kind}" ${labelsExcl ? 'checked' : ''}>
+          <input type="checkbox" id="sfxLblToggle-${kind}" ${labelsIncl ? 'checked' : ''}>
           <span class="sfx-track"></span><span class="sfx-thumb"></span>
         </span>
-        <span class="sfx-lbltoggle-txt">Escludi le <b>etichette</b> dalla ricerca<span class="sfx-lbltoggle-sub">i valori restano sempre cercabili</span></span>
+        <span class="sfx-lbltoggle-txt">Includi le <b>etichette</b> nella ricerca<span class="sfx-lbltoggle-sub">i valori restano sempre cercabili</span></span>
       </label>
       <div class="sfx-tools">
         <input type="text" class="sfx-search" id="sfxSearch-${kind}" placeholder="Filtra voci…" autocomplete="off">
         <div class="sfx-bulk">
-          <button type="button" data-bulk="all" data-kind="${kind}" title="Rendi cercabili tutte le voci">Tutte</button>
-          <button type="button" data-bulk="none" data-kind="${kind}" title="Escludi tutte le voci dalla ricerca">Nessuna</button>
+          <button type="button" data-bulk="all" data-kind="${kind}" title="Rendi cercabili le voci mostrate">Tutte</button>
+          <button type="button" data-bulk="none" data-kind="${kind}" title="Escludi dalla ricerca le voci mostrate">Nessuna</button>
         </div>
+      </div>
+      <div class="sfx-statefilter">
+        <button type="button" class="sfx-statebtn active${sf.active ? ' is-on' : ''}" data-state="active" data-kind="${kind}">Voci attive</button>
+        <button type="button" class="sfx-statebtn inactive${sf.inactive ? ' is-on' : ''}" data-state="inactive" data-kind="${kind}">Voci disattive</button>
       </div>
       <div class="sfx-count" id="sfxCount-${kind}"></div>
       <div class="sfx-list" id="sfxList-${kind}"></div>
@@ -34087,10 +34132,11 @@ function _renderSearchFieldsDialog(){
       if(kind === 'specs') st.qSpecs = inp.value; else st.qParams = inp.value;
       _sfxRenderList(kind);
     });
-    // SV2.10.419: toggle "escludi etichette dalla ricerca" (indipendente per colonna)
+    // SV2.10.419/420: toggle "includi etichette nella ricerca" (checked = incluse).
     const lblT = document.getElementById('sfxLblToggle-' + kind);
     if(lblT) lblT.addEventListener('change', () => {
-      if(kind === 'specs') st.exclLabelsSpecs = lblT.checked; else st.exclLabelsParams = lblT.checked;
+      const incl = lblT.checked;
+      if(kind === 'specs') st.exclLabelsSpecs = !incl; else st.exclLabelsParams = !incl;
     });
     const list = document.getElementById('sfxList-' + kind);
     if(list) list.addEventListener('change', e => {
@@ -34101,18 +34147,35 @@ function _renderSearchFieldsDialog(){
       if(cb.checked) excl.delete(id); else excl.add(id);
       const row = cb.closest('.sfx-row');
       if(row) row.classList.toggle('is-off', !cb.checked);
-      _sfxUpdateCount(kind);
+      // se un filtro di stato nasconderebbe la riga nel suo nuovo stato, la rimuovo dalla vista
+      const sf = st.stateFilter[kind];
+      if((!cb.checked && !sf.inactive) || (cb.checked && !sf.active)){ _sfxRenderList(kind); }
+      else { _sfxUpdateCount(kind); }
     });
   });
 
+  // SV2.10.420: pulsanti filtro di stato "Voci attive" / "Voci disattive" (attivabili insieme)
+  bg.querySelectorAll('.sfx-statefilter button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const kind = btn.getAttribute('data-kind');
+      const state = btn.getAttribute('data-state');   // 'active' | 'inactive'
+      const sf = st.stateFilter[kind];
+      sf[state] = !sf[state];
+      btn.classList.toggle('is-on', sf[state]);
+      _sfxRenderList(kind);
+    });
+  });
+
+  // SV2.10.420: Tutte/Nessuna agiscono SOLO sulle voci attualmente mostrate (filtro testo + stato)
   bg.querySelectorAll('.sfx-bulk button').forEach(btn => {
     btn.addEventListener('click', () => {
       const kind = btn.getAttribute('data-kind');
       const mode = btn.getAttribute('data-bulk');
-      const items = (kind === 'specs') ? st.specs : st.params;
-      const excl  = (kind === 'specs') ? st.exclSpecs : st.exclParams;
-      if(mode === 'all'){ excl.clear(); }
-      else if(mode === 'none'){ items.forEach(it => excl.add((kind === 'specs') ? it.id : it.idLower)); }
+      const excl = (kind === 'specs') ? st.exclSpecs : st.exclParams;
+      const idOf = it => (kind === 'specs') ? it.id : it.idLower;
+      const visible = _sfxFilteredItems(kind);
+      if(mode === 'all'){ visible.forEach(it => excl.delete(idOf(it))); }
+      else if(mode === 'none'){ visible.forEach(it => excl.add(idOf(it))); }
       _sfxRenderList(kind);
     });
   });
@@ -37871,12 +37934,14 @@ function highlightMatches(textSafeHtml, terms){
 // Output: stesso HTML con <mark> inseriti solo nel testo.
 function highlightHtml(html, terms){
   if(!html || !terms || terms.length === 0) return html;
-  // Split tra tag (<...>) e testo normale
-  const parts = html.split(/(<[^>]+>)/);
-  return parts.map(p => {
-    if(p.startsWith('<') && p.endsWith('>')) return p;  // tag invariato
-    return highlightMatches(p, terms);
-  }).join('');
+  // SV2.10.421: protegge il contenuto delle zone <span class="nohl">
+  return _withNoHlMask(html, h => {
+    const parts = h.split(/(<[^>]+>)/);
+    return parts.map(p => {
+      if(p.startsWith('<') && p.endsWith('>')) return p;  // tag invariato
+      return highlightMatches(p, terms);
+    }).join('');
+  });
 }
 
 // Helper unificato per chiamanti che lavorano su testo plain:
@@ -37885,6 +37950,52 @@ function highlightPlain(text){
   const terms = window.SEARCH_HIGHLIGHTS || [];
   if(terms.length === 0) return escapeHtml(text || '');
   return highlightMatches(escapeHtml(text || ''), terms);
+}
+
+/* ==========================================================================
+   SV2.10.421 — EVIDENZIAZIONE COERENTE CON LE ESCLUSIONI
+   ==========================================================================
+   Le porzioni del tooltip che NON sono indicizzate (etichette/valori esclusi
+   dalla ricerca) vengono avvolte in <span class="nohl">…</span>. Le funzioni
+   di evidenziazione ignorano il contenuto di questi span, così un campo escluso
+   dalla ricerca non viene più evidenziato in giallo. Il wrapper viene preservato
+   attraverso i vari passaggi di highlight (primo passaggio + barra ricerca).
+   ========================================================================== */
+function _withNoHlMask(html, fn){
+  if(!html || html.indexOf('class="nohl"') === -1) return fn(html);
+  const stash = [];
+  const masked = html.replace(/<span class="nohl">([\s\S]*?)<\/span>/gi, (m, inner) => {
+    const tok = '\uE000' + stash.length + '\uE001';
+    stash.push(inner);
+    return tok;
+  });
+  let out = fn(masked);
+  // ripristino il contenuto originale RE-INCLUDENDO il wrapper, così il passaggio
+  // di highlight successivo continua a proteggerlo.
+  out = out.replace(/\uE000(\d+)\uE001/g, (m, i) =>
+    (stash[+i] != null ? '<span class="nohl">' + stash[+i] + '</span>' : m));
+  return out;
+}
+
+// Avvolge in <span class="nohl"> le celle della tabella SPECIFICHE che non sono
+// indicizzate: l'etichetta se la voce è esclusa o se le etichette specifiche sono
+// escluse; il valore se la voce è esclusa. Preserva struttura e markup originali.
+function _specsHtmlWithNoHl(html){
+  if(!html) return html;
+  if(SEARCH_EXCL_SPECS.size === 0 && !SEARCH_EXCL_SPECS_LABELS) return html;  // nulla da proteggere
+  return html.replace(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi, tr => {
+    let keyNorm = '';
+    let cellIndex = 0;
+    return tr.replace(/(<td\b[^>]*>)([\s\S]*?)(<\/td>)/gi, (full, open, inner, close) => {
+      const i = cellIndex++;
+      if(i === 0) keyNorm = _normSpecKey(_stripHtmlForSearch(inner));
+      const voceEsclusa = keyNorm && SEARCH_EXCL_SPECS.has(keyNorm);
+      const protect = (i === 0)
+        ? (voceEsclusa || SEARCH_EXCL_SPECS_LABELS)   // etichetta
+        : voceEsclusa;                                 // valore
+      return protect ? (open + '<span class="nohl">' + inner + '</span>' + close) : full;
+    });
+  });
 }
 
 /* ==========================================================================
