@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.417 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.419 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6425,6 +6425,86 @@ body.tt-disabled .card.edited::after{ display:none !important; }
 }
 body.theme-light .modal-foot{background:rgba(0,0,0,0.04)}
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   SV2.10.418 — Dialog "IMPOSTAZIONI RICERCHE"
+   Include/escludi voci di Specifiche e Parametri dall'indice di ricerca.
+   Classi self-contained (sfx-*): non dipendono dalla .modal-body a griglia.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.modal.modal-searchcfg{max-width:940px}
+.sfx-intro{padding:14px 22px 2px;color:var(--fg3);font-size:12.5px;line-height:1.55}
+.sfx-intro b{color:var(--fg2);font-weight:700}
+.sfx-cols{
+  display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  padding:14px 22px 6px;overflow:hidden;
+}
+@media(max-width:780px){ .sfx-cols{grid-template-columns:1fr} }
+.sfx-col{
+  display:flex;flex-direction:column;min-height:0;
+  border:1px solid var(--border);border-radius:var(--radius,10px);
+  background:var(--bg2);overflow:hidden;
+}
+.sfx-col-head{
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,var(--bg3) 0%,var(--bg2) 100%);
+}
+.sfx-col-title{
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:15px;letter-spacing:1.5px;text-transform:uppercase;
+  color:#e8613c;display:flex;align-items:center;gap:8px;
+}
+.sfx-col-sub{font-size:11px;color:var(--fg3);margin-top:3px;line-height:1.4}
+/* SV2.10.419: banda toggle "escludi etichette" in testa alla colonna */
+.sfx-lbltoggle{
+  display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;margin:0;
+  border-bottom:1px solid var(--border);background:var(--bg3);
+}
+.sfx-lbltoggle-txt{font-size:12px;color:var(--fg2);line-height:1.3}
+.sfx-lbltoggle-txt b{color:var(--fg);font-weight:700}
+.sfx-lbltoggle-sub{display:block;font-size:10.5px;color:var(--fg3);font-weight:400;margin-top:1px}
+.sfx-tools{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.sfx-search{
+  flex:1;min-width:120px;padding:6px 10px;border-radius:8px;
+  border:1px solid var(--border);background:var(--bg3);color:var(--fg);font-size:13px;
+}
+.sfx-search:focus{outline:none;border-color:#3b82f6}
+.sfx-bulk{display:flex;gap:5px}
+.sfx-bulk button{
+  font-size:11px;padding:5px 9px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--border);background:var(--bg3);color:var(--fg2);
+  font-weight:600;transition:background .12s,color .12s;
+}
+.sfx-bulk button:hover{background:var(--bg2);color:var(--fg)}
+.sfx-count{font-size:11.5px;color:var(--fg3);padding:7px 12px;border-bottom:1px solid var(--border)}
+.sfx-count b{color:#16a34a;font-weight:800}
+.sfx-list{flex:1;overflow:auto;min-height:130px;max-height:46vh}
+.sfx-row{
+  display:flex;align-items:center;gap:10px;padding:8px 12px;margin:0;
+  border-bottom:1px solid var(--border);cursor:pointer;
+}
+.sfx-row:last-child{border-bottom:none}
+.sfx-row.is-off{opacity:0.5}
+.sfx-row-main{flex:1;min-width:0}
+.sfx-row-label{font-size:13.5px;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sfx-row-meta{font-size:11px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.sfx-row-count{
+  font-size:10.5px;font-weight:700;color:var(--fg3);
+  background:var(--bg3);border:1px solid var(--border);border-radius:20px;
+  padding:1px 8px;flex-shrink:0;
+}
+/* mini switch verde = voce cercabile */
+.sfx-switch{position:relative;width:38px;height:21px;flex-shrink:0;display:inline-block}
+.sfx-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:2}
+.sfx-switch .sfx-track{
+  position:absolute;inset:0;border-radius:20px;background:#6b7280;transition:background .15s ease;
+}
+.sfx-switch .sfx-thumb{
+  position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;
+  background:#fff;transition:transform .15s ease;box-shadow:0 1px 2px rgba(0,0,0,.4);
+}
+.sfx-switch input:checked ~ .sfx-track{background:#16a34a}
+.sfx-switch input:checked ~ .sfx-thumb{transform:translateX(17px)}
+.sfx-empty{padding:26px 16px;text-align:center;color:var(--fg3);font-size:13px}
+
 /* ═══ V2.10.263 — CSS dedicato dei dialog "Listini di vendita" ═══
    Classi proprie (spl-*) self-contained: NON dipendono dalle classi modal
    dell'app (la cui .modal-body e' una griglia a 2 colonne, inadatta qui).
@@ -10284,7 +10364,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.417</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.419</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10868,6 +10948,12 @@ body.theme-light .dlg-input{background:var(--bg3)}
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
             Personalizza
           </button>
+          <!-- SV2.10.418: Impostazioni Ricerche — include/escludi voci di Specifiche e Parametri dall'indice di ricerca -->
+          <button class="tb-dropdown-item" onclick="openSearchFieldsSettings(); closeAllTopbarDropdowns()" role="menuitem" title="Scegli quali voci di Specifiche e Parametri Tecnici sono considerate dalla ricerca">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="9" x2="14" y2="9"/><line x1="8" y1="12" x2="14" y2="12"/><line x1="8" y1="15" x2="11" y2="15"/></svg>
+            Impostazioni Ricerche
+            <span class="tb-dd-badge" id="topbar-searchcfg-count" style="display:none"></span>
+          </button>
           <button class="tb-dropdown-item" onclick="openDict(); closeAllTopbarDropdowns()" role="menuitem">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             Dizionario IT
@@ -10950,7 +11036,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.417 mobile");
+console.info("[bootstrap] script avvio — SV2.10.419 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12401,7 +12487,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.417';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.419';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -15822,6 +15908,23 @@ const SETTINGS_DEFAULT = {
   // Esempio: 'https://miopr0xy.miottoadmin.workers.dev/?url='
   // Lasciare vuoto per usare solo i proxy pubblici (sconsigliato, instabili).
   customCorsProxy: '',
+
+  // SV2.10.418: INCLUSIONE/ESCLUSIONE VOCI DALLA RICERCA.
+  // L'utente può decidere, dal pannello "Impostazioni Ricerche", quali VOCI
+  // (etichette) di SPECIFICHE e PARAMETRI TECNICI vengono indicizzate nella
+  // ricerca. Memorizziamo le voci ESCLUSE (blocklist): tutto ciò che non è in
+  // lista resta incluso → le voci nuove da import futuri sono incluse di default
+  // e nulla sparisce dalla ricerca a insaputa dell'utente.
+  //   - specs:  chiavi normalizzate (lowercase/trim) delle etichette della tabella specifiche
+  //   - params: chiavi grezze dell'oggetto params (es. 'gama','color','uso')
+  // SV2.10.419: due flag indipendenti per escludere SOLO i testi delle ETICHETTE
+  // (i nomi dei campi), lasciando cercabili i valori:
+  //   - exclLabelsSpecs:  default false → etichette Specifiche cercabili (come storico)
+  //   - exclLabelsParams: default true  → etichette Parametri NON cercabili (come storico;
+  //                        disattivandolo, Gamma/Uso/Tipo… diventano ricercabili)
+  // È una preferenza "business": NON è in SETTINGS_PER_DEVICE_KEYS, quindi viene
+  // sincronizzata su Drive e inclusa nel backup (vt_settings).
+  searchFieldExcl: { specs: [], params: [], exclLabelsSpecs: false, exclLabelsParams: true },
 };
 let SETTINGS = Object.assign({}, SETTINGS_DEFAULT);
 
@@ -15840,6 +15943,20 @@ function loadSettings(){
       SETTINGS.companyData = Object.assign({}, SETTINGS_DEFAULT.companyData, parsed.companyData || {});
       // V2.10.29: merge nested headerCompanyData (separato da companyData)
       SETTINGS.headerCompanyData = Object.assign({}, SETTINGS_DEFAULT.headerCompanyData, parsed.headerCompanyData || {});
+      // SV2.10.418: merge nested searchFieldExcl (blocklist voci ricerca).
+      // Normalizzo a due array di stringhe, deduplicati.
+      // SV2.10.419: normalizzo anche i due flag booleani esclusione-etichette.
+      {
+        const _sfe = parsed.searchFieldExcl && typeof parsed.searchFieldExcl === 'object' ? parsed.searchFieldExcl : {};
+        const _clean = (arr) => Array.from(new Set((Array.isArray(arr) ? arr : [])
+          .map(x => String(x == null ? '' : x)).filter(x => x !== '')));
+        SETTINGS.searchFieldExcl = {
+          specs: _clean(_sfe.specs),
+          params: _clean(_sfe.params),
+          exclLabelsSpecs:  (_sfe.exclLabelsSpecs === true),      // default false
+          exclLabelsParams: (_sfe.exclLabelsParams !== false)     // default true
+        };
+      }
       // Normalizzo previewColsOrder: deve contenere ESATTAMENTE le 4 chiavi valide,
       // senza duplicati, completato in coda con le eventuali chiavi mancanti
       const validKeys = ['short', 'full', 'specs', 'params'];
@@ -15880,6 +15997,9 @@ function loadSettings(){
   try {
     _lastBusinessSettingsJson = JSON.stringify(_buildBusinessSettingsSnapshot());
   } catch(_){ _lastBusinessSettingsJson = null; }
+  // SV2.10.418: allineo i Set di esclusione ricerca alle impostazioni caricate
+  // (vale anche quando arriva un vt_settings da Drive, che ri-chiama loadSettings).
+  try { if(typeof refreshSearchExclSets === 'function') refreshSearchExclSets(); } catch(_){}
 }
 
 // V2.10.117: campi di vt_settings classificati come "preferenze UI per-device".
@@ -27485,16 +27605,29 @@ function buildSearchHay(p){
   // Valori dei params (solo values, non keys, perché keys sono tecniche
   // non semantiche come "gama", "tipo"). Parsing difensivo: params può
   // essere stringa JSON o già oggetto a seconda del percorso di import.
+  // SV2.10.418/419: entrano SOLO le voci non escluse; per ciascuna il valore e,
+  // se le etichette dei parametri non sono escluse, anche l'etichetta tradotta
+  // (es. "Gamma", "Uso") così diventa ricercabile. Uso getParams() per coerenza.
   let paramsText = '';
-  const pr = p.params;
+  const pr = getParams(p);
+  const _collectParamText = (obj) => {
+    const parts = [];
+    for(const k of Object.keys(obj)){
+      if(SEARCH_EXCL_PARAMS.has(String(k).toLowerCase())) continue;   // voce esclusa del tutto
+      if(!SEARCH_EXCL_PARAMS_LABELS){ const lbl = transKey(k); if(lbl) parts.push(lbl); }
+      const v = obj[k];
+      if(v != null && v !== '') parts.push(v);
+    }
+    return parts.join(' ');
+  };
   if(pr){
     if(typeof pr === 'object'){
-      paramsText = Object.values(pr).filter(v => v != null && v !== '').join(' ');
+      paramsText = _collectParamText(pr);
     } else if(typeof pr === 'string' && pr.trim()){
       try {
         const obj = JSON.parse(pr);
         if(obj && typeof obj === 'object'){
-          paramsText = Object.values(obj).filter(v => v != null && v !== '').join(' ');
+          paramsText = _collectParamText(obj);
         } else {
           paramsText = pr;
         }
@@ -27518,7 +27651,9 @@ function buildSearchHay(p){
     (getField(p,'category')||'') + ' ' +
     (getField(p,'category_parent')||'') + ' ' +
     (getField(p,'ean')||'') + ' ' +
-    _stripHtmlForSearch(getField(p,'specifications')||'') + ' ' +
+    ((SEARCH_EXCL_SPECS.size === 0 && !SEARCH_EXCL_SPECS_LABELS)
+      ? _stripHtmlForSearch(getField(p,'specifications')||'')
+      : _specsIndexText(getField(p,'specifications')||'', SEARCH_EXCL_SPECS, !SEARCH_EXCL_SPECS_LABELS)) + ' ' +
     _stripHtmlForSearch(getField(p,'content')||'') + ' ' +
     paramsText
   ).toLowerCase();
@@ -27539,6 +27674,126 @@ function rebuildAllSearchHay(){
   if(window.console && console.log){
     console.log(`[V2.2.26] Cache ricerca ricostruita: ${DATA.length} prodotti in ${Math.round(t1-t0)}ms`);
   }
+}
+
+/* ==========================================================================
+   SV2.10.418 — INCLUSIONE/ESCLUSIONE VOCI DALLA RICERCA
+   ==========================================================================
+   L'utente sceglie dal pannello "Impostazioni Ricerche" quali VOCI (etichette)
+   di SPECIFICHE e PARAMETRI TECNICI entrano nell'indice di ricerca. Le voci
+   ESCLUSE sono in SETTINGS.searchFieldExcl (blocklist). Qui teniamo due Set
+   derivati per lookup O(1) dentro buildSearchHay (ricostruiti ad ogni cambio).
+   ========================================================================== */
+let SEARCH_EXCL_SPECS = new Set();   // chiavi specifiche normalizzate (lowercase/trim) escluse
+let SEARCH_EXCL_PARAMS = new Set();  // chiavi params (lowercase) escluse
+// SV2.10.419: escludere i testi delle ETICHETTE dall'indice (i valori restano).
+let SEARCH_EXCL_SPECS_LABELS  = false;   // true → non indicizzo i nomi delle voci Specifiche
+let SEARCH_EXCL_PARAMS_LABELS = true;    // true → non indicizzo i nomi delle voci Parametri (storico)
+
+// Normalizzazione stabile di un'etichetta di specifica, per confronto/deduplica.
+function _normSpecKey(s){
+  return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+// Ricostruisce i Set/flag derivati dalla blocklist salvata in SETTINGS.
+function refreshSearchExclSets(){
+  const sfe = (typeof SETTINGS !== 'undefined' && SETTINGS && SETTINGS.searchFieldExcl)
+    ? SETTINGS.searchFieldExcl : { specs: [], params: [] };
+  SEARCH_EXCL_SPECS  = new Set((sfe.specs  || []).map(_normSpecKey).filter(Boolean));
+  SEARCH_EXCL_PARAMS = new Set((sfe.params || []).map(k => String(k).toLowerCase()));
+  SEARCH_EXCL_SPECS_LABELS  = (sfe.exclLabelsSpecs === true);     // default false
+  SEARCH_EXCL_PARAMS_LABELS = (sfe.exclLabelsParams !== false);   // default true
+}
+
+// Estrae le righe (etichetta/valore) da una tabella HTML di specifiche Visiotech
+// (<table class="specs"> con <tr> di 2 <td>: label + valore). Parser regex
+// leggero (niente DOM) perché richiamabile in loop su migliaia di prodotti.
+// Ritorna array di { key, keyNorm, val } con testo già ripulito dall'HTML.
+function _parseSpecRows(html){
+  if(!html) return [];
+  const str = String(html);
+  if(str.indexOf('<tr') === -1 && str.indexOf('<TR') === -1) return [];
+  const rows = [];
+  const trRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let mTr;
+  while((mTr = trRe.exec(str)) !== null){
+    const cells = [];
+    const tdRe = /<td\b[^>]*>([\s\S]*?)<\/td>/gi;
+    let mTd;
+    while((mTd = tdRe.exec(mTr[1])) !== null){
+      cells.push(_stripHtmlForSearch(mTd[1]).trim());
+    }
+    if(cells.length >= 2){
+      const key = cells[0];
+      const val = cells.slice(1).join(' ').trim();
+      rows.push({ key, keyNorm: _normSpecKey(key), val });
+    } else if(cells.length === 1){
+      rows.push({ key: '', keyNorm: '', val: cells[0] });
+    }
+  }
+  return rows;
+}
+
+// Testo indicizzabile delle SPECIFICHE con blocklist applicata: include il
+// valore delle righe la cui etichetta NON è esclusa; l'etichetta stessa entra
+// solo se includeLabels è true (SV2.10.419). Se non riesco a parsare righe
+// (HTML non tabellare), ripiego sul testo integrale.
+function _specsIndexText(html, exclSet, includeLabels){
+  const rows = _parseSpecRows(html);
+  if(rows.length === 0) return _stripHtmlForSearch(html || '');
+  const parts = [];
+  for(const r of rows){
+    if(r.keyNorm && exclSet.has(r.keyNorm)) continue;   // voce esclusa → salto etichetta+valore
+    if(includeLabels && r.key) parts.push(r.key);       // etichetta cercabile solo se richiesto
+    if(r.val) parts.push(r.val);
+  }
+  return parts.join(' ');
+}
+
+// Raccoglie tutte le voci (etichette) presenti nel catalogo, con numero di
+// prodotti che le possiedono ed esempio di valore. Alimenta il pannello.
+// Ritorna { specs:[{id,label,count,sample}], params:[{id,idLower,label,count,sample}] }.
+function collectSearchFieldCatalog(){
+  const specs  = new Map();   // keyNorm -> { label, count, sample }
+  const params = new Map();   // keyLower -> { rawKey, label, count, sample }
+  const hiddenParams = new Set(['stock']);   // coerente con la scheda parametri della card
+  if(!Array.isArray(DATA)) return { specs: [], params: [] };
+  for(let i = 0; i < DATA.length; i++){
+    const p = DATA[i];
+    const specHtml = getField(p, 'specifications');
+    if(specHtml){
+      const rows = _parseSpecRows(specHtml);
+      for(const r of rows){
+        if(!r.keyNorm) continue;
+        let e = specs.get(r.keyNorm);
+        if(!e){ e = { label: r.key || r.keyNorm, count: 0, sample: '' }; specs.set(r.keyNorm, e); }
+        e.count++;
+        if(!e.sample && r.val) e.sample = r.val;
+      }
+    }
+    const pr = getParams(p);
+    if(pr && typeof pr === 'object'){
+      for(const k of Object.keys(pr)){
+        const kl = String(k).toLowerCase();
+        if(hiddenParams.has(kl)) continue;
+        const v = pr[k];
+        if(v == null || String(v).trim() === '') continue;
+        let e = params.get(kl);
+        if(!e){ e = { rawKey: k, label: transKey(k), count: 0, sample: '' }; params.set(kl, e); }
+        e.count++;
+        if(!e.sample) e.sample = String(v).trim();
+      }
+    }
+  }
+  const byCount = (a, b) => (b.count - a.count)
+    || String(a.label).localeCompare(String(b.label), 'it', { sensitivity: 'base' });
+  const specsArr = Array.from(specs.entries()).map(([keyNorm, e]) => ({
+    id: keyNorm, label: e.label, count: e.count, sample: e.sample
+  })).sort(byCount);
+  const paramsArr = Array.from(params.entries()).map(([kl, e]) => ({
+    id: e.rawKey, idLower: kl, label: e.label, count: e.count, sample: e.sample
+  })).sort(byCount);
+  return { specs: specsArr, params: paramsArr };
 }
 
 /* ==========
@@ -33654,6 +33909,242 @@ function scanForDictionaryIssues(){
 }
 
 /* UI — Modale risultati scansione */
+/* ═══════════════════════════════════════════════════════════════════════════
+   SV2.10.418 — IMPOSTAZIONI RICERCHE (pannello include/escludi voci)
+   Consente di scegliere quali VOCI (etichette) di Specifiche e Parametri
+   Tecnici entrano nell'indice di ricerca. Le voci disattivate (etichetta +
+   valore) non vengono più cercate. Preferenza salvata su Drive + backup.
+   ═══════════════════════════════════════════════════════════════════════════ */
+let _sfxState = null;
+
+// Aggiorna il badge viola sulla voce di menu (numero voci escluse; nascosto se 0).
+function updateSearchCfgBadge(){
+  const el = document.getElementById('topbar-searchcfg-count');
+  if(!el) return;
+  const sfe = (typeof SETTINGS !== 'undefined' && SETTINGS && SETTINGS.searchFieldExcl) || { specs:[], params:[] };
+  const n = (Array.isArray(sfe.specs)?sfe.specs.length:0) + (Array.isArray(sfe.params)?sfe.params.length:0);
+  if(n > 0){ el.textContent = String(n); el.style.display = ''; }
+  else { el.textContent = ''; el.style.display = 'none'; }
+}
+
+function openSearchFieldsSettings(){
+  const existing = document.querySelector('.modal-bg');
+  if(existing) existing.remove();
+
+  // La raccolta scorre l'intero catalogo (parsing tabelle specifiche) → mostro
+  // un loader e la eseguo in modo asincrono per non congelare la UI.
+  const loadingBg = document.createElement('div');
+  loadingBg.className = 'modal-bg';
+  loadingBg.innerHTML = `
+    <div class="modal" style="max-width:400px;text-align:center">
+      <div class="modal-body" style="display:block">
+        <div style="padding:26px 20px">
+          <div style="font-size:30px;margin-bottom:10px">🔎</div>
+          <h3 style="margin:0 0 6px;font-size:18px">Analisi voci del catalogo…</h3>
+          <p style="color:var(--fg3);font-size:13px;margin:0">${Array.isArray(DATA)?DATA.length.toLocaleString('it-IT'):0} prodotti</p>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(loadingBg);
+
+  setTimeout(() => {
+    let cat;
+    try { cat = collectSearchFieldCatalog(); }
+    catch(e){ console.error('[searchcfg] raccolta voci fallita', e); loadingBg.remove(); toast('Impossibile analizzare le voci', 'err'); return; }
+    const sfe = (SETTINGS && SETTINGS.searchFieldExcl) || { specs:[], params:[] };
+    _sfxState = {
+      specs:  cat.specs,
+      params: cat.params,
+      exclSpecs:  new Set((sfe.specs  || []).map(_normSpecKey)),
+      exclParams: new Set((sfe.params || []).map(k => String(k).toLowerCase())),
+      exclLabelsSpecs:  (sfe.exclLabelsSpecs === true),      // default false
+      exclLabelsParams: (sfe.exclLabelsParams !== false),    // default true
+      qSpecs: '', qParams: ''
+    };
+    loadingBg.remove();
+    _renderSearchFieldsDialog();
+  }, 30);
+}
+
+// HTML di una riga voce (etichetta + esempio + conteggio + switch cercabilità).
+function _sfxRowHtml(kind, item){
+  const st = _sfxState;
+  const idForSet = (kind === 'specs') ? item.id : item.idLower;
+  const off = (kind === 'specs' ? st.exclSpecs : st.exclParams).has(idForSet);
+  const sample = item.sample ? ('es: ' + item.sample) : '—';
+  return `
+    <label class="sfx-row${off ? ' is-off' : ''}" data-id="${escapeAttr(idForSet)}">
+      <div class="sfx-row-main">
+        <div class="sfx-row-label">${escapeHtml(item.label)}</div>
+        <div class="sfx-row-meta" title="${escapeAttr(item.sample || '')}">${escapeHtml(sample)}</div>
+      </div>
+      <span class="sfx-row-count" title="prodotti che possiedono questa voce">${item.count.toLocaleString('it-IT')}</span>
+      <span class="sfx-switch">
+        <input type="checkbox" ${off ? '' : 'checked'} data-kind="${kind}" data-id="${escapeAttr(idForSet)}">
+        <span class="sfx-track"></span><span class="sfx-thumb"></span>
+      </span>
+    </label>`;
+}
+
+// Voci filtrate dal campo di ricerca interno della colonna.
+function _sfxFilteredItems(kind){
+  const st = _sfxState;
+  const items = (kind === 'specs') ? st.specs : st.params;
+  const q = ((kind === 'specs') ? st.qSpecs : st.qParams).trim().toLowerCase();
+  if(!q) return items;
+  return items.filter(it => String(it.label).toLowerCase().indexOf(q) !== -1);
+}
+
+function _sfxRenderList(kind){
+  const wrap = document.getElementById('sfxList-' + kind);
+  if(!wrap) return;
+  const items = _sfxFilteredItems(kind);
+  wrap.innerHTML = items.length
+    ? items.map(it => _sfxRowHtml(kind, it)).join('')
+    : `<div class="sfx-empty">Nessuna voce corrisponde al filtro.</div>`;
+  _sfxUpdateCount(kind);
+}
+
+function _sfxUpdateCount(kind){
+  const st = _sfxState;
+  const items = (kind === 'specs') ? st.specs : st.params;
+  const excl  = (kind === 'specs') ? st.exclSpecs : st.exclParams;
+  let incl = 0;
+  items.forEach(it => { const id = (kind === 'specs') ? it.id : it.idLower; if(!excl.has(id)) incl++; });
+  const el = document.getElementById('sfxCount-' + kind);
+  if(el) el.innerHTML = `<b>${incl}</b> voci cercabili su ${items.length}`;
+  const head = document.getElementById('sfxHeadCount');
+  if(head){
+    const nExcl = st.exclSpecs.size + st.exclParams.size;
+    head.textContent = nExcl === 0 ? 'tutte le voci attive' : (nExcl + ' voci escluse');
+  }
+}
+
+function _sfxColHtml(kind, title, subtitle){
+  const st = _sfxState;
+  const labelsExcl = (kind === 'specs') ? st.exclLabelsSpecs : st.exclLabelsParams;
+  return `
+    <div class="sfx-col">
+      <div class="sfx-col-head">
+        <div class="sfx-col-title">${escapeHtml(title)}</div>
+        <div class="sfx-col-sub">${escapeHtml(subtitle)}</div>
+      </div>
+      <label class="sfx-lbltoggle">
+        <span class="sfx-switch">
+          <input type="checkbox" id="sfxLblToggle-${kind}" ${labelsExcl ? 'checked' : ''}>
+          <span class="sfx-track"></span><span class="sfx-thumb"></span>
+        </span>
+        <span class="sfx-lbltoggle-txt">Escludi le <b>etichette</b> dalla ricerca<span class="sfx-lbltoggle-sub">i valori restano sempre cercabili</span></span>
+      </label>
+      <div class="sfx-tools">
+        <input type="text" class="sfx-search" id="sfxSearch-${kind}" placeholder="Filtra voci…" autocomplete="off">
+        <div class="sfx-bulk">
+          <button type="button" data-bulk="all" data-kind="${kind}" title="Rendi cercabili tutte le voci">Tutte</button>
+          <button type="button" data-bulk="none" data-kind="${kind}" title="Escludi tutte le voci dalla ricerca">Nessuna</button>
+        </div>
+      </div>
+      <div class="sfx-count" id="sfxCount-${kind}"></div>
+      <div class="sfx-list" id="sfxList-${kind}"></div>
+    </div>`;
+}
+
+function _renderSearchFieldsDialog(){
+  const st = _sfxState;
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'sfxModalBg';
+  bg.onclick = e => { if(e.target === bg) bg.remove(); };
+
+  bg.innerHTML = `
+    <div class="modal modal-searchcfg">
+      <div class="modal-head">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#e8613c;flex-shrink:0"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="9" x2="14" y2="9"/><line x1="8" y1="12" x2="14" y2="12"/><line x1="8" y1="15" x2="11" y2="15"/></svg>
+        <h3>Impostazioni Ricerche</h3>
+        <span id="sfxHeadCount" style="color:var(--fg3);font-size:12px;margin-left:auto;white-space:nowrap"></span>
+      </div>
+      <div class="sfx-intro">
+        Scegli quali <b>voci</b> di Specifiche e Parametri Tecnici la ricerca deve considerare.
+        Disattivando una voce, la sua <b>etichetta e il suo valore</b> non verranno più cercati su alcun prodotto.
+        L'impostazione è salvata su Drive e inclusa nel backup.
+      </div>
+      <div class="sfx-cols">
+        ${_sfxColHtml('specs', 'Specifiche', 'Tabella tecnica del fornitore (es. Marca, Modello, Unità, Compatibilità)')}
+        ${_sfxColHtml('params', 'Parametri Tecnici', 'Attributi strutturati (es. Gamma, Colore, Uso, Tipo, Categoria)')}
+      </div>
+      <div class="modal-foot">
+        <button class="btn small ghost" id="sfxCancel">Annulla</button>
+        <button class="btn small success" id="sfxSave">Salva</button>
+      </div>
+    </div>`;
+  document.body.appendChild(bg);
+
+  _sfxRenderList('specs');
+  _sfxRenderList('params');
+
+  ['specs','params'].forEach(kind => {
+    const inp = document.getElementById('sfxSearch-' + kind);
+    if(inp) inp.addEventListener('input', () => {
+      if(kind === 'specs') st.qSpecs = inp.value; else st.qParams = inp.value;
+      _sfxRenderList(kind);
+    });
+    // SV2.10.419: toggle "escludi etichette dalla ricerca" (indipendente per colonna)
+    const lblT = document.getElementById('sfxLblToggle-' + kind);
+    if(lblT) lblT.addEventListener('change', () => {
+      if(kind === 'specs') st.exclLabelsSpecs = lblT.checked; else st.exclLabelsParams = lblT.checked;
+    });
+    const list = document.getElementById('sfxList-' + kind);
+    if(list) list.addEventListener('change', e => {
+      const cb = e.target;
+      if(!cb || cb.type !== 'checkbox') return;
+      const id = cb.getAttribute('data-id');
+      const excl = (kind === 'specs') ? st.exclSpecs : st.exclParams;
+      if(cb.checked) excl.delete(id); else excl.add(id);
+      const row = cb.closest('.sfx-row');
+      if(row) row.classList.toggle('is-off', !cb.checked);
+      _sfxUpdateCount(kind);
+    });
+  });
+
+  bg.querySelectorAll('.sfx-bulk button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const kind = btn.getAttribute('data-kind');
+      const mode = btn.getAttribute('data-bulk');
+      const items = (kind === 'specs') ? st.specs : st.params;
+      const excl  = (kind === 'specs') ? st.exclSpecs : st.exclParams;
+      if(mode === 'all'){ excl.clear(); }
+      else if(mode === 'none'){ items.forEach(it => excl.add((kind === 'specs') ? it.id : it.idLower)); }
+      _sfxRenderList(kind);
+    });
+  });
+
+  document.getElementById('sfxCancel').onclick = () => bg.remove();
+  document.getElementById('sfxSave').onclick = _sfxSave;
+}
+
+function _sfxSave(){
+  const st = _sfxState;
+  if(!st){ const bg0 = document.getElementById('sfxModalBg'); if(bg0) bg0.remove(); return; }
+  const specsExcl = Array.from(st.exclSpecs);            // keyNorm (lowercase)
+  const lowerToRaw = {};
+  st.params.forEach(it => { lowerToRaw[it.idLower] = it.id; });  // lower → chiave grezza
+  const paramsExcl = Array.from(st.exclParams).map(l => lowerToRaw[l] || l);
+  SETTINGS.searchFieldExcl = {
+    specs: specsExcl,
+    params: paramsExcl,
+    exclLabelsSpecs:  !!st.exclLabelsSpecs,
+    exclLabelsParams: !!st.exclLabelsParams
+  };
+  try { saveSettings(); } catch(_){}       // persist localStorage + sync Drive (campo business) + backup
+  refreshSearchExclSets();                  // aggiorna i Set derivati
+  try { rebuildAllSearchHay(); } catch(_){} // reindicizza l'intero catalogo
+  updateSearchCfgBadge();
+  try { if(typeof applyFilters === 'function') applyFilters(); } catch(_){}
+  try { if(typeof render === 'function') render(); } catch(_){}
+  const bg = document.getElementById('sfxModalBg'); if(bg) bg.remove();
+  const nExcl = specsExcl.length + paramsExcl.length;
+  toast(nExcl === 0 ? 'Ricerca: tutte le voci sono attive' : ('Ricerca aggiornata · ' + nExcl + ' voci escluse'), 'ok');
+}
+
 function openDictScanner(){
   // Chiudo il modale dizionario se aperto
   const existing = document.querySelector('.modal-bg');
@@ -62246,6 +62737,8 @@ async function init(){
     showUI();
     populateFilters();
     render();
+    // SV2.10.418: badge "voci escluse dalla ricerca" sulla voce di menu
+    try { updateSearchCfgBadge(); } catch(_){}
   }
 
   // V2.2.35: inizializza il sistema di backup
