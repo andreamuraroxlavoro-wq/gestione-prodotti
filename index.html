@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.421 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.423 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -3185,6 +3185,44 @@ body.theme-light .prm-value-count{ color:#7c3aed !important; }
 .tb-special-personal.active:hover,
 .tb-special-service.active:hover{
   box-shadow: 0 0 18px rgba(204,255,0,0.95), 0 0 6px rgba(204,255,0,1) !important;
+}
+
+/* SV2.10.422/423 — terzo stato del pulsante scatalogati: "escludi scatalogati".
+   Trattamento GRIGIO SPENTO (icona, sfondo, badge) + barra diagonale = prodotti
+   NASCOSTI. Il grigio comunica "disattivato/nascosto", distinto dallo stato
+   .active (solo scatalogati, giallo/rosso) e dal neutro. */
+.tb-special-obs.is-hiding{
+  color:#9ca3af !important;
+  border:2px solid #6b7280 !important;
+  background:rgba(107,114,128,0.20) !important;
+  box-shadow:none !important;
+  opacity:0.9;
+}
+.tb-special-obs.is-hiding .tb-special-badge{
+  background:#6b7280 !important;      /* badge grigio invece di rosso: numero "spento" */
+  color:#e5e7eb !important;
+  box-shadow:0 0 0 2px var(--bg2, #151b24);
+}
+.tb-special-obs.is-hiding::after{
+  content:"";
+  position:absolute; left:50%; top:50%;
+  width:26px; height:2.5px;
+  background:#9ca3af;
+  border-radius:2px;
+  transform:translate(-50%,-50%) rotate(-45deg);
+  pointer-events:none;
+}
+.tb-special-obs.is-hiding:hover{
+  color:#cbd5e1 !important;
+  border-color:#9ca3af !important;
+  background:rgba(107,114,128,0.30) !important;
+}
+/* Sidebar: coerente stato "escludi" in grigio */
+.special-view-obsolete.is-hiding{
+  border-color:#6b7280 !important;
+  background:rgba(107,114,128,0.15);
+  color:#9ca3af;
+  opacity:0.92;
 }
 
 /* V2.2.36 — Banner sopra la galleria quando un filtro speciale è attivo (Variante B: 2 righe).
@@ -10374,7 +10412,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.421</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.423</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11046,7 +11084,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.421 mobile");
+console.info("[bootstrap] script avvio — SV2.10.423 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12497,7 +12535,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.421';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.423';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14196,6 +14234,18 @@ let CURRENT_EDIT = null;
 // Quando contiene entrambi, il filtro agisce in OR (mostra prodotti NUOVI o SCATALOGATI).
 // La modalità selezione richiede UN SOLO filtro attivo (l'altro viene disattivato automaticamente).
 const SPECIAL_FILTERS = new Set();  // valori: 'new', 'obsolete'
+// SV2.10.422: terzo stato del pulsante scatalogati = "escludi scatalogati" dalla vista.
+// Indipendente da SPECIAL_FILTERS: NON conta come filtro generale (l'indicatore reset
+// non si accende) e NON viene azzerato dal reset filtri. Ciclo: neutro → solo → escludi.
+// SV2.10.423: stato persistito in localStorage (preferenza d'uso per-dispositivo),
+// così l'esclusione resta attiva anche dopo un reload della pagina.
+const HIDE_OBSOLETE_LS_KEY = 'sv_hide_obsolete';
+let HIDE_OBSOLETE = (function(){
+  try { return localStorage.getItem(HIDE_OBSOLETE_LS_KEY) === '1'; } catch(_){ return false; }
+})();
+function _persistHideObsolete(){
+  try { localStorage.setItem(HIDE_OBSOLETE_LS_KEY, HIDE_OBSOLETE ? '1' : '0'); } catch(_){}
+}
 let SELECTION_MODE = null;  // 'unflag-new' | 'delete-obsolete' | null
 const SELECTION_SET = new Set();  // _idx selezionati nella modalità corrente
 
@@ -15035,6 +15085,8 @@ function tagUntaggedCount(){
 // i filtri speciali attivi. Set vuoto = nessun filtro speciale → passa.
 // Logica OR coerente con applyFilters: passa se matcha almeno uno dei filtri attivi.
 function _msMatchSpecialFilters(p){
+  // SV2.10.422: modalità "escludi scatalogati" attiva anche nei conteggi cascade.
+  if(typeof HIDE_OBSOLETE !== 'undefined' && HIDE_OBSOLETE && !!p._obsoleteSince) return false;
   if(typeof SPECIAL_FILTERS === 'undefined' || !SPECIAL_FILTERS || SPECIAL_FILTERS.size === 0) return true;
   const isService = p.isService === true;
   const matchNew = SPECIAL_FILTERS.has('new') && !!p._isNew;
@@ -28474,6 +28526,10 @@ function applyFilters(options){
       }
       if(!found) return false;
     }
+
+    // SV2.10.422: modalità "escludi scatalogati" — nasconde gli scatalogati dalla
+    // vista. Indipendente da SPECIAL_FILTERS e dal reset filtri generale.
+    if(typeof HIDE_OBSOLETE !== 'undefined' && HIDE_OBSOLETE && !!p._obsoleteSince) return false;
 
     // V2.2.36: filtro speciale "Nuovi prodotti" / "Prodotti scatalogati"
     // Quando sono attivi uno o entrambi, applica OR: passa se matcha almeno uno
@@ -62163,10 +62219,27 @@ function toggleSpecialFilter(kind){
   if(SELECTION_MODE){
     exitSelectionMode();
   }
-  if(SPECIAL_FILTERS.has(kind)){
-    SPECIAL_FILTERS.delete(kind);
+  if(kind === 'obsolete'){
+    // SV2.10.422: ciclo a 3 stati per gli scatalogati.
+    //   neutro   → solo scatalogati (SPECIAL_FILTERS ha 'obsolete')
+    //   solo     → escludi scatalogati (HIDE_OBSOLETE=true, 'obsolete' fuori dal Set)
+    //   escludi  → neutro
+    const soloOn = SPECIAL_FILTERS.has('obsolete');
+    if(!soloOn && !HIDE_OBSOLETE){
+      SPECIAL_FILTERS.add('obsolete');       // neutro → solo
+    } else if(soloOn){
+      SPECIAL_FILTERS.delete('obsolete');
+      HIDE_OBSOLETE = true;                    // solo → escludi
+    } else {
+      HIDE_OBSOLETE = false;                   // escludi → neutro
+    }
+    _persistHideObsolete();   // SV2.10.423: persisto lo stato escludi
   } else {
-    SPECIAL_FILTERS.add(kind);
+    if(SPECIAL_FILTERS.has(kind)){
+      SPECIAL_FILTERS.delete(kind);
+    } else {
+      SPECIAL_FILTERS.add(kind);
+    }
   }
   _updateSpecialViewsActive();
   if(typeof applyFilters === 'function') applyFilters({refreshCascade: true});
@@ -62179,12 +62252,23 @@ function _updateSpecialViewsActive(){
   const newBtn = document.getElementById('sbSpecialNew');
   const obsBtn = document.getElementById('sbSpecialObs');
   if(newBtn) newBtn.classList.toggle('active', SPECIAL_FILTERS.has('new'));
-  if(obsBtn) obsBtn.classList.toggle('active', SPECIAL_FILTERS.has('obsolete'));
+  if(obsBtn){ obsBtn.classList.toggle('active', SPECIAL_FILTERS.has('obsolete')); obsBtn.classList.toggle('is-hiding', HIDE_OBSOLETE); }
   // V2.2.36: sincronizza anche i pulsanti topbar
   const tbNew = document.getElementById('tbSpecialNew');
   const tbObs = document.getElementById('tbSpecialObs');
   if(tbNew) tbNew.classList.toggle('active', SPECIAL_FILTERS.has('new'));
-  if(tbObs) tbObs.classList.toggle('active', SPECIAL_FILTERS.has('obsolete'));
+  if(tbObs){
+    tbObs.classList.toggle('active', SPECIAL_FILTERS.has('obsolete'));
+    // SV2.10.422: terzo stato "escludi" → icona sbarrata gialla fluo
+    tbObs.classList.toggle('is-hiding', HIDE_OBSOLETE);
+    const _b = document.getElementById('tbSpecialObsBadge');
+    const _cnt = _b && _b.textContent ? ` (${_b.textContent})` : '';
+    tbObs.title = HIDE_OBSOLETE
+      ? `Scatalogati nascosti${_cnt} — clic per rimuovere l\u2019esclusione`
+      : (SPECIAL_FILTERS.has('obsolete')
+          ? `Solo scatalogati${_cnt} — clic per nasconderli`
+          : `Filtra: Prodotti scatalogati${_cnt}`);
+  }
 }
 
 // Aggiorna i conteggi NUOVI/SCATALOGATI (sidebar + topbar) e mostra/nasconde la sezione
@@ -62252,7 +62336,7 @@ function updateSpecialViewsBadges(){
     tbObs.style.display = obsCount > 0 ? '' : 'none';
     const b = document.getElementById('tbSpecialObsBadge');
     if(b) b.textContent = obsCount > 999 ? '999+' : obsCount.toLocaleString('it-IT');
-    tbObs.title = `Filtra: Prodotti scatalogati (${obsCount.toLocaleString('it-IT')})`;
+    // SV2.10.423: title e stato visivo (active/is-hiding) gestiti da _updateSpecialViewsActive()
   }
   // V2.9.13: pulsante topbar "Prodotti personali" (toggle on/off)
   const tbPers = document.getElementById('tbSpecialPersonal');
@@ -62280,6 +62364,10 @@ function updateSpecialViewsBadges(){
   if(typeof updateTopbarPersonaliBadge === 'function'){
     try { updateTopbarPersonaliBadge(); } catch(_){}
   }
+  // SV2.10.423: sincronizzo lo stato visivo (active / is-hiding) e il title del
+  // pulsante scatalogati ora che è visibile — così l'esclusione ripristinata da
+  // localStorage compare correttamente all'avvio (icona grigia + barra + badge grigio).
+  if(typeof _updateSpecialViewsActive === 'function'){ try { _updateSpecialViewsActive(); } catch(_){} }
 }
 
 // ========== Modalità selezione multipla ==========
