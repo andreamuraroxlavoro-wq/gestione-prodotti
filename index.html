@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.423 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.424 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10412,7 +10412,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.423</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.424</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10932,6 +10932,11 @@ body.theme-light .dlg-input{background:var(--bg3)}
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4l-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
             Importa Magazzino
           </button>
+          <!-- SV2.10.424: aggiorna listino scaricando il CSV da un URL diretto (link con token) -->
+          <button class="tb-dropdown-item" onclick="openListinoUrlDialog(); closeAllTopbarDropdowns()" role="menuitem" title="Scarica e importa il listino da un URL diretto (link con token), memorizzato in locale">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Aggiorna Listino da URL
+          </button>
         </div>
       </div>
 
@@ -11084,7 +11089,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.423 mobile");
+console.info("[bootstrap] script avvio — SV2.10.424 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12535,7 +12540,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.423';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.424';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -26397,6 +26402,136 @@ function mergeShowDiagnosis(file, diagnosis){
     document.getElementById('mfdCancel').onclick = () => { bg.remove(); resolve(false); };
     document.getElementById('mfdProceed').onclick = () => { bg.remove(); resolve(true); };
   });
+}
+
+/* ==========================================================================
+   SV2.10.424 — AGGIORNA LISTINO DA URL (semi-automatico)
+   ==========================================================================
+   Memorizza in localStorage un URL diretto al CSV del listino (link con token,
+   scaricabile senza login). Il tasto "AGGIORNA LISTINO" scarica il file e lo
+   passa al flusso di import esistente (importFile → mergeImportFlow).
+   Sicurezza: il download usa SOLO fetch diretto o il proxy CORS personale
+   (SETTINGS.customCorsProxy); MAI proxy pubblici, per non far transitare il
+   token da server di terze parti.
+   ========================================================================== */
+const LISTINO_URL_LS_KEY = 'sv_listino_url';
+function _getListinoUrl(){ try { return localStorage.getItem(LISTINO_URL_LS_KEY) || ''; } catch(_){ return ''; } }
+function _setListinoUrl(u){
+  try { if(u) localStorage.setItem(LISTINO_URL_LS_KEY, u); else localStorage.removeItem(LISTINO_URL_LS_KEY); } catch(_){}
+}
+
+// Il testo scaricato sembra un CSV (non una pagina HTML di login/errore)?
+function _looksLikeCsv(text){
+  if(!text) return false;
+  const head = text.slice(0, 2000).trimStart().toLowerCase();
+  if(head.startsWith('<!doctype') || head.startsWith('<html') || head.startsWith('<?xml')) return false;
+  return /\r?\n/.test(text) && /[;,\t]/.test(text.slice(0, 5000));
+}
+
+// Scarica il CSV del listino. Ritorna { ok:true, text, via } oppure { ok:false, reason }.
+// Sicurezza: SOLO fetch diretto o proxy CORS personale (mai proxy pubblici col token).
+async function _fetchListinoCsv(url){
+  const _tryFetch = async (u) => {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const res = await fetch(u, { redirect: 'follow', signal: ctrl.signal });
+      clearTimeout(to);
+      if(!res.ok) return { ok:false, status: res.status };
+      return { ok:true, text: await res.text() };
+    } catch(e){ clearTimeout(to); return { ok:false, error: e && e.message ? e.message : String(e) }; }
+  };
+
+  // 1) fetch diretto: nessun proxy → il token non transita da terzi
+  let r = await _tryFetch(url);
+  if(r.ok && _looksLikeCsv(r.text)) return { ok:true, text: r.text, via: 'diretto' };
+
+  // 2) proxy CORS personale (se configurato): resta sotto il controllo dell'utente
+  const custom = (typeof SETTINGS !== 'undefined' && SETTINGS.customCorsProxy)
+    ? String(SETTINGS.customCorsProxy).trim() : '';
+  if(custom){
+    const enc = encodeURIComponent(url);
+    let pu;
+    if(custom.endsWith('=')) pu = custom + enc;
+    else if(custom.endsWith('?')) pu = custom + 'url=' + enc;
+    else if(custom.indexOf('?') >= 0) pu = custom + '&url=' + enc;
+    else pu = custom + (custom.endsWith('/') ? '' : '/') + '?url=' + enc;
+    r = await _tryFetch(pu);
+    if(r.ok && _looksLikeCsv(r.text)) return { ok:true, text: r.text, via: 'proxy-custom' };
+  }
+  return { ok:false, reason: custom ? 'download-fallito' : 'cors-serve-proxy' };
+}
+
+async function aggiornaListinoDaUrl(){
+  const inp = document.getElementById('listinoUrlInput');
+  const url = inp ? String(inp.value || '').trim() : _getListinoUrl();
+  if(!url){ toast('Inserisci prima l\u2019URL del listino', 'err', 4000); return; }
+  if(!/^https?:\/\//i.test(url)){ toast('L\u2019URL deve iniziare con http:// o https://', 'err', 4000); return; }
+  _setListinoUrl(url);
+
+  const btn = document.getElementById('btnAggiornaListino');
+  if(btn){ btn.disabled = true; btn.textContent = 'Scarico\u2026'; }
+  if(typeof showLoaderAdvanced === 'function') showLoaderAdvanced('Scarico il listino\u2026', '\u2601\uFE0F');
+  let res;
+  try { res = await _fetchListinoCsv(url); }
+  catch(e){ res = { ok:false, reason:'errore' }; }
+  if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
+  if(btn){ btn.disabled = false; btn.textContent = 'AGGIORNA LISTINO'; }
+
+  if(!res.ok){
+    if(res.reason === 'cors-serve-proxy'){
+      toast('Download bloccato dal server (CORS). Configura il tuo proxy CORS personale, poi riprova.', 'err', 7000);
+    } else {
+      toast('Impossibile scaricare il listino. Controlla URL/token o riprova.', 'err', 6000);
+    }
+    return;
+  }
+
+  const bg = document.getElementById('listinoUrlModalBg'); if(bg) bg.remove();
+  try {
+    const file = new File([res.text], 'listino.csv', { type: 'text/csv' });
+    await importFile(file);   // riusa l'intero flusso di merge/import esistente
+  } catch(e){
+    toast('Errore durante l\u2019import: ' + (e && e.message ? e.message : e), 'err', 6000);
+  }
+}
+
+function openListinoUrlDialog(){
+  const ex = document.getElementById('listinoUrlModalBg'); if(ex) ex.remove();
+  const cur = _getListinoUrl();
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'listinoUrlModalBg';
+  bg.onclick = e => { if(e.target === bg) bg.remove(); };
+  bg.innerHTML = `
+    <div class="modal" style="max-width:560px">
+      <div class="modal-head">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#e8613c;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <h3>Aggiorna Listino da URL</h3>
+      </div>
+      <div style="padding:16px 22px">
+        <p style="color:var(--fg3);font-size:13px;line-height:1.55;margin:0 0 12px">
+          Incolla l\u2019URL diretto del CSV del listino (link con token, scaricabile senza login).
+          Viene salvato solo su questo dispositivo. Il download usa il collegamento diretto o il tuo
+          proxy CORS personale &mdash; mai proxy pubblici, per proteggere il token.
+        </p>
+        <input type="url" id="listinoUrlInput" placeholder="https://\u2026/listino.csv?token=\u2026" autocomplete="off"
+               value="${escapeAttr(cur)}"
+               style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--fg);font-size:13px;box-sizing:border-box">
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">
+          <button class="btn small ghost" id="listinoUrlSave">Salva URL</button>
+          <button class="btn small success" id="btnAggiornaListino" style="font-weight:700;letter-spacing:0.5px">AGGIORNA LISTINO</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(bg);
+  document.getElementById('listinoUrlSave').onclick = () => {
+    const i = document.getElementById('listinoUrlInput');
+    _setListinoUrl(String(i.value || '').trim());
+    toast('URL listino salvato', 'ok');
+    bg.remove();
+  };
+  document.getElementById('btnAggiornaListino').onclick = aggiornaListinoDaUrl;
 }
 
 async function importFile(file){
