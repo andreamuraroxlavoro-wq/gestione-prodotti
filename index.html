@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.424 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.426 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10412,7 +10412,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.424</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.426</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10806,7 +10806,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
         <div class="sort-menu" id="sortMenu" role="menu" aria-hidden="true">
           <div class="sort-menu-title">Ordina articoli</div>
           <div class="sort-menu-item" data-mode="alpha" role="menuitemradio" onclick="selectSortMode('alpha')">
-            <span class="smi-ico">A↓</span><span class="smi-lab">Alfabetico (A → Z)</span><span class="smi-chk">✓</span>
+            <span class="smi-ico">A↓</span><span class="smi-lab">Codice prodotto (A → Z)</span><span class="smi-chk">✓</span>
           </div>
           <div class="sort-menu-item" data-mode="relevance" role="menuitemradio" onclick="selectSortMode('relevance')">
             <span class="smi-ico">◈</span><span class="smi-lab">Corrispondenza ricerca</span><span class="smi-chk">✓</span>
@@ -11089,7 +11089,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.424 mobile");
+console.info("[bootstrap] script avvio — SV2.10.426 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12540,7 +12540,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.424';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.426';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -26438,13 +26438,21 @@ async function _fetchListinoCsv(url){
       const res = await fetch(u, { redirect: 'follow', signal: ctrl.signal });
       clearTimeout(to);
       if(!res.ok) return { ok:false, status: res.status };
-      return { ok:true, text: await res.text() };
+      // SV2.10.426: prendo i BYTE grezzi (non res.text()), così il File creato è
+      // identico a quello caricato a mano e i parser applicano l'encoding corretto
+      // (Latin-1/ISO-8859-1 per Visiotech). res.text() avrebbe forzato UTF-8.
+      return { ok:true, buffer: await res.arrayBuffer() };
     } catch(e){ clearTimeout(to); return { ok:false, error: e && e.message ? e.message : String(e) }; }
+  };
+  // sanity check sui primi byte (decodifica Latin-1: ogni byte→char, sicura per il check ASCII)
+  const _sane = (buffer) => {
+    try { return _looksLikeCsv(new TextDecoder('iso-8859-1').decode(new Uint8Array(buffer).slice(0, 5000))); }
+    catch(_){ return false; }
   };
 
   // 1) fetch diretto: nessun proxy → il token non transita da terzi
   let r = await _tryFetch(url);
-  if(r.ok && _looksLikeCsv(r.text)) return { ok:true, text: r.text, via: 'diretto' };
+  if(r.ok && _sane(r.buffer)) return { ok:true, buffer: r.buffer, via: 'diretto' };
 
   // 2) proxy CORS personale (se configurato): resta sotto il controllo dell'utente
   const custom = (typeof SETTINGS !== 'undefined' && SETTINGS.customCorsProxy)
@@ -26457,26 +26465,29 @@ async function _fetchListinoCsv(url){
     else if(custom.indexOf('?') >= 0) pu = custom + '&url=' + enc;
     else pu = custom + (custom.endsWith('/') ? '' : '/') + '?url=' + enc;
     r = await _tryFetch(pu);
-    if(r.ok && _looksLikeCsv(r.text)) return { ok:true, text: r.text, via: 'proxy-custom' };
+    if(r.ok && _sane(r.buffer)) return { ok:true, buffer: r.buffer, via: 'proxy-custom' };
   }
   return { ok:false, reason: custom ? 'download-fallito' : 'cors-serve-proxy' };
 }
 
-async function aggiornaListinoDaUrl(){
+// SV2.10.426: scarica il CSV dall'URL corrente e ne fa un File (byte originali).
+// Gestisce validazione URL, loader, ripristino pulsante e messaggi d'errore.
+// Ritorna un File oppure null (in caso di errore mostra già il toast).
+async function _scaricaListinoFile(btnId, btnLabel){
   const inp = document.getElementById('listinoUrlInput');
   const url = inp ? String(inp.value || '').trim() : _getListinoUrl();
-  if(!url){ toast('Inserisci prima l\u2019URL del listino', 'err', 4000); return; }
-  if(!/^https?:\/\//i.test(url)){ toast('L\u2019URL deve iniziare con http:// o https://', 'err', 4000); return; }
+  if(!url){ toast('Inserisci prima l\u2019URL del listino', 'err', 4000); return null; }
+  if(!/^https?:\/\//i.test(url)){ toast('L\u2019URL deve iniziare con http:// o https://', 'err', 4000); return null; }
   _setListinoUrl(url);
 
-  const btn = document.getElementById('btnAggiornaListino');
+  const btn = btnId ? document.getElementById(btnId) : null;
   if(btn){ btn.disabled = true; btn.textContent = 'Scarico\u2026'; }
   if(typeof showLoaderAdvanced === 'function') showLoaderAdvanced('Scarico il listino\u2026', '\u2601\uFE0F');
   let res;
   try { res = await _fetchListinoCsv(url); }
   catch(e){ res = { ok:false, reason:'errore' }; }
   if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
-  if(btn){ btn.disabled = false; btn.textContent = 'AGGIORNA LISTINO'; }
+  if(btn){ btn.disabled = false; if(btnLabel) btn.textContent = btnLabel; }
 
   if(!res.ok){
     if(res.reason === 'cors-serve-proxy'){
@@ -26484,15 +26495,38 @@ async function aggiornaListinoDaUrl(){
     } else {
       toast('Impossibile scaricare il listino. Controlla URL/token o riprova.', 'err', 6000);
     }
-    return;
+    return null;
   }
+  return new File([res.buffer], 'listino.csv', { type: 'text/csv' });
+}
 
+async function aggiornaListinoDaUrl(){
+  const file = await _scaricaListinoFile('btnAggiornaListino', 'AGGIORNA LISTINO');
+  if(!file) return;
   const bg = document.getElementById('listinoUrlModalBg'); if(bg) bg.remove();
   try {
-    const file = new File([res.text], 'listino.csv', { type: 'text/csv' });
     await importFile(file);   // riusa l'intero flusso di merge/import esistente
   } catch(e){
     toast('Errore durante l\u2019import: ' + (e && e.message ? e.message : e), 'err', 6000);
+  }
+}
+
+// SV2.10.426: scarica il CSV dall'URL e lo passa al confronto scontistiche
+// esistente (stesso flusso del pulsante "Confronta con CSV/Excel"), così vedi le
+// variazioni di sconto/prezzo prima di aggiornare davvero il listino.
+async function confrontaListinoDaUrl(){
+  if(!Array.isArray(DATA) || DATA.length === 0){
+    toast('Carica prima un database di prodotti', 'warn', 4000);
+    return;
+  }
+  const file = await _scaricaListinoFile('btnConfrontaListino', '\uD83D\uDCC2 Confronta con CSV/Excel');
+  if(!file) return;
+  const bg = document.getElementById('listinoUrlModalBg');
+  try {
+    // handleDiscountCompareFile rimuove il dialog passato e avvia il confronto
+    await handleDiscountCompareFile(file, bg || { remove(){} });
+  } catch(e){
+    toast('Errore durante il confronto: ' + (e && e.message ? e.message : e), 'err', 6000);
   }
 }
 
@@ -26520,6 +26554,7 @@ function openListinoUrlDialog(){
                style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--fg);font-size:13px;box-sizing:border-box">
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">
           <button class="btn small ghost" id="listinoUrlSave">Salva URL</button>
+          <button class="btn small" id="btnConfrontaListino" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700" title="Scarica il CSV dall'URL e confronta le scontistiche col database attuale (nessuna modifica)">\uD83D\uDCC2 Confronta con CSV/Excel</button>
           <button class="btn small success" id="btnAggiornaListino" style="font-weight:700;letter-spacing:0.5px">AGGIORNA LISTINO</button>
         </div>
       </div>
@@ -26531,6 +26566,7 @@ function openListinoUrlDialog(){
     toast('URL listino salvato', 'ok');
     bg.remove();
   };
+  document.getElementById('btnConfrontaListino').onclick = confrontaListinoDaUrl;
   document.getElementById('btnAggiornaListino').onclick = aggiornaListinoDaUrl;
 }
 
@@ -28766,6 +28802,14 @@ function applyFilters(options){
     }
   }
 
+  // SV2.10.425: ordine BASE degli articoli = CODICE prodotto A→Z (ordinamento
+  // naturale: COD2 prima di COD10). Applicato prima dei sort contestuali (data,
+  // carrello) e prima di _applyProductSort: così la modalità di default "alpha"
+  // riflette davvero l'ordine per codice, mentre data/carrello/sconto/margine/
+  // rilevanza — se attivi — lo sovrascrivono come prima.
+  FILTERED.sort((a, b) => String(getField(a,'code')||'')
+    .localeCompare(String(getField(b,'code')||''), 'it', { numeric: true, sensitivity: 'base' }));
+
   // Ordinamento automatico quando c'è un filtro data attivo: più recenti prima.
   // Se entrambi sono attivi, prioritizza il filtro "modificati" (più significativo)
   if(modifiedRange){
@@ -28806,9 +28850,9 @@ function applyFilters(options){
     });
   }
 
-  // SV2.10.405: ordinamento articoli scelto dall'utente (menu sul pulsante "%").
-  // 'alpha' non tocca l'ordine base; gli altri riordinano per sconto acquisto/vendita
-  // o margine. Applicato dopo tutti i filtri, sull'insieme FILTERED corrente.
+  // SV2.10.405/425: ordinamento articoli scelto dall'utente (menu sul pulsante "%").
+  // 'alpha' ordina per codice prodotto A→Z; gli altri riordinano per sconto
+  // acquisto/vendita o margine. Applicato dopo tutti i filtri, su FILTERED.
   _applyProductSort();
 
   // V2.2.35: refreshFilterOptions aggiorna i LABEL dei 3 trigger multi-select
@@ -34651,7 +34695,7 @@ function setSortMode(m){
 }
 function _sortModeLabel(m){
   return ({
-    alpha:      'Alfabetico (A → Z)',
+    alpha:      'Codice prodotto (A → Z)',
     relevance:  'Corrispondenza ricerca (rilevanza)',
     acq_desc:   'Sconto acquisto (dal più alto)',
     acq_asc:    'Sconto acquisto (dal più basso)',
@@ -34659,7 +34703,7 @@ function _sortModeLabel(m){
     sale_asc:   'Sconto vendita (dal più basso)',
     margin_desc:'Margine (dal più alto)',
     margin_asc: 'Margine (dal più basso)',
-  })[m] || 'Alfabetico (A → Z)';
+  })[m] || 'Codice prodotto (A → Z)';
 }
 
 // SV2.10.414: legge il testo di ricerca corrente (minuscolo/trim).
@@ -34685,7 +34729,26 @@ function _effectiveSortMode(){
 // Ordina FILTERED in base alla modalità corrente. 'alpha' non tocca l'ordine base.
 function _applyProductSort(){
   const mode = _effectiveSortMode();
-  if(mode === 'alpha' || !Array.isArray(FILTERED) || FILTERED.length < 2) return;
+  if(!Array.isArray(FILTERED) || FILTERED.length < 2) return;
+
+  // SV2.10.425: 'alpha' ora ordina REALMENTE A→Z per CODICE prodotto (il codice
+  // visibile via getDisplayCode). Collator con ordinamento numerico naturale
+  // (così "COD-3" < "COD-20" < "COD-100").
+  if(mode === 'alpha'){
+    const collator = new Intl.Collator('it', { numeric: true, sensitivity: 'base' });
+    const codeCache = new Map();
+    const codeOf = (p) => {
+      if(codeCache.has(p)) return codeCache.get(p);
+      let c = '';
+      try { c = getDisplayCode(p) || ''; } catch(_){}
+      if(!c && p && p.code) c = String(p.code);
+      codeCache.set(p, c);
+      return c;
+    };
+    FILTERED.forEach(codeOf);
+    FILTERED.sort((a, b) => collator.compare(codeOf(a), codeOf(b)));
+    return;
+  }
 
   // SV2.10.414: ordinamento per grado di corrispondenza della ricerca.
   // I prodotti che soddisfano PIÙ termini vanno per primi; a parità, ordine alfabetico.
