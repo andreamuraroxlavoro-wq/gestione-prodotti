@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.426 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.427 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10412,7 +10412,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.426</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.427</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11089,7 +11089,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.426 mobile");
+console.info("[bootstrap] script avvio — SV2.10.427 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12540,7 +12540,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.426';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.427';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58466,8 +58466,8 @@ async function exportQuoteWord(){
           // V2.10.13: DESTINATARIO in box chiaro su sfondo scuro - massima leggibilita
           (_quoteCliente ? (
             '<div style="font-size:11pt;font-weight:400;color:#d1d5db;margin-bottom:6pt;text-align:left;font-style:italic">Spett.le</div>' +
-            '<div style="padding:12pt 14pt;background:#fff;border-radius:4pt;text-align:left;max-width:280pt;margin-left:auto;box-shadow:0 1pt 3pt rgba(0,0,0,0.2)">' +
-              '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
+            '<div style="padding:12pt 14pt;background:#fff;border-radius:4pt;text-align:left;max-width:280pt;margin-left:auto;box-sizing:border-box;overflow-wrap:break-word;word-break:break-word;box-shadow:0 1pt 3pt rgba(0,0,0,0.2)">' +
+              '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3;overflow-wrap:break-word;word-break:break-word">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:Calibri,monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
               // V2.10.263: indirizzo e CAP/Citta/Provincia su righe separate (era unito da virgola)
@@ -59099,8 +59099,12 @@ async function exportQuotePdfNative(options){
 
       setText(12, 'bold', COL.textDark);
       const cliRagione = _quoteCliente.ragioneSociale || '—';
-      doc.text(cliRagione, colRightX + padX, measureY + 4);
-      measureY += 16;
+      // SV2.10.427: la ragione sociale va a capo entro il box (era doc.text su una
+      // riga singola, che veniva tagliata quando il nome era lungo). Stesso pattern
+      // di indirizzo/città. measureY si adatta → il box e tutto il resto restano coerenti.
+      const cliRagioneLines = wrapText(cliRagione, colRightW - 2 * padX, 12, 'bold');
+      cliRagioneLines.forEach(line => { doc.text(line, colRightX + padX, measureY + 4); measureY += 15; });
+      measureY += 1;   // per 1 riga → +16, identico al comportamento originale
 
       if(_quoteCliente.partitaIva){
         setText(9, 'normal', [75, 85, 99]);
@@ -60236,8 +60240,8 @@ async function exportQuotePdf(){
           // V2.10.13: DESTINATARIO in box chiaro su sfondo scuro - massima leggibilita
           (_quoteCliente ? (
             '<div style="font-size:11pt;font-weight:400;color:#d1d5db;margin-bottom:6pt;text-align:left;font-style:italic">Spett.le</div>' +
-            '<div style="padding:12pt 14pt;background:#fff;border-radius:4pt;text-align:left;max-width:280pt;margin-left:auto;box-shadow:0 1pt 3pt rgba(0,0,0,0.2)">' +
-              '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
+            '<div style="padding:12pt 14pt;background:#fff;border-radius:4pt;text-align:left;max-width:280pt;margin-left:auto;box-sizing:border-box;overflow-wrap:break-word;word-break:break-word;box-shadow:0 1pt 3pt rgba(0,0,0,0.2)">' +
+              '<div style="font-size:12pt;font-weight:700;color:#1f2937;margin-bottom:4pt;line-height:1.3;overflow-wrap:break-word;word-break:break-word">' + escapeHtml(_quoteCliente.ragioneSociale || '—') + '</div>' +
               (_quoteCliente.partitaIva ? '<div style="font-size:9pt;color:#4b5563;font-family:monospace;margin-bottom:2pt">P.IVA: ' + escapeHtml(_quoteCliente.partitaIva) + '</div>' : '') +
               (_quoteCliente.codiceFiscale ? '<div style="font-size:9pt;color:#4b5563;margin-bottom:2pt">C.F.: ' + escapeHtml(_quoteCliente.codiceFiscale) + '</div>' : '') +
               // V2.10.263: indirizzo e CAP/Citta/Provincia su righe separate
