@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.427 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.431 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6158,6 +6158,35 @@ body.tt-disabled .card.edited::after{ display:none !important; }
   white-space:nowrap;
 }
 .card-macrocat:empty{display:none}  /* niente riga vuota per prodotti senza macrocategoria */
+
+/* SV2.10.428 — VARIANTE B: macrocategoria e categoria come CHIP distinti.
+   Stili ottimizzati per il tema chiaro; in tema scuro degradano in chip scure
+   coerenti così il layout non si rompe. Nome e prezzi più leggibili in chiaro. */
+.card-taxo{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.card-taxo .card-macrocat,
+.card-taxo .card-category{
+  display:inline-block;font-size:15px;line-height:1.3;
+  padding:2px 9px;border-radius:5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+}
+.card-taxo .card-macrocat:empty,
+.card-taxo .card-category:empty{display:none}
+/* tema scuro (default): chip su fondo translucido chiaro */
+.card-taxo .card-macrocat{background:rgba(255,255,255,0.09);color:var(--fg2);font-weight:700}
+.card-taxo .card-category{background:rgba(255,255,255,0.05);color:var(--fg2);font-weight:600}
+/* card-meta con soli prezzi → allineati a destra */
+.card-taxo + .card-meta{justify-content:flex-end}
+
+/* tema chiaro: chip come nella variante B scelta */
+body.theme-light .card-taxo .card-macrocat{background:#e3e8ef;color:#3d4757;font-weight:700}
+body.theme-light .card-taxo .card-category{background:#eef1f5;color:#3d4757;font-weight:600}
+/* tema chiaro: nome/codice più leggibile */
+body.theme-light .card-name{font-weight:700;font-size:14.5px;color:#141d2b}
+/* tema chiaro: prezzi più marcati (label più scura, valori più grandi/pesanti) */
+body.theme-light .card-prices .card-price{font-size:15px;font-weight:800}
+body.theme-light .card-prices .card-price.card-prezzo-vendita{font-size:16px;color:#2159d6}
+body.theme-light .card-prices .card-price.card-netto-green{color:#00915f}
+body.theme-light .card-prices .card-price-label{color:#6b7686}
 .card-price{font-size:14px;font-weight:700;color:var(--accent3)}
 /* Label "Listino" accanto al prezzo: tenue, uppercase, peso normale */
 .card-price-label{
@@ -10412,7 +10441,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.427</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.431</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11089,7 +11118,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.427 mobile");
+console.info("[bootstrap] script avvio — SV2.10.431 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12540,7 +12569,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.427';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.431';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -29863,19 +29892,21 @@ function renderGallery(main, list){
           </div>
         </div>
         <div class="card-name">${highlightPlain(name)}</div>
-        ${(() => {
-          // V2.10.268: macrocategoria cliccabile (filtra per "Macrocategoria")
-          const _cp = getField(p,'category_parent') || '';
-          if(!_cp) return `<div class="card-macrocat"></div>`;
-          return `<div class="card-macrocat card-filter-link" onclick="event.stopPropagation();filterToSingleField('catParent', ${_attrJsArg(_cp)})" title="Filtra catalogo per macrocategoria: ${escapeAttr(String(_cp))}">${highlightPlain(_cp)}</div>`;
-        })()}
-        <div class="card-meta">
+        <div class="card-taxo">
           ${(() => {
-            // V2.10.268: categoria cliccabile (filtra per "Categoria")
+            // V2.10.268 / SV2.10.428: macrocategoria come chip cliccabile
+            const _cp = getField(p,'category_parent') || '';
+            if(!_cp) return `<span class="card-macrocat"></span>`;
+            return `<span class="card-macrocat card-filter-link" onclick="event.stopPropagation();filterToSingleField('catParent', ${_attrJsArg(_cp)})" title="Filtra catalogo per macrocategoria: ${escapeAttr(String(_cp))}">${highlightPlain(_cp)}</span>`;
+          })()}
+          ${(() => {
+            // V2.10.268 / SV2.10.428: categoria come chip cliccabile (accanto alla macrocategoria)
             const _cat = getField(p,'category') || '';
             if(!_cat) return `<span class="card-category"></span>`;
             return `<span class="card-category card-filter-link" onclick="event.stopPropagation();filterToSingleField('cat', ${_attrJsArg(_cat)})" title="Filtra catalogo per categoria: ${escapeAttr(String(_cat))}">${highlightPlain(_cat)}</span>`;
           })()}
+        </div>
+        <div class="card-meta">
           ${priceBlock}
         </div>
         ${matchBar}
