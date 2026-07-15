@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.431 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.433 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -2593,7 +2593,7 @@ body.theme-light .prm-filters-group{
 .app-sidebar .prm-group-header,
 .app-sidebar .prm-group-header .prm-group-label{
   color:#ffffff !important;
-  font-size:13px !important;
+  font-size:16px !important;
   text-transform:capitalize !important;
   letter-spacing:0.2px !important;
   font-weight:600 !important;
@@ -2605,14 +2605,14 @@ body.theme-light .prm-filters-group{
 .app-sidebar .prm-value,
 .app-sidebar .prm-value .prm-value-label{
   color:#ffffff !important;
-  font-size:12px !important;
+  font-size:15px !important;
   text-transform:none !important;
   letter-spacing:0.1px !important;
   font-weight:500 !important;
 }
 .app-sidebar .prm-value-count{
   color:#a78bfa !important;
-  font-size:11px !important;
+  font-size:13px !important;
   font-weight:700 !important;
   text-transform:none !important;
 }
@@ -2634,7 +2634,7 @@ body.theme-light .app-sidebar .prm-value .prm-value-label{
   cursor:pointer;
   user-select:none;
   font-family:-apple-system, 'SF Pro Text', 'Segoe UI', 'Inter', Roboto, sans-serif;
-  font-size:11px;
+  font-size:13px;
   font-weight:700;
   letter-spacing:1px;
   color:#ffffff;
@@ -2689,7 +2689,7 @@ body.theme-light .app-sidebar .prm-value .prm-value-label{
   background:rgba(139,92,246,0.08);
   border:1px solid rgba(139,92,246,0.30);
   color:var(--sidebar-fg, #1a2332);
-  font-family:inherit; font-size:12.5px;
+  font-family:inherit; font-size:15px;
 }
 .prm-name-search::placeholder{ color:rgba(139,92,246,0.55); }
 .prm-name-search:focus{ outline:none; border-color:#8b5cf6; background:rgba(139,92,246,0.12); }
@@ -10441,7 +10441,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.431</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.433</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11118,7 +11118,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.431 mobile");
+console.info("[bootstrap] script avvio — SV2.10.433 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12569,7 +12569,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.431';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.433';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -28399,14 +28399,14 @@ function paramRenderSidebar(){
   const _cIcon   = _isLight ? '#7c3aed' : '#a78bfa';   // icona + count (viola)
   const _cBadgeBg = _isLight ? '#7c3aed' : '#8b5cf6';  // bg badge selected
   const S = {
-    groupHeader: 'display:flex !important;align-items:center !important;gap:8px !important;padding:7px 9px !important;cursor:pointer !important;user-select:none !important;font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif !important;font-size:13px !important;font-weight:400 !important;color:'+_cFg+' !important;border-radius:6px !important;letter-spacing:0.2px !important;text-transform:none !important;',
+    groupHeader: 'display:flex !important;align-items:center !important;gap:8px !important;padding:7px 9px !important;cursor:pointer !important;user-select:none !important;font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif !important;font-size:16px !important;font-weight:400 !important;color:'+_cFg+' !important;border-radius:6px !important;letter-spacing:0.2px !important;text-transform:none !important;',
     groupIcon: 'display:inline-flex !important;align-items:center !important;justify-content:center !important;width:14px !important;height:14px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;color:'+_cIcon+' !important;flex-shrink:0 !important;',
-    groupLabel: 'flex:1 !important;text-transform:capitalize !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:'+_cFg+' !important;font-size:13px !important;font-weight:400 !important;letter-spacing:0.2px !important;',
-    groupLabelOpen: 'flex:1 !important;text-transform:capitalize !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:'+_cFgOpen+' !important;font-size:13px !important;font-weight:500 !important;letter-spacing:0.2px !important;',
+    groupLabel: 'flex:1 !important;text-transform:capitalize !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:'+_cFg+' !important;font-size:16px !important;font-weight:400 !important;letter-spacing:0.2px !important;',
+    groupLabelOpen: 'flex:1 !important;text-transform:capitalize !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:'+_cFgOpen+' !important;font-size:16px !important;font-weight:500 !important;letter-spacing:0.2px !important;',
     groupSelected: 'display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:18px !important;height:17px !important;padding:0 6px !important;border-radius:9px !important;background:'+_cBadgeBg+' !important;color:#ffffff !important;font-size:10px !important;font-weight:700 !important;flex-shrink:0 !important;',
-    value: 'display:flex !important;align-items:center !important;gap:9px !important;padding:5px 7px !important;border-radius:4px !important;cursor:pointer !important;font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif !important;font-size:12px !important;font-weight:500 !important;color:'+_cFg+' !important;user-select:none !important;text-transform:none !important;letter-spacing:0.1px !important;',
-    valueLabel: 'flex:1 !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:'+_cFg+' !important;font-size:12px !important;font-weight:500 !important;text-transform:none !important;letter-spacing:0.1px !important;',
-    valueCount: 'flex-shrink:0 !important;font-size:11px !important;color:'+_cIcon+' !important;font-weight:700 !important;font-variant-numeric:tabular-nums !important;font-family:SF Mono,JetBrains Mono,Menlo,Consolas,monospace !important;text-transform:none !important;letter-spacing:0 !important;',
+    value: 'display:flex !important;align-items:center !important;gap:9px !important;padding:5px 7px !important;border-radius:4px !important;cursor:pointer !important;font-family:-apple-system,Segoe UI,Inter,Roboto,sans-serif !important;font-size:15px !important;font-weight:500 !important;color:'+_cFg+' !important;user-select:none !important;text-transform:none !important;letter-spacing:0.1px !important;',
+    valueLabel: 'flex:1 !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;color:'+_cFg+' !important;font-size:15px !important;font-weight:500 !important;text-transform:none !important;letter-spacing:0.1px !important;',
+    valueCount: 'flex-shrink:0 !important;font-size:13px !important;color:'+_cIcon+' !important;font-weight:700 !important;font-variant-numeric:tabular-nums !important;font-family:SF Mono,JetBrains Mono,Menlo,Consolas,monospace !important;text-transform:none !important;letter-spacing:0 !important;',
   };
   // V2.10.120: nascondo i gruppi parametri che duplicherebbero filtri "anagrafici"
   // già attivi nei 3 multi-select sopra (Marca, Macrocategoria, Categoria).
