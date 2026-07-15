@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.433 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.434 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10441,7 +10441,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.433</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.434</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11118,7 +11118,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.433 mobile");
+console.info("[bootstrap] script avvio — SV2.10.434 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12344,11 +12344,56 @@ const MAC_TO_LATIN1 = {
 
 // Identifica se una stringa contiene caratteri tipicamente "corrotti" da MacRoman
 // In italiano corretto NON ci si aspetta ‡ ˘ » Ë È insieme, quindi se appaiono è corrotto
-const CORRUPTION_SIGNATURE = /[‡˘»‚„‰·ˆˇ˝˛¿¡≈ƒ∆]/;
+const CORRUPTION_SIGNATURE = /[‡˘»‚„‰·ˆˇ˝˛¿¡≈ƒ∆]|ïÀ½|_x00[0-9A-Fa-f]{2}_/;
+
+// SV2.10.434 — Recupero del carattere corrotto "ïÀ½" (replacement che ha sostituito
+// accenti/simboli originali) e degli artefatti Excel (_x000D_ = ritorno a capo).
+// Ripristina i caratteri dal contesto; i termini spagnoli tornano in forma corretta
+// (poi tradotti da translateText). I casi ambigui (es. dimensioni "(ïÀ½)") restano
+// invariati e vengono raccolti nel report di "Ripara accenti" per la revisione manuale.
+const _MOJ = 'ïÀ½';
+const _MOJ_ES = {
+  'cïÀ½mara':'cámara','CïÀ½mara':'Cámara','cïÀ½maras':'cámaras','CïÀ½maras':'Cámaras',
+  'micrïÀ½fono':'micrófono','MicrïÀ½fono':'Micrófono','micrïÀ½fonos':'micrófonos','MicrïÀ½fonos':'Micrófonos',
+  'vïÀ½deo':'vídeo','VïÀ½deo':'Vídeo','baterïÀ½a':'batería','BaterïÀ½a':'Batería',
+  'elïÀ½ctrico':'eléctrico','elïÀ½ctrica':'eléctrica','ElïÀ½ctrico':'Eléctrico',
+  'vehïÀ½culo':'vehículo','VehïÀ½culo':'Vehículo','vehïÀ½culos':'vehículos','VehïÀ½culos':'Vehículos',
+  'megapïÀ½xel':'megapíxel','MegapïÀ½xel':'Megapíxel','diseïÀ½o':'diseño','DiseïÀ½o':'Diseño',
+  'seïÀ½al':'señal','SeïÀ½al':'Señal','tïÀ½ctil':'táctil','TïÀ½ctil':'Táctil',
+  'hïÀ½brida':'híbrida','HïÀ½brida':'Híbrida','hïÀ½brido':'híbrido',
+  'mïÀ½xima':'máxima','MïÀ½xima':'Máxima','mïÀ½ximo':'máximo','MïÀ½ximo':'Máximo',
+  'ïÀ½ngulo':'ángulo','plïÀ½stico':'plástico','PlïÀ½stico':'Plástico',
+  'trïÀ½fico':'tráfico','TrïÀ½fico':'Tráfico','acïÀ½stica':'acústica','acïÀ½stico':'acústico',
+  'fïÀ½sico':'físico','fïÀ½sicos':'físicos','mïÀ½dulo':'módulo','mïÀ½dulos':'módulos',
+  'cïÀ½lido':'cálido','frïÀ½o':'frío','lïÀ½menes':'lúmenes','LïÀ½menes':'Lúmenes',
+  'analïÀ½gico':'analógico','analïÀ½gicos':'analógicos','inalïÀ½mbrico':'inalámbrico','InalïÀ½mbrico':'Inalámbrico',
+  'termogrïÀ½fica':'termográfica','termogrïÀ½fico':'termográfico',
+  'estïÀ½tica':'estética','estïÀ½tico':'estético','antivandïÀ½lico':'antivandálico','AntivandïÀ½lico':'Antivandálico'
+};
+function repairCorruption(s){
+  if(!s || typeof s !== 'string') return s;
+  if(s.indexOf(_MOJ)===-1 && s.indexOf('_x00')===-1) return s;
+  let out = s;
+  out = out.replace(/_x000D_/g,' ').replace(/_x000A_/g,' ').replace(/_x0009_/g,' ');
+  out = out.replace(/(Sony|DESFire|Intel|Brigates|Hikvision|Dahua|Milesight|Ajax)ïÀ½/g,'$1®'); // marchi ®
+  out = out.replace(/(\d)\s*ïÀ½\s*(\d)/g,'$1×$2');   // dimensioni/risoluzione  2688×1520
+  out = out.replace(/(\d)ïÀ½/g,'$1°');                // gradi  8°C / 360°
+  out = out.replace(/ïÀ½(?=\s?\d)/g,'±');             // tolleranze  ±2% / ± 8°C
+  out = out.replace(/tïÀ½(?![A-Za-zÀ-ÿ])/g,'tà');     // -tà (unità, capacità, velocità...)
+  out = out.replace(/([Rr]el)ïÀ½/g,'$1è');            // relè
+  out = out.replace(/(pi)ïÀ½(?![A-Za-zÀ-ÿ])/gi,'$1ù');// più
+  out = out.replace(/(pu)ïÀ½/gi,'$1ò');               // può
+  out = out.replace(/([Mm]en)ïÀ½(?![A-Za-zÀ-ÿ])/g,'$1ù'); // menù
+  for(const k in _MOJ_ES){ if(out.indexOf(k)!==-1) out = out.split(k).join(_MOJ_ES[k]); } // termini ES
+  out = out.replace(/([aeiouAEIOU])ïÀ½n/g,'$1ón');    // -ción / -sión spagnolo
+  out = out.replace(/([A-Za-zÀ-ÿ]\s)ïÀ½(\s[A-Za-zÀ-ÿ])/g,'$1è$2'); // verbo "è" (Non è necessario)
+  return out;
+}
 
 function fixEncoding(s){
   if(!s || typeof s !== 'string') return s;
-  // Solo se c'è segno di corruzione, applica la sostituzione
+  s = repairCorruption(s);   // SV2.10.434: recupero ïÀ½ e artefatti _x000D_
+  // Solo se resta un segno di corruzione (Mac o ïÀ½ residuo), passa alla mappa Mac→Latin1
   if(!CORRUPTION_SIGNATURE.test(s)) return s;
   let out = '';
   for(const ch of s){
@@ -12569,7 +12614,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.433';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.434';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -25767,6 +25812,7 @@ function buildImportWorkerCode(){
   const stockCanonJson = JSON.stringify(STOCK_CANON);
   const phrasesDefaultJson = JSON.stringify(TEXT_PHRASES_DEFAULT);
   const wordsDefaultJson = JSON.stringify(TEXT_WORDS_DEFAULT);
+  const mojEsJson = JSON.stringify(_MOJ_ES);  // SV2.10.434: mappa termini ES per repairCorruption
 
   return `
     // ========== WORKER CODE (V1.3) ==========
@@ -25775,7 +25821,7 @@ function buildImportWorkerCode(){
     // Costanti replicate dal main thread
     const MAC_TO_LATIN1 = ${macToLatin1Json};
     const STOCK_CANON = ${stockCanonJson};
-    const CORRUPTION_SIGNATURE = /[‡˘»‚„‰·ˆˇ˝˛¿¡≈ƒ∆]/;
+    const CORRUPTION_SIGNATURE = /[‡˘»‚„‰·ˆˇ˝˛¿¡≈ƒ∆]|ïÀ½|_x00[0-9A-Fa-f]{2}_/;
 
     // Dizionari effettivi (si costruiscono al ricevimento del messaggio INIT)
     let TEXT_PHRASES = ${phrasesDefaultJson};
@@ -25813,8 +25859,14 @@ function buildImportWorkerCode(){
       return repl;
     }
 
+    // SV2.10.434 — recupero ïÀ½ / _x000D_ nel worker (riusa il codice del main thread)
+    const _MOJ = 'ïÀ½';
+    const _MOJ_ES = ${mojEsJson};
+    ${repairCorruption.toString()}
+
     function fixEncoding(s){
       if(!s || typeof s !== 'string') return s;
+      s = repairCorruption(s);
       if(!CORRUPTION_SIGNATURE.test(s)) return s;
       let out = '';
       for(const ch of s){
@@ -33614,8 +33666,8 @@ async function repairEncoding(){
     title: 'Riparare caratteri corrotti?',
     subtitle: `Trovati <strong>${corrupted.length} prodotti</strong> con caratteri corrotti`,
     body: [
-      'Esempi tipici: <code>à → ‡</code>, <code>è → Ë</code>, <code>ù → ˘</code>.',
-      'L\'operazione è <strong>sicura</strong>: agisce solo dove riconosce la corruzione, non tocca il testo già corretto.',
+      'Ripristina accenti e simboli persi (<code>à è ° ± ×</code>) e rimuove i ritorni a capo <code>_x000D_</code>.',
+      'I termini spagnoli vengono tradotti in italiano. I casi non ricostruibili restano invariati e ti verranno <strong>elencati per la revisione manuale</strong>.',
     ],
     confirmLabel: 'Ripara ora',
   });
@@ -33625,28 +33677,38 @@ async function repairEncoding(){
 
   const textFields = ['name','description','short_description','short_description_html',
                       'specifications','content','category','category_parent','brand'];
+  // SV2.10.434: sui campi descrittivi applico anche la traduzione ES→IT; sugli anagrafici solo la riparazione
+  const TRANSLATE_FIELDS = new Set(['description','short_description','short_description_html','specifications','content']);
+  initTextDicts(); compileTextRegex();   // dizionari pronti per translateText
   let fixed = 0;
+  const ambigui = [];   // residui ïÀ½ non ricostruibili → elenco per revisione manuale
+  const _collectAmbigui = (codice, campo, testo) => {
+    let idx = testo.indexOf('ïÀ½');
+    while(idx !== -1){
+      ambigui.push({ codice, campo, contesto: testo.slice(Math.max(0,idx-22), idx+24).replace(/\s+/g,' ').trim() });
+      idx = testo.indexOf('ïÀ½', idx+3);
+    }
+  };
 
   for(let i=0; i<DATA.length; i++){
     const p = DATA[i];
+    const codice = p.code || p.sku || p.ean || p.name || ('#'+i);
     let changed = false;
     textFields.forEach(f=>{
       const orig = p[f]||'';
-      const repaired = fixEncoding(orig);
-      if(repaired !== orig){
-        p[f] = repaired;
-        changed = true;
-      }
+      let repaired = fixEncoding(orig);
+      if(TRANSLATE_FIELDS.has(f)) repaired = translateText(repaired);
+      if(repaired !== orig){ p[f] = repaired; changed = true; }
+      if(typeof repaired === 'string' && repaired.indexOf('ïÀ½') !== -1) _collectAmbigui(codice, f, repaired);
     });
     // Anche i valori dei params
     if(p.params){
       Object.keys(p.params).forEach(k=>{
         const v = p.params[k];
-        const nv = fixEncoding(v);
-        if(nv !== v){
-          p.params[k] = nv;
-          changed = true;
-        }
+        let nv = fixEncoding(v);
+        if(typeof nv === 'string') nv = translateText(nv);
+        if(nv !== v){ p.params[k] = nv; changed = true; }
+        if(typeof nv === 'string' && nv.indexOf('ïÀ½') !== -1) _collectAmbigui(codice, 'param: '+k, nv);
       });
     }
     if(changed) fixed++;
@@ -33662,7 +33724,43 @@ async function repairEncoding(){
   hideLoader();
   populateFilters();
   applyFilters();
-  toast(`Riparati ${fixed} prodotti`);
+  // SV2.10.434: se restano casi ambigui, mostra l'elenco per la revisione manuale
+  if(ambigui.length > 0){
+    await _showRepairReport(ambigui, fixed);
+  } else {
+    toast(`Riparati ${fixed} prodotti`);
+  }
+}
+
+// SV2.10.434 — Report dei caratteri "ïÀ½" non ricostruibili automaticamente.
+// Mostra un'anteprima e permette di scaricare l'elenco completo in CSV per la revisione manuale.
+async function _showRepairReport(ambigui, fixed){
+  const preview = ambigui.slice(0,8).map(a=>
+    `<code>[${escapeHtml(a.codice)}] ${escapeHtml(a.campo)}: …${escapeHtml(a.contesto)}…</code>`
+  ).join('<br>');
+  const wantCsv = await showConfirmDialog({
+    level: 'info',
+    title: `Riparati ${fixed.toLocaleString('it-IT')} prodotti`,
+    subtitle: `<strong>${ambigui.length.toLocaleString('it-IT')}</strong> punti non ricostruibili automaticamente (es. dimensioni con <code>(ïÀ½)</code>)`,
+    body: [
+      'Questi casi restano invariati: il carattere originale non è deducibile con certezza. Ecco un\'anteprima:',
+      preview,
+      'Scarica l\'elenco completo in CSV per rivederli a mano.',
+    ],
+    confirmLabel: 'Scarica elenco CSV',
+    cancelLabel: 'Chiudi',
+  });
+  if(wantCsv){
+    const rows = [['Codice','Campo','Contesto']].concat(ambigui.map(a=>[a.codice, a.campo, a.contesto]));
+    const csv = rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'caratteri_da_rivedere.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+    toast('Elenco scaricato: caratteri_da_rivedere.csv');
+  }
 }
 
 /* ========== RITRADUZIONE IN BULK ========== */
