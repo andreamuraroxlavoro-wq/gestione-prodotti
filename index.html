@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.434 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.435 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10441,7 +10441,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.434</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.435</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11118,7 +11118,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.434 mobile");
+console.info("[bootstrap] script avvio — SV2.10.435 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12614,7 +12614,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.434';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.435';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12699,8 +12699,8 @@ function personalProductCreate(input){
     description: String(input.description || '').trim(),
     short_description: String(input.short_description || '').trim(),
     short_description_html: '',
-    specifications: '',
-    content: '',
+    specifications: String(input.specifications || '').trim(),
+    content: String(input.content || '').trim(),
     category: String(input.category || '').trim(),
     category_parent: String(input.category_parent || '').trim(),
     precio_neto_compra: String(input.precio_neto_compra || '0').trim(),
@@ -12710,8 +12710,8 @@ function personalProductCreate(input){
     published: '1',
     created: new Date().toISOString(),
     modified: new Date().toISOString(),
-    params: {},
-    paramsRaw: '{}',
+    params: (input.params && typeof input.params === 'object' && !Array.isArray(input.params)) ? input.params : {},
+    paramsRaw: JSON.stringify((input.params && typeof input.params === 'object' && !Array.isArray(input.params)) ? input.params : {}),
     related_products: '',
     extra_images_paths: '',
     extra_images: Array.isArray(input.extra_images) ? input.extra_images.filter(u => u && typeof u === 'string') : [],
@@ -12763,7 +12763,7 @@ function personalProductUpdate(idx, updates){
     }
   }
 
-  const editable = ['brand', 'description', 'short_description', 'category', 'category_parent', 'image_path', 'PVP', 'precio_neto_compra', 'extra_images'];
+  const editable = ['brand', 'description', 'short_description', 'category', 'category_parent', 'image_path', 'PVP', 'precio_neto_compra', 'extra_images', 'specifications', 'content'];
   editable.forEach(k => {
     if(k in updates){
       // V2.9.24: extra_images deve restare un array, gli altri stringa trimmata
@@ -12774,6 +12774,11 @@ function personalProductUpdate(idx, updates){
       }
     }
   });
+  // SV2.10.435: Parametri tecnici (oggetto) — aggiornati a parte, con paramsRaw sincronizzato
+  if('params' in updates){
+    item.params = (updates.params && typeof updates.params === 'object' && !Array.isArray(updates.params)) ? updates.params : {};
+    item.paramsRaw = JSON.stringify(item.params);
+  }
   item.modified = new Date().toISOString();
   // V2.10.263: BUGFIX — rimuovo eventuali override EDITS residui per questo indice.
   // I prodotti personali sono editabili DIRETTAMENTE su `item`, non tramite il sistema
@@ -13096,6 +13101,8 @@ function openPersonalProductEditor(opts){
     category: existing ? (existing.category || '') : (pre ? (pre.category || '') : ''),
     short_description: existing ? (existing.short_description || '') : (pre ? (pre.short_description || '') : ''),
     description: existing ? (existing.description || '') : (pre ? (pre.description || '') : ''),
+    specifications: existing ? (existing.specifications || '') : (pre ? (pre.specifications || '') : ''),
+    content: existing ? (existing.content || '') : (pre ? (pre.content || '') : ''),
     PVP: existing ? (existing.PVP || '') : (pre ? (pre.PVP || '') : ''),
     precio_neto_compra: existing ? (existing.precio_neto_compra || '') : (pre ? (pre.precio_neto_compra || '') : ''),
     image_path: existing ? (existing.image_path || '') : (pre ? (pre.image_path || '') : ''),
@@ -13174,6 +13181,28 @@ function openPersonalProductEditor(opts){
         '</div>' +
 
         '<div class="co-section">' +
+          '<div class="co-section-title">Specifiche</div>' +
+          buildWysiwygHtml('specifications', sanitizeHtml(normalizeSpecsHtml(f.specifications)), 'Specifiche tecniche del prodotto') +
+        '</div>' +
+
+        '<div class="co-section">' +
+          '<div class="co-section-title">Contenuto confezione</div>' +
+          buildWysiwygHtml('content', sanitizeHtml(normalizeSpecsHtml(f.content)), 'Cosa è incluso nella confezione') +
+        '</div>' +
+
+        '<div class="co-section">' +
+          '<div class="co-section-title">Parametri tecnici (<span id="ppParamsCount">0</span>)</div>' +
+          '<div class="params-section">' +
+            '<div id="ppParamsList"></div>' +
+            '<div class="param-add">' +
+              '<input type="text" id="ppNewParamKey" placeholder="chiave (es. color)">' +
+              '<input type="text" id="ppNewParamVal" placeholder="valore (es. Bianco)">' +
+              '<button type="button" class="btn small success" onclick="addPpParam()">+ Aggiungi</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="co-section">' +
           '<div class="co-section-title">Prezzi</div>' +
           '<div class="co-field-grid">' +
             '<div class="co-field">' +
@@ -13223,6 +13252,12 @@ function openPersonalProductEditor(opts){
 
   document.body.appendChild(bg);
 
+  // SV2.10.435: inizializzo i Parametri tecnici del modal (stato locale) e li renderizzo
+  _PP_PARAMS = (existing && existing.params && typeof existing.params === 'object' && !Array.isArray(existing.params))
+    ? JSON.parse(JSON.stringify(existing.params))
+    : ((pre && pre.params && typeof pre.params === 'object' && !Array.isArray(pre.params)) ? JSON.parse(JSON.stringify(pre.params)) : {});
+  if(typeof renderPpParams === 'function') renderPpParams();
+
   const cleanup = () => bg.remove();
   document.getElementById('ppCancelBtn').addEventListener('click', () => {
     cleanup();
@@ -13246,6 +13281,11 @@ function openPersonalProductEditor(opts){
       PVP: document.getElementById('ppPvp').value.trim() || '0',
       precio_neto_compra: document.getElementById('ppNetto').value.trim() || '0',
       image_path: document.getElementById('ppImg').value.trim(),
+      // SV2.10.435: Specifiche e Contenuto confezione (HTML dai due editor WYSIWYG del modal)
+      specifications: (function(){ const el = document.querySelector('#personalProductModal .wysiwyg-editor[data-field="specifications"]'); return el ? el.innerHTML.trim() : ''; })(),
+      content: (function(){ const el = document.querySelector('#personalProductModal .wysiwyg-editor[data-field="content"]'); return el ? el.innerHTML.trim() : ''; })(),
+      // SV2.10.435: Parametri tecnici (stato locale del modal)
+      params: JSON.parse(JSON.stringify(_PP_PARAMS || {})),
       // V2.9.24: leggo le immagini extra dal hidden field (JSON serializzato)
       extra_images: (function(){
         try { return JSON.parse(document.getElementById('ppExtras').value || '[]'); }
@@ -31496,6 +31536,49 @@ function addParam(){
 function delParam(k){
   delete CURRENT_EDIT.data.params[k];
   renderParamsList();
+}
+
+/* ==========================================================================
+   SV2.10.435 — Parametri tecnici nel modal "Prodotto personale"
+   Replica la logica di renderParamsList/addParam/delParam ma su uno stato
+   locale (_PP_PARAMS), perché il modal personale non usa CURRENT_EDIT.
+   ========================================================================== */
+let _PP_PARAMS = {};
+function renderPpParams(){
+  const container = document.getElementById('ppParamsList');
+  if(!container) return;
+  const paramOrder = ['categoria','marca','stock','gama','tipo','color','uso','producto','dispositivo','solucion','serie','formato','seccion'];
+  const knownKeys = paramOrder.filter(k=>k in _PP_PARAMS);
+  const otherKeys = Object.keys(_PP_PARAMS).filter(k=>!paramOrder.includes(k)).sort();
+  const allKeys = [...knownKeys, ...otherKeys];
+  const cnt = document.getElementById('ppParamsCount');
+  if(cnt) cnt.textContent = allKeys.length;
+  container.innerHTML = allKeys.map(k=>{
+    const label = (typeof transKey==='function') ? transKey(k) : k;
+    const val = _PP_PARAMS[k];
+    const v = (typeof normVal==='function') ? normVal(val) : (val==null?'':String(val));
+    return `<div class="param-row">
+      <div class="param-key" title="Chiave: ${escapeAttr(k)}"><b>${escapeHtml(label)}</b><small>${escapeHtml(k)}</small></div>
+      <input class="param-val" value="${escapeAttr(v)}" onchange="_PP_PARAMS['${escapeJs(k)}']=this.value">
+      <button type="button" class="param-del" onclick="delPpParam('${escapeJs(k)}')">×</button>
+    </div>`;
+  }).join('');
+}
+function addPpParam(){
+  const kEl = document.getElementById('ppNewParamKey');
+  const vEl = document.getElementById('ppNewParamVal');
+  if(!kEl || !vEl) return;
+  const k = kEl.value.trim();
+  const v = vEl.value.trim();
+  if(!k) return;
+  _PP_PARAMS[k] = v;
+  kEl.value=''; vEl.value='';
+  renderPpParams();
+  kEl.focus();
+}
+function delPpParam(k){
+  delete _PP_PARAMS[k];
+  renderPpParams();
 }
 
 /* ==========================================================================
