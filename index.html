@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.440 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.442 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10455,7 +10455,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.440</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.442</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11140,7 +11140,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.440 mobile");
+console.info("[bootstrap] script avvio — SV2.10.442 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12636,7 +12636,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.440';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.442';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31533,13 +31533,191 @@ function buildDatasheetHtml(prod,cfg){
     '</div></body></html>';
 }
 
-function printDatasheet(prod,cfg){
-  const html=buildDatasheetHtml(prod,cfg);
-  const w=window.open('','_blank');
-  if(!w){ if(typeof toast==='function') toast('Popup bloccato dal browser. Abilita i popup per questo sito.','err',6000); return; }
-  w.document.open(); w.document.write(html); w.document.close();
-  if(typeof toast==='function') toast('Anteprima scheda tecnica aperta — usa "Stampa / Salva PDF"','ok',4000);
+// ══ PDF NATIVO (stessa struttura del preventivo: jsPDF + autoTable + dialog anteprima) ══
+function _dsHtmlToText(html){
+  let x=(html||'').replace(/<\s*br\s*\/?>/gi,'\n').replace(/<\/(p|li|tr|div|h[1-6])>/gi,'\n');
+  const d=document.createElement('div'); d.innerHTML=x;
+  return (d.textContent||'').replace(/[ \t]+/g,' ').replace(/\n{2,}/g,'\n').replace(/^\s+|\s+$/g,'');
 }
+// data URL immagine (di qualsiasi tipo) → JPEG via canvas, sfondo scelto (rosso per il logo, bianco per le foto)
+function _dsToJpeg(srcDataUrl, bg){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=function(){ try{
+      const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width||120; c.height=img.naturalHeight||img.height||120;
+      const ctx=c.getContext('2d'); ctx.fillStyle=bg||'#FFFFFF'; ctx.fillRect(0,0,c.width,c.height); ctx.drawImage(img,0,0);
+      res({dataUrl:c.toDataURL('image/jpeg',0.92), w:c.width, h:c.height});
+    }catch(e){ res(null); } };
+    img.onerror=()=>res(null); img.src=srcDataUrl;
+  });
+}
+async function _dsBufferToJpeg(r, bg){
+  try{ const bytes=new Uint8Array(r.buffer); let bin=''; for(let i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+    // MIME corretto dal tipo rilevato (jpg/gif/png): un PNG dichiarato jpeg non si decodifica
+    const mime = r.type==='jpg' ? 'image/jpeg' : (r.type==='gif' ? 'image/gif' : 'image/png');
+    const src='data:'+mime+';base64,'+btoa(bin); return await _dsToJpeg(src,bg);
+  }catch(e){ return null; }
+}
+
+async function exportDatasheetPdfNative(prod, cfg, options){
+  options = options || {};
+  if(typeof window.jspdf==='undefined' || !window.jspdf.jsPDF){ if(typeof toast==='function') toast('Libreria jsPDF non caricata. Ricarica la pagina.','err',5000); return null; }
+  if(typeof showLoaderAdvanced==='function') showLoaderAdvanced('Generazione scheda tecnica PDF','','export');
+  try{
+    const { jsPDF } = window.jspdf;
+    const RED=[193,48,70];
+    const code=(getField(prod,'name')||'').trim();
+    const ean=(getField(prod,'ean')||'').toString().trim();
+    const params=getParams(prod)||{};
+    const sec=cfg.sec||{};
+    let imgs=Array.isArray(cfg.imgs)?cfg.imgs.slice():[];
+
+    // Carico logo + TUTTE le foto IN PARALLELO (come il preventivo): con Promise.all
+    // N foto costano il tempo della più lenta, non la somma → niente attese in serie.
+    let logoJpeg=null;
+    const photoResults=new Array(imgs.length).fill(null);
+    const tasks=[];
+    // logo su sfondo rosso (lettere bianche + & nera restano leggibili sulla banda)
+    tasks.push((async()=>{ logoJpeg = await _dsToJpeg(DATASHEET_LOGO, '#C13046'); })());
+    imgs.forEach((u,i)=>{
+      tasks.push((async()=>{
+        try{
+          let jp=null;
+          if(/^data:/i.test(u)) jp=await _dsToJpeg(u,'#FFFFFF');
+          else if(typeof _qFetchImageBuffer==='function'){ const r=await _qFetchImageBuffer(u); if(r&&r.buffer) jp=await _dsBufferToJpeg(r,'#FFFFFF'); }
+          photoResults[i]=jp;
+        }catch(e){}
+      })());
+    });
+    await Promise.all(tasks);
+    const photoJpegs = photoResults.filter(Boolean);
+
+    const doc=new jsPDF({unit:'pt',format:'a4',orientation:'portrait'});
+    const PW=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight(), M=34;
+    // header banda rossa (solo prima pagina)
+    doc.setFillColor(RED[0],RED[1],RED[2]); doc.rect(0,0,PW,84,'F');
+    if(logoJpeg){ const lh=42, lw=lh*(logoJpeg.w/logoJpeg.h||3); doc.addImage(logoJpeg.dataUrl,'JPEG',M,21,lw,lh); }
+    doc.setTextColor(17,17,17); doc.setFont('helvetica','bold'); doc.setFontSize(22);
+    doc.text('SCHEDA TECNICA', PW-M, 42, {align:'right'});
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','normal'); doc.setFontSize(11);
+    doc.text('Codice Art. '+(code||'—'), PW-M, 62, {align:'right'});
+    let y=104;
+    // foto in fila da sinistra
+    if(photoJpegs.length){
+      const ph=88; let x=M, rowMax=0;
+      photoJpegs.forEach(jp=>{
+        const pw=Math.max(40, Math.min(150, ph*(jp.w/jp.h||1)));
+        if(x+pw>PW-M){ x=M; y+=ph+10; }
+        doc.addImage(jp.dataUrl,'JPEG',x,y,pw,ph); x+=pw+12; rowMax=ph;
+      });
+      y+=rowMax+16;
+    }
+    if(ean){ doc.setTextColor(120,120,120); doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.text('EAN '+ean, M, y); y+=10; }
+    doc.setDrawColor(RED[0],RED[1],RED[2]); doc.setLineWidth(2); doc.line(M,y,PW-M,y); y+=20;
+
+    const FOOT=70;
+    function ensure(h){ if(y+h > PH-FOOT){ doc.addPage(); y=54; } }
+    function secTitle(t){ ensure(26); doc.setTextColor(RED[0],RED[1],RED[2]); doc.setFont('helvetica','bold'); doc.setFontSize(12.5); doc.text('» '+t.toUpperCase(), M, y); y+=16; }
+    function bodyText(html){
+      const txt=_dsHtmlToText(html); if(!txt) return;
+      doc.setTextColor(34,34,34); doc.setFont('helvetica','normal'); doc.setFontSize(10);
+      const lines=doc.splitTextToSize(txt, PW-2*M);
+      lines.forEach(ln=>{ ensure(13); doc.text(ln, M, y); y+=13; });
+      y+=10;
+    }
+    function kvTable(rows){
+      doc.autoTable({ startY:y, margin:{left:M,right:M,bottom:FOOT}, theme:'grid',
+        styles:{fontSize:10, cellPadding:5, textColor:[51,51,51], lineColor:[226,226,226], lineWidth:0.5, overflow:'linebreak'},
+        columnStyles:{0:{cellWidth:(PW-2*M)*0.34, fontStyle:'bold', textColor:[17,17,17]}},
+        body:rows });
+      y=(doc.lastAutoTable?doc.lastAutoTable.finalY:y)+18;
+    }
+
+    if(sec.brief){ const b=(getField(prod,'short_description')||'').trim(); if(b){ secTitle('Descrizione breve'); bodyText(b); } }
+    if(sec.full){ const f=(getField(prod,'description')||'').trim(); if(f){ secTitle('Descrizione completa'); bodyText(f); } }
+    if(sec.specs){
+      let items=_dsSpecItems((getField(prod,'specifications')||'')).items.map((it,i)=>{ it._i=i; return it; });
+      if(Array.isArray(cfg.specSel)) items=items.filter(it=>cfg.specSel.includes(it._i));
+      if(items.length){
+        secTitle('Specifiche');
+        const rows = items.every(it=>it.kv) ? items.map(it=>[it.key, it.value]) : items.map(it=> it.kv ? [it.key, it.value] : ['', it.label]);
+        kvTable(rows);
+      }
+    }
+    if(sec.params){
+      const order=['categoria','marca','stock','gama','tipo','color','uso','producto','dispositivo','solucion','serie','formato','seccion'];
+      let keys=_dsParamKeys(params); if(Array.isArray(cfg.paramSel)) keys=keys.filter(k=>cfg.paramSel.includes(k));
+      const known=order.filter(k=>keys.includes(k)), other=keys.filter(k=>!order.includes(k)).sort();
+      const ordered=[...known,...other]; const tk=(typeof transKey==='function')?transKey:(k=>k);
+      if(ordered.length){ secTitle('Parametri tecnici'); kvTable(ordered.map(k=>[tk(k), String(params[k])])); }
+    }
+
+    // footer rosso su OGNI pagina
+    const np=doc.internal.getNumberOfPages();
+    for(let p=1;p<=np;p++){
+      doc.setPage(p);
+      doc.setFillColor(RED[0],RED[1],RED[2]); doc.rect(0,PH-58,PW,58,'F');
+      doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.text('Servizi & Sistemi SRL', M, PH-40);
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      doc.text('Piazza degli Alpini, 15 - Loc. Lentiai', M, PH-28);
+      doc.text('32026 Borgo Valbelluna (BL) · P.IVA 00695650259', M, PH-16);
+      doc.text('Tel 0437 1956838', PW-M, PH-32, {align:'right'});
+      doc.text('in@thesecurity.it', PW-M, PH-22, {align:'right'});
+      doc.text('www.thesecurity.it', PW-M, PH-12, {align:'right'});
+    }
+
+    const blob=doc.output('blob');
+    const filename='scheda-tecnica-'+(code||'articolo').replace(/[^\w.\-]+/g,'_')+'.pdf';
+    if(typeof hideLoaderAdvanced==='function') hideLoaderAdvanced();
+    return { blob, filename };
+  }catch(err){
+    if(typeof hideLoaderAdvanced==='function') hideLoaderAdvanced();
+    console.error('[datasheet] pdf error:', err);
+    if(typeof toast==='function') toast('Errore generazione scheda PDF: '+(err.message||err),'err',5000);
+    return null;
+  }
+}
+
+// dialog anteprima (riusa lo stile .qprev-* del preventivo): apre il PDF nel visore + download
+async function _dsShowPreviewDialog(prod, cfg){
+  let pdf;
+  try{ pdf = await exportDatasheetPdfNative(prod, cfg, {}); }
+  catch(err){ if(typeof toast==='function') toast('Errore generazione anteprima: '+(err.message||err),'err',5000); return; }
+  if(!pdf || !pdf.blob) return;
+  const pdfUrl = URL.createObjectURL(pdf.blob);
+  let previewWin = window.open(pdfUrl, '_blank');
+  const overlay=document.createElement('div'); overlay.className='qprev-overlay';
+  overlay.innerHTML=
+    '<div class="qprev-dialog qprev-dialog-compact">'+
+      '<div class="qprev-header"><div class="qprev-title">Anteprima scheda tecnica</div>'+
+        '<button class="qprev-x" type="button" title="Chiudi" aria-label="Chiudi">×</button></div>'+
+      '<div class="qprev-content">'+
+        '<p class="qprev-hint">'+(previewWin?'L\u0027anteprima del PDF è stata aperta in una nuova scheda del browser.':'<b>Popup bloccato.</b> Clicca <b>Apri anteprima</b> per visualizzare il PDF.')+'</p>'+
+        '<p class="qprev-hint qprev-hint-muted">Scegli il formato da scaricare:</p>'+
+        '<div class="qprev-buttons">'+
+          (previewWin?'':'<button class="qprev-btn qprev-btn-secondary qprev-btn-preview" type="button">👁️ Apri anteprima</button>')+
+          '<button class="qprev-btn qprev-btn-primary qprev-btn-pdf" type="button">📄 Scarica PDF</button>'+
+        '</div>'+
+        '<button class="qprev-btn qprev-btn-close" type="button">Chiudi senza scaricare</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+  const cleanup=()=>{ try{URL.revokeObjectURL(pdfUrl);}catch(e){} overlay.remove(); document.removeEventListener('keydown',esc); };
+  const esc=(e)=>{ if(e.key==='Escape') cleanup(); };
+  document.addEventListener('keydown',esc);
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) cleanup(); });
+  overlay.querySelector('.qprev-x').addEventListener('click',cleanup);
+  overlay.querySelector('.qprev-btn-close').addEventListener('click',cleanup);
+  const pv=overlay.querySelector('.qprev-btn-preview');
+  if(pv) pv.addEventListener('click',()=>{ previewWin=window.open(pdfUrl,'_blank'); if(previewWin) pv.remove(); });
+  overlay.querySelector('.qprev-btn-pdf').addEventListener('click',()=>{
+    const a=document.createElement('a'); a.href=pdfUrl; a.download=pdf.filename; a.click();
+    if(typeof toast==='function') toast({type:'ok',title:'PDF scaricato',message:pdf.filename,duration:3500}); cleanup();
+  });
+}
+
+// stessa struttura del preventivo: anteprima PDF nel visore + download
+function printDatasheet(prod,cfg){ _dsShowPreviewDialog(prod,cfg); }
 
 function renderEditor(){
   const {idx, data, original, previewOriginal} = CURRENT_EDIT;
