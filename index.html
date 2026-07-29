@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.445 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.446 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10455,7 +10455,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.445</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.446</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11140,7 +11140,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.445 mobile");
+console.info("[bootstrap] script avvio — SV2.10.446 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12636,7 +12636,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.445';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.446';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31334,6 +31334,7 @@ function openDatasheetDialog(prod){
   const cfg=getDatasheetCfg(code);
   const eanVal=(getField(prod,'ean')||'').toString().trim();
   const showEanInit = cfg.showEan!==undefined ? cfg.showEan : true;
+  const showCodeInit = cfg.showCode!==undefined ? cfg.showCode : true;
   const brief=(getField(prod,'short_description')||'').trim();
   const full =(getField(prod,'description')||'').trim();
   const specsRaw=(getField(prod,'specifications')||'').trim();
@@ -31408,6 +31409,7 @@ function openDatasheetDialog(prod){
         rowSec('full','Descrizione completa',has.full,'')+
         rowSec('specs','Specifiche',has.specs,specSub)+
         rowSec('params','Parametri tecnici',has.params,paramSub)+
+        (code ? '<label class="ds-subrow" style="margin-top:12px"><input type="checkbox" id="dsShowCode"'+(showCodeInit?' checked':'')+'><span>Mostra codice articolo <b>'+escapeHtml(code)+'</b> nell\u0027intestazione</span></label>' : '')+
         (eanVal ? '<label class="ds-subrow" style="margin-top:12px"><input type="checkbox" id="dsShowEan"'+(showEanInit?' checked':'')+'><span>Mostra codice EAN <b>'+escapeHtml(eanVal)+'</b> nell\u0027intestazione</span></label>' : '')+
         '<div class="ds-sec-title" style="margin-top:16px">Immagini (la 1ª a sinistra, le altre a seguire)</div>'+
         imgsHtml+
@@ -31435,7 +31437,9 @@ function openDatasheetDialog(prod){
     const imgsOut=imgs.filter(u=>imgSel.has(u));
     const _eanCb=bg.querySelector('#dsShowEan');
     const showEan = _eanCb ? _eanCb.checked : (cfg.showEan!==undefined?cfg.showEan:true);
-    const outCfg={ sec:chosen, specSel, paramSel, imgs:imgsOut, showEan };
+    const _codeCb=bg.querySelector('#dsShowCode');
+    const showCode = _codeCb ? _codeCb.checked : (cfg.showCode!==undefined?cfg.showCode:true);
+    const outCfg={ sec:chosen, specSel, paramSel, imgs:imgsOut, showEan, showCode };
     saveDatasheetCfg(code,outCfg);
     bg.remove(); printDatasheet(prod,outCfg);
   };
@@ -31604,8 +31608,8 @@ async function exportDatasheetPdfNative(prod, cfg, options){
     if(logoJpeg){ const lh=42, lw=lh*(logoJpeg.w/logoJpeg.h||3); doc.addImage(logoJpeg.dataUrl,'JPEG',M,21,lw,lh); }
     doc.setTextColor(17,17,17); doc.setFont('helvetica','bold'); doc.setFontSize(22);
     doc.text('SCHEDA TECNICA', PW-M, 42, {align:'right'});
-    doc.setTextColor(255,255,255); doc.setFont('helvetica','normal'); doc.setFontSize(11);
-    doc.text('Codice Art. '+(code||'—'), PW-M, 62, {align:'right'});
+    if(cfg.showCode!==false){ doc.setTextColor(255,255,255); doc.setFont('helvetica','normal'); doc.setFontSize(11);
+      doc.text('Codice Art. '+(code||'—'), PW-M, 62, {align:'right'}); }
     let y=104;
     // foto in fila da sinistra
     if(photoJpegs.length){
