@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.437 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.438 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5365,6 +5365,20 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
   transform:translateY(-50%) scale(1.04);
   box-shadow:0 2px 6px rgba(239,68,68,0.4);
 }
+/* SV2.10.438: pulsante "Scheda Tecnica" nell'anteprima prodotto (a sinistra della barra,
+   simmetrico a CHIUDI che sta a destra; il toggle modalità resta centrato). */
+.hover-preview-panel .hp-datasheet-btn{
+  position:absolute; left:14px; top:50%; transform:translateY(-50%);
+  font-size:11px; font-weight:700; letter-spacing:0.6px; padding:6px 14px;
+  border-radius:14px; background:var(--accent); border:1px solid var(--accent);
+  color:#fff; cursor:pointer; white-space:nowrap; font-family:inherit;
+  text-transform:none; line-height:1.3; box-shadow:0 1px 2px rgba(0,0,0,0.12);
+  transition:transform 0.15s, box-shadow 0.15s, filter 0.15s;
+}
+.hover-preview-panel .hp-datasheet-btn:hover{
+  transform:translateY(-50%) scale(1.04); filter:brightness(1.08);
+  box-shadow:0 2px 6px rgba(0,0,0,0.28);
+}
 .hover-preview-panel .hp-code{
   font-family:'SF Mono','Monaco','Menlo',monospace;
   font-size:15px;          /* V2.2.42: +15% (era 13px) */
@@ -10441,7 +10455,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.437</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.438</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11126,7 +11140,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.437 mobile");
+console.info("[bootstrap] script avvio — SV2.10.438 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12622,7 +12636,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.437';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.438';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -30552,6 +30566,7 @@ function buildHoverPreviewHtml(p, mode){
   const toggleBarHtml = `
     <div class="hp-mode-bar">
       ${modeToggleHtml}
+      <button type="button" class="hp-datasheet-btn" onclick="openDatasheetDialog(DATA[${p._idx}])" title="Genera la scheda tecnica stampabile di questo articolo">🖨️ Scheda Tecnica</button>
       <button type="button" class="hp-close-btn" onclick="closeHoverPreview(true)" title="Chiudi anteprima">
         ✕ CHIUDI
       </button>
@@ -31333,7 +31348,7 @@ function openDatasheetDialog(prod){
   const bg = document.createElement('div');
   bg.className = 'modal-bg';
   bg.setAttribute('data-datasheet-modal','1');
-  bg.style.zIndex = '600';
+  bg.style.zIndex = '10000';
   bg.onclick = e => { if(e.target===bg) bg.remove(); };
   bg.innerHTML =
     '<div class="modal" style="max-width:560px">' +
