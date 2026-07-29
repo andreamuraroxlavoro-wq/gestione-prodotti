@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.447 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.448 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10455,7 +10455,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.447</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.448</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11140,7 +11140,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.447 mobile");
+console.info("[bootstrap] script avvio — SV2.10.448 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12636,7 +12636,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.447';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.448';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31300,6 +31300,22 @@ function _dsParamKeys(params){
   if(!params || typeof params!=='object') return [];
   return Object.keys(params).filter(k=>{ if(_DS_HIDDEN_PARAMS.has(String(k).toLowerCase())) return false; const v=params[k]; return v!=null && String(v).trim()!==''; });
 }
+// SV2.10.448: ordine parametri personalizzato per prodotto (cfg.paramOrder) + etichette custom (cfg.paramLabels)
+function _dsOrderedParamKeys(params, cfg){
+  const keys=_dsParamKeys(params);
+  const order = (cfg && Array.isArray(cfg.paramOrder)) ? cfg.paramOrder : null;
+  if(!order) return keys;
+  const present=new Set(keys);
+  const ordered=order.filter(k=>present.has(k));
+  const seen=new Set(ordered);
+  const rest=keys.filter(k=>!seen.has(k));
+  return ordered.concat(rest);
+}
+function _dsLabel(k, cfg){
+  const tk=(typeof transKey==='function')?transKey:(x=>x);
+  if(cfg && cfg.paramLabels && typeof cfg.paramLabels[k]==='string' && cfg.paramLabels[k].trim()!=='') return cfg.paramLabels[k].trim();
+  return tk(k);
+}
 // spezza le SPECIFICHE in voci; per le tabelle chiave/valore ritorna {kv:true,key,value}
 function _dsSpecItems(html){
   const norm=(typeof normalizeSpecsHtml==='function')?normalizeSpecsHtml(html||''):(html||'');
@@ -31340,7 +31356,7 @@ function openDatasheetDialog(prod){
   const specsRaw=(getField(prod,'specifications')||'').trim();
   const params=getParams(prod)||{};
   const specItems=_dsSpecItems(specsRaw).items;
-  const paramKeys=_dsParamKeys(params);
+  const paramKeys=_dsOrderedParamKeys(params, cfg);
   const imgs=_dsImages(prod);
   const has={brief:!!brief, full:!!full, specs:specItems.length>0, params:paramKeys.length>0};
 
@@ -31357,9 +31373,14 @@ function openDatasheetDialog(prod){
                       : escapeHtml(it.label.length>110?it.label.slice(0,110)+'…':it.label);
     return '<label class="ds-subrow"><input type="checkbox" data-spec="'+i+'"'+(specSelInit.has(i)?' checked':'')+'><span>'+lbl+'</span></label>';
   }).join('');
-  const paramSub=paramKeys.map(k=>
-    '<label class="ds-subrow"><input type="checkbox" data-param="'+escapeAttr(k)+'"'+(paramSelInit.has(k)?' checked':'')+'>'+
-    '<span><b>'+escapeHtml(tk(k))+'</b>: '+escapeHtml(String(params[k]))+'</span></label>').join('');
+  const paramSub='<div class="ds-plist" id="dsParamList">'+paramKeys.map(k=>
+    '<div class="ds-prow" data-param="'+escapeAttr(k)+'">'+
+      '<span class="ds-drag" title="Trascina per riordinare">\u283F</span>'+
+      '<input type="checkbox" class="ds-pchk" data-param="'+escapeAttr(k)+'"'+(paramSelInit.has(k)?' checked':'')+'>'+
+      '<input type="text" class="ds-plabel" data-param="'+escapeAttr(k)+'" value="'+escapeAttr(_dsLabel(k,cfg))+'" spellcheck="false">'+
+      '<span class="ds-pval">'+escapeHtml(String(params[k]))+'</span>'+
+    '</div>').join('')+'</div>'+
+    '<div class="ds-phint">Trascina la maniglia \u283F per riordinare · scrivi nel campo per rinominare l\u2019etichetta</div>';
 
   const rowSec=(key,label,hasData,sub)=>
     '<div class="ds-block">'+
@@ -31392,7 +31413,7 @@ function openDatasheetDialog(prod){
         '.ds-subrow{display:flex;align-items:flex-start;gap:9px;padding:5px 8px;border-radius:7px;cursor:pointer;font-size:13.5px;line-height:1.4}'+
         '.ds-subrow:hover{background:var(--bg,rgba(0,0,0,.04))}'+
         '.ds-subrow input{width:16px;height:16px;margin-top:2px;cursor:pointer;flex-shrink:0}'+
-        '.ds-subrow.ds-off{opacity:.4;pointer-events:none}'+
+        '.ds-subrow.ds-off{opacity:.4;pointer-events:none}'+'.ds-plist{display:flex;flex-direction:column;gap:5px}'+'.ds-prow{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border,#d6dce3);border-radius:8px;background:var(--card,#fff);font-size:13.5px;touch-action:none}'+'.ds-prow.dragging{opacity:.6;box-shadow:0 4px 14px rgba(0,0,0,.18)}'+'.ds-prow.ds-off{opacity:.4}'+'.ds-drag{cursor:grab;color:#9aa;font-size:16px;line-height:1;user-select:none;flex-shrink:0;padding:2px 3px}'+'.ds-drag:active{cursor:grabbing}'+'.ds-prow .ds-pchk{width:16px;height:16px;flex-shrink:0;cursor:pointer}'+'.ds-plabel{flex:1 1 auto;min-width:0;font-weight:700;border:1px solid transparent;border-radius:6px;padding:4px 6px;font-size:13.5px;background:var(--bg,rgba(0,0,0,.03));color:var(--fg)}'+'.ds-plabel:focus{outline:none;border-color:#C13046;background:var(--card,#fff)}'+'.ds-pval{flex:0 1 auto;max-width:38%;color:var(--fg2,#6b7684);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+'.ds-phint{font-size:11.5px;color:var(--fg2,#9aa);margin:7px 0 2px 2px}'+
         '.ds-imgs{display:flex;flex-wrap:wrap;gap:12px;margin-top:2px}'+
         '.ds-thumb{position:relative;width:104px;height:84px;border:2px solid var(--border,#d6dce3);border-radius:8px;overflow:hidden;cursor:pointer;background:#fff;flex:0 0 auto}'+
         '.ds-thumb img{width:100%;height:100%;object-fit:contain}'+
@@ -31422,24 +31443,57 @@ function openDatasheetDialog(prod){
   document.body.appendChild(bg);
 
   function syncSub(secKey){
-    const master=bg.querySelector('input[data-sec="'+secKey+'"]'); const on=master&&master.checked;
-    const attr=secKey==='specs'?'data-spec':'data-param';
-    bg.querySelectorAll('input['+attr+']').forEach(cb=>{ const row=cb.closest('.ds-subrow'); if(row) row.classList.toggle('ds-off',!on); });
+    const master=bg.querySelector('input[data-sec="'+secKey+'"]'); const on=!!(master&&master.checked);
+    if(secKey==='params'){
+      bg.querySelectorAll('#dsParamList .ds-prow').forEach(row=>row.classList.toggle('ds-off',!on));
+    } else {
+      bg.querySelectorAll('input[data-spec]').forEach(cb=>{ const row=cb.closest('.ds-subrow'); if(row) row.classList.toggle('ds-off',!on); });
+    }
   }
   ['specs','params'].forEach(k=>{ const m=bg.querySelector('input[data-sec="'+k+'"]'); if(m){ m.addEventListener('change',()=>syncSub(k)); syncSub(k); } });
+  (function initDsSort(){
+    const list=bg.querySelector('#dsParamList'); if(!list) return;
+    list.querySelectorAll('.ds-drag').forEach(h=>{
+      h.addEventListener('pointerdown', function(e){
+        e.preventDefault();
+        const dragEl=h.closest('.ds-prow'); if(!dragEl) return;
+        dragEl.classList.add('dragging');
+        try{ h.setPointerCapture(e.pointerId); }catch(_){}
+        const move=function(ev){
+          const rows=Array.prototype.slice.call(list.querySelectorAll('.ds-prow:not(.dragging)'));
+          const y=ev.clientY; let after=null;
+          for(let i=0;i<rows.length;i++){ const box=rows[i].getBoundingClientRect(); if(y < box.top+box.height/2){ after=rows[i]; break; } }
+          if(after) list.insertBefore(dragEl, after); else list.appendChild(dragEl);
+        };
+        const up=function(ev){
+          dragEl.classList.remove('dragging');
+          try{ h.releasePointerCapture(e.pointerId); }catch(_){}
+          h.removeEventListener('pointermove',move); h.removeEventListener('pointerup',up); h.removeEventListener('pointercancel',up);
+        };
+        h.addEventListener('pointermove',move); h.addEventListener('pointerup',up); h.addEventListener('pointercancel',up);
+      });
+    });
+  })();
   bg.querySelectorAll('.ds-thumb').forEach(t=>{ t.onclick=()=>{ const u=t.getAttribute('data-url'); if(imgSel.has(u)){imgSel.delete(u);t.classList.remove('sel');} else {imgSel.add(u);t.classList.add('sel');} }; });
   bg.querySelector('#dsCancel').onclick=()=>bg.remove();
   bg.querySelector('#dsPrint').onclick=()=>{
     const chosen={brief:false,full:false,specs:false,params:false};
     bg.querySelectorAll('input[data-sec]').forEach(cb=>{ chosen[cb.getAttribute('data-sec')]=cb.checked; });
     const specSel=[]; bg.querySelectorAll('input[data-spec]').forEach(cb=>{ if(cb.checked) specSel.push(parseInt(cb.getAttribute('data-spec'),10)); });
-    const paramSel=[]; bg.querySelectorAll('input[data-param]').forEach(cb=>{ if(cb.checked) paramSel.push(cb.getAttribute('data-param')); });
+    const paramSel=[], paramOrder=[], paramLabels={};
+    const _tkFn=(typeof transKey==='function')?transKey:(x=>x);
+    bg.querySelectorAll('#dsParamList .ds-prow').forEach(row=>{
+      const k=row.getAttribute('data-param'); if(!k) return;
+      paramOrder.push(k);
+      const chk=row.querySelector('.ds-pchk'); if(chk&&chk.checked) paramSel.push(k);
+      const lab=row.querySelector('.ds-plabel'); if(lab){ const v=(lab.value||'').trim(); if(v && v!==_tkFn(k)) paramLabels[k]=v; }
+    });
     const imgsOut=imgs.filter(u=>imgSel.has(u));
     const _eanCb=bg.querySelector('#dsShowEan');
     const showEan = _eanCb ? _eanCb.checked : (cfg.showEan!==undefined?cfg.showEan:true);
     const _codeCb=bg.querySelector('#dsShowCode');
     const showCode = _codeCb ? _codeCb.checked : (cfg.showCode!==undefined?cfg.showCode:true);
-    const outCfg={ sec:chosen, specSel, paramSel, imgs:imgsOut, showEan, showCode };
+    const outCfg={ sec:chosen, specSel, paramSel, paramOrder, paramLabels, imgs:imgsOut, showEan, showCode };
     saveDatasheetCfg(code,outCfg);
     bg.remove(); printDatasheet(prod,outCfg);
   };
@@ -31479,10 +31533,9 @@ function buildDatasheetHtml(prod,cfg){
     }
   }
   if(sec.params){
-    let keys=_dsParamKeys(params);
+    let keys=_dsOrderedParamKeys(params, cfg);
     if(Array.isArray(cfg.paramSel)) keys=keys.filter(k=>cfg.paramSel.includes(k));
-    const tk=(typeof transKey==='function')?transKey:(k=>k);
-    let rows=''; keys.forEach(k=>{ rows+='<tr><td class="k">'+esc(tk(k))+'</td><td class="v">'+esc(String(params[k]))+'</td></tr>'; });
+    let rows=''; keys.forEach(k=>{ rows+='<tr><td class="k">'+esc(_dsLabel(k,cfg))+'</td><td class="v">'+esc(String(params[k]))+'</td></tr>'; });
     if(rows) body+=section('Parametri tecnici','<table class="st-tab">'+rows+'</table>');
   }
   if(!body) body='<div class="st-text" style="color:#888;padding:20px 0">Nessuna sezione selezionata o nessun dato disponibile.</div>';
@@ -31651,10 +31704,9 @@ async function exportDatasheetPdfNative(prod, cfg, options){
       }
     }
     if(sec.params){
-      // ordine di INSERIMENTO (come la vista prodotto), niente riordino alfabetico
-      let keys=_dsParamKeys(params); if(Array.isArray(cfg.paramSel)) keys=keys.filter(k=>cfg.paramSel.includes(k));
-      const tk=(typeof transKey==='function')?transKey:(k=>k);
-      if(keys.length){ secTitle('Parametri tecnici'); kvTable(keys.map(k=>[tk(k), String(params[k])])); }
+      // ordine personalizzato per prodotto (cfg.paramOrder) o, in mancanza, di INSERIMENTO; etichette custom (cfg.paramLabels)
+      let keys=_dsOrderedParamKeys(params, cfg); if(Array.isArray(cfg.paramSel)) keys=keys.filter(k=>cfg.paramSel.includes(k));
+      if(keys.length){ secTitle('Parametri tecnici'); kvTable(keys.map(k=>[_dsLabel(k,cfg), String(params[k])])); }
     }
 
     // footer rosso su OGNI pagina
