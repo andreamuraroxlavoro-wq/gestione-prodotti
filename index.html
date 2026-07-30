@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.453 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.454 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10465,7 +10465,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.453</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.454</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11150,7 +11150,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.453 mobile");
+console.info("[bootstrap] script avvio — SV2.10.454 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12646,7 +12646,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.453';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.454';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31417,7 +31417,7 @@ function _dsSpecItems(html){
       const cells=tr.querySelectorAll('td,th');
       if(cells.length>=2){
         const key=cells[0].textContent.trim();
-        const val=Array.from(cells).slice(1).map(c=>c.textContent.trim()).filter(Boolean).join(' — ').trim();
+        const val=Array.from(cells).slice(1).map(c=>_dsHtmlToText(c.innerHTML)).filter(Boolean).join(' — ').trim();
         if(key||val) items.push({kv:true, key, value:val});
       } else if(cells.length===1){ const t=cells[0].textContent.trim(); if(t) items.push({kv:false,label:t,html:'<div>'+escapeHtml(t)+'</div>'}); }
     });
@@ -31750,8 +31750,24 @@ async function exportDatasheetPdfNative(prod, cfg, options){
     function bodyText(html){
       const txt=_dsHtmlToText(html); if(!txt) return;
       doc.setTextColor(34,34,34); doc.setFont('helvetica','normal'); doc.setFontSize(10);
-      const lines=doc.splitTextToSize(txt, PW-2*M);
-      lines.forEach(ln=>{ ensure(13); doc.text(ln, M, y); y+=13; });
+      const W=PW-2*M;
+      txt.split('\n').forEach(para=>{
+        const t=para.trim(); if(!t){ y+=6; return; }
+        const lines=doc.splitTextToSize(t, W);
+        lines.forEach((ln,idx)=>{
+          ensure(13);
+          const words=ln.split(/\s+/).filter(Boolean);
+          const isLast=(idx===lines.length-1);
+          if(isLast || words.length<2){ doc.text(ln, M, y); }
+          else {
+            const wordsW=words.reduce((sum,w)=>sum+doc.getTextWidth(w),0);
+            const gap=(W-wordsW)/(words.length-1);
+            let x=M;
+            words.forEach(w=>{ doc.text(w, x, y); x+=doc.getTextWidth(w)+gap; });
+          }
+          y+=13;
+        });
+      });
       y+=10;
     }
     function kvTable(rows){
@@ -31769,7 +31785,10 @@ async function exportDatasheetPdfNative(prod, cfg, options){
       if(Array.isArray(cfg.specSel)) items=items.filter(it=>cfg.specSel.includes(it._i));
       if(items.length){
         secTitle('Specifiche');
-        const rows = items.every(it=>it.kv) ? items.map(it=>[it.key, it.value]) : items.map(it=> it.kv ? [it.key, it.value] : ['', it.label]);
+        const rows = items.map(it=> it.kv
+          ? [ it.key, it.value ]
+          : [ { content: it.label, colSpan:2, styles:{ fontStyle:'bold', fillColor:[240,240,240], textColor:[17,17,17], halign:'left' } } ]
+        );
         kvTable(rows);
       }
     }
