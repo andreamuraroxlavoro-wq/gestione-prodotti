@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.461 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.462 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5325,6 +5325,109 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
   color:#fff;
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   SV2.10.462 — MODIFICA RAPIDA DALL'ANTEPRIMA
+   La modalita' modifica ridisegna le stesse colonne partendo dai valori
+   GREZZI (niente evidenziazione ricerca, niente stripBrandPrefix, niente
+   normalizeSpecsHtml, niente wrapper nohl): quello che si vede e' esattamente
+   quello che verra' salvato.
+   ════════════════════════════════════════════════════════════════════════ */
+.hover-preview-panel .hp-edit-btn,
+.hover-preview-panel .hp-save-btn,
+.hover-preview-panel .hp-cancel-btn{
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.5px;
+  padding:7px 16px;
+  border-radius:18px;
+  border:1px solid var(--border);
+  background:var(--bg2);
+  color:var(--fg);
+  cursor:pointer;
+  font-family:inherit;
+  line-height:1.3;
+  white-space:nowrap;
+  box-shadow:0 1px 3px rgba(0,0,0,0.18);
+  transition:background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.hover-preview-panel .hp-edit-btn:hover{
+  background:rgba(59,130,246,0.12); border-color:#3B82F6; color:#3B82F6; transform:scale(1.04);
+}
+.hover-preview-panel .hp-save-btn{
+  background:#22c55e; border-color:#22c55e; color:#fff;
+}
+.hover-preview-panel .hp-save-btn:hover{ background:#16a34a; border-color:#16a34a; }
+.hover-preview-panel .hp-cancel-btn:hover{
+  background:rgba(239,68,68,0.12); border-color:#ef4444; color:#ef4444;
+}
+/* Campi editabili: stesso ingombro del testo in sola lettura */
+.hover-preview-panel .hp-ed-inp,
+.hover-preview-panel .hp-ed-area{
+  width:100%;
+  box-sizing:border-box;
+  font-family:inherit;
+  font-size:12px;
+  line-height:1.4;
+  color:var(--fg);
+  background:var(--bg);
+  border:1px solid var(--border2);
+  border-radius:5px;
+  padding:5px 7px;
+  cursor:text;
+}
+.hover-preview-panel .hp-ed-area{ resize:vertical; min-height:72px; }
+.hover-preview-panel .hp-ed-inp:focus,
+.hover-preview-panel .hp-ed-area:focus,
+.hover-preview-panel .hp-ed-wys:focus{ outline:none; border-color:#3B82F6; }
+.hover-preview-panel .hp-ed-inp[readonly]{ opacity:0.65; cursor:not-allowed; }
+/* Blocco WYSIWYG per descrizione completa e specifiche (HTML preservato) */
+.hover-preview-panel .hp-ed-wys{
+  min-height:110px;
+  max-height:340px;
+  overflow:auto;
+  background:var(--bg);
+  border:1px solid var(--border2);
+  border-radius:5px;
+  padding:6px 8px;
+  cursor:text;
+  font-size:12px;
+  line-height:1.45;
+}
+.hover-preview-panel .hp-ed-wys table{ width:100%; border-collapse:collapse; }
+.hover-preview-panel .hp-ed-wys td{ border:1px solid var(--border); padding:3px 5px; vertical-align:top; }
+/* Intestazione in modifica */
+.hover-preview-panel .hp-ed-head{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px 12px; }
+.hover-preview-panel .hp-ed-lab{
+  display:block; font-size:10px; font-weight:700; letter-spacing:0.6px;
+  text-transform:uppercase; color:var(--fg2); margin-bottom:3px;
+}
+/* Righe parametri: maniglia + etichetta + valore + elimina */
+.hover-preview-panel .hp-prow{
+  display:grid;
+  grid-template-columns:auto minmax(0,1.2fr) minmax(0,1fr) auto;
+  gap:6px;
+  align-items:center;
+  padding:3px 0;
+}
+.hover-preview-panel .hp-pdrag{
+  cursor:grab; color:var(--fg3,var(--fg2)); font-size:13px; padding:0 2px; user-select:none; touch-action:none;
+}
+.hover-preview-panel .hp-pdel{
+  width:24px; height:24px; flex:0 0 24px; padding:0; line-height:1;
+  border-radius:5px; border:1px solid var(--border); background:var(--bg2);
+  color:#ef4444; cursor:pointer; font-size:14px; font-family:inherit;
+}
+.hover-preview-panel .hp-pdel:hover{ background:rgba(239,68,68,0.14); border-color:#ef4444; }
+.hover-preview-panel .hp-padd{
+  margin-top:8px; width:100%; padding:6px 10px; border-radius:6px;
+  border:1px dashed var(--border2); background:transparent; color:var(--fg2);
+  cursor:pointer; font-family:inherit; font-size:12px; font-weight:600;
+}
+.hover-preview-panel .hp-padd:hover{ border-color:#3B82F6; color:#3B82F6; }
+.hover-preview-panel .hp-ed-hint{
+  font-size:10px; color:var(--fg2); margin-top:6px; line-height:1.4;
+}
+
 /* V2.2.42: barra in alto al tooltip — toggle modalità centrato, CHIUDI a destra */
 .hover-preview-panel .hp-mode-bar{
   position:relative;            /* per ancorare il CHIUDI in absolute a destra */
@@ -10465,7 +10568,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.461</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.462</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11150,7 +11253,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.461 mobile");
+console.info("[bootstrap] script avvio — SV2.10.462 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12646,7 +12749,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.461';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.462';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -30589,7 +30692,8 @@ function buildHoverPreviewHtml(p, mode){
   const toggleBarHtml = `
     <div class="hp-mode-bar">
       ${modeToggleHtml}
-      <button type="button" class="hp-datasheet-btn" onclick="openDatasheetDialog(DATA[${p._idx}])" title="Genera la scheda tecnica stampabile di questo articolo">🖨️ Scheda Tecnica</button>
+      <button type="button" class="hp-edit-btn" onclick="_hpEnterEdit(${p._idx})" title="Modifica rapida di testi, etichette e valori di questo articolo">✏️ MODIFICA</button>
+      <button type="button" class="hp-datasheet-btn" onclick="openDatasheetDialog(_hpProd(${p._idx}))" title="Genera la scheda tecnica stampabile di questo articolo">🖨️ Scheda Tecnica</button>
       <button type="button" class="hp-close-btn" onclick="closeHoverPreview(true)" title="Chiudi anteprima">
         ✕ CHIUDI
       </button>
@@ -30742,6 +30846,325 @@ function buildHoverPreviewHtml(p, mode){
   return headHtml + bodyHtml;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   SV2.10.462 — MODIFICA RAPIDA DALL'ANTEPRIMA (pulsanti MODIFICA / SALVA)
+   ───────────────────────────────────────────────────────────────────────
+   Perche' NON si rende editabile il pannello esistente: buildHoverPreviewHtml
+   applica trasformazioni SOLO VISUALI (evidenziazione termini di ricerca,
+   stripBrandPrefix sulle descrizioni, normalizeSpecsHtml sulle specifiche,
+   wrapper .nohl sulle celle escluse dalla ricerca). Salvare il DOM renderizzato
+   scriverebbe nel database gli <mark>, le descrizioni private del prefisso
+   marca e le specifiche riscritte. Qui si ridisegnano quindi le stesse colonne
+   partendo dai valori GREZZI (getField/getParams), con input veri.
+   La persistenza riusa i canali gia' collaudati:
+     - importati → CURRENT_EDIT + saveEdit()  (diff, EDITS, datasheetCfg 460,
+       IndexedDB, Drive delta, search hay)
+     - personali → personalProductUpdate()    (_personalProductsPersist)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// Stato della modifica rapida: null = anteprima in sola lettura.
+let _HP_EDIT = null;   // { idx, params:{k:v}, labels:{k:etichetta} }
+
+// SV2.10.462: risolutore robusto del prodotto dall'indice logico.
+// Il sottosistema anteprima passava _idx a funzioni che facevano DATA[idx]
+// (posizione nell'array): coincidono finche' non si eliminano definitivamente
+// dei prodotti scatalogati, dopodiche' l'array si compatta ma gli _idx restano
+// e si apriva l'articolo SBAGLIATO. Si cerca per _idx e si ripiega sulla
+// posizione solo se la ricerca fallisce.
+function _hpProd(idx){
+  if(!Array.isArray(DATA)) return null;
+  const byId = DATA.find(x => x && x._idx === idx);
+  if(byId) return byId;
+  return DATA[idx] || null;
+}
+
+// Genera una chiave interna univoca per un parametro aggiunto a mano.
+// La chiave resta tecnica (usata dalla ricerca e dai filtri); l'etichetta
+// digitata dall'utente viene salvata a parte in paramLabels.
+function _hpSlugKey(label, taken){
+  let base = String(label || '').trim().toLowerCase();
+  try { base = base.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch(_){}
+  base = base.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  if(!base) base = 'parametro';
+  let k = base, i = 2;
+  while(taken.has(k)) k = base + '_' + (i++);
+  return k;
+}
+
+// Entra in modifica: congela i parametri correnti nello stato locale e
+// ridisegna il pannello in versione editabile.
+function _hpEnterEdit(idx){
+  const hp = window._hoverPreview;
+  if(!hp || !hp.panel) return;
+  const p = _hpProd(idx);
+  if(!p){ if(typeof toast==='function') toast('Prodotto non trovato', 'err'); return; }
+  if(hp.closeTimer){ clearTimeout(hp.closeTimer); hp.closeTimer = null; }
+  // La modifica lavora sempre sui valori correnti (mai sulla vista "originali")
+  hp.mode = 'edited';
+  const src = getParams(p) || {};
+  const params = {}, labels = {};
+  Object.keys(src).forEach(k => {
+    params[k] = src[k];
+    labels[k] = prodParamLabel(p, k);
+  });
+  _HP_EDIT = { idx, params, labels, fresh: new Set() };
+  hp.panel.innerHTML = buildHoverPreviewEditHtml(p);
+  _hpInitParamSort();
+}
+
+// Esce dalla modifica scartando tutto e torna alla sola lettura.
+function _hpCancelEdit(){
+  const hp = window._hoverPreview;
+  const idx = _HP_EDIT ? _HP_EDIT.idx : null;
+  _HP_EDIT = null;
+  if(hp && hp.panel && idx != null){
+    const p = _hpProd(idx);
+    if(p) hp.panel.innerHTML = buildHoverPreviewHtml(p, 'edited');
+  }
+}
+
+// Legge lo stato dei campi parametro dal DOM, nell'ORDINE attuale delle righe
+// (cosi' un riordino via drag&drop viene recepito insieme a valori ed etichette).
+function _hpSyncParamInputs(){
+  if(!_HP_EDIT) return;
+  const list = document.getElementById('hpParamList');
+  if(!list) return;
+  const params = {}, labels = {};
+  list.querySelectorAll('.hp-prow').forEach(row => {
+    const k = row.getAttribute('data-pk');
+    if(!k) return;
+    const li = row.querySelector('.hp-plabel');
+    const vi = row.querySelector('.hp-pval');
+    params[k] = vi ? vi.value : (_HP_EDIT.params[k] || '');
+    labels[k] = li ? li.value.trim() : (_HP_EDIT.labels[k] || '');
+  });
+  _HP_EDIT.params = params;
+  _HP_EDIT.labels = labels;
+}
+
+function _hpParamRowsHtml(){
+  if(!_HP_EDIT) return '';
+  return Object.keys(_HP_EDIT.params).map(k => {
+    const lab = _HP_EDIT.labels[k] != null ? _HP_EDIT.labels[k] : k;
+    const val = _HP_EDIT.params[k] != null ? _HP_EDIT.params[k] : '';
+    return `
+      <div class="hp-prow" data-pk="${escapeAttr(k)}">
+        <span class="hp-pdrag" title="Trascina per riordinare">⠿</span>
+        <input class="hp-ed-inp hp-plabel" value="${escapeAttr(String(lab))}" title="Etichetta visualizzata (chiave interna: ${escapeAttr(k)})">
+        <input class="hp-ed-inp hp-pval" value="${escapeAttr(String(val))}" title="Valore">
+        <button type="button" class="hp-pdel" title="Elimina parametro" onclick="_hpDelParam('${escapeAttr(k)}')">×</button>
+      </div>`;
+  }).join('');
+}
+
+function _hpRenderParamRows(){
+  const list = document.getElementById('hpParamList');
+  if(!list) return;
+  list.innerHTML = _hpParamRowsHtml();
+  _hpInitParamSort();
+}
+
+// Riordino con lo stesso motore drag&drop dell'editor (modello segnaposto).
+function _hpInitParamSort(){
+  const list = document.getElementById('hpParamList');
+  if(!list || typeof makeSortable !== 'function') return;
+  makeSortable(list, {
+    handleSel: '.hp-pdrag',
+    rowSel: '.hp-prow',
+    onDrop: () => { _hpSyncParamInputs(); }
+  });
+}
+
+function _hpAddParam(){
+  if(!_HP_EDIT) return;
+  _hpSyncParamInputs();
+  const taken = new Set(Object.keys(_HP_EDIT.params));
+  const k = _hpSlugKey('nuovo parametro', taken);
+  _HP_EDIT.params[k] = '';
+  _HP_EDIT.labels[k] = 'Nuovo parametro';
+  // Segno la riga come appena creata: alla conferma la chiave interna verra'
+  // ricavata dall'etichetta effettivamente digitata (vedi _hpRekeyFresh).
+  if(_HP_EDIT.fresh) _HP_EDIT.fresh.add(k);
+  _hpRenderParamRows();
+  const list = document.getElementById('hpParamList');
+  const last = list ? list.querySelector('.hp-prow:last-child .hp-plabel') : null;
+  if(last){ last.focus(); last.select(); }
+}
+
+function _hpDelParam(key){
+  if(!_HP_EDIT) return;
+  _hpSyncParamInputs();
+  delete _HP_EDIT.params[key];
+  delete _HP_EDIT.labels[key];
+  _hpRenderParamRows();
+}
+
+// I parametri aggiunti a mano nascono con una chiave segnaposto; al salvataggio
+// la chiave interna viene ricavata dall'etichetta digitata, cosi' il dato resta
+// leggibile anche a livello di database e nell'export CSV.
+function _hpRekeyFresh(){
+  if(!_HP_EDIT || !_HP_EDIT.fresh || !_HP_EDIT.fresh.size) return;
+  const oldKeys = Object.keys(_HP_EDIT.params);
+  const taken = new Set(oldKeys.filter(k => !_HP_EDIT.fresh.has(k)));
+  const params = {}, labels = {};
+  oldKeys.forEach(k => {
+    let nk = k;
+    if(_HP_EDIT.fresh.has(k)){
+      const lab = String(_HP_EDIT.labels[k] || '').trim();
+      if(lab && lab.toLowerCase() !== 'nuovo parametro') nk = _hpSlugKey(lab, taken);
+    }
+    taken.add(nk);
+    params[nk] = _HP_EDIT.params[k];
+    labels[nk] = _HP_EDIT.labels[k];
+  });
+  _HP_EDIT.params = params;
+  _HP_EDIT.labels = labels;
+}
+
+// Costruisce il pannello in modalita' modifica: stesso layout della sola
+// lettura, ma ogni campo e' un input popolato col valore GREZZO salvato.
+function buildHoverPreviewEditHtml(p){
+  const isPers = p.isPersonal === true;
+  const f = (k) => { const v = getField(p, k); return v == null ? '' : String(v); };
+
+  const barHtml = `
+    <div class="hp-mode-bar">
+      <button type="button" class="hp-save-btn" onclick="_hpSaveEdit()" title="Salva le modifiche">💾 SALVA</button>
+      <button type="button" class="hp-cancel-btn" onclick="_hpCancelEdit()" style="margin-left:8px" title="Annulla e torna all'anteprima">✕ ANNULLA</button>
+    </div>`;
+
+  const eanField = isPers
+    ? `<input class="hp-ed-inp" value="${escapeAttr(f('ean'))}" readonly title="L'EAN non è modificabile sui prodotti personali">`
+    : `<input class="hp-ed-inp" data-f="ean" value="${escapeAttr(f('ean'))}">`;
+
+  const headHtml = `
+    <div class="hp-head" style="display:block">
+      <div class="hp-ed-head">
+        <div><span class="hp-ed-lab">Codice</span><input class="hp-ed-inp" data-f="name" value="${escapeAttr(f('name'))}"></div>
+        <div><span class="hp-ed-lab">Marca</span><input class="hp-ed-inp" data-f="brand" value="${escapeAttr(f('brand'))}"></div>
+        <div><span class="hp-ed-lab">Categoria</span><input class="hp-ed-inp" data-f="category" value="${escapeAttr(f('category'))}"></div>
+        <div><span class="hp-ed-lab">EAN</span>${eanField}</div>
+        <div><span class="hp-ed-lab">Listino €</span><input class="hp-ed-inp" data-f="PVP" value="${escapeAttr(f('PVP'))}"></div>
+        <div><span class="hp-ed-lab">Immagine (path/URL)</span><input class="hp-ed-inp" data-f="image_path" value="${escapeAttr(f('image_path'))}"></div>
+      </div>
+    </div>`;
+
+  const buildCol = (key) => {
+    if(key === 'short'){
+      return { title: 'Descrizione breve', html:
+        `<textarea class="hp-ed-area" data-f="short_description">${escapeHtml(f('short_description'))}</textarea>` };
+    }
+    if(key === 'full'){
+      return { title: 'Descrizione completa', html:
+        `<div class="hp-ed-wys" data-f="description" contenteditable="true">${sanitizeHtml(f('description'))}</div>
+         <div class="hp-ed-hint">Testo formattato: elenchi e grassetti si modificano direttamente qui.</div>` };
+    }
+    if(key === 'specs'){
+      return { title: 'Specifiche', html:
+        `<div class="hp-ed-wys" data-f="specifications" contenteditable="true">${sanitizeHtml(f('specifications'))}</div>
+         <div class="hp-ed-hint">Le celle della tabella si modificano direttamente; la struttura viene conservata.</div>` };
+    }
+    if(key === 'params'){
+      return { title: 'Parametri tecnici', html:
+        `<div id="hpParamList">${_hpParamRowsHtml()}</div>
+         <button type="button" class="hp-padd" onclick="_hpAddParam()">＋ Aggiungi parametro</button>
+         <div class="hp-ed-hint">Trascina ⠿ per riordinare. Rinominare cambia solo l'etichetta mostrata: la chiave interna resta invariata e la ricerca non cambia.</div>` };
+    }
+    return null;
+  };
+
+  const order = (SETTINGS.previewColsOrder && SETTINGS.previewColsOrder.length > 0)
+    ? SETTINGS.previewColsOrder
+    : ['short', 'full', 'specs', 'params'];
+  const colDefs = [];
+  order.forEach(key => {
+    if(SETTINGS.previewCols && SETTINGS.previewCols[key]){
+      const col = buildCol(key);
+      if(col) colDefs.push(col);
+    }
+  });
+  let bodyHtml = '';
+  if(colDefs.length > 0){
+    const colsInnerHtml = colDefs.map((col, i) => {
+      const borderClass = (i < colDefs.length - 1) ? ' hp-col-bordered' : '';
+      return `
+        <div class="hp-col${borderClass}">
+          <div class="hp-section-title">${escapeHtml(col.title)}</div>
+          <div class="hp-col-content">${col.html}</div>
+        </div>`;
+    }).join('');
+    bodyHtml = `<div class="hp-body-cols" data-n="${colDefs.length}">${colsInnerHtml}</div>`;
+  }
+  return barHtml + headHtml + bodyHtml;
+}
+
+// Salvataggio: raccoglie i campi grezzi e delega ai canali di persistenza
+// gia' esistenti (nessuna nuova via di scrittura).
+async function _hpSaveEdit(){
+  if(!_HP_EDIT) return;
+  const idx = _HP_EDIT.idx;
+  const p = _hpProd(idx);
+  if(!p){ if(typeof toast==='function') toast('Prodotto non trovato', 'err'); return; }
+  const hp = window._hoverPreview;
+  const panel = hp && hp.panel;
+  if(!panel) return;
+  _hpSyncParamInputs();
+  _hpRekeyFresh();
+
+  const readF = (name) => {
+    const el = panel.querySelector('[data-f="' + name + '"]');
+    if(!el) return undefined;
+    if(el.isContentEditable) return el.innerHTML.trim();
+    return el.value.trim();
+  };
+  const upd = {};
+  ['name','brand','category','ean','PVP','image_path','short_description','description','specifications']
+    .forEach(k => { const v = readF(k); if(v !== undefined) upd[k] = v; });
+
+  if(!String(upd.name || '').trim()){
+    if(typeof toast==='function') toast('Il codice articolo non può essere vuoto', 'err');
+    return;
+  }
+
+  upd.params = JSON.parse(JSON.stringify(_HP_EDIT.params));
+  // Etichette: si salvano solo quelle davvero personalizzate (diverse dalla
+  // traduzione di default), cosi' non si gonfia EDITS con dati ridondanti.
+  const labels = {};
+  Object.keys(_HP_EDIT.labels).forEach(k => {
+    const L = String(_HP_EDIT.labels[k] || '').trim();
+    if(L && L !== transKey(k)) labels[k] = L;
+  });
+  upd.paramLabels = labels;
+
+  try {
+    if(p.isPersonal === true){
+      const arrIdx = DATA.indexOf(p);
+      if(arrIdx < 0) throw new Error('Prodotto personale non trovato in DATA');
+      personalProductUpdate(arrIdx, upd);
+      if(typeof buildSearchHay === 'function') buildSearchHay(p);
+      if(typeof render === 'function') render();
+      if(typeof toast === 'function') toast('Modifiche salvate', 'ok');
+    } else {
+      const data = _buildEditedEditorData(p);
+      Object.assign(data, upd);
+      CURRENT_EDIT = { idx, data, original: p, previewOriginal: false };
+      await saveEdit();   // diff + EDITS + datasheetCfg + IDB + Drive + toast
+    }
+  } catch(e){
+    console.error('[hp-edit] salvataggio fallito', e);
+    if(typeof toast === 'function') toast('Errore: ' + (e.message || e), 'err', 5000);
+    return;
+  }
+
+  _HP_EDIT = null;
+  const hp2 = window._hoverPreview;
+  if(hp2 && hp2.panel && document.body.contains(hp2.panel)){
+    hp2.mode = 'edited';
+    const fresh = _hpProd(idx) || p;
+    hp2.panel.innerHTML = buildHoverPreviewHtml(fresh, 'edited');
+  }
+}
+
 // V2.2.42: toggle modalità tooltip — chiamato dal pulsante "Visualizza Originale"
 // nell'header del tooltip. Alterna 'edited' ↔ 'original' e ricostruisce il contenuto.
 // Mantiene il pannello aperto (no flicker, no riposizionamento).
@@ -30752,7 +31175,7 @@ function _hpToggleMode(event, productIdx){
   }
   const hp = window._hoverPreview;
   if(!hp || !hp.panel) return;
-  const p = DATA[productIdx];
+  const p = _hpProd(productIdx);
   if(!p) return;
   // Cancella eventuali timer di chiusura — il click sul toggle è interazione attiva.
   if(hp.closeTimer){
@@ -30766,7 +31189,10 @@ function _hpToggleMode(event, productIdx){
 
 // Mostra il tooltip posizionandolo vicino all'immagine, dentro il viewport.
 function showHoverPreview(imgEl, productIdx, mouseX, mouseY){
-  const p = DATA[productIdx];
+  // SV2.10.462: se e' in corso una modifica rapida non salvata, non si apre
+  // un'altra anteprima sopra (si conclude prima con SALVA o ANNULLA).
+  if(typeof _HP_EDIT !== 'undefined' && _HP_EDIT) return;
+  const p = _hpProd(productIdx);
   if(!p) return;
 
   // Se la funzione tooltip è completamente disabilitata dall'utente in Impostazioni,
@@ -30875,6 +31301,11 @@ function showHoverPreview(imgEl, productIdx, mouseX, mouseY){
 // e la chiusura è solo un passaggio tecnico, non l'effettiva uscita dal prodotto).
 function closeHoverPreview(immediate, skipViewedTimer){
   const hp = window._hoverPreview;
+  // SV2.10.462: con una modifica rapida aperta la chiusura AUTOMATICA (uscita
+  // del mouse, timer) viene ignorata, cosi' il lavoro non salvato non sparisce
+  // sotto le mani. Una chiusura deliberata (immediate) passa e scarta lo stato.
+  if(typeof _HP_EDIT !== 'undefined' && _HP_EDIT && hp && hp.panel && !immediate) return;
+  if(typeof _HP_EDIT !== 'undefined' && _HP_EDIT) _HP_EDIT = null;
   if(hp.timer){ clearTimeout(hp.timer); hp.timer = null; }
   if(hp.closeTimer){ clearTimeout(hp.closeTimer); hp.closeTimer = null; }
   // Se il tooltip era aperto su un prodotto, ora è il momento di avviare
