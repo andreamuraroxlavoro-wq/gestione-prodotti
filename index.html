@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.469 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.470 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5922,14 +5922,19 @@ body.theme-light .card-disc-badge.is-sale.is-margin-capped{
   font-size:14px; font-weight:800;
   letter-spacing:0.2px;
   font-family:-apple-system, 'SF Pro Text', 'Segoe UI', sans-serif;
-  background:#8b5cf6;   /* viola */
-  color:#fff;
+  /* SV2.10.470: MARGINE = verde chiaro con cifra verde scuro (contrasto ~9:1)
+     e segno sempre esplicito. RICARICO mantiene il viola: colori diversi cosi'
+     si capisce a colpo d'occhio QUALE delle due letture si sta guardando. */
+  background:#BBF7D0;
+  color:#064E3B;
   box-shadow:0 2px 6px rgba(0,0,0,0.28);
   pointer-events:none;
   user-select:none;
   white-space:nowrap;
 }
-body.theme-light .card-margin-badge{ background:#7c3aed; }
+body.theme-light .card-margin-badge{ background:#BBF7D0; color:#064E3B; }
+.card-margin-badge.is-ricarico{ background:#8b5cf6; color:#fff; }
+body.theme-light .card-margin-badge.is-ricarico{ background:#7c3aed; color:#fff; }
 /* Quando è presente il badge sconto, le indicazioni di stato (MODIFICATO, NUOVO,
    SCATALOGATO, SERVIZIO, PERSONALE) scendono SOTTO per non sovrapporsi al badge. */
 .card.has-disc-badge .card-state-badge{ top:40px; }
@@ -10597,7 +10602,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.469</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.470</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10981,7 +10986,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
            Indipendente dall'occhio: mostra/nasconde lo sconto sia in modalità Acquisto
            che Vendita. Icona "%". Stato gestito da updateDiscBadgeButton(). -->
       <div class="disc-badge-wrap">
-        <button class="btn icon-btn" id="btnDiscBadge" onclick="toggleDiscountBadge()" title="Mostra/nascondi la pillola sconto sulle card" aria-label="Toggle pillola sconto">
+        <button class="btn icon-btn" id="btnDiscBadge" onclick="toggleDiscountBadge()" title="Mostra/nascondi la pillola sconto sulle card · doppio clic: alterna Margine / Ricarico" aria-label="Toggle pillola sconto">
           <svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
         </button>
         <!-- SV2.10.405: freccia-menu per l'ordinamento degli articoli -->
@@ -11282,7 +11287,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.469 mobile");
+console.info("[bootstrap] script avvio — SV2.10.470 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12778,7 +12783,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.469';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.470';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -29946,13 +29951,20 @@ function renderGallery(main, list){
           const _prezzoVendM = priceNum(listino) * (1 - _saleInfoAcq.scontoEff / 100);
           const _acqNettoM = (_eff && _eff.hasAdj) ? effNetto : priceNum(netto);
           if(_prezzoVendM > 0 && _acqNettoM != null && _acqNettoM > 0){
+            // SV2.10.470: la stessa pillola mostra MARGINE (default) oppure
+            // RICARICO, secondo SETTINGS.cardMetric (doppio clic sul pulsante %).
+            const _isRicarico = (SETTINGS.cardMetric === 'ricarico');
             const _marginePct = (_prezzoVendM - _acqNettoM) / _prezzoVendM * 100;
-            const _segnoM = _marginePct > 0 ? '+' : '';
-            const _mTip = 'Margine sul listino Cliente attivo'
+            const _ricaricoPct = (_prezzoVendM - _acqNettoM) / _acqNettoM * 100;
+            const _valPct = _isRicarico ? _ricaricoPct : _marginePct;
+            const _segnoM = _valPct > 0 ? '+' : '';
+            const _mTip = (_isRicarico ? 'Ricarico sul listino Cliente attivo' : 'Margine sul listino Cliente attivo')
               + '\nPrezzo di vendita: € ' + fmtPrice(_prezzoVendM)
               + '\nPrezzo di acquisto: € ' + fmtPrice(_acqNettoM)
-              + '\nMargine: ' + _segnoM + fmtDiscount(_marginePct);
-            marginBadge = `<span class="card-margin-badge" title="${escapeAttr(_mTip)}">${_segnoM}${fmtDiscount(_marginePct)}</span>`;
+              + '\nMargine (su vendita): ' + (_marginePct > 0 ? '+' : '') + fmtDiscount(_marginePct)
+              + '\nRicarico (su acquisto): ' + (_ricaricoPct > 0 ? '+' : '') + fmtDiscount(_ricaricoPct)
+              + '\n\nDoppio clic sul pulsante % per alternare le due letture.';
+            marginBadge = `<span class="card-margin-badge${_isRicarico ? ' is-ricarico' : ''}" title="${escapeAttr(_mTip)}">${_segnoM}${fmtDiscount(_valPct)}</span>`;
             card.classList.add('has-margin-badge');
           }
         }
@@ -36144,11 +36156,45 @@ function updateEyeButton(){
 /* SV2.10.367: toggle dedicato per la PILLOLA SCONTO (badge "%" in alto sulle card).
    Indipendente dall'occhio (showDiscount): controlla SOLO la visibilità della pillola
    sconto, sia in modalità Acquisto sia in modalità Vendita. */
+// SV2.10.470: il doppio clic si riconosce QUI e non con un handler ondblclick.
+// Motivo: il primo clic chiama render(), che ricostruisce la toolbar e sostituisce
+// il nodo del pulsante — l'evento dblclick non arriverebbe mai all'elemento
+// originale. Confronto invece la distanza tra due clic consecutivi.
+let _DISC_LAST_CLICK = 0;
 function toggleDiscountBadge(){
+  const now = Date.now();
+  if(now - _DISC_LAST_CLICK < 400){
+    // Secondo clic ravvicinato: annullo l'effetto del primo (toggleCardMetric
+    // rimette la pillola visibile) e alterno Margine / Ricarico.
+    _DISC_LAST_CLICK = 0;
+    toggleCardMetric();
+    return;
+  }
+  _DISC_LAST_CLICK = now;
   SETTINGS.showDiscountBadge = !SETTINGS.showDiscountBadge;
   saveSettings();
   updateDiscBadgeButton();
   render();
+}
+
+/* SV2.10.470 — DOPPIO CLIC sul pulsante "%": alterna la terza pillola della card
+   tra MARGINE (verde chiaro) e RICARICO (viola). Sono due letture diverse dello
+   stesso affare: margine = (vendita − acquisto) / VENDITA, ricarico =
+   (vendita − acquisto) / ACQUISTO. Il doppio clic genera anche due click, che
+   si annullano fra loro sul toggle di visibilita'; qui forzo comunque la
+   pillola visibile, altrimenti l'utente cambierebbe metrica senza vederla. */
+function toggleCardMetric(ev){
+  if(ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+  SETTINGS.cardMetric = (SETTINGS.cardMetric === 'ricarico') ? 'margine' : 'ricarico';
+  SETTINGS.showDiscountBadge = true;
+  saveSettings();
+  updateDiscBadgeButton();
+  render();
+  if(typeof toast === 'function'){
+    toast(SETTINGS.cardMetric === 'ricarico'
+      ? 'Pillola RICARICO (viola) — sul prezzo di acquisto'
+      : 'Pillola MARGINE (verde) — sul prezzo di vendita', 'ok', 2200);
+  }
 }
 
 function updateDiscBadgeButton(){
