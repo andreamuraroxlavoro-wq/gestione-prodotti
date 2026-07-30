@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.465 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.467 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5835,6 +5835,18 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
 /* VENDITA: la pillola sconto usa lo stesso colore del prezzo di vendita (blu). */
 .card-disc-badge.is-sale{ background:#3b82f6; }
 body.theme-light .card-disc-badge.is-sale{ background:#2563eb; }
+/* SV2.10.467: sconto di vendita IMPOSTO DAL MARGINE MINIMO — il valore numerico
+   passa al verde acido (la pillola resta blu, cosi' si legge subito che e' un
+   valore ricalcolato e non quello configurato sul listino). */
+.card-disc-badge.is-margin-capped{ color:#D6FE51; }
+body.theme-light .card-disc-badge.is-margin-capped{ color:#D6FE51; }
+/* In vista tabella lo sfondo della pillola sconto e' una tinta chiara: il verde
+   acido da solo non si leggerebbe, quindi la pillola diventa scura e il numero
+   verde acido ci risalta sopra. */
+.card-discount.is-margin-capped{
+  color:#D6FE51 !important; font-weight:800;
+  background:#1f2937 !important; border-color:#1f2937 !important;
+}
 /* SV2.10.402: contenitore in alto a sinistra che affianca la pillola sconto d'acquisto
    (rossa) e quella dello sconto di vendita (blu) del listino attivo, in modalità acquisto.
    Le pillole al suo interno diventano statiche e si dispongono in fila. */
@@ -10572,7 +10584,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.465</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.467</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11257,7 +11269,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.465 mobile");
+console.info("[bootstrap] script avvio — SV2.10.467 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12753,7 +12765,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.465';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.467';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -29884,7 +29896,12 @@ function renderGallery(main, list){
       }
       if(_badgeDiscVal != null && _badgeDiscVal > 0){
         const _dTip = _isSaleMode ? 'Sconto di vendita' : 'Sconto d\'acquisto';
-        discBadge = `<span class="card-disc-badge${_isSaleMode ? ' is-sale' : ''}" title="${_dTip}: ${fmtDiscount(_badgeDiscVal)}">- ${fmtDiscount(_badgeDiscVal)}</span>`;
+        // SV2.10.467: sconto ricalcolato dal margine minimo → numero verde acido.
+        const _capped = !!(_isSaleMode && _saleInfo && _saleInfo.marginCapped);
+        const _capTip = _capped
+          ? ` — ricalcolato dal margine minimo imposto (${fmtDiscount(_saleInfo.scontoPre)} → ${fmtDiscount(_saleInfo.scontoEff)})`
+          : '';
+        discBadge = `<span class="card-disc-badge${_isSaleMode ? ' is-sale' : ''}${_capped ? ' is-margin-capped' : ''}" title="${_dTip}: ${fmtDiscount(_badgeDiscVal)}${escapeAttr(_capTip)}">- ${fmtDiscount(_badgeDiscVal)}</span>`;
         card.classList.add('has-disc-badge');
       }
     }
@@ -29893,7 +29910,12 @@ function renderGallery(main, list){
     // stesso toggle "%" (showDiscountBadge) della pillola sconto d'acquisto.
     let saleDiscBadge = '';
     if(!_isSaleMode && SETTINGS.showDiscountBadge && _saleInfoAcq && _saleInfoAcq.scontoEff != null && _saleInfoAcq.scontoEff > 0){
-      saleDiscBadge = `<span class="card-disc-badge is-sale" title="Sconto di vendita (listino Cliente attivo): ${fmtDiscount(_saleInfoAcq.scontoEff)}">- ${fmtDiscount(_saleInfoAcq.scontoEff)}</span>`;
+      // SV2.10.467: stesso trattamento verde acido se il valore e' imposto dal margine minimo.
+      const _cappedAcq = !!_saleInfoAcq.marginCapped;
+      const _capTipAcq = _cappedAcq
+        ? ` — ricalcolato dal margine minimo imposto (${fmtDiscount(_saleInfoAcq.scontoPre)} → ${fmtDiscount(_saleInfoAcq.scontoEff)})`
+        : '';
+      saleDiscBadge = `<span class="card-disc-badge is-sale${_cappedAcq ? ' is-margin-capped' : ''}" title="Sconto di vendita (listino Cliente attivo): ${fmtDiscount(_saleInfoAcq.scontoEff)}${escapeAttr(_capTipAcq)}">- ${fmtDiscount(_saleInfoAcq.scontoEff)}</span>`;
       card.classList.add('has-disc-badge');
     }
     // SV2.10.399: pillola MARGINE (viola) — SOLO in modalità ACQUISTO. Mostra il margine
@@ -30349,7 +30371,13 @@ function renderTable(main, list){
       let _vTipRow = _saleInfoRow.hasAdj
         ? `Sconto di vendita specifico (${escapeAttr(_saleInfoRow.adjPath || '')}) — base ${fmtDiscount(_saleInfoRow.scontoBase)} → applicato ${fmtDiscount(_saleInfoRow.scontoEff)}`
         : `Sconto di vendita base del listino: ${fmtDiscount(_saleInfoRow.scontoBase)}`;
-      const scontoTxt = `<span class="card-discount${_saleInfoRow.hasAdj ? ' card-discount-cascade' : ''}" style="font-size:11px">${_saleInfoRow.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span> ' : ''}Sc. ${fmtDiscount(_scV)}</span>`;
+      // SV2.10.467: anche in vista tabella il valore imposto dal margine minimo
+      // e' verde acido, per coerenza con la pillola delle card.
+      const _cappedRow = !!_saleInfoRow.marginCapped;
+      if(_cappedRow){
+        _vTipRow = `Sconto di vendita ricalcolato dal margine minimo imposto: ${fmtDiscount(_saleInfoRow.scontoPre)} → ${fmtDiscount(_saleInfoRow.scontoEff)}`;
+      }
+      const scontoTxt = `<span class="card-discount${_saleInfoRow.hasAdj ? ' card-discount-cascade' : ''}${_cappedRow ? ' is-margin-capped' : ''}" style="font-size:11px">${_saleInfoRow.hasAdj ? '<span class="card-cascade-badge" title="Sconto di vendita specifico applicato">★</span> ' : ''}Sc. ${fmtDiscount(_scV)}</span>`;
       // Ordine invariato: Listino | Sconto | Prezzo vendita (blu). SV2.10.352: Listino verde.
       priceCells = `
         <td style="color:var(--accent3);font-size:12px;font-weight:700">${listinoTxt}</td>
@@ -37512,12 +37540,20 @@ function _renderSplTreeEditor(){
             v.toFixed(1).replace('.', ',') + '%';
           // V2.10.263: input sconto vendita DEDICATO all'articolo.
           // Colore: arancio se dedicato, blu se ereditato, normale se base.
-          const artInpColor = artHasOwn ? '#f97316' : (artInherited ? '#3b82f6' : 'var(--fg)');
+          // SV2.10.466: se il margine minimo ha ricalcolato l'articolo, la
+          // colonna Sc. vend. lo dice a colpo d'occhio (ciano, come la riga).
+          const artInpColor = artCapped ? '#0891b2'
+            : (artHasOwn ? '#f97316' : (artInherited ? '#3b82f6' : 'var(--fg)'));
           const artInpVal = Number.isInteger(scVend) ? scVend
             : scVend.toFixed(2).replace(/\.?0+$/, '').replace('.', ',');
-          const artInpTitle = artHasOwn
-            ? 'Sconto dedicato a questo articolo. Svuotalo (o scrivi il valore ereditato) per tornare a ereditare.'
-            : 'Sconto di vendita ereditato. Scrivi un valore per impostarne uno dedicato a questo articolo.';
+          const artInpTitle = artCapped
+            ? ('Sconto RICALCOLATO dal margine minimo imposto: ' +
+               String(saleInfo.scontoPre).replace('.', ',') + '% \u2192 ' +
+               String(saleInfo.scontoEff).replace('.', ',') + '%. ' +
+               'È il valore realmente applicato al prezzo di vendita.')
+            : (artHasOwn
+              ? 'Sconto dedicato a questo articolo. Svuotalo (o scrivi il valore ereditato) per tornare a ereditare.'
+              : 'Sconto di vendita ereditato. Scrivi un valore per impostarne uno dedicato a questo articolo.');
           const artInputHtml =
             '<span onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;justify-content:flex-end;width:128px;gap:5px;overflow:hidden">' +
               '<span style="color:var(--fg3);font-size:10px;text-transform:uppercase;letter-spacing:.4px;flex:none">Sc. vend.</span>' +
@@ -37569,7 +37605,11 @@ function _renderSplTreeEditor(){
                     ? _col('Sc. acq.',
                         '<span style="color:' + scAcqColor + ';font-weight:700">' + _fmtPct(scAcq) + '</span>', 95)
                     : '') +
-                  (showMargin ? artInputHtml : '') +
+                  // SV2.10.466: colonna "Sc. vend." sempre presente (prima era
+                  // legata alla vista margini): sta tra LISTINO e PREZZO VEND.
+                  // ed e' il valore realmente applicato, gia' comprensivo
+                  // dell'eventuale ricalcolo per margine minimo.
+                  artInputHtml +
                   _col('Prezzo vend.',
                     '<span style="color:#3b82f6;font-weight:700">' + _fmtEur(prezzoVend) + '</span>', 130) +
                   (showMargin
