@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.451 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.453 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7207,6 +7207,8 @@ body.theme-light .wysiwyg-btn.wysiwyg-btn-delrow{
 .param-drag:active{cursor:grabbing}
 .param-row{position:relative}
 .param-row.dragging{opacity:.95;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.22);background:var(--card,#fff)}
+.sorting-drag{opacity:.97;box-shadow:0 10px 26px rgba(0,0,0,.30)}
+.sort-ph{border:2px dashed var(--accent);border-radius:8px;background:rgba(232,92,40,.12);box-sizing:border-box}
 .param-label{font-weight:700;border:1px solid transparent;border-radius:6px;padding:3px 5px;font-size:12px;background:var(--bg,rgba(0,0,0,.03));color:var(--fg);width:100%;box-sizing:border-box}
 .param-label:focus{outline:none;border-color:var(--accent);background:var(--card,#fff)}
 .param-del{
@@ -10463,7 +10465,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.451</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.453</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11148,7 +11150,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.451 mobile");
+console.info("[bootstrap] script avvio — SV2.10.453 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12644,7 +12646,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.451';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.453';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31347,47 +31349,61 @@ function prodParamLabel(p, k){
 }
 // drag&drop touch (pointer events) per una lista di .param-row dentro `container`;
 // al rilascio legge l'ordine DOM (data-pk) e chiama onReorder(keysInDomOrder)
-function _initParamSort(container, onReorder){
+function makeSortable(container, opts){
   if(!container) return;
-  container.querySelectorAll('.param-drag').forEach(h=>{
+  const rowSel=opts.rowSel, handleSel=opts.handleSel;
+  container.querySelectorAll(handleSel).forEach(h=>{
     h.addEventListener('pointerdown', function(e){
       if(e.button!=null && e.button!==0) return;
       e.preventDefault();
-      const dragEl=h.closest('.param-row'); if(!dragEl) return;
-      const rows=Array.prototype.slice.call(container.querySelectorAll('.param-row'));
-      const startIndex=rows.indexOf(dragEl);
-      if(startIndex<0) return;
-      const startY=e.clientY;
-      // centri verticali delle righe PRIMA del drag (dragEl non si sposta nel DOM durante il gesto)
-      const centers=rows.map(r=>{ const b=r.getBoundingClientRect(); return b.top+b.height/2; });
-      let targetIndex=startIndex;
-      dragEl.classList.add('dragging');
+      const dragEl=h.closest(rowSel); if(!dragEl) return;
+      const rowsBefore=Array.prototype.slice.call(container.querySelectorAll(rowSel));
+      if(rowsBefore.length<2) return;
+      const rect=dragEl.getBoundingClientRect();
+      const grabDY=e.clientY-rect.top;
+      // SEGNAPOSTO: mostra dove finira' la riga al rilascio
+      const ph=document.createElement('div');
+      ph.className='sort-ph';
+      ph.style.height=rect.height+'px';
+      dragEl.parentNode.insertBefore(ph, dragEl);
+      // la riga trascinata fluttua e segue il dito
+      const st=dragEl.style;
+      const saved={position:st.position,top:st.top,left:st.left,width:st.width,zIndex:st.zIndex,margin:st.margin,pointerEvents:st.pointerEvents};
+      st.position='fixed'; st.left=rect.left+'px'; st.top=rect.top+'px'; st.width=rect.width+'px'; st.margin='0'; st.zIndex='9999'; st.pointerEvents='none';
+      dragEl.classList.add('sorting-drag');
       const prevUserSel=document.body.style.userSelect; document.body.style.userSelect='none';
       try{ h.setPointerCapture(e.pointerId); }catch(_){}
       const move=function(ev){
-        const dy=ev.clientY-startY;
-        dragEl.style.transform='translateY('+dy+'px)';
-        // indice di destinazione = quante righe diverse da quella trascinata hanno il centro sopra il puntatore
-        let idx=0;
-        for(let i=0;i<rows.length;i++){ if(rows[i]===dragEl) continue; if(ev.clientY > centers[i]) idx++; }
-        targetIndex=idx;
+        st.top=(ev.clientY-grabDY)+'px';
+        // riposiziona il segnaposto tra le righe reali in base alla posizione del dito
+        const others=Array.prototype.slice.call(container.querySelectorAll(rowSel)).filter(r=>r!==dragEl);
+        let placed=false;
+        for(let i=0;i<others.length;i++){ const b=others[i].getBoundingClientRect(); if(ev.clientY < b.top+b.height/2){ container.insertBefore(ph, others[i]); placed=true; break; } }
+        if(!placed) container.appendChild(ph);
       };
-      const up=function(){
-        dragEl.classList.remove('dragging');
-        dragEl.style.transform='';
-        document.body.style.userSelect=prevUserSel;
+      const finish=function(){
+        h.removeEventListener('pointermove',move); h.removeEventListener('pointerup',finish); h.removeEventListener('pointercancel',finish);
         try{ h.releasePointerCapture(e.pointerId); }catch(_){}
-        h.removeEventListener('pointermove',move); h.removeEventListener('pointerup',up); h.removeEventListener('pointercancel',up);
-        if(targetIndex!==startIndex){
-          const keys=rows.map(r=>r.getAttribute('data-pk'));
-          const moved=keys.splice(startIndex,1)[0];
-          keys.splice(targetIndex,0,moved);
-          if(typeof onReorder==='function') onReorder(keys);
-        }
+        document.body.style.userSelect=prevUserSel;
+        container.insertBefore(dragEl, ph);
+        ph.remove();
+        st.position=saved.position; st.top=saved.top; st.left=saved.left; st.width=saved.width; st.zIndex=saved.zIndex; st.margin=saved.margin; st.pointerEvents=saved.pointerEvents;
+        dragEl.classList.remove('sorting-drag');
+        const rowsAfter=Array.prototype.slice.call(container.querySelectorAll(rowSel));
+        let changed=false;
+        for(let i=0;i<rowsAfter.length;i++){ if(rowsAfter[i]!==rowsBefore[i]){ changed=true; break; } }
+        if(changed && typeof opts.onDrop==='function') opts.onDrop();
       };
-      h.addEventListener('pointermove',move); h.addEventListener('pointerup',up); h.addEventListener('pointercancel',up);
+      h.addEventListener('pointermove',move); h.addEventListener('pointerup',finish); h.addEventListener('pointercancel',finish);
     });
   });
+}
+function _initParamSort(container, onReorder){
+  if(!container) return;
+  makeSortable(container, { handleSel:'.param-drag', rowSel:'.param-row', onDrop:function(){
+    const order=Array.prototype.slice.call(container.querySelectorAll('.param-row')).map(r=>r.getAttribute('data-pk'));
+    if(typeof onReorder==='function') onReorder(order);
+  }});
 }
 // spezza le SPECIFICHE in voci; per le tabelle chiave/valore ritorna {kv:true,key,value}
 function _dsSpecItems(html){
@@ -31526,26 +31542,7 @@ function openDatasheetDialog(prod){
   ['specs','params'].forEach(k=>{ const m=bg.querySelector('input[data-sec="'+k+'"]'); if(m){ m.addEventListener('change',()=>syncSub(k)); syncSub(k); } });
   (function initDsSort(){
     const list=bg.querySelector('#dsParamList'); if(!list) return;
-    list.querySelectorAll('.ds-drag').forEach(h=>{
-      h.addEventListener('pointerdown', function(e){
-        e.preventDefault();
-        const dragEl=h.closest('.ds-prow'); if(!dragEl) return;
-        dragEl.classList.add('dragging');
-        try{ h.setPointerCapture(e.pointerId); }catch(_){}
-        const move=function(ev){
-          const rows=Array.prototype.slice.call(list.querySelectorAll('.ds-prow:not(.dragging)'));
-          const y=ev.clientY; let after=null;
-          for(let i=0;i<rows.length;i++){ const box=rows[i].getBoundingClientRect(); if(y < box.top+box.height/2){ after=rows[i]; break; } }
-          if(after) list.insertBefore(dragEl, after); else list.appendChild(dragEl);
-        };
-        const up=function(ev){
-          dragEl.classList.remove('dragging');
-          try{ h.releasePointerCapture(e.pointerId); }catch(_){}
-          h.removeEventListener('pointermove',move); h.removeEventListener('pointerup',up); h.removeEventListener('pointercancel',up);
-        };
-        h.addEventListener('pointermove',move); h.addEventListener('pointerup',up); h.addEventListener('pointercancel',up);
-      });
-    });
+    if(typeof makeSortable==='function') makeSortable(list, { handleSel:'.ds-drag', rowSel:'.ds-prow' });
   })();
   bg.querySelectorAll('.ds-thumb').forEach(t=>{ t.onclick=()=>{ const u=t.getAttribute('data-url'); if(imgSel.has(u)){imgSel.delete(u);t.classList.remove('sel');} else {imgSel.add(u);t.classList.add('sel');} }; });
   bg.querySelector('#dsCancel').onclick=()=>bg.remove();
