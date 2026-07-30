@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.464 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.465 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10572,7 +10572,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.464</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.465</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11257,7 +11257,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.464 mobile");
+console.info("[bootstrap] script avvio — SV2.10.465 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12753,7 +12753,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.464';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.465';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -37195,6 +37195,11 @@ function _renderSplTreeEditor(){
     return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, '').replace('.', ',');
   })(splSanitizePct(l.defaultPct));
 
+  // SV2.10.465: valore corrente del margine minimo (stringa vuota = disattivato)
+  const _mmCur = splSanitizeMargin(l.minMargin);
+  const minMarginFmt = (_mmCur === null) ? ''
+    : (Number.isInteger(_mmCur) ? String(_mmCur) : _mmCur.toFixed(2).replace(/\.?0+$/, '').replace('.', ','));
+
   let html =
     '<div style="margin-bottom:14px;padding:10px 12px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--fg2);line-height:1.55">' +
       '🏷️ <strong>Sconto base del listino:</strong> ' +
@@ -37205,6 +37210,19 @@ function _renderSplTreeEditor(){
       '— si applica a tutti gli articoli che non hanno uno sconto specifico di Marca/Macrocategoria/Categoria. ' +
       'Su ogni nodo qui sotto puoi impostare uno <strong>sconto di vendita specifico</strong> (qualsiasi valore, ' +
       'anche minore del livello superiore): vale per quel nodo e tutti i suoi figli, finché un figlio non ne imposta uno proprio.' +
+    '</div>' +
+    // SV2.10.465 — margine minimo imposto (facoltativo).
+    '<div style="margin-bottom:14px;padding:10px 12px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--fg2);line-height:1.55;border-left:3px solid #0891b2">' +
+      '🛡️ <strong>Margine minimo imposto:</strong> ' +
+        '<input type="text" inputmode="decimal" id="splEditorMinMargin" value="' + minMarginFmt + '" placeholder="—" ' +
+          'oninput="_splTreeOnMinMarginChange(this)" onchange="_splTreeOnMinMarginChange(this)" ' +
+          'title="Margine minimo sul prezzo di vendita. Lascia vuoto per non applicare nessun vincolo." ' +
+          'style="width:62px;padding:3px 7px;font-size:13px;text-align:right;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--fg);font-weight:700;margin:0 2px"> % ' +
+      '— calcolato sul prezzo di vendita: <em>(vendita − costo) / vendita</em>. Dove lo sconto configurato scenderebbe sotto questa soglia, ' +
+      'lo sconto di vendita viene <strong>ricalcolato</strong> a partire dallo sconto d\u0027acquisto del singolo articolo. ' +
+      'Il vincolo abbassa soltanto: non aumenta mai lo sconto. ' +
+      '<strong>Svuota la casella</strong> per disattivarlo e tornare al solo sconto base con la sua gerarchia.' +
+      '<span id="splMinMarginStat" style="display:block;margin-top:5px;font-weight:700;color:#0891b2"></span>' +
     '</div>';
 
   const showMargin = !!window._SPL_SHOW_MARGIN;
@@ -37246,6 +37264,41 @@ function _renderSplTreeEditor(){
   };
   tree.forEach(brand => scanDescAdj(brand, 0, brand.key));
 
+  // SV2.10.465 — quanti articoli, sotto ogni nodo, subiscono il ricalcolo per
+  // margine minimo. Una sola passata ricorsiva sull'albero (i conteggi dei figli
+  // risalgono ai padri), cosi' anche a nodo chiuso si vede che dentro qualcosa
+  // e' stato ricalcolato. Se il vincolo non e' attivo la passata non si fa.
+  const cappedMap = new Map();          // pathKey -> { capped, tot }
+  const _mmActive = splSanitizeMargin(l.minMargin);
+  let _mmTotCapped = 0, _mmTotArt = 0;
+  if(_mmActive !== null){
+    const walkCapped = (node, level, pathKey) => {
+      let capped = 0, tot = 0;
+      (node.children || []).forEach(ch => {
+        const r = walkCapped(ch, level + 1, pathKey + '/' + ch.key);
+        capped += r.capped; tot += r.tot;
+      });
+      (node.items || []).forEach(it => {
+        const parts = pathKey.split('/');
+        const prod = {
+          brand: parts[0] || '', category_parent: parts[1] || '', category: parts[2] || '',
+          name: it.code || '', PVP: it.listino, precio_neto_compra: it.netto,
+        };
+        tot++;
+        let info = null;
+        try { info = splGetEffectiveSaleDiscount(prod, listId); } catch(_){}
+        if(info && info.marginCapped) capped++;
+      });
+      cappedMap.set(pathKey, { capped: capped, tot: tot });
+      return { capped: capped, tot: tot };
+    };
+    tree.forEach(brand => {
+      const r = walkCapped(brand, 0, brand.key);
+      _mmTotCapped += r.capped; _mmTotArt += r.tot;
+    });
+  }
+  window._SPL_MM_STAT = { active: _mmActive, capped: _mmTotCapped, tot: _mmTotArt };
+
   let rowIdx = 0;
   const renderRow = (node, level, pathKey) => {
     const expanded = window._SPL_EDITOR_EXPANDED.has(pathKey);
@@ -37271,8 +37324,15 @@ function _renderSplTreeEditor(){
     const effSconto = effInfo.scontoEff;
     const effInherited = (effInfo.inheritedFrom === 'ancestor');  // eredita da un padre
 
-    // Stile riga: arancio se ha sconto proprio
-    const rowStyle = (hasAdj ? 'background:rgba(249,115,22,0.10);' : bg) +
+    // SV2.10.465: il nodo contiene articoli ricalcolati per margine minimo?
+    const capInfo = cappedMap.get(pathKey);
+    const isCapped = !!(capInfo && capInfo.capped > 0);
+
+    // Stile riga: ciano se dentro c'e' un ricalcolo per margine minimo (segnale
+    // piu' importante), altrimenti arancio se il nodo ha uno sconto proprio.
+    const rowStyle = (isCapped
+        ? 'background:rgba(8,145,178,0.14);box-shadow:inset 3px 0 0 #0891b2;'
+        : (hasAdj ? 'background:rgba(249,115,22,0.10);' : bg)) +
       (hasChildren ? 'cursor:pointer;' : '');
 
     // id stabili sulla riga per il fast-update senza re-render dell'intera tabella.
@@ -37297,6 +37357,15 @@ function _renderSplTreeEditor(){
                 'style="font-size:10px;font-weight:700;color:#7c3aed;background:rgba(124,58,237,0.14);' +
                 'padding:1px 8px;border-radius:9px;margin-left:6px;border:1px solid rgba(124,58,237,0.35)">' +
                 '★ ' + adjDescCount.get(pathKey) + '</span>'
+            : '') +
+          // SV2.10.465: badge ciano con quanti articoli del nodo sono stati
+          // ricalcolati per rispettare il margine minimo imposto.
+          (isCapped
+            ? ' <span class="spl-row-capped-badge" title="' + capInfo.capped + ' di ' + capInfo.tot +
+                ' articoli sotto questo nodo hanno lo sconto di vendita ricalcolato per rispettare il margine minimo imposto" ' +
+                'style="font-size:10px;font-weight:700;color:#0891b2;background:rgba(8,145,178,0.16);' +
+                'padding:1px 8px;border-radius:9px;margin-left:6px;border:1px solid rgba(8,145,178,0.40)">' +
+                '\u2691 ' + capInfo.capped + '/' + capInfo.tot + '</span>'
             : '') +
           // V2.10.263: rimosso il badge "● sconti propri" — l'evidenziazione
           // arancione della riga (rowStyle: background rgba(249,115,22,0.10))
@@ -37388,12 +37457,18 @@ function _renderSplTreeEditor(){
             category_parent: pathParts[1] || '',
             category: pathParts[2] || '',
             name: it.code || '',     // V2.10.263: serve per lo sconto articolo
+            // SV2.10.465: PVP e netto d'acquisto servono al tetto di margine
+            // minimo — senza, l'articolo non sarebbe valutabile e la riga
+            // mostrerebbe uno sconto diverso da quello realmente applicato.
+            PVP: it.listino,
+            precio_neto_compra: it.netto,
           };
           const saleInfo = splGetEffectiveSaleDiscount(itProd, listId);
           const scVend = saleInfo ? saleInfo.scontoEff : effSconto;
           // V2.10.263: origine dello sconto vendita dell'articolo per il colore
           // dell'input: 'product' = dedicato (arancio), altro = ereditato (blu),
           // base = normale.
+          const artCapped = !!(saleInfo && saleInfo.marginCapped);
           const artHasOwn = !!(saleInfo && saleInfo.adjLevel === 'product');
           const artInherited = !!(saleInfo && saleInfo.hasAdj && saleInfo.adjLevel !== 'product');
           // Prezzo di vendita = listino × (1 − sconto vendita effettivo)
@@ -37468,10 +37543,22 @@ function _renderSplTreeEditor(){
               '<span style="flex:none">' + valueHtml + '</span>' +
             '</span>';
           row +=
-            '<tr style="' + bgIt + '">' +
+            '<tr style="' + (artCapped
+                ? 'background:rgba(8,145,178,0.14);box-shadow:inset 3px 0 0 #0891b2;'
+                : bgIt) + '">' +
               '<td style="padding:5px 12px;padding-left:' + (12 + articleIndent) + 'px;white-space:nowrap;font-family:monospace;font-size:11.5px;color:var(--fg2)">' +
                 '<span style="color:var(--fg3);margin-right:6px;display:inline-block;width:12px">·</span>' +
                 escapeHtml(it.code || '—') +
+                // SV2.10.465: marcatore sull'articolo il cui sconto e' stato
+                // abbassato dal margine minimo; il tooltip mostra da/a.
+                (artCapped
+                  ? ' <span title="Sconto ricalcolato per il margine minimo imposto: ' +
+                      escapeAttr(String(saleInfo.scontoPre).replace('.', ',')) + '% \u2192 ' +
+                      escapeAttr(String(saleInfo.scontoEff).replace('.', ',')) + '%" ' +
+                      'style="font-size:10px;font-weight:700;color:#0891b2;background:rgba(8,145,178,0.16);' +
+                      'padding:1px 7px;border-radius:9px;margin-left:6px;border:1px solid rgba(8,145,178,0.40)">' +
+                      '\u2691 ricalcolato</span>'
+                  : '') +
               '</td>' +
               '<td></td>' +
               '<td colspan="' + (showMargin ? '4' : '1') + '" style="padding:5px 12px">' +
@@ -37508,6 +37595,18 @@ function _renderSplTreeEditor(){
 
   html += '</tbody></table>';
   body.innerHTML = html;
+
+  // SV2.10.465: riepilogo di quanti articoli il vincolo sta ricalcolando.
+  (function(){
+    const el = document.getElementById('splMinMarginStat');
+    if(!el) return;
+    const st = window._SPL_MM_STAT || {};
+    if(st.active === null || st.active === undefined){ el.textContent = ''; return; }
+    el.textContent = st.capped > 0
+      ? ('\u2691 ' + st.capped.toLocaleString('it-IT') + ' articoli su ' + st.tot.toLocaleString('it-IT') +
+         ' hanno lo sconto di vendita ricalcolato dal margine minimo (righe evidenziate in ciano).')
+      : ('Nessun articolo scende sotto il margine minimo: tutti gli sconti configurati sono gia\u0027 compatibili.');
+  })();
 }
 
 // Espande/comprime un nodo dell'albero (click sulla riga).
@@ -37590,6 +37689,26 @@ function _splUpdateMarginToggleBtn(){
    - Per non perdere il focus dell'utente che sta digitando, dopo il
      re-render ripristino focus + cursore + valore digitato sull'input
      'splEditorBase' (stesso pattern di _qcartRerenderKeepFocus). */
+/* SV2.10.465 — modifica del margine minimo imposto. Campo vuoto = vincolo
+   disattivato (si salva null). Come per la base, ogni cambiamento richiede un
+   re-render completo: il tetto puo' toccare qualunque riga dell'albero. */
+function _splTreeOnMinMarginChange(inp){
+  if(!inp) return;
+  const listId = window._SPL_EDITOR_LIST_ID;
+  if(!listId) return;
+  const curVal = inp.value;
+  let selStart = null, selEnd = null;
+  try { selStart = inp.selectionStart; selEnd = inp.selectionEnd; } catch(_){}
+  const v = splSanitizeMargin(curVal);   // null quando la casella e' vuota
+  splUpdateMeta(listId, { minMargin: v });
+  _renderSplTreeEditor();
+  const newInp = document.getElementById('splEditorMinMargin');
+  if(newInp){
+    newInp.value = curVal;
+    try { newInp.focus(); if(selStart != null) newInp.setSelectionRange(selStart, selEnd); } catch(_){}
+  }
+}
+
 function _splTreeOnBaseChange(inp){
   if(!inp) return;
   const listId = window._SPL_EDITOR_LIST_ID;
@@ -41214,6 +41333,38 @@ function splNewId(){
 }
 
 // Sanitizza una percentuale di sconto: numero in [0, 99.99], altrimenti 0.
+/* SV2.10.465 — MARGINE MINIMO IMPOSTO (per listino di vendita).
+   Campo facoltativo: null/vuoto = nessun vincolo (vale solo lo sconto base e
+   la gerarchia). Valore ammesso 0..99,99 (percentuale sul PREZZO DI VENDITA).
+   Ritorna null quando il campo e' vuoto o non interpretabile: e' proprio il
+   modo con cui l'utente disattiva il vincolo svuotando la casella. */
+function splSanitizeMargin(v){
+  if(v === null || v === undefined) return null;
+  if(typeof v === 'string' && v.trim() === '') return null;
+  let n = (typeof v === 'number') ? v : parseFloat(String(v).replace(',', '.'));
+  if(!isFinite(n)) return null;
+  if(n < 0) n = 0;
+  if(n > 99.99) n = 99.99;
+  return Math.round(n * 100) / 100;
+}
+
+/* SV2.10.465 — sconto di vendita MASSIMO consentito da un margine minimo.
+   Margine inteso sul prezzo di vendita:  m = (vendita - costo) / vendita
+   ⇒ vendita_min = costo / (1 - m)  ⇒  scontoMax = (1 - vendita_min/PVP) * 100
+   Ritorna null se non calcolabile (manca PVP o costo). */
+function splMaxDiscountForMargin(pvp, netto, marginPct){
+  const m = splSanitizeMargin(marginPct);
+  if(m === null) return null;
+  if(!(pvp > 0)) return null;
+  if(netto === null || netto === undefined || !isFinite(netto) || netto < 0) return null;
+  const vendMin = netto / (1 - m / 100);
+  let scMax = (1 - vendMin / pvp) * 100;
+  if(!isFinite(scMax)) return null;
+  if(scMax < 0) scMax = 0;            // servirebbe vendere sopra il listino: sconto 0
+  if(scMax > 99.99) scMax = 99.99;
+  return Math.round(scMax * 100) / 100;
+}
+
 function splSanitizePct(v){
   let n = (typeof v === 'number') ? v : parseFloat(String(v).replace(',', '.'));
   if(!isFinite(n) || n < 0) return 0;
@@ -41281,6 +41432,12 @@ function splUpdateMeta(listId, patch){
     if(patch.name != null)       l.name = String(patch.name).trim() || l.name;
     if(patch.note != null)       l.note = String(patch.note);
     if(patch.defaultPct != null) l.defaultPct = splSanitizePct(patch.defaultPct);
+    // SV2.10.465: il margine minimo va scritto ANCHE quando vale null — e'
+    // proprio cosi' che l'utente disattiva il vincolo svuotando la casella,
+    // quindi qui non si puo' usare il filtro "!= null" degli altri campi.
+    if(Object.prototype.hasOwnProperty.call(patch, 'minMargin')){
+      l.minMargin = splSanitizeMargin(patch.minMargin);
+    }
   }
   l.updatedAt = Date.now();
   splSaveAll();
@@ -41691,12 +41848,37 @@ function splGetEffectiveSaleDiscount(product, listId){
     }
   }
 
+  // SV2.10.465 — MARGINE MINIMO IMPOSTO: agisce come TETTO sullo sconto di
+  // vendita. Si applica dopo la gerarchia (quindi anche ai nodi e agli articoli
+  // con sconto specifico: e' un pavimento di redditivita', non un default) e
+  // solo verso il basso — non alza mai lo sconto configurato.
+  // Serve il costo reale dell'articolo: PVP + netto d'acquisto EFFETTIVO
+  // (comprensivo della cascata di sconti d'acquisto). Se il costo non e' noto
+  // l'articolo non e' valutabile e resta allo sconto configurato.
+  const scontoPre = scontoEff;
+  let marginCapped = false;
+  const minMargin = splSanitizeMargin(l.minMargin);
+  if(minMargin !== null && typeof getEffectiveProductPrices === 'function'){
+    let pr = null;
+    try { pr = getEffectiveProductPrices(product); } catch(_){}
+    if(pr && pr.listino > 0 && pr.nettoEff != null && isFinite(pr.nettoEff)){
+      const scMax = splMaxDiscountForMargin(pr.listino, pr.nettoEff, minMargin);
+      if(scMax !== null && scontoEff > scMax + 1e-9){
+        scontoEff = scMax;
+        marginCapped = true;
+      }
+    }
+  }
+
   return {
     scontoBase: base,
     scontoEff:  scontoEff,
     hasAdj:     hasAdj,
     adjPath:    adjPath,
     adjLevel:   adjLevel,
+    scontoPre:    scontoPre,      // sconto prima del tetto di margine
+    marginCapped: marginCapped,   // true se il margine minimo lo ha abbassato
+    minMargin:    minMargin,      // vincolo attivo sul listino (null = nessuno)
   };
 }
 
