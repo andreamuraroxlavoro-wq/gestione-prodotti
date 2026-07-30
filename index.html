@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.459 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.461 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10465,7 +10465,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.459</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.461</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11150,7 +11150,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.459 mobile");
+console.info("[bootstrap] script avvio — SV2.10.461 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12646,7 +12646,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.459';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.461';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -26458,6 +26458,7 @@ async function mergeImportFlow(file, isCsv, isExcel){
   toastParts.push(`${stats.newCount.toLocaleString('it-IT')} nuovi`);
   toastParts.push(`${stats.obsoleteCount.toLocaleString('it-IT')} scatalogati`);
   if(stats.restoredCount > 0) toastParts.push(`${stats.restoredCount} riapparsi`);
+  if(stats.paramsSyncCount > 0) toastParts.push(`${stats.paramsSyncCount} parametri riallineati`);
   toast('✅ Import completato — ' + toastParts.join(' / '), 'ok', 5000);
 }
 
@@ -33205,6 +33206,20 @@ async function saveEdit(){
   const origPLbl = JSON.stringify(original.paramLabels || {});
   const newPLbl = JSON.stringify(data.paramLabels || {});
   if(origPLbl !== newPLbl && data.paramLabels && Object.keys(data.paramLabels).length) changes.paramLabels = data.paramLabels;
+
+  // SV2.10.460 — FIX perdita silenziosa di dati.
+  // `changes` viene ricostruito DA ZERO a ogni salvataggio, quindi tutte le chiavi
+  // di EDITS[idx] scritte da ALTRE parti dell'app (oggi: datasheetCfg da
+  // saveDatasheetCfg) venivano azzerate al primo salvataggio manuale dell'editor.
+  // Riporto qui tutte le chiavi non gestite da questo form, in modo generico
+  // così da coprire anche eventuali campi futuri.
+  const _managedKeys = new Set(fields.concat(['params','paramLabels']));
+  const _prevEdit = EDITS[idx];
+  if(_prevEdit && typeof _prevEdit === 'object'){
+    Object.keys(_prevEdit).forEach(k => {
+      if(!_managedKeys.has(k) && changes[k] === undefined) changes[k] = _prevEdit[k];
+    });
+  }
 
   if(Object.keys(changes).length===0){
     EDITS[idx] = undefined;
@@ -63284,6 +63299,69 @@ function diagnoseImport(newRowsRaw){
   return { equivalent, newCodes, obsolete, oldByCode, newByCode };
 }
 
+// SV2.10.461 — RICONCILIAZIONE PARAMETRI ALL'IMPORT.
+// Problema risolto: EDITS[idx].params e' uno SNAPSHOT completo e getParams lo
+// restituisce interamente, quindi su un articolo con parametri editati i
+// parametri nuovi del fornitore non comparivano mai e quelli tolti dal
+// fornitore restavano visibili per sempre.
+// Qui, avendo a disposizione contemporaneamente i params del CSV VECCHIO,
+// quelli del CSV NUOVO e lo snapshot dell'utente, si distingue con certezza
+// cosa ha fatto il fornitore da cosa ha fatto l'utente:
+//   - chiave nuova nel CSV            → aggiunta in coda allo snapshot
+//   - chiave rimossa dal fornitore    → rimossa dallo snapshot
+//   - chiave aggiunta a mano dall'utente (non era nel CSV vecchio) → resta
+//   - chiave cancellata dall'utente   → resta cancellata
+//   - valore editato dall'utente      → vince l'utente
+//   - valore mai editato              → si allinea al nuovo valore fornitore
+// L'ordine personalizzato e le etichette custom non vengono toccati (si
+// interviene solo su aggiunte/rimozioni); le etichette rimaste orfane vengono
+// ripulite. Ritorna 'none' | 'updated' | 'cleared'.
+function _reconcileParamsOnImport(idx, oldParams, newParams){
+  const ed = (typeof EDITS !== 'undefined') ? EDITS[idx] : null;
+  if(!ed || !ed.params || typeof ed.params !== 'object') return 'none';
+  const snap = ed.params;
+  const oldP = (oldParams && typeof oldParams === 'object') ? oldParams : {};
+  const newP = (newParams && typeof newParams === 'object') ? newParams : {};
+  const hasOld = k => Object.prototype.hasOwnProperty.call(oldP, k);
+  const hasNew = k => Object.prototype.hasOwnProperty.call(newP, k);
+
+  const out = {};
+  // 1) Scorro lo snapshot nell'ordine scelto dall'utente
+  Object.keys(snap).forEach(k => {
+    if(!hasOld(k)){ out[k] = snap[k]; return; }      // aggiunta manuale dell'utente
+    if(!hasNew(k)) return;                            // il fornitore l'ha rimossa
+    const userTouched = String(snap[k]) !== String(oldP[k]);
+    out[k] = userTouched ? snap[k] : newP[k];
+  });
+  // 2) Chiavi introdotte dal fornitore in questo listino → in coda.
+  //    Le chiavi gia' presenti nel CSV vecchio e assenti dallo snapshot sono
+  //    cancellazioni volute dall'utente e NON vengono reintrodotte.
+  Object.keys(newP).forEach(k => {
+    if(hasOld(k)) return;
+    if(Object.prototype.hasOwnProperty.call(out, k)) return;
+    out[k] = newP[k];
+  });
+
+  // 3) Se il risultato coincide con il listino nuovo, l'override non serve piu':
+  //    l'articolo torna "non editato" sui parametri e seguira' il CSV da solo.
+  //    Il confronto e' sensibile all'ordine, quindi un ordinamento personalizzato
+  //    dell'utente mantiene comunque l'override.
+  const _sameAsSnap = JSON.stringify(out) === JSON.stringify(snap);
+  const _sameAsNew  = JSON.stringify(out) === JSON.stringify(newP);
+  if(_sameAsSnap && !_sameAsNew) return 'none';
+  if(_sameAsNew) delete ed.params;
+  else ed.params = out;
+  // 4) Etichette custom rimaste orfane
+  if(ed.paramLabels && typeof ed.paramLabels === 'object'){
+    Object.keys(ed.paramLabels).forEach(k => {
+      if(!Object.prototype.hasOwnProperty.call(out, k)) delete ed.paramLabels[k];
+    });
+    if(!Object.keys(ed.paramLabels).length) delete ed.paramLabels;
+  }
+  if(!Object.keys(ed).length){ delete EDITS[idx]; return 'cleared'; }
+  return 'updated';
+}
+
 // Esegue il merge effettivo. Aggiorna DATA in-place.
 async function mergeCatalogImport(newDataArr, diagnosis){
   const now = new Date().toISOString();
@@ -63294,6 +63372,7 @@ async function mergeCatalogImport(newDataArr, diagnosis){
   });
 
   let updatedCount = 0, newCount = 0, obsoleteCount = 0, restoredCount = 0;
+  const paramsTouched = [];   // SV2.10.461: _idx con params riconciliati
 
   // 1. Aggiorna prodotti esistenti che ricompaiono nel nuovo file
   DATA.forEach(p => {
@@ -63304,9 +63383,13 @@ async function mergeCatalogImport(newDataArr, diagnosis){
       const idx = p._idx;
       const wasObsolete = !!p._obsoleteSince;
       const wasNew = !!p._isNew;
+      const oldParams = p.params;   // SV2.10.461: reference al vecchio set di parametri
       Object.keys(p).forEach(key => { delete p[key]; });
       Object.assign(p, newP);
       p._idx = idx;
+      // SV2.10.461: allineo lo snapshot dei parametri editati al nuovo listino
+      const _rec = _reconcileParamsOnImport(idx, oldParams, newP.params);
+      if(_rec !== 'none') paramsTouched.push(idx);
       if(wasObsolete){
         delete p._obsoleteSince;
         p._isNew = true;
@@ -63358,10 +63441,21 @@ async function mergeCatalogImport(newDataArr, diagnosis){
   FILTERED = DATA.slice();
   if(typeof rebuildAllSearchHay === 'function') rebuildAllSearchHay();
   await idbSet('data', 'main', DATA);
+  // SV2.10.461: se la riconciliazione ha toccato degli override, li persisto e
+  // li propago al Drive (delta per _idx, null = entry rimossa perche' vuota).
+  if(paramsTouched.length){
+    await idbSet('edits', 'main', EDITS);
+    if(typeof bkNotifyEdit === 'function'){ try{ bkNotifyEdit(); }catch(_){} }
+    if(typeof driveNotifyChange === 'function'){
+      paramsTouched.forEach(i => {
+        try{ driveNotifyChange('edits', i, EDITS[i] || null); }catch(_){}
+      });
+    }
+  }
   await idbSet('meta', 'lastImport', now);
   if(typeof SETTINGS !== 'undefined' && SETTINGS){ SETTINGS.lastImport = now; saveSettings(); }
 
-  return { updatedCount, newCount, obsoleteCount, restoredCount };
+  return { updatedCount, newCount, obsoleteCount, restoredCount, paramsSyncCount: paramsTouched.length };
 }
 
 // Toggle del filtro speciale (Nuovi prodotti / Prodotti scatalogati).
