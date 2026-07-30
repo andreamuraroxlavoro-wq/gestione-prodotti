@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.462 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.463 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5396,11 +5396,15 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
 .hover-preview-panel .hp-ed-wys table{ width:100%; border-collapse:collapse; }
 .hover-preview-panel .hp-ed-wys td{ border:1px solid var(--border); padding:3px 5px; vertical-align:top; }
 /* Intestazione in modifica */
-.hover-preview-panel .hp-ed-head{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px 12px; }
-.hover-preview-panel .hp-ed-lab{
-  display:block; font-size:10px; font-weight:700; letter-spacing:0.6px;
-  text-transform:uppercase; color:var(--fg2); margin-bottom:3px;
+/* SV2.10.463: intestazione compatta di sola lettura in modalita' modifica */
+.hover-preview-panel .hp-ed-headline{
+  display:block; padding:8px 14px 7px;
 }
+.hover-preview-panel .hp-ed-headmeta{
+  display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-top:2px;
+}
+.hover-preview-panel .hp-ed-price{ font-weight:700; color:#22c55e; }
+.hover-preview-panel .hp-ed-note{ font-size:10px; color:var(--fg2); font-style:italic; }
 /* Righe parametri: maniglia + etichetta + valore + elimina */
 .hover-preview-panel .hp-prow{
   display:grid;
@@ -10568,7 +10572,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.462</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.463</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11253,7 +11257,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.462 mobile");
+console.info("[bootstrap] script avvio — SV2.10.463 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12749,7 +12753,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.462';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.463';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -30910,6 +30914,15 @@ function _hpEnterEdit(idx){
   _HP_EDIT = { idx, params, labels, fresh: new Set() };
   hp.panel.innerHTML = buildHoverPreviewEditHtml(p);
   _hpInitParamSort();
+  // SV2.10.463: fotografo i campi COSI' COME IL BROWSER LI HA PARSATI. Il DOM
+  // normalizza l'HTML (es. inserisce <tbody>, riscrive le entita'), quindi al
+  // salvataggio il confronto va fatto contro questa istantanea: altrimenti un
+  // campo mai toccato risulterebbe "modificato" e creerebbe un override
+  // fantasma, che congelerebbe l'articolo rispetto agli aggiornamenti listino.
+  _HP_EDIT.baseline = {};
+  hp.panel.querySelectorAll('[data-f]').forEach(el => {
+    _HP_EDIT.baseline[el.getAttribute('data-f')] = el.isContentEditable ? el.innerHTML.trim() : el.value.trim();
+  });
 }
 
 // Esce dalla modifica scartando tutto e torna alla sola lettura.
@@ -31033,19 +31046,20 @@ function buildHoverPreviewEditHtml(p){
       <button type="button" class="hp-cancel-btn" onclick="_hpCancelEdit()" style="margin-left:8px" title="Annulla e torna all'anteprima">✕ ANNULLA</button>
     </div>`;
 
-  const eanField = isPers
-    ? `<input class="hp-ed-inp" value="${escapeAttr(f('ean'))}" readonly title="L'EAN non è modificabile sui prodotti personali">`
-    : `<input class="hp-ed-inp" data-f="ean" value="${escapeAttr(f('ean'))}">`;
-
+  // SV2.10.463: i campi anagrafici (codice, marca, categoria, EAN, listino,
+  // immagine) NON sono editabili da qui — restano una riga compatta di sola
+  // lettura che serve solo a identificare l'articolo. Tutto lo spazio verticale
+  // va ai campi che si modificano davvero. Per l'anagrafica c'e' l'editor completo.
+  const _catTxt = f('category');
+  const _pvpTxt = f('PVP') || f('precio_venta_cliente_final');
   const headHtml = `
-    <div class="hp-head" style="display:block">
-      <div class="hp-ed-head">
-        <div><span class="hp-ed-lab">Codice</span><input class="hp-ed-inp" data-f="name" value="${escapeAttr(f('name'))}"></div>
-        <div><span class="hp-ed-lab">Marca</span><input class="hp-ed-inp" data-f="brand" value="${escapeAttr(f('brand'))}"></div>
-        <div><span class="hp-ed-lab">Categoria</span><input class="hp-ed-inp" data-f="category" value="${escapeAttr(f('category'))}"></div>
-        <div><span class="hp-ed-lab">EAN</span>${eanField}</div>
-        <div><span class="hp-ed-lab">Listino €</span><input class="hp-ed-inp" data-f="PVP" value="${escapeAttr(f('PVP'))}"></div>
-        <div><span class="hp-ed-lab">Immagine (path/URL)</span><input class="hp-ed-inp" data-f="image_path" value="${escapeAttr(f('image_path'))}"></div>
+    <div class="hp-head hp-ed-headline">
+      <div class="hp-code">${escapeHtml(f('name') || '—')}</div>
+      <div class="hp-ed-headmeta">
+        ${f('brand') ? `<span class="hp-brand">${escapeHtml(f('brand'))}</span>` : ''}
+        ${_catTxt ? `<span class="hp-cat">${escapeHtml(_catTxt)}</span>` : ''}
+        ${priceNum(_pvpTxt) ? `<span class="hp-ed-price">€ ${fmtPrice(_pvpTxt)}</span>` : ''}
+        <span class="hp-ed-note">${isPers ? 'Prodotto personale' : 'Anagrafica e immagine si modificano dall\'editor completo'}</span>
       </div>
     </div>`;
 
@@ -31117,14 +31131,16 @@ async function _hpSaveEdit(){
     if(el.isContentEditable) return el.innerHTML.trim();
     return el.value.trim();
   };
+  // SV2.10.463: solo i campi effettivamente editabili dall'anteprima, e solo
+  // quelli davvero cambiati rispetto all'istantanea iniziale (vedi _hpEnterEdit).
+  const base = (_HP_EDIT && _HP_EDIT.baseline) || {};
   const upd = {};
-  ['name','brand','category','ean','PVP','image_path','short_description','description','specifications']
-    .forEach(k => { const v = readF(k); if(v !== undefined) upd[k] = v; });
-
-  if(!String(upd.name || '').trim()){
-    if(typeof toast==='function') toast('Il codice articolo non può essere vuoto', 'err');
-    return;
-  }
+  ['short_description','description','specifications'].forEach(k => {
+    const v = readF(k);
+    if(v === undefined) return;
+    if(base[k] !== undefined && v === base[k]) return;   // intatto: non lo tocco
+    upd[k] = v;
+  });
 
   upd.params = JSON.parse(JSON.stringify(_HP_EDIT.params));
   // Etichette: si salvano solo quelle davvero personalizzate (diverse dalla
