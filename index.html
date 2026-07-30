@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.463 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.464 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10572,7 +10572,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.463</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.464</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11257,7 +11257,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.463 mobile");
+console.info("[bootstrap] script avvio — SV2.10.464 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12753,7 +12753,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.463';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.464';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31924,6 +31924,9 @@ function openDatasheetDialog(prod){
   const eanVal=(getField(prod,'ean')||'').toString().trim();
   const showEanInit = cfg.showEan!==undefined ? cfg.showEan : true;
   const showCodeInit = cfg.showCode!==undefined ? cfg.showCode : true;
+  // SV2.10.464: stampa foto on/off + ingrandimento libero della foto principale.
+  const showImgsInit = cfg.showImgs!==undefined ? cfg.showImgs : true;
+  const imgScaleInit = (typeof cfg.imgScale==='number' && isFinite(cfg.imgScale)) ? cfg.imgScale : 100;
   const brief=(getField(prod,'short_description')||'').trim();
   const full =(getField(prod,'description')||'').trim();
   const specsRaw=(getField(prod,'specifications')||'').trim();
@@ -31994,6 +31997,12 @@ function openDatasheetDialog(prod){
         '.ds-thumb .ds-main{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);color:#fff;font-size:10px;text-align:center;padding:1px 0}'+
         '.ds-thumb.sel{border-color:#C13046}.ds-thumb.sel .ds-tick{display:flex}'+
         '.ds-thumb.err{opacity:.4}.ds-thumb.err img{visibility:hidden}'+
+        '.ds-imgsize{display:flex;align-items:center;gap:9px;margin:2px 0 4px;font-size:13.5px;font-weight:700}'+
+        '.ds-imgsize input{width:88px;padding:6px 8px;border:1px solid var(--border,#d6dce3);border-radius:7px;font-size:13.5px;font-family:inherit;background:var(--card,#fff);color:var(--fg)}'+
+        '.ds-imgsize input:focus{outline:none;border-color:#C13046}'+
+        '.ds-imgsize .ds-pct{font-weight:700}'+
+        '.ds-imghint{font-size:11.5px;color:var(--fg2,#9aa);margin:0 0 9px 2px;line-height:1.45}'+
+        '#dsImgsWrap.ds-off{opacity:.4;pointer-events:none}'+
       '</style>'+
       '<div class="modal-head"><h3 style="margin:0">🖨️ Stampa Scheda Tecnica</h3>'+
         '<div style="color:var(--fg2,#6b7684);font-size:12.5px;margin-top:3px">Codice Art. '+escapeHtml(code||'—')+' · scegli cosa includere</div></div>'+
@@ -32005,8 +32014,17 @@ function openDatasheetDialog(prod){
         rowSec('params','Parametri tecnici',has.params,paramSub)+
         (code ? '<label class="ds-subrow" style="margin-top:12px"><input type="checkbox" id="dsShowCode"'+(showCodeInit?' checked':'')+'><span>Mostra codice articolo <b>'+escapeHtml(code)+'</b> nell\u0027intestazione</span></label>' : '')+
         (eanVal ? '<label class="ds-subrow" style="margin-top:12px"><input type="checkbox" id="dsShowEan"'+(showEanInit?' checked':'')+'><span>Mostra codice EAN <b>'+escapeHtml(eanVal)+'</b> nell\u0027intestazione</span></label>' : '')+
-        '<div class="ds-sec-title" style="margin-top:16px">Immagini (la 1ª a sinistra, le altre a seguire)</div>'+
-        imgsHtml+
+        '<div class="ds-sec-title" style="margin-top:16px">Immagini</div>'+
+        '<label class="ds-subrow" style="margin:0 0 8px"><input type="checkbox" id="dsShowImgs"'+(showImgsInit?' checked':'')+'><span>Stampa le immagini nella scheda tecnica</span></label>'+
+        '<div id="dsImgsWrap"'+(showImgsInit?'':' class="ds-off"')+'>'+
+          '<div class="ds-imgsize">'+
+            '<label for="dsImgScale">Dimensione foto principale</label>'+
+            '<input type="number" id="dsImgScale" min="25" max="500" step="10" value="'+imgScaleInit+'">'+
+            '<span class="ds-pct">%</span>'+
+          '</div>'+
+          '<div class="ds-imghint">100% = dimensione standard. La foto principale (la 1ª selezionata) sta a sinistra; le altre si dispongono a destra di essa, partendo dall\u0027alto e proseguendo in sequenza.</div>'+
+          imgsHtml+
+        '</div>'+
       '</div>'+
       '<div class="modal-foot">'+
         '<button class="btn ghost" id="dsCancel">Annulla</button>'+
@@ -32028,6 +32046,9 @@ function openDatasheetDialog(prod){
     const list=bg.querySelector('#dsParamList'); if(!list) return;
     if(typeof makeSortable==='function') makeSortable(list, { handleSel:'.ds-drag', rowSel:'.ds-prow' });
   })();
+  // SV2.10.464: il flag "Stampa le immagini" disattiva visivamente tutta la sezione
+  const _imgsCb=bg.querySelector('#dsShowImgs'), _imgsWrap=bg.querySelector('#dsImgsWrap');
+  if(_imgsCb && _imgsWrap) _imgsCb.onchange=()=>{ _imgsWrap.classList.toggle('ds-off', !_imgsCb.checked); };
   bg.querySelectorAll('.ds-thumb').forEach(t=>{ t.onclick=()=>{ const u=t.getAttribute('data-url'); if(imgSel.has(u)){imgSel.delete(u);t.classList.remove('sel');} else {imgSel.add(u);t.classList.add('sel');} }; });
   bg.querySelector('#dsCancel').onclick=()=>bg.remove();
   bg.querySelector('#dsPrint').onclick=()=>{
@@ -32047,7 +32068,13 @@ function openDatasheetDialog(prod){
     const showEan = _eanCb ? _eanCb.checked : (cfg.showEan!==undefined?cfg.showEan:true);
     const _codeCb=bg.querySelector('#dsShowCode');
     const showCode = _codeCb ? _codeCb.checked : (cfg.showCode!==undefined?cfg.showCode:true);
-    const outCfg={ sec:chosen, specSel, paramSel, paramOrder, paramLabels, imgs:imgsOut, showEan, showCode };
+    const _imgsCb2=bg.querySelector('#dsShowImgs');
+    const showImgs = _imgsCb2 ? _imgsCb2.checked : (cfg.showImgs!==undefined?cfg.showImgs:true);
+    const _scaleEl=bg.querySelector('#dsImgScale');
+    let imgScale = _scaleEl ? parseFloat(String(_scaleEl.value).replace(',','.')) : imgScaleInit;
+    if(!isFinite(imgScale) || imgScale<=0) imgScale = 100;
+    imgScale = Math.max(25, Math.min(500, imgScale));
+    const outCfg={ sec:chosen, specSel, paramSel, paramOrder, paramLabels, imgs:imgsOut, showEan, showCode, showImgs, imgScale };
     saveDatasheetCfg(code,outCfg,prod);
     bg.remove(); printDatasheet(prod,outCfg);
   };
@@ -32215,15 +32242,45 @@ async function exportDatasheetPdfNative(prod, cfg, options){
     if(cfg.showCode!==false){ doc.setTextColor(255,255,255); doc.setFont('helvetica','normal'); doc.setFontSize(11);
       doc.text('Codice Art. '+(code||'—'), PW-M, 62, {align:'right'}); }
     let y=104;
-    // foto in fila da sinistra
-    if(photoJpegs.length){
-      const ph=88; let x=M, rowMax=0;
-      photoJpegs.forEach(jp=>{
-        const pw=Math.max(40, Math.min(150, ph*(jp.w/jp.h||1)));
-        if(x+pw>PW-M){ x=M; y+=ph+10; }
-        doc.addImage(jp.dataUrl,'JPEG',x,y,pw,ph); x+=pw+12; rowMax=ph;
-      });
-      y+=rowMax+16;
+    // SV2.10.464: le foto si stampano solo se il flag e' attivo. La PRINCIPALE
+    // (la 1ª selezionata) sta a sinistra e si ingrandisce con cfg.imgScale (%);
+    // le altre si dispongono a destra di essa partendo dall'alto e proseguendo
+    // in sequenza, andando a capo nella colonna di destra quando serve.
+    if(photoJpegs.length && cfg.showImgs!==false){
+      const BASE_H=88, GAP=12, CONTENT_W=PW-2*M;
+      let scale=(typeof cfg.imgScale==='number' && isFinite(cfg.imgScale) && cfg.imgScale>0) ? cfg.imgScale/100 : 1;
+      scale=Math.max(0.25, Math.min(5, scale));
+      const main=photoJpegs[0], rest=photoJpegs.slice(1);
+      const mAsp=(main.w/main.h)||1;
+      let mh=BASE_H*scale, mw=mh*mAsp;
+      // Limiti di sicurezza: con altre foto la principale non supera il 70% della
+      // larghezza utile (serve spazio a destra); in ogni caso non sfonda la pagina.
+      const maxMainW = rest.length ? CONTENT_W*0.70 : CONTENT_W;
+      if(mw>maxMainW){ mw=maxMainW; mh=mw/mAsp; }
+      const maxMainH = PH - y - 220;
+      if(mh>maxMainH && maxMainH>40){ mh=maxMainH; mw=mh*mAsp; }
+      doc.addImage(main.dataUrl,'JPEG',M,y,mw,mh);
+
+      let blockH=mh;
+      if(rest.length){
+        const sideX0=M+mw+GAP;
+        const sideW=(PW-M)-sideX0;
+        if(sideW>34){
+          const sh=Math.max(34, Math.min(BASE_H, sideW/2));
+          const maxSy = PH - 90;   // non invadere mai la fascia del footer
+          let sx=sideX0, sy=y;
+          for(let i=0;i<rest.length;i++){
+            const jp=rest[i];
+            const pw=Math.max(28, Math.min(sideW, sh*((jp.w/jp.h)||1)));
+            if(sx+pw>PW-M){ sx=sideX0; sy+=sh+10; }
+            if(sy+sh>maxSy) break;   // spazio esaurito: le restanti non si stampano
+            doc.addImage(jp.dataUrl,'JPEG',sx,sy,pw,sh);
+            sx+=pw+GAP;
+            blockH=Math.max(blockH,(sy-y)+sh);
+          }
+        }
+      }
+      y+=blockH+16;
     }
     if(ean && cfg.showEan!==false){ doc.setTextColor(120,120,120); doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.text('EAN '+ean, M, y); y+=10; }
     doc.setDrawColor(RED[0],RED[1],RED[2]); doc.setLineWidth(2); doc.line(M,y,PW-M,y); y+=20;
