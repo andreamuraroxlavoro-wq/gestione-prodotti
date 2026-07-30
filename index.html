@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.449 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.451 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7187,30 +7187,32 @@ body.theme-light .wysiwyg-btn.wysiwyg-btn-delrow{
   padding-bottom:4px;border-bottom:1px solid var(--border);
 }
 .param-row{
-  display:grid;grid-template-columns:180px 1fr auto;gap:8px;align-items:center;
+  display:grid;grid-template-columns:auto minmax(0,1.5fr) minmax(0,1fr) auto;gap:8px;align-items:center;
 }
 .param-key{
   font-size:11px;color:var(--fg3);font-weight:600;
-  padding:5px 8px;background:var(--bg3);border-radius:3px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  cursor:help;
+  padding:4px 6px;background:var(--bg3);border-radius:3px;
+  min-width:0;cursor:help;
 }
 .param-key b{color:var(--fg);display:block;font-size:12px;text-transform:none;letter-spacing:0}
 .param-key small{font-size:9px;color:var(--fg3);opacity:0.6}
 .param-val{
   padding:5px 8px;background:var(--bg);border:1px solid var(--border);
   border-radius:3px;color:var(--fg);font-size:12px;
+  min-width:0;width:100%;box-sizing:border-box;
 }
 .param-val:focus{outline:none;border-color:var(--accent)}
 .param-row{align-items:center}
 .param-drag{cursor:grab;color:#9aa;font-size:16px;line-height:1;user-select:none;flex-shrink:0;padding:2px 4px;touch-action:none}
 .param-drag:active{cursor:grabbing}
-.param-row.dragging{opacity:.6;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.param-row{position:relative}
+.param-row.dragging{opacity:.95;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.22);background:var(--card,#fff)}
 .param-label{font-weight:700;border:1px solid transparent;border-radius:6px;padding:3px 5px;font-size:12px;background:var(--bg,rgba(0,0,0,.03));color:var(--fg);width:100%;box-sizing:border-box}
 .param-label:focus{outline:none;border-color:var(--accent);background:var(--card,#fff)}
 .param-del{
-  padding:3px 6px;font-size:10px;color:var(--danger);
-  background:transparent;border:1px solid var(--danger);border-radius:3px;
+  width:26px;height:26px;padding:0;font-size:14px;line-height:1;color:var(--danger);
+  background:transparent;border:1px solid var(--danger);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;
 }
 .param-del:hover{background:var(--danger);color:#fff}
 .param-add{
@@ -10461,7 +10463,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.449</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.451</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11146,7 +11148,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.449 mobile");
+console.info("[bootstrap] script avvio — SV2.10.451 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12642,7 +12644,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.449';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.451';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31349,22 +31351,39 @@ function _initParamSort(container, onReorder){
   if(!container) return;
   container.querySelectorAll('.param-drag').forEach(h=>{
     h.addEventListener('pointerdown', function(e){
+      if(e.button!=null && e.button!==0) return;
       e.preventDefault();
       const dragEl=h.closest('.param-row'); if(!dragEl) return;
+      const rows=Array.prototype.slice.call(container.querySelectorAll('.param-row'));
+      const startIndex=rows.indexOf(dragEl);
+      if(startIndex<0) return;
+      const startY=e.clientY;
+      // centri verticali delle righe PRIMA del drag (dragEl non si sposta nel DOM durante il gesto)
+      const centers=rows.map(r=>{ const b=r.getBoundingClientRect(); return b.top+b.height/2; });
+      let targetIndex=startIndex;
       dragEl.classList.add('dragging');
+      const prevUserSel=document.body.style.userSelect; document.body.style.userSelect='none';
       try{ h.setPointerCapture(e.pointerId); }catch(_){}
       const move=function(ev){
-        const rows=Array.prototype.slice.call(container.querySelectorAll('.param-row:not(.dragging)'));
-        const y=ev.clientY; let after=null;
-        for(let i=0;i<rows.length;i++){ const b=rows[i].getBoundingClientRect(); if(y < b.top+b.height/2){ after=rows[i]; break; } }
-        if(after) container.insertBefore(dragEl, after); else container.appendChild(dragEl);
+        const dy=ev.clientY-startY;
+        dragEl.style.transform='translateY('+dy+'px)';
+        // indice di destinazione = quante righe diverse da quella trascinata hanno il centro sopra il puntatore
+        let idx=0;
+        for(let i=0;i<rows.length;i++){ if(rows[i]===dragEl) continue; if(ev.clientY > centers[i]) idx++; }
+        targetIndex=idx;
       };
       const up=function(){
         dragEl.classList.remove('dragging');
+        dragEl.style.transform='';
+        document.body.style.userSelect=prevUserSel;
         try{ h.releasePointerCapture(e.pointerId); }catch(_){}
         h.removeEventListener('pointermove',move); h.removeEventListener('pointerup',up); h.removeEventListener('pointercancel',up);
-        const order=Array.prototype.slice.call(container.querySelectorAll('.param-row')).map(r=>r.getAttribute('data-pk'));
-        if(typeof onReorder==='function') onReorder(order);
+        if(targetIndex!==startIndex){
+          const keys=rows.map(r=>r.getAttribute('data-pk'));
+          const moved=keys.splice(startIndex,1)[0];
+          keys.splice(targetIndex,0,moved);
+          if(typeof onReorder==='function') onReorder(keys);
+        }
       };
       h.addEventListener('pointermove',move); h.addEventListener('pointerup',up); h.addEventListener('pointercancel',up);
     });
