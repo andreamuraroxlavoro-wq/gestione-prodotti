@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.456 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.458 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10465,7 +10465,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.456</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.458</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11150,7 +11150,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.456 mobile");
+console.info("[bootstrap] script avvio — SV2.10.458 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12646,7 +12646,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.456';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.458';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31784,12 +31784,30 @@ async function exportDatasheetPdfNative(prod, cfg, options){
     function ensure(h){ if(y+h > PH-FOOT){ doc.addPage(); y=54; } }
     function secTitle(t){ ensure(26); doc.setTextColor(RED[0],RED[1],RED[2]); doc.setFont('helvetica','bold'); doc.setFontSize(12.5); doc.text('» '+t.toUpperCase(), M, y); y+=16; }
     function bodyText(html){
-      const txt=_dsHtmlToText(html); if(!txt) return;
+      if(!html) return;
+      const div=document.createElement('div'); div.innerHTML=html;
       doc.setTextColor(34,34,34); doc.setFont('helvetica','normal'); doc.setFontSize(10);
       const W=PW-2*M;
-      txt.split('\n').forEach(para=>{
-        const t=para.trim(); if(!t){ y+=6; return; }
-        const lines=doc.splitTextToSize(t, W);
+      const spaceW=doc.getTextWidth(' ') || 2;
+      // SV2.10.458: riconosco paragrafi (<p>/testo) ed ELENCHI (<ul>/<ol><li>) per
+      // rendere l'elenco puntato anche nel PDF (pallino + rientro), invece di appiattire.
+      const blocks=[];
+      const pushP=(raw)=>{ String(raw==null?'':raw).split('\n').forEach(seg=>{ const t=seg.replace(/[ \t]+/g,' ').trim(); if(t) blocks.push({type:'p', text:t}); }); };
+      const pushLi=(raw)=>{ const t=String(raw==null?'':raw).replace(/\s+/g,' ').trim(); if(t) blocks.push({type:'li', text:t}); };
+      const brToNl=(h)=> String(h==null?'':h).replace(/<\s*br\s*\/?>/gi,'\n');
+      Array.prototype.forEach.call(div.childNodes, (ch)=>{
+        if(ch.nodeType===3){ pushP(ch.textContent); return; }
+        if(ch.nodeType!==1) return;
+        const tag=ch.tagName.toLowerCase();
+        if(tag==='ul' || tag==='ol'){ Array.prototype.forEach.call(ch.querySelectorAll('li'), li=>pushLi(li.textContent)); }
+        else if(tag==='li'){ pushLi(ch.textContent); }
+        else if(tag==='br'){ /* separatore fra blocchi */ }
+        else { const tmp=document.createElement('div'); tmp.innerHTML=brToNl(ch.innerHTML!=null?ch.innerHTML:ch.textContent); pushP(tmp.textContent); }
+      });
+      if(!blocks.length){ pushP(_dsHtmlToText(html)); }
+      // paragrafo giustificato (con il limite anti-spazi-enormi della 457)
+      const paraJustified=(text)=>{
+        const lines=doc.splitTextToSize(text, W);
         lines.forEach((ln,idx)=>{
           ensure(13);
           const words=ln.split(/\s+/).filter(Boolean);
@@ -31798,13 +31816,29 @@ async function exportDatasheetPdfNative(prod, cfg, options){
           else {
             const wordsW=words.reduce((sum,w)=>sum+doc.getTextWidth(w),0);
             const gap=(W-wordsW)/(words.length-1);
-            let x=M;
-            words.forEach(w=>{ doc.text(w, x, y); x+=doc.getTextWidth(w)+gap; });
+            if(gap > spaceW*2.2){ doc.text(ln, M, y); }
+            else { let x=M; words.forEach(w=>{ doc.text(w, x, y); x+=doc.getTextWidth(w)+gap; }); }
           }
           y+=13;
         });
+      };
+      blocks.forEach(bl=>{
+        if(bl.type==='li'){
+          const bulletX=M+3, textX=M+15, wrapW=W-15;
+          const lines=doc.splitTextToSize(bl.text, wrapW);
+          lines.forEach((ln,i)=>{
+            ensure(13);
+            if(i===0){ doc.setFillColor(193,48,70); doc.circle(bulletX, y-3, 1.3, 'F'); doc.setTextColor(34,34,34); }
+            doc.text(ln, textX, y);   // rientro appeso: anche le righe successive allineate al testo
+            y+=13;
+          });
+          y+=2;
+        } else {
+          paraJustified(bl.text);
+          y+=6;
+        }
       });
-      y+=10;
+      y+=6;
     }
     function kvTable(rows){
       doc.autoTable({ startY:y, margin:{left:M,right:M,bottom:FOOT}, theme:'grid',
