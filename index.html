@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.470 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.471 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5922,19 +5922,20 @@ body.theme-light .card-disc-badge.is-sale.is-margin-capped{
   font-size:14px; font-weight:800;
   letter-spacing:0.2px;
   font-family:-apple-system, 'SF Pro Text', 'Segoe UI', sans-serif;
-  /* SV2.10.470: MARGINE = verde chiaro con cifra verde scuro (contrasto ~9:1)
-     e segno sempre esplicito. RICARICO mantiene il viola: colori diversi cosi'
-     si capisce a colpo d'occhio QUALE delle due letture si sta guardando. */
-  background:#BBF7D0;
-  color:#064E3B;
+  /* SV2.10.471: colori SCAMBIATI su richiesta — MARGINE = viola con cifra
+     bianca, RICARICO = verde chiaro con cifra verde scuro. Segno sempre
+     esplicito. Restano due colori diversi cosi' si capisce a colpo d'occhio
+     QUALE delle due letture si sta guardando. */
+  background:#8b5cf6;
+  color:#fff;
   box-shadow:0 2px 6px rgba(0,0,0,0.28);
   pointer-events:none;
   user-select:none;
   white-space:nowrap;
 }
-body.theme-light .card-margin-badge{ background:#BBF7D0; color:#064E3B; }
-.card-margin-badge.is-ricarico{ background:#8b5cf6; color:#fff; }
-body.theme-light .card-margin-badge.is-ricarico{ background:#7c3aed; color:#fff; }
+body.theme-light .card-margin-badge{ background:#7c3aed; color:#fff; }
+.card-margin-badge.is-ricarico{ background:#BBF7D0; color:#064E3B; }
+body.theme-light .card-margin-badge.is-ricarico{ background:#BBF7D0; color:#064E3B; }
 /* Quando è presente il badge sconto, le indicazioni di stato (MODIFICATO, NUOVO,
    SCATALOGATO, SERVIZIO, PERSONALE) scendono SOTTO per non sovrapporsi al badge. */
 .card.has-disc-badge .card-state-badge{ top:40px; }
@@ -10602,7 +10603,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.470</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.471</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11287,7 +11288,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.470 mobile");
+console.info("[bootstrap] script avvio — SV2.10.471 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12783,7 +12784,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.470';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.471';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -36192,8 +36193,8 @@ function toggleCardMetric(ev){
   render();
   if(typeof toast === 'function'){
     toast(SETTINGS.cardMetric === 'ricarico'
-      ? 'Pillola RICARICO (viola) — sul prezzo di acquisto'
-      : 'Pillola MARGINE (verde) — sul prezzo di vendita', 'ok', 2200);
+      ? 'Pillola RICARICO (verde) — sul prezzo di acquisto'
+      : 'Pillola MARGINE (viola) — sul prezzo di vendita', 'ok', 2200);
   }
 }
 
