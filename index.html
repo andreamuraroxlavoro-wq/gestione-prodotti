@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.455 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.456 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10465,7 +10465,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.455</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.456</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11150,7 +11150,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.455 mobile");
+console.info("[bootstrap] script avvio — SV2.10.456 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12646,7 +12646,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.455';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.456';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12814,6 +12814,10 @@ function personalProductUpdate(idx, updates){
   // SV2.10.449: etichette parametri personalizzate per singolo prodotto
   if('paramLabels' in updates){
     item.paramLabels = (updates.paramLabels && typeof updates.paramLabels === 'object' && !Array.isArray(updates.paramLabels)) ? updates.paramLabels : {};
+  }
+  // SV2.10.456: impostazioni scheda tecnica (cosa stampare) — sincronizzate col Drive
+  if('datasheetCfg' in updates){
+    item.datasheetCfg = (updates.datasheetCfg && typeof updates.datasheetCfg === 'object' && !Array.isArray(updates.datasheetCfg)) ? updates.datasheetCfg : {};
   }
   item.modified = new Date().toISOString();
   // V2.10.263: BUGFIX — rimuovo eventuali override EDITS residui per questo indice.
@@ -31301,8 +31305,40 @@ const DATASHEET_LOGO = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbm
 const DATASHEET_CFG_KEY = 'datasheetCfg_v1';
 const _DS_HIDDEN_PARAMS = new Set(['stock']);
 function _dsLoadAllCfg(){ try { return JSON.parse(localStorage.getItem(DATASHEET_CFG_KEY) || '{}') || {}; } catch(e){ return {}; } }
-function getDatasheetCfg(code){ if(!code) return {}; return _dsLoadAllCfg()[code] || {}; }
-function saveDatasheetCfg(code, cfg){ if(!code) return; try { const all=_dsLoadAllCfg(); all[code]=cfg; localStorage.setItem(DATASHEET_CFG_KEY, JSON.stringify(all)); } catch(e){} }
+// SV2.10.456: le impostazioni scheda tecnica sono salvate DENTRO l'articolo (sincronizzate col Drive):
+//  - importati → EDITS[_idx].datasheetCfg (delta 'edits' via driveNotifyChange)
+//  - personali → item.datasheetCfg (via personalProductUpdate → _personalProductsPersist)
+// localStorage resta come cache/ripiego (retrocompat e quando manca il prod). In lettura vince l'articolo.
+function getDatasheetCfg(code, prod){
+  try{
+    if(prod){
+      if(prod.isPersonal){ if(prod.datasheetCfg && typeof prod.datasheetCfg==='object') return prod.datasheetCfg; }
+      else if(typeof EDITS!=='undefined' && prod._idx!=null && EDITS[prod._idx] && EDITS[prod._idx].datasheetCfg && typeof EDITS[prod._idx].datasheetCfg==='object'){ return EDITS[prod._idx].datasheetCfg; }
+    }
+  }catch(_){}
+  if(!code) return {};
+  return _dsLoadAllCfg()[code] || {};
+}
+function saveDatasheetCfg(code, cfg, prod){
+  // 1) salva nell'articolo → sync Drive
+  try{
+    if(prod){
+      if(prod.isPersonal && typeof personalProductUpdate==='function' && prod._idx!=null){
+        personalProductUpdate(prod._idx, { datasheetCfg: cfg });
+      } else if(!prod.isPersonal && typeof EDITS!=='undefined' && prod._idx!=null){
+        const idx=prod._idx;
+        EDITS[idx] = EDITS[idx] || {};
+        EDITS[idx].datasheetCfg = cfg;
+        if(typeof idbSet==='function'){ Promise.resolve(idbSet('edits','main',EDITS)).catch(()=>{}); }
+        if(typeof bkNotifyEdit==='function'){ try{ bkNotifyEdit(); }catch(_){} }
+        if(typeof driveNotifyChange==='function'){ try{ driveNotifyChange('edits', idx, EDITS[idx]); }catch(_){} }
+      }
+    }
+  }catch(e){ try{ console.warn('[datasheet] salvataggio cfg nel prodotto fallito:', e && e.message); }catch(_){} }
+  // 2) cache/ripiego su localStorage
+  if(!code) return;
+  try { const all=_dsLoadAllCfg(); all[code]=cfg; localStorage.setItem(DATASHEET_CFG_KEY, JSON.stringify(all)); } catch(e){}
+}
 // tutte le immagini: principale + extra_images (array, personali) + extra_images_paths (importati)
 function _dsImages(prod){
   const out=[]; const main=getField(prod,'image_path'); if(main) out.push(imgUrl(main));
@@ -31436,7 +31472,7 @@ function _dsSpecItems(html){
 function openDatasheetDialog(prod){
   if(!prod){ if(typeof toast==='function') toast('Prodotto non disponibile','err'); return; }
   const code=(getField(prod,'name')||'').trim();
-  const cfg=getDatasheetCfg(code);
+  const cfg=getDatasheetCfg(code, prod);
   const eanVal=(getField(prod,'ean')||'').toString().trim();
   const showEanInit = cfg.showEan!==undefined ? cfg.showEan : true;
   const showCodeInit = cfg.showCode!==undefined ? cfg.showCode : true;
@@ -31564,7 +31600,7 @@ function openDatasheetDialog(prod){
     const _codeCb=bg.querySelector('#dsShowCode');
     const showCode = _codeCb ? _codeCb.checked : (cfg.showCode!==undefined?cfg.showCode:true);
     const outCfg={ sec:chosen, specSel, paramSel, paramOrder, paramLabels, imgs:imgsOut, showEan, showCode };
-    saveDatasheetCfg(code,outCfg);
+    saveDatasheetCfg(code,outCfg,prod);
     bg.remove(); printDatasheet(prod,outCfg);
   };
 }
