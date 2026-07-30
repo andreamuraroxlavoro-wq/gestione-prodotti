@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.454 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.455 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10465,7 +10465,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.454</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.455</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11150,7 +11150,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.454 mobile");
+console.info("[bootstrap] script avvio — SV2.10.455 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12646,7 +12646,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.454';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.455';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -36617,7 +36617,8 @@ function _renderSplTreeEditor(){
         // Sconto vendita), entrambe solo se la visualizzazione margine è ON.
         (showMargin
           ? '<th style="text-align:right;padding:9px 10px;font-size:11px;font-weight:700;color:var(--fg2);text-transform:uppercase;letter-spacing:.5px">Sc. acquisto</th>' +
-            '<th style="text-align:right;padding:9px 10px;font-size:11px;font-weight:700;color:var(--fg2);text-transform:uppercase;letter-spacing:.5px">Margine eff.</th>'
+            '<th style="text-align:right;padding:9px 10px;font-size:11px;font-weight:700;color:var(--fg2);text-transform:uppercase;letter-spacing:.5px">Margine eff.</th>' +
+            '<th style="text-align:right;padding:9px 10px;font-size:11px;font-weight:700;color:var(--fg2);text-transform:uppercase;letter-spacing:.5px">Ricarico</th>'
           : '') +
         // V2.10.263: una sola colonna sconto effettivo (modello assoluto).
         // Le 6 colonne a cascata Sc.1..6 sono state rimosse.
@@ -36729,7 +36730,14 @@ function _renderSplTreeEditor(){
                   ' articoli (quelli con costo d\'acquisto)';
               const mCell = '<td style="text-align:right;padding:7px 10px;font-weight:700;color:' + col +
                 ';font-variant-numeric:tabular-nums" title="' + tip + '">' + txt + '</td>';
-              return saCell + mCell;
+              // V2.10.264: Ricarico = (vendita − netto)/netto. Derivato dal margine (stessi aggregati): r = m/(1−m).
+              const rp = (mp == null || mp >= 100) ? null : (mp * 100 / (100 - mp));
+              const rTxt = (rp == null) ? '—' : (rp.toFixed(1).replace('.', ',') + '%');
+              const rTip = (rp == null)
+                ? 'Ricarico non calcolabile (nessun articolo con costo d\'acquisto)'
+                : 'Ricarico pesato = (prezzo vendita − netto) / netto su ' + mInfo.articoliConNetto + ' di ' + mInfo.articoliTotali + ' articoli';
+              const rCell = '<td style="text-align:right;padding:7px 10px;font-weight:700;color:#0891b2;font-variant-numeric:tabular-nums" title="' + rTip + '">' + rTxt + '</td>';
+              return saCell + mCell + rCell;
             })()
           : '') +
         // V2.10.263: cella "Sconto vendita" EDITABILE (modello assoluto).
@@ -36866,7 +36874,7 @@ function _renderSplTreeEditor(){
                 escapeHtml(it.code || '—') +
               '</td>' +
               '<td></td>' +
-              '<td colspan="' + (showMargin ? '3' : '1') + '" style="padding:5px 12px">' +
+              '<td colspan="' + (showMargin ? '4' : '1') + '" style="padding:5px 12px">' +
                 '<div style="display:flex;justify-content:flex-end;gap:20px;white-space:nowrap;font-variant-numeric:tabular-nums;font-size:12px">' +
                   _col('Listino',
                     '<span style="color:var(--fg2);font-weight:600">' + _fmtEur(it.listino) + '</span>', 110) +
@@ -36880,6 +36888,10 @@ function _renderSplTreeEditor(){
                   (showMargin
                     ? _col('Margine',
                         '<span style="color:' + margColor + ';font-weight:700">' + _fmtPct(marginePct) + '</span>', 90)
+                    : '') +
+                  (showMargin
+                    ? _col('Ricarico',
+                        '<span style="color:#0891b2;font-weight:700">' + _fmtPct((marginePct != null && marginePct < 100) ? (marginePct * 100 / (100 - marginePct)) : null) + '</span>', 90)
                     : '') +
                 '</div>' +
               '</td>' +
