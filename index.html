@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.448 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.449 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7202,6 +7202,12 @@ body.theme-light .wysiwyg-btn.wysiwyg-btn-delrow{
   border-radius:3px;color:var(--fg);font-size:12px;
 }
 .param-val:focus{outline:none;border-color:var(--accent)}
+.param-row{align-items:center}
+.param-drag{cursor:grab;color:#9aa;font-size:16px;line-height:1;user-select:none;flex-shrink:0;padding:2px 4px;touch-action:none}
+.param-drag:active{cursor:grabbing}
+.param-row.dragging{opacity:.6;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.param-label{font-weight:700;border:1px solid transparent;border-radius:6px;padding:3px 5px;font-size:12px;background:var(--bg,rgba(0,0,0,.03));color:var(--fg);width:100%;box-sizing:border-box}
+.param-label:focus{outline:none;border-color:var(--accent);background:var(--card,#fff)}
 .param-del{
   padding:3px 6px;font-size:10px;color:var(--danger);
   background:transparent;border:1px solid var(--danger);border-radius:3px;
@@ -10455,7 +10461,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.448</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.449</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11140,7 +11146,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.448 mobile");
+console.info("[bootstrap] script avvio — SV2.10.449 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12636,7 +12642,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.448';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.449';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12800,6 +12806,10 @@ function personalProductUpdate(idx, updates){
   if('params' in updates){
     item.params = (updates.params && typeof updates.params === 'object' && !Array.isArray(updates.params)) ? updates.params : {};
     item.paramsRaw = JSON.stringify(item.params);
+  }
+  // SV2.10.449: etichette parametri personalizzate per singolo prodotto
+  if('paramLabels' in updates){
+    item.paramLabels = (updates.paramLabels && typeof updates.paramLabels === 'object' && !Array.isArray(updates.paramLabels)) ? updates.paramLabels : {};
   }
   item.modified = new Date().toISOString();
   // V2.10.263: BUGFIX — rimuovo eventuali override EDITS residui per questo indice.
@@ -13279,6 +13289,8 @@ function openPersonalProductEditor(opts){
   _PP_PARAMS = (existing && existing.params && typeof existing.params === 'object' && !Array.isArray(existing.params))
     ? JSON.parse(JSON.stringify(existing.params))
     : ((pre && pre.params && typeof pre.params === 'object' && !Array.isArray(pre.params)) ? JSON.parse(JSON.stringify(pre.params)) : {});
+  _PP_LABELS = (existing && existing.paramLabels && typeof existing.paramLabels === 'object' && !Array.isArray(existing.paramLabels))
+    ? JSON.parse(JSON.stringify(existing.paramLabels)) : {};
   if(typeof renderPpParams === 'function') renderPpParams();
 
   const cleanup = () => bg.remove();
@@ -13312,6 +13324,8 @@ function openPersonalProductEditor(opts){
       content: (function(){ const el = document.querySelector('#personalProductModal .wysiwyg-editor[data-field="content"]'); return el ? el.innerHTML.trim() : ''; })(),
       // SV2.10.435: Parametri tecnici (stato locale del modal)
       params: JSON.parse(JSON.stringify(_PP_PARAMS || {})),
+      // SV2.10.449: etichette parametri personalizzate
+      paramLabels: JSON.parse(JSON.stringify(_PP_LABELS || {})),
       // V2.9.24: leggo le immagini extra dal hidden field (JSON serializzato)
       extra_images: (function(){
         try { return JSON.parse(document.getElementById('ppExtras').value || '[]'); }
@@ -30648,8 +30662,8 @@ function buildHoverPreviewHtml(p, mode){
             return v != null && String(v).trim() !== '';
           })
           .map(k => {
-            // transKey(): utente (DICT) → built-in (DICT_DEFAULT) → chiave prettificata.
-            const labelIt = transKey(k);
+            // SV2.10.449: etichetta personalizzata del prodotto → transKey di fallback.
+            const labelIt = prodParamLabel(p, k);
             // SV2.10.421: coerenza con l'indice di ricerca. La cella non indicizzata
             // (voce esclusa, oppure etichetta quando le etichette Parametri sono escluse)
             // viene avvolta in nohl così non viene evidenziata nel tooltip.
@@ -31311,10 +31325,50 @@ function _dsOrderedParamKeys(params, cfg){
   const rest=keys.filter(k=>!seen.has(k));
   return ordered.concat(rest);
 }
-function _dsLabel(k, cfg){
+function _dsLabel(k, cfg, prod){
   const tk=(typeof transKey==='function')?transKey:(x=>x);
+  try{ if(prod && typeof prodParamLabel==='function'){ const pl=prodParamLabel(prod,k); if(pl && pl!==tk(k)) return pl; } }catch(_){}
   if(cfg && cfg.paramLabels && typeof cfg.paramLabels[k]==='string' && cfg.paramLabels[k].trim()!=='') return cfg.paramLabels[k].trim();
   return tk(k);
+}
+// SV2.10.449: ordine + etichette parametri personalizzati per SINGOLO PRODOTTO
+function _reorderObj(obj, keys){
+  const o={}; keys.forEach(k=>{ if(obj && Object.prototype.hasOwnProperty.call(obj,k)) o[k]=obj[k]; });
+  if(obj) Object.keys(obj).forEach(k=>{ if(!(k in o)) o[k]=obj[k]; });
+  return o;
+}
+// etichetta visualizzata di un parametro: override del prodotto (EDITS o campo paramLabels) → transKey
+function prodParamLabel(p, k){
+  try{ if(typeof EDITS!=='undefined' && p && p._idx!=null && EDITS[p._idx] && EDITS[p._idx].paramLabels){ const v=EDITS[p._idx].paramLabels[k]; if(typeof v==='string' && v.trim()!=='') return v.trim(); } }catch(_){}
+  try{ if(p && p.paramLabels){ const v=p.paramLabels[k]; if(typeof v==='string' && v.trim()!=='') return v.trim(); } }catch(_){}
+  return (typeof transKey==='function')?transKey(k):k;
+}
+// drag&drop touch (pointer events) per una lista di .param-row dentro `container`;
+// al rilascio legge l'ordine DOM (data-pk) e chiama onReorder(keysInDomOrder)
+function _initParamSort(container, onReorder){
+  if(!container) return;
+  container.querySelectorAll('.param-drag').forEach(h=>{
+    h.addEventListener('pointerdown', function(e){
+      e.preventDefault();
+      const dragEl=h.closest('.param-row'); if(!dragEl) return;
+      dragEl.classList.add('dragging');
+      try{ h.setPointerCapture(e.pointerId); }catch(_){}
+      const move=function(ev){
+        const rows=Array.prototype.slice.call(container.querySelectorAll('.param-row:not(.dragging)'));
+        const y=ev.clientY; let after=null;
+        for(let i=0;i<rows.length;i++){ const b=rows[i].getBoundingClientRect(); if(y < b.top+b.height/2){ after=rows[i]; break; } }
+        if(after) container.insertBefore(dragEl, after); else container.appendChild(dragEl);
+      };
+      const up=function(){
+        dragEl.classList.remove('dragging');
+        try{ h.releasePointerCapture(e.pointerId); }catch(_){}
+        h.removeEventListener('pointermove',move); h.removeEventListener('pointerup',up); h.removeEventListener('pointercancel',up);
+        const order=Array.prototype.slice.call(container.querySelectorAll('.param-row')).map(r=>r.getAttribute('data-pk'));
+        if(typeof onReorder==='function') onReorder(order);
+      };
+      h.addEventListener('pointermove',move); h.addEventListener('pointerup',up); h.addEventListener('pointercancel',up);
+    });
+  });
 }
 // spezza le SPECIFICHE in voci; per le tabelle chiave/valore ritorna {kv:true,key,value}
 function _dsSpecItems(html){
@@ -31535,7 +31589,7 @@ function buildDatasheetHtml(prod,cfg){
   if(sec.params){
     let keys=_dsOrderedParamKeys(params, cfg);
     if(Array.isArray(cfg.paramSel)) keys=keys.filter(k=>cfg.paramSel.includes(k));
-    let rows=''; keys.forEach(k=>{ rows+='<tr><td class="k">'+esc(_dsLabel(k,cfg))+'</td><td class="v">'+esc(String(params[k]))+'</td></tr>'; });
+    let rows=''; keys.forEach(k=>{ rows+='<tr><td class="k">'+esc(_dsLabel(k,cfg,prod))+'</td><td class="v">'+esc(String(params[k]))+'</td></tr>'; });
     if(rows) body+=section('Parametri tecnici','<table class="st-tab">'+rows+'</table>');
   }
   if(!body) body='<div class="st-text" style="color:#888;padding:20px 0">Nessuna sezione selezionata o nessun dato disponibile.</div>';
@@ -31706,7 +31760,7 @@ async function exportDatasheetPdfNative(prod, cfg, options){
     if(sec.params){
       // ordine personalizzato per prodotto (cfg.paramOrder) o, in mancanza, di INSERIMENTO; etichette custom (cfg.paramLabels)
       let keys=_dsOrderedParamKeys(params, cfg); if(Array.isArray(cfg.paramSel)) keys=keys.filter(k=>cfg.paramSel.includes(k));
-      if(keys.length){ secTitle('Parametri tecnici'); kvTable(keys.map(k=>[_dsLabel(k,cfg), String(params[k])])); }
+      if(keys.length){ secTitle('Parametri tecnici'); kvTable(keys.map(k=>[_dsLabel(k,cfg,prod), String(params[k])])); }
     }
 
     // footer rosso su OGNI pagina
@@ -32041,19 +32095,29 @@ function renderParamsList(){
   const container = document.getElementById('params-list');
   if(!container) return;
   const data = CURRENT_EDIT.data;
-  const paramOrder = ['categoria','marca','stock','gama','tipo','color','uso','producto','dispositivo','solucion','serie','formato','seccion'];
-  const knownKeys = paramOrder.filter(k=>k in data.params);
-  const otherKeys = Object.keys(data.params).filter(k=>!paramOrder.includes(k)).sort();
-  const allKeys = [...knownKeys, ...otherKeys];
+  if(!data.paramLabels || typeof data.paramLabels!=='object'){
+    const ed = (typeof EDITS!=='undefined' && CURRENT_EDIT.idx!=null) ? EDITS[CURRENT_EDIT.idx] : null;
+    data.paramLabels = (ed && ed.paramLabels) ? JSON.parse(JSON.stringify(ed.paramLabels))
+        : ((CURRENT_EDIT.original && CURRENT_EDIT.original.paramLabels) ? JSON.parse(JSON.stringify(CURRENT_EDIT.original.paramLabels)) : {});
+  }
+  const allKeys = Object.keys(data.params);
   container.innerHTML = allKeys.map(k=>{
-    const label = transKey(k);
+    const labelVal = (data.paramLabels && typeof data.paramLabels[k]==='string' && data.paramLabels[k].trim()!=='') ? data.paramLabels[k] : transKey(k);
     const val = data.params[k];
-    return `<div class="param-row">
-      <div class="param-key" title="Chiave originale: ${escapeAttr(k)}"><b>${escapeHtml(label)}</b><small>${escapeHtml(k)}</small></div>
+    return `<div class="param-row" data-pk="${escapeAttr(k)}">
+      <span class="param-drag" title="Trascina per riordinare">⠿</span>
+      <div class="param-key" title="Chiave originale: ${escapeAttr(k)}"><input class="param-label" value="${escapeAttr(labelVal)}" spellcheck="false" onchange="_edSetLabel('${escapeJs(k)}', this.value)"><small>${escapeHtml(k)}</small></div>
       <input class="param-val" value="${escapeAttr(normVal(val))}" onchange="CURRENT_EDIT.data.params['${escapeJs(k)}']=this.value">
       <button class="param-del" onclick="delParam('${escapeJs(k)}')">×</button>
     </div>`;
   }).join('');
+  _initParamSort(container, function(order){ CURRENT_EDIT.data.params=_reorderObj(CURRENT_EDIT.data.params, order); renderParamsList(); });
+}
+function _edSetLabel(k,val){
+  val=(val||'').trim();
+  if(!CURRENT_EDIT.data.paramLabels) CURRENT_EDIT.data.paramLabels={};
+  const base=transKey(k);
+  if(!val || val===base){ delete CURRENT_EDIT.data.paramLabels[k]; } else { CURRENT_EDIT.data.paramLabels[k]=val; }
 }
 
 function addParam(){
@@ -32076,25 +32140,30 @@ function delParam(k){
    locale (_PP_PARAMS), perché il modal personale non usa CURRENT_EDIT.
    ========================================================================== */
 let _PP_PARAMS = {};
+let _PP_LABELS = {};
 function renderPpParams(){
   const container = document.getElementById('ppParamsList');
   if(!container) return;
-  const paramOrder = ['categoria','marca','stock','gama','tipo','color','uso','producto','dispositivo','solucion','serie','formato','seccion'];
-  const knownKeys = paramOrder.filter(k=>k in _PP_PARAMS);
-  const otherKeys = Object.keys(_PP_PARAMS).filter(k=>!paramOrder.includes(k)).sort();
-  const allKeys = [...knownKeys, ...otherKeys];
+  const allKeys = Object.keys(_PP_PARAMS);
   const cnt = document.getElementById('ppParamsCount');
   if(cnt) cnt.textContent = allKeys.length;
   container.innerHTML = allKeys.map(k=>{
-    const label = (typeof transKey==='function') ? transKey(k) : k;
+    const labelVal = (_PP_LABELS && typeof _PP_LABELS[k]==='string' && _PP_LABELS[k].trim()!=='') ? _PP_LABELS[k] : ((typeof transKey==='function')?transKey(k):k);
     const val = _PP_PARAMS[k];
     const v = (typeof normVal==='function') ? normVal(val) : (val==null?'':String(val));
-    return `<div class="param-row">
-      <div class="param-key" title="Chiave: ${escapeAttr(k)}"><b>${escapeHtml(label)}</b><small>${escapeHtml(k)}</small></div>
+    return `<div class="param-row" data-pk="${escapeAttr(k)}">
+      <span class="param-drag" title="Trascina per riordinare">⠿</span>
+      <div class="param-key" title="Chiave: ${escapeAttr(k)}"><input class="param-label" value="${escapeAttr(labelVal)}" spellcheck="false" onchange="_ppSetLabel('${escapeJs(k)}', this.value)"><small>${escapeHtml(k)}</small></div>
       <input class="param-val" value="${escapeAttr(v)}" onchange="_PP_PARAMS['${escapeJs(k)}']=this.value">
       <button type="button" class="param-del" onclick="delPpParam('${escapeJs(k)}')">×</button>
     </div>`;
   }).join('');
+  _initParamSort(container, function(order){ _PP_PARAMS=_reorderObj(_PP_PARAMS, order); renderPpParams(); });
+}
+function _ppSetLabel(k,val){
+  val=(val||'').trim();
+  const base=(typeof transKey==='function')?transKey(k):k;
+  if(!val || val===base){ delete _PP_LABELS[k]; } else { _PP_LABELS[k]=val; }
 }
 function addPpParam(){
   const kEl = document.getElementById('ppNewParamKey');
@@ -33016,6 +33085,10 @@ async function saveEdit(){
   const origParams = JSON.stringify(original.params || {});
   const newParams = JSON.stringify(data.params || {});
   if(origParams !== newParams) changes.params = data.params;
+  // SV2.10.449: etichette parametri personalizzate (mappa chiave→etichetta)
+  const origPLbl = JSON.stringify(original.paramLabels || {});
+  const newPLbl = JSON.stringify(data.paramLabels || {});
+  if(origPLbl !== newPLbl && data.paramLabels && Object.keys(data.paramLabels).length) changes.paramLabels = data.paramLabels;
 
   if(Object.keys(changes).length===0){
     EDITS[idx] = undefined;
