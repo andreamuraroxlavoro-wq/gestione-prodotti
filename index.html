@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.467 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.468 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5838,14 +5838,25 @@ body.theme-light .card-disc-badge.is-sale{ background:#2563eb; }
 /* SV2.10.467: sconto di vendita IMPOSTO DAL MARGINE MINIMO — il valore numerico
    passa al verde acido (la pillola resta blu, cosi' si legge subito che e' un
    valore ricalcolato e non quello configurato sul listino). */
-.card-disc-badge.is-margin-capped{ color:#D6FE51; }
-body.theme-light .card-disc-badge.is-margin-capped{ color:#D6FE51; }
+/* SV2.10.468: oltre al numero, un anello verde acido attorno alla pillola.
+   Uso box-shadow al posto di un border: non altera le dimensioni della pillola
+   (niente scarti di allineamento con le altre) e segue il border-radius. */
+.card-disc-badge.is-margin-capped{
+  color:#D6FE51;
+  box-shadow:0 0 0 2px #D6FE51, 0 2px 6px rgba(0,0,0,0.28);
+}
+body.theme-light .card-disc-badge.is-margin-capped{
+  color:#D6FE51;
+  box-shadow:0 0 0 2px #D6FE51, 0 2px 6px rgba(0,0,0,0.28);
+}
 /* In vista tabella lo sfondo della pillola sconto e' una tinta chiara: il verde
    acido da solo non si leggerebbe, quindi la pillola diventa scura e il numero
    verde acido ci risalta sopra. */
 .card-discount.is-margin-capped{
   color:#D6FE51 !important; font-weight:800;
-  background:#1f2937 !important; border-color:#1f2937 !important;
+  background:#1f2937 !important;
+  border:1px solid #D6FE51 !important;
+  box-shadow:0 0 0 1px rgba(214,254,81,0.45);
 }
 /* SV2.10.402: contenitore in alto a sinistra che affianca la pillola sconto d'acquisto
    (rossa) e quella dello sconto di vendita (blu) del listino attivo, in modalità acquisto.
@@ -10584,7 +10595,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.467</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.468</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11269,7 +11280,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.467 mobile");
+console.info("[bootstrap] script avvio — SV2.10.468 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12765,7 +12776,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.467';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.468';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
