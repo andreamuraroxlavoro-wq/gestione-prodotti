@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.475 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.476 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10630,7 +10630,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.475</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.476</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11331,7 +11331,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.475 mobile");
+console.info("[bootstrap] script avvio — SV2.10.476 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12827,7 +12827,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.475';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.476';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -64502,17 +64502,51 @@ function updateSpecialViewsBadges(){
     let ok = true;
     if(_hasBase){ try { ok = _tagBaseMatch(p, true); } catch(_){ ok = true; } }
     if(!ok) return;
-    if(isNew)  newCtx++;
-    if(isObs)  obsCtx++;
-    if(isPers) personalCtx++;
-    if(isCap)  cappedCtx++;
+    /* SV2.10.476 — il badge conta gli articoli che QUEL pulsante porta in vista
+       DA SOLO: quelli del suo tipo che non sono gia' visibili grazie a un altro
+       filtro speciale attivo. I filtri speciali restano in OR, ma cosi' il
+       numero si muove comunque quando ne accendi un altro, ed e' esattamente
+       l'incremento che vedrai cliccando (vista attuale + badge).
+       Senza filtri speciali attivi non c'e' nulla da sottrarre e i numeri
+       coincidono con i conteggi contestuali pieni della 475. */
+    const _flag = { new: isNew, obsolete: isObs, personal: isPers, service: isServ, capped: isCap };
+    const _coperto = (kind) => {
+      if(typeof SPECIAL_FILTERS === 'undefined' || !SPECIAL_FILTERS) return false;
+      for(const other of SPECIAL_FILTERS){
+        if(other === kind) continue;
+        if(_flag[other]) return true;   // gia' in vista grazie a un altro filtro
+      }
+      return false;
+    };
+    if(isNew  && !_coperto('new'))      newCtx++;
+    if(isObs  && !_coperto('obsolete')) obsCtx++;
+    if(isPers && !_coperto('personal')) personalCtx++;
+    if(isCap  && !_coperto('capped'))   cappedCtx++;
   });
+  // Con almeno un filtro speciale acceso il badge non e' piu' il totale del tipo
+  // ma il suo contributo alla vista: il tooltip lo dice, per non far pensare a
+  // un conteggio sbagliato.
+  const _spOn = (typeof SPECIAL_FILTERS !== 'undefined' && SPECIAL_FILTERS) ? SPECIAL_FILTERS.size : 0;
   // Etichetta del badge: numero contestuale; quando differisce dal totale il
   // tooltip riporta entrambi ("12 di 996 con i filtri attivi").
   const _fmtN = (n) => n > 999 ? '999+' : n.toLocaleString('it-IT');
-  const _tip = (ctx, tot, testo) => (ctx === tot)
-    ? (testo + ' (' + tot.toLocaleString('it-IT') + ')')
-    : (testo + ' — ' + ctx.toLocaleString('it-IT') + ' di ' + tot.toLocaleString('it-IT') + ' con i filtri attivi');
+  const _tip = (ctx, tot, kind) => {
+    const testo = _SP_LABEL[kind] || '';
+    if(ctx === tot) return testo + ' (' + tot.toLocaleString('it-IT') + ')';
+    const attivo = (typeof SPECIAL_FILTERS !== 'undefined' && SPECIAL_FILTERS && SPECIAL_FILTERS.has(kind));
+    if(_spOn > 0){
+      return testo + ' — ' + ctx.toLocaleString('it-IT')
+        + (attivo ? ' articoli in vista solo grazie a questo filtro' : ' articoli in più rispetto alla vista attuale')
+        + ' · ' + tot.toLocaleString('it-IT') + ' in tutto il catalogo';
+    }
+    return testo + ' — ' + ctx.toLocaleString('it-IT') + ' di ' + tot.toLocaleString('it-IT') + ' con i filtri attivi';
+  };
+  const _SP_LABEL = {
+    'new': 'Filtra: Nuovi prodotti',
+    'obsolete': 'Filtra: Prodotti scatalogati',
+    'personal': 'Mostra solo prodotti personali',
+    'capped': 'Filtra: sconto di vendita ricalcolato dal margine minimo imposto',
+  };
   // Sidebar counts
   const newCountEl = document.getElementById('sbSpecialNewCount');
   const obsCountEl = document.getElementById('sbSpecialObsCount');
@@ -64563,7 +64597,7 @@ function updateSpecialViewsBadges(){
     tbCapped.style.display = cappedCount > 0 ? '' : 'none';
     const bC = document.getElementById('tbSpecialCappedBadge');
     if(bC) bC.textContent = _fmtN(cappedCtx);
-    tbCapped.title = _tip(cappedCtx, cappedCount, 'Filtra: sconto di vendita ricalcolato dal margine minimo imposto');
+    tbCapped.title = _tip(cappedCtx, cappedCount, 'capped');
     tbCapped.classList.toggle('active', SPECIAL_FILTERS.has('capped'));
     // Se il filtro e' attivo ma non c'e' piu' nulla da mostrare (listino cambiato,
     // margine minimo rimosso), lo spengo per non lasciare la galleria vuota.
@@ -64581,7 +64615,7 @@ function updateSpecialViewsBadges(){
     const b = document.getElementById('tbSpecialNewBadge');
     if(b) b.textContent = _fmtN(newCtx);
     // Aggiorna anche il tooltip col conteggio attuale
-    tbNew.title = _tip(newCtx, newCount, 'Filtra: Nuovi prodotti');
+    tbNew.title = _tip(newCtx, newCount, 'new');
   }
   if(tbObs){
     tbObs.style.display = obsCount > 0 ? '' : 'none';
@@ -64595,7 +64629,7 @@ function updateSpecialViewsBadges(){
     tbPers.style.display = personalCount > 0 ? '' : 'none';
     const b = document.getElementById('tbSpecialPersonalBadge');
     if(b) b.textContent = _fmtN(personalCtx);
-    tbPers.title = _tip(personalCtx, personalCount, 'Mostra solo prodotti personali');
+    tbPers.title = _tip(personalCtx, personalCount, 'personal');
     // Stato attivo (toggle): aggiungo la classe 'active' se il filtro 'personal' e' attivo
     tbPers.classList.toggle('active', SPECIAL_FILTERS.has('personal'));
   }
