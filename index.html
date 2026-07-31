@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.476 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.477 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10630,7 +10630,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.476</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.477</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11331,7 +11331,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.476 mobile");
+console.info("[bootstrap] script avvio — SV2.10.477 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12827,7 +12827,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.476';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.477';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14579,7 +14579,8 @@ let CURRENT_EDIT = null;
 
 // V2.2.36: stato globale per filtri "speciali" (Nuovi/Scatalogati) e modalità selezione.
 // SPECIAL_FILTERS è un Set: può contenere 'new', 'obsolete', entrambi, o nessuno.
-// Quando contiene entrambi, il filtro agisce in OR (mostra prodotti NUOVI o SCATALOGATI).
+// SV2.10.477: quando ne contiene piu' di uno il filtro agisce in AND — l'articolo
+// deve soddisfarli TUTTI (prima era OR). Nuovi + Scatalogati danno quindi sempre 0.
 // La modalità selezione richiede UN SOLO filtro attivo (l'altro viene disattivato automaticamente).
 const SPECIAL_FILTERS = new Set();  // valori: 'new', 'obsolete'
 // SV2.10.422: terzo stato del pulsante scatalogati = "escludi scatalogati" dalla vista.
@@ -15488,7 +15489,13 @@ function _msMatchSpecialFilters(p){
   const matchService = SPECIAL_FILTERS.has('service') && isService;
   // SV2.10.472
   const matchCapped = SPECIAL_FILTERS.has('capped') && _isSaleCapped(p);
-  return matchNew || matchObs || matchPersonal || matchService || matchCapped;
+  // SV2.10.477: AND — deve soddisfare TUTTI i filtri speciali attivi.
+  if(SPECIAL_FILTERS.has('new') && !matchNew) return false;
+  if(SPECIAL_FILTERS.has('obsolete') && !matchObs) return false;
+  if(SPECIAL_FILTERS.has('personal') && !matchPersonal) return false;
+  if(SPECIAL_FILTERS.has('service') && !matchService) return false;
+  if(SPECIAL_FILTERS.has('capped') && !matchCapped) return false;
+  return true;
 }
 /* SV2.10.475: `skipSpecial` salta il blocco finale dei filtri speciali.
    Serve ai conteggi CONTESTUALI dei pulsanti Nuovi/Scatalogati/Personali/
@@ -29128,7 +29135,15 @@ function applyFilters(options){
       // SV2.10.472: solo gli articoli con sconto di vendita ricalcolato dal
       // margine minimo del listino attivo.
       const matchCapped = SPECIAL_FILTERS.has('capped') && _isSaleCapped(p);
-      if(!matchNew && !matchObs && !matchPersonal && !matchService && !matchCapped) return false;
+      // SV2.10.477 — INTERSEZIONE (AND) al posto dell'unione (OR), su richiesta
+      // dell'utente: con piu' filtri speciali accesi l'articolo deve soddisfarli
+      // TUTTI. Attenzione: Nuovi + Scatalogati danno sempre 0, sono stati
+      // mutuamente esclusivi — e' una conseguenza voluta di questa scelta.
+      if(SPECIAL_FILTERS.has('new') && !matchNew) return false;
+      if(SPECIAL_FILTERS.has('obsolete') && !matchObs) return false;
+      if(SPECIAL_FILTERS.has('personal') && !matchPersonal) return false;
+      if(SPECIAL_FILTERS.has('service') && !matchService) return false;
+      if(SPECIAL_FILTERS.has('capped') && !matchCapped) return false;
     }
 
     // Advanced search: il test lo mettiamo in cima per short-circuit veloce
@@ -64502,26 +64517,26 @@ function updateSpecialViewsBadges(){
     let ok = true;
     if(_hasBase){ try { ok = _tagBaseMatch(p, true); } catch(_){ ok = true; } }
     if(!ok) return;
-    /* SV2.10.476 — il badge conta gli articoli che QUEL pulsante porta in vista
-       DA SOLO: quelli del suo tipo che non sono gia' visibili grazie a un altro
-       filtro speciale attivo. I filtri speciali restano in OR, ma cosi' il
-       numero si muove comunque quando ne accendi un altro, ed e' esattamente
-       l'incremento che vedrai cliccando (vista attuale + badge).
-       Senza filtri speciali attivi non c'e' nulla da sottrarre e i numeri
-       coincidono con i conteggi contestuali pieni della 475. */
+    /* SV2.10.477 — con i filtri speciali in AND il badge risponde alla domanda
+       "quanti articoli restano se aggiungo anche questo?": si contano quelli
+       che passano gia' TUTTI i filtri speciali accesi E sono anche del tipo del
+       pulsante. Per un pulsante SPENTO e' esattamente il numero di articoli che
+       vedrai cliccandolo; per uno ACCESO coincide con la vista attuale, perche'
+       il suo vincolo e' gia' applicato. Senza filtri speciali attivi torna a
+       essere il conteggio contestuale pieno. */
     const _flag = { new: isNew, obsolete: isObs, personal: isPers, service: isServ, capped: isCap };
-    const _coperto = (kind) => {
-      if(typeof SPECIAL_FILTERS === 'undefined' || !SPECIAL_FILTERS) return false;
-      for(const other of SPECIAL_FILTERS){
-        if(other === kind) continue;
-        if(_flag[other]) return true;   // gia' in vista grazie a un altro filtro
+    let _passaAttivi = true;
+    if(typeof SPECIAL_FILTERS !== 'undefined' && SPECIAL_FILTERS){
+      for(const kind of SPECIAL_FILTERS){
+        if(!_flag[kind]){ _passaAttivi = false; break; }
       }
-      return false;
-    };
-    if(isNew  && !_coperto('new'))      newCtx++;
-    if(isObs  && !_coperto('obsolete')) obsCtx++;
-    if(isPers && !_coperto('personal')) personalCtx++;
-    if(isCap  && !_coperto('capped'))   cappedCtx++;
+    }
+    if(_passaAttivi){
+      if(isNew)  newCtx++;
+      if(isObs)  obsCtx++;
+      if(isPers) personalCtx++;
+      if(isCap)  cappedCtx++;
+    }
   });
   // Con almeno un filtro speciale acceso il badge non e' piu' il totale del tipo
   // ma il suo contributo alla vista: il tooltip lo dice, per non far pensare a
@@ -64536,7 +64551,7 @@ function updateSpecialViewsBadges(){
     const attivo = (typeof SPECIAL_FILTERS !== 'undefined' && SPECIAL_FILTERS && SPECIAL_FILTERS.has(kind));
     if(_spOn > 0){
       return testo + ' — ' + ctx.toLocaleString('it-IT')
-        + (attivo ? ' articoli in vista solo grazie a questo filtro' : ' articoli in più rispetto alla vista attuale')
+        + (attivo ? ' articoli attualmente in vista' : ' articoli se aggiungi anche questo filtro')
         + ' · ' + tot.toLocaleString('it-IT') + ' in tutto il catalogo';
     }
     return testo + ' — ' + ctx.toLocaleString('it-IT') + ' di ' + tot.toLocaleString('it-IT') + ' con i filtri attivi';
