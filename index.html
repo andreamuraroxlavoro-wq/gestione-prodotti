@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.473 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.474 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6081,6 +6081,23 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
    margin-top rimosso: lo spacing è gestito dal gap del .card-body per coerenza
    equidistante con gli altri elementi (brand, name, macrocat). */
 .card-meta{display:flex;justify-content:space-between;align-items:center}
+/* SV2.10.474 — data NUOVO / SCATALOGATO in basso a sinistra della card.
+   `align-self:flex-start` la porta sulla PRIMA riga del blocco prezzi (quella
+   del Listino), che e' una colonna allineata a destra; senza, il contenitore
+   `align-items:center` la centrerebbe fra le due righe di prezzo. */
+.card-flagdate{
+  align-self:flex-start;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.3px;
+  line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  padding:1px 7px;
+  border-radius:6px;
+  white-space:nowrap;
+}
+.card-flagdate.is-new{ color:#16a34a; background:rgba(34,197,94,0.14); }
+.card-flagdate.is-obs{ color:#dc2626; background:rgba(239,68,68,0.14); }
 .card-category{font-size:13px;color:var(--fg3);line-height:1.2}
 .card-brand{font-size:13px;color:#0078D4;text-transform:uppercase;letter-spacing:1px;font-weight:700;line-height:1.2}
 
@@ -6335,6 +6352,9 @@ body.tt-disabled .card.edited::after{ display:none !important; }
 .card-taxo .card-category{background:rgba(255,255,255,0.05);color:var(--fg2);font-weight:600}
 /* card-meta con soli prezzi → allineati a destra */
 .card-taxo + .card-meta{justify-content:flex-end}
+/* Con la data presente il blocco torna a distribuire: data a sinistra,
+   prezzi a destra. */
+.card-taxo + .card-meta.has-flagdate{justify-content:space-between}
 
 /* tema chiaro: chip come nella variante B scelta */
 body.theme-light .card-taxo .card-macrocat{background:#e3e8ef;color:#3d4757;font-weight:700}
@@ -10610,7 +10630,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.473</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.474</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11311,7 +11331,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.473 mobile");
+console.info("[bootstrap] script avvio — SV2.10.474 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12807,7 +12827,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.473';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.474';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -30128,6 +30148,41 @@ function renderGallery(main, list){
           </div>`;
       }
     }
+    /* SV2.10.474 — data dello stato NUOVO / SCATALOGATO, in basso a sinistra
+       sulla stessa riga del prezzo di listino. Gli scatalogati hanno gia' il
+       timestamp `_obsoleteSince`; per i nuovi la data e' `_newSince`, introdotta
+       qui. Per i cataloghi marcati PRIMA di questa versione `_newSince` non
+       esiste: si ripiega sulla data dell'ultimo import, che e' il dato piu'
+       vicino disponibile. */
+    const _flagDate = (() => {
+      const fmtD = (ts) => {
+        const d = new Date(ts);
+        if(isNaN(d.getTime())) return '';
+        const gg = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return gg + '/' + mm + '/' + String(d.getFullYear()).slice(-2);
+      };
+      const fmtLong = (ts) => {
+        const d = new Date(ts);
+        if(isNaN(d.getTime())) return '';
+        return d.toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' });
+      };
+      if(p._obsoleteSince){
+        const t = fmtD(p._obsoleteSince);
+        if(!t) return '';
+        return `<span class="card-flagdate is-obs" title="Scatalogato dal ${escapeAttr(fmtLong(p._obsoleteSince))}">${t}</span>`;
+      }
+      if(p._isNew){
+        const ts = p._newSince
+          || (typeof SETTINGS !== 'undefined' && SETTINGS ? SETTINGS.lastImport : null);
+        const t = ts ? fmtD(ts) : '';
+        if(!t) return '';
+        const approx = p._newSince ? '' : ' (data dell\u0027ultimo import)';
+        return `<span class="card-flagdate is-new" title="Nuovo dal ${escapeAttr(fmtLong(ts))}${approx}">${t}</span>`;
+      }
+      return '';
+    })();
+
     // V2.2.39: icona descrizione breve (a sinistra dei pallini stock)
     // Hover apre un mini-tooltip con la descrizione breve del prodotto.
     // Se il prodotto non ha descrizione, mostro l'icona disattivata (no hover).
@@ -30275,7 +30330,8 @@ function renderGallery(main, list){
             return `<span class="card-category card-filter-link" onclick="event.stopPropagation();filterToSingleField('cat', ${_attrJsArg(_cat)})" title="Filtra catalogo per categoria: ${escapeAttr(String(_cat))}">${highlightPlain(_cat)}</span>`;
           })()}
         </div>
-        <div class="card-meta">
+        <div class="card-meta${_flagDate ? ' has-flagdate' : ''}">
+          ${_flagDate}
           ${priceBlock}
         </div>
         ${matchBar}
@@ -64254,6 +64310,11 @@ async function mergeCatalogImport(newDataArr, diagnosis){
       const idx = p._idx;
       const wasObsolete = !!p._obsoleteSince;
       const wasNew = !!p._isNew;
+      // SV2.10.474: la data va letta PRIMA della cancellazione delle chiavi
+      // (subito sotto Object.keys(p).forEach(delete)), altrimenti a ogni import
+      // successivo si perderebbe e l'articolo mostrerebbe sempre la data
+      // dell'ultimo listino invece di quella in cui e' comparso.
+      const prevNewSince = p._newSince;
       const oldParams = p.params;   // SV2.10.461: reference al vecchio set di parametri
       Object.keys(p).forEach(key => { delete p[key]; });
       Object.assign(p, newP);
@@ -64264,9 +64325,16 @@ async function mergeCatalogImport(newDataArr, diagnosis){
       if(wasObsolete){
         delete p._obsoleteSince;
         p._isNew = true;
+        // SV2.10.474: data di ingresso nello stato NUOVO. Un articolo che
+        // ricompare dopo essere stato scatalogato e' nuovo DA ORA.
+        p._newSince = now;
         restoredCount++;
       } else if(wasNew){
         p._isNew = true;
+        // Resta nuovo da quando lo era gia': la data NON si aggiorna a ogni
+        // import, altrimenti mostrerebbe sempre l'ultimo listino invece del
+        // momento in cui l'articolo e' comparso per la prima volta.
+        p._newSince = prevNewSince || now;
       }
       updatedCount++;
     }
@@ -64303,6 +64371,8 @@ async function mergeCatalogImport(newDataArr, diagnosis){
       const newP = Object.assign({}, p);
       newP._idx = ++maxIdx;
       newP._isNew = true;
+      newP._newSince = now;   // SV2.10.474
+
       DATA.push(newP);
       newCount++;
     }
