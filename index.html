@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.474 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.475 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10630,7 +10630,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.474</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.475</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11331,7 +11331,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.474 mobile");
+console.info("[bootstrap] script avvio — SV2.10.475 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12827,7 +12827,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.474';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.475';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -15490,7 +15490,15 @@ function _msMatchSpecialFilters(p){
   const matchCapped = SPECIAL_FILTERS.has('capped') && _isSaleCapped(p);
   return matchNew || matchObs || matchPersonal || matchService || matchCapped;
 }
-function _tagBaseMatch(p){
+/* SV2.10.475: `skipSpecial` salta il blocco finale dei filtri speciali.
+   Serve ai conteggi CONTESTUALI dei pulsanti Nuovi/Scatalogati/Personali/
+   Ricalcolati: ogni badge deve dire quanti articoli di quel tipo esistono fra
+   quelli che superano TUTTI GLI ALTRI filtri (ricerca, marca, categoria,
+   preferiti, stock, outlet, carrello), senza farsi restringere dai filtri
+   speciali stessi — che fra loro sono in OR, quindi ognuno mostra quanto
+   aggiungerebbe alla vista. I chiamanti storici passano un solo argomento e
+   mantengono il comportamento di prima. */
+function _tagBaseMatch(p, skipSpecial){
   // filtri Marca / Macrocategoria / Categoria
   if(typeof MS_FILTERS !== 'undefined' && MS_FILTERS){
     for(const k in MS_FILTERS){
@@ -15546,7 +15554,7 @@ function _tagBaseMatch(p){
     if(!found) return false;
   }
   // SV2.10.391: filtri speciali toolbar (Nuovi/Scatalogati/Personali/Servizi)
-  if(!_msMatchSpecialFilters(p)) return false;
+  if(!skipSpecial && !_msMatchSpecialFilters(p)) return false;
   return true;
 }
 // SV2.10.381: Map tagName -> numero di prodotti coerenti (che passano _tagBaseMatch)
@@ -64464,20 +64472,55 @@ function _updateSpecialViewsActive(){
 
 // Aggiorna i conteggi NUOVI/SCATALOGATI (sidebar + topbar) e mostra/nasconde la sezione
 function updateSpecialViewsBadges(){
-  let newCount = 0, obsCount = 0;
+  /* SV2.10.475 — CONTEGGI CONTESTUALI.
+     Prima ogni badge contava sull'intero catalogo, quindi restava fermo mentre
+     la galleria si svuotava: con un filtro attivo i numeri degli altri pulsanti
+     non descrivevano piu' nulla di quello che si stava vedendo.
+     Ora se ne calcolano DUE in una sola passata:
+       - ASSOLUTO   → decide se il pulsante esiste (come prima: 0 = nascosto),
+                      cosi' un filtro restrittivo non fa sparire i pulsanti.
+       - CONTESTUALE→ e' il numero mostrato nel badge: quanti articoli di quel
+                      tipo sopravvivono a tutti gli ALTRI filtri attivi.
+     I filtri speciali sono esclusi dalla base (skipSpecial) perche' fra loro
+     lavorano in OR: ogni badge dice quanto quel filtro aggiungerebbe alla vista,
+     e i numeri restano confrontabili fra loro. */
+  const _hasBase = (typeof _tagBaseMatch === 'function');
+  const _capSet  = (typeof _cappedSet === 'function') ? _cappedSet() : null;
+  let newCount = 0, obsCount = 0, personalCount = 0, cappedCount = 0;
+  let newCtx = 0, obsCtx = 0, personalCtx = 0, cappedCtx = 0;
   DATA.forEach(p => {
-    if(p._isNew) newCount++;
-    if(p._obsoleteSince) obsCount++;
+    if(!p) return;
+    const isNew  = !!p._isNew;
+    const isObs  = !!p._obsoleteSince;
+    const isServ = p.isService === true;
+    const isPers = (p.isPersonal === true && !isServ);
+    const isCap  = !!(_capSet && _capSet.has(p._idx));
+    if(isNew)  newCount++;
+    if(isObs)  obsCount++;
+    if(isPers) personalCount++;
+    if(isCap)  cappedCount++;
+    let ok = true;
+    if(_hasBase){ try { ok = _tagBaseMatch(p, true); } catch(_){ ok = true; } }
+    if(!ok) return;
+    if(isNew)  newCtx++;
+    if(isObs)  obsCtx++;
+    if(isPers) personalCtx++;
+    if(isCap)  cappedCtx++;
   });
+  // Etichetta del badge: numero contestuale; quando differisce dal totale il
+  // tooltip riporta entrambi ("12 di 996 con i filtri attivi").
+  const _fmtN = (n) => n > 999 ? '999+' : n.toLocaleString('it-IT');
+  const _tip = (ctx, tot, testo) => (ctx === tot)
+    ? (testo + ' (' + tot.toLocaleString('it-IT') + ')')
+    : (testo + ' — ' + ctx.toLocaleString('it-IT') + ' di ' + tot.toLocaleString('it-IT') + ' con i filtri attivi');
   // Sidebar counts
   const newCountEl = document.getElementById('sbSpecialNewCount');
   const obsCountEl = document.getElementById('sbSpecialObsCount');
-  if(newCountEl) newCountEl.textContent = newCount.toLocaleString('it-IT');
-  if(obsCountEl) obsCountEl.textContent = obsCount.toLocaleString('it-IT');
-  // V2.9.12: count Prodotti personali (V2.10.61: escludo i servizi - hanno badge proprio)
-  const personalCount = DATA.filter(p => p && p.isPersonal === true && p.isService !== true).length;
-  const personalCountEl = document.getElementById('sbSpecialPersonalCount');
-  if(personalCountEl) personalCountEl.textContent = personalCount.toLocaleString('it-IT');
+  if(newCountEl) newCountEl.textContent = newCtx.toLocaleString('it-IT');
+  if(obsCountEl) obsCountEl.textContent = obsCtx.toLocaleString('it-IT');
+  const personalCountEl0 = document.getElementById('sbSpecialPersonalCount');
+  if(personalCountEl0) personalCountEl0.textContent = personalCtx.toLocaleString('it-IT');
+
   // V2.10.61 + V2.10.62: count Servizi dall'archivio _SERVICES_STATE
   // (il vero catalogo servizi vive li', non negli shadow in DATA).
   // Cosi' il bottone topbar/sidebar appare appena crei il primo servizio,
@@ -64515,14 +64558,12 @@ function updateSpecialViewsBadges(){
   // SV2.10.472: pulsante "sconto di vendita ricalcolato".
   // Compare solo quando c'e' un listino di vendita attivo CON margine minimo
   // impostato e almeno un articolo effettivamente ricalcolato.
-  const cappedCount = (typeof _cappedCount === 'function') ? _cappedCount() : 0;
   const tbCapped = document.getElementById('tbSpecialCapped');
   if(tbCapped){
     tbCapped.style.display = cappedCount > 0 ? '' : 'none';
     const bC = document.getElementById('tbSpecialCappedBadge');
-    if(bC) bC.textContent = cappedCount > 999 ? '999+' : cappedCount.toLocaleString('it-IT');
-    tbCapped.title = 'Filtra: sconto di vendita ricalcolato dal margine minimo imposto ('
-      + cappedCount.toLocaleString('it-IT') + ')';
+    if(bC) bC.textContent = _fmtN(cappedCtx);
+    tbCapped.title = _tip(cappedCtx, cappedCount, 'Filtra: sconto di vendita ricalcolato dal margine minimo imposto');
     tbCapped.classList.toggle('active', SPECIAL_FILTERS.has('capped'));
     // Se il filtro e' attivo ma non c'e' piu' nulla da mostrare (listino cambiato,
     // margine minimo rimosso), lo spengo per non lasciare la galleria vuota.
@@ -64538,14 +64579,14 @@ function updateSpecialViewsBadges(){
   if(tbNew){
     tbNew.style.display = newCount > 0 ? '' : 'none';
     const b = document.getElementById('tbSpecialNewBadge');
-    if(b) b.textContent = newCount > 999 ? '999+' : newCount.toLocaleString('it-IT');
+    if(b) b.textContent = _fmtN(newCtx);
     // Aggiorna anche il tooltip col conteggio attuale
-    tbNew.title = `Filtra: Nuovi prodotti (${newCount.toLocaleString('it-IT')})`;
+    tbNew.title = _tip(newCtx, newCount, 'Filtra: Nuovi prodotti');
   }
   if(tbObs){
     tbObs.style.display = obsCount > 0 ? '' : 'none';
     const b = document.getElementById('tbSpecialObsBadge');
-    if(b) b.textContent = obsCount > 999 ? '999+' : obsCount.toLocaleString('it-IT');
+    if(b) b.textContent = _fmtN(obsCtx);
     // SV2.10.423: title e stato visivo (active/is-hiding) gestiti da _updateSpecialViewsActive()
   }
   // V2.9.13: pulsante topbar "Prodotti personali" (toggle on/off)
@@ -64553,8 +64594,8 @@ function updateSpecialViewsBadges(){
   if(tbPers){
     tbPers.style.display = personalCount > 0 ? '' : 'none';
     const b = document.getElementById('tbSpecialPersonalBadge');
-    if(b) b.textContent = personalCount > 999 ? '999+' : personalCount.toLocaleString('it-IT');
-    tbPers.title = `Mostra solo prodotti personali (${personalCount.toLocaleString('it-IT')})`;
+    if(b) b.textContent = _fmtN(personalCtx);
+    tbPers.title = _tip(personalCtx, personalCount, 'Mostra solo prodotti personali');
     // Stato attivo (toggle): aggiungo la classe 'active' se il filtro 'personal' e' attivo
     tbPers.classList.toggle('active', SPECIAL_FILTERS.has('personal'));
   }
