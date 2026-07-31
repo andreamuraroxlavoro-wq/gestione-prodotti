@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.477 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.478 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10630,7 +10630,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.477</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.478</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11331,7 +11331,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.477 mobile");
+console.info("[bootstrap] script avvio — SV2.10.478 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12827,7 +12827,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.477';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.478';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -56921,6 +56921,26 @@ function renderQuoteCartContent(){
           return;
         }
       }
+    }
+
+    /* SV2.10.478 — voci CAMPO LIBERO (codice FREE-XXXXXX).
+       Non esistono nel catalogo: vivono solo dentro _QUOTE_STATE.items, quindi
+       la ricerca in DATA qui sotto falliva sempre e usciva "Prodotto non trovato
+       nel catalogo". Il doppio clic apre lo stesso form del badge "✏️ LIBERA",
+       in modalita' modifica: descrizione, tipo, costo, prezzo e quantita'.
+       (Il doppio clic proprio SOPRA il badge resta ignorato dalla guard sui
+       controlli interattivi in cima all'handler: li' basta il clic singolo.) */
+    if(code.indexOf('FREE-') === 0){
+      const st = window._QUOTE_STATE;
+      const voce = (st && Array.isArray(st.items))
+        ? st.items.find(x => x && x.code === code && x.isFreeField)
+        : null;
+      if(voce && typeof openFreeFieldDialog === 'function'){
+        openFreeFieldDialog(voce);
+        return;
+      }
+      toast('Voce libera non trovata nel preventivo', 'err', 3000);
+      return;
     }
 
     // Lookup nel DATA via codice (piu' robusto di affidarsi a it.idx)
