@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.471 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.472 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -2995,6 +2995,9 @@ body.theme-light .prm-value-count{ color:#7c3aed !important; }
 /* V2.10.63 + V2.10.68: badge verde smeraldo per il pulsante "Servizi"
    (coerente con il colore SERVIZIO sulle card e nel carrello). */
 .tb-special-service .tb-special-badge{ background:#10b981; }
+/* SV2.10.472: badge ciano per il filtro "sconto di vendita ricalcolato",
+   stesso colore usato per il margine minimo nell'editor sconti e sulle righe. */
+.tb-special-capped .tb-special-badge{ background:#0891b2; }
 
 .tb-special-new:hover{ color:#22c55e; }
 .tb-special-obs:hover{ color:#ef4444; }
@@ -3003,6 +3006,7 @@ body.theme-light .prm-value-count{ color:#7c3aed !important; }
 .tb-special-personal:hover{ color:#7c3aed; }
 /* V2.10.63 + V2.10.68: hover verde smeraldo per il pulsante servizi. */
 .tb-special-service:hover{ color:#10b981; }
+.tb-special-capped:hover{ color:#0891b2; }
 
 /* V2.10.96: pulsante "Refresh da Drive" — accento ciano per distinguersi
    dagli altri pulsanti vista/tema. Animazione spin durante il pull.
@@ -3170,6 +3174,7 @@ body.theme-light .prm-value-count{ color:#7c3aed !important; }
 .tb-special-new.active,
 .tb-special-obs.active,
 .tb-special-personal.active,
+.tb-special-capped.active,
 .tb-special-service.active{
   border:3px solid #CCFF00 !important;
   box-shadow: 0 0 14px rgba(204,255,0,0.75), 0 0 4px rgba(204,255,0,0.95) !important;
@@ -3179,10 +3184,12 @@ body.theme-light .prm-value-count{ color:#7c3aed !important; }
 .tb-special-obs.active{ color:#ef4444; }
 .tb-special-personal.active{ color:#7c3aed; }
 .tb-special-service.active{ color:#10b981; }
+.tb-special-capped.active{ color:#0891b2; }
 /* Hover su pulsante attivo: glow ancora più intenso */
 .tb-special-new.active:hover,
 .tb-special-obs.active:hover,
 .tb-special-personal.active:hover,
+.tb-special-capped.active:hover,
 .tb-special-service.active:hover{
   box-shadow: 0 0 18px rgba(204,255,0,0.95), 0 0 6px rgba(204,255,0,1) !important;
 }
@@ -10603,7 +10610,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.471</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.472</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10854,6 +10861,22 @@ body.theme-light .dlg-input{background:var(--bg3)}
 
     <!-- V2.2.36: Pulsanti rapidi filtro NUOVI / SCATALOGATI (hidden di default, JS mostra se ci sono prodotti) -->
     <div class="topbar-divider" aria-hidden="true" id="tbSpecialDivider" style="display:none"></div>
+    <!-- SV2.10.472: filtro "sconto di vendita ricalcolato dal margine minimo".
+         Icona calcolatrice stilizzata; il badge conta gli articoli il cui sconto
+         e' imposto dal margine minimo del listino di vendita ATTIVO. -->
+    <button class="btn icon-btn tb-special-btn tb-special-capped" id="tbSpecialCapped" onclick="toggleSpecialFilter('capped')" title="Filtra: sconto di vendita ricalcolato" aria-label="Sconto di vendita ricalcolato" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="2" width="16" height="20" rx="2.5"/>
+        <rect x="7" y="5" width="10" height="4" rx="1"/>
+        <line x1="8" y1="13" x2="8" y2="13"/>
+        <line x1="12" y1="13" x2="12" y2="13"/>
+        <line x1="16" y1="13" x2="16" y2="13"/>
+        <line x1="8" y1="17" x2="8" y2="17"/>
+        <line x1="12" y1="17" x2="12" y2="17"/>
+        <line x1="16" y1="17" x2="16" y2="17"/>
+      </svg>
+      <span class="tb-special-badge" id="tbSpecialCappedBadge">0</span>
+    </button>
     <button class="btn icon-btn tb-special-btn tb-special-new" id="tbSpecialNew" onclick="toggleSpecialFilter('new')" title="Filtra: Nuovi prodotti" aria-label="Nuovi prodotti" style="display:none">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/>
@@ -11288,7 +11311,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.471 mobile");
+console.info("[bootstrap] script avvio — SV2.10.472 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12784,7 +12807,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.471';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.472';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14551,6 +14574,51 @@ let HIDE_OBSOLETE = (function(){
 function _persistHideObsolete(){
   try { localStorage.setItem(HIDE_OBSOLETE_LS_KEY, HIDE_OBSOLETE ? '1' : '0'); } catch(_){}
 }
+/* SV2.10.472 — filtro "sconto di vendita RICALCOLATO dal margine minimo".
+   Il ricalcolo non e' una proprieta' del prodotto: dipende dal listino di vendita
+   ATTIVO e dal suo margine minimo, quindi va calcolato con
+   splGetEffectiveSaleDiscount. Farlo per ogni articolo a ogni passata di
+   applyFilters sarebbe pesante su cataloghi da migliaia di righe, percio' il
+   risultato e' messo in cache e invalidato da una firma che cambia quando cambia
+   il listino attivo, il suo contenuto o la dimensione del catalogo. */
+let _CAPPED_CACHE = { sig: null, set: null };
+function _cappedSignature(){
+  if(typeof getActiveSplId !== 'function' || typeof splGet !== 'function') return null;
+  if(typeof splGetEffectiveSaleDiscount !== 'function') return null;
+  const id = getActiveSplId();
+  if(!id) return null;
+  const l = splGet(id);
+  if(!l) return null;
+  const mm = (typeof splSanitizeMargin === 'function') ? splSanitizeMargin(l.minMargin) : null;
+  if(mm === null) return null;   // nessun margine minimo impostato = nessun ricalcolo
+  let body = '';
+  try { body = String(JSON.stringify(l).length); } catch(_){}
+  return id + '|' + mm + '|' + (l.updatedAt || 0) + '|' + body + '|' + DATA.length;
+}
+function _cappedSet(){
+  const sig = _cappedSignature();
+  if(sig === null){ _CAPPED_CACHE = { sig: null, set: null }; return null; }
+  if(_CAPPED_CACHE.sig === sig && _CAPPED_CACHE.set) return _CAPPED_CACHE.set;
+  const id = getActiveSplId();
+  const out = new Set();
+  DATA.forEach(p => {
+    if(!p) return;
+    let info = null;
+    try { info = splGetEffectiveSaleDiscount(p, id); } catch(_){}
+    if(info && info.marginCapped) out.add(p._idx);
+  });
+  _CAPPED_CACHE = { sig: sig, set: out };
+  return out;
+}
+function _isSaleCapped(p){
+  const st = _cappedSet();
+  return !!(st && p && st.has(p._idx));
+}
+function _cappedCount(){
+  const st = _cappedSet();
+  return st ? st.size : 0;
+}
+
 let SELECTION_MODE = null;  // 'unflag-new' | 'delete-obsolete' | null
 const SELECTION_SET = new Set();  // _idx selezionati nella modalità corrente
 
@@ -15398,7 +15466,9 @@ function _msMatchSpecialFilters(p){
   const matchObs = SPECIAL_FILTERS.has('obsolete') && !!p._obsoleteSince;
   const matchPersonal = SPECIAL_FILTERS.has('personal') && (p.isPersonal === true && !isService);
   const matchService = SPECIAL_FILTERS.has('service') && isService;
-  return matchNew || matchObs || matchPersonal || matchService;
+  // SV2.10.472
+  const matchCapped = SPECIAL_FILTERS.has('capped') && _isSaleCapped(p);
+  return matchNew || matchObs || matchPersonal || matchService || matchCapped;
 }
 function _tagBaseMatch(p){
   // filtri Marca / Macrocategoria / Categoria
@@ -29027,7 +29097,10 @@ function applyFilters(options){
       // V2.10.179: matchService include tutti i servizi (anche shadow SVC-, che
       // sono la rappresentazione visiva dei servizi nuovi creati da preventivo).
       const matchService = SPECIAL_FILTERS.has('service') && isService;
-      if(!matchNew && !matchObs && !matchPersonal && !matchService) return false;
+      // SV2.10.472: solo gli articoli con sconto di vendita ricalcolato dal
+      // margine minimo del listino attivo.
+      const matchCapped = SPECIAL_FILTERS.has('capped') && _isSaleCapped(p);
+      if(!matchNew && !matchObs && !matchPersonal && !matchService && !matchCapped) return false;
     }
 
     // Advanced search: il test lo mettiamo in cima per short-circuit veloce
@@ -64290,6 +64363,8 @@ function _updateSpecialViewsActive(){
   // V2.2.36: sincronizza anche i pulsanti topbar
   const tbNew = document.getElementById('tbSpecialNew');
   const tbObs = document.getElementById('tbSpecialObs');
+  const tbCap = document.getElementById('tbSpecialCapped');   // SV2.10.472
+  if(tbCap) tbCap.classList.toggle('active', SPECIAL_FILTERS.has('capped'));
   if(tbNew) tbNew.classList.toggle('active', SPECIAL_FILTERS.has('new'));
   if(tbObs){
     tbObs.classList.toggle('active', SPECIAL_FILTERS.has('obsolete'));
@@ -64355,6 +64430,25 @@ function updateSpecialViewsBadges(){
     serviceBtn.style.display = serviceCount > 0 ? '' : 'none';
     serviceBtn.classList.toggle('active', SPECIAL_FILTERS.has('service'));
   }
+  // SV2.10.472: pulsante "sconto di vendita ricalcolato".
+  // Compare solo quando c'e' un listino di vendita attivo CON margine minimo
+  // impostato e almeno un articolo effettivamente ricalcolato.
+  const cappedCount = (typeof _cappedCount === 'function') ? _cappedCount() : 0;
+  const tbCapped = document.getElementById('tbSpecialCapped');
+  if(tbCapped){
+    tbCapped.style.display = cappedCount > 0 ? '' : 'none';
+    const bC = document.getElementById('tbSpecialCappedBadge');
+    if(bC) bC.textContent = cappedCount > 999 ? '999+' : cappedCount.toLocaleString('it-IT');
+    tbCapped.title = 'Filtra: sconto di vendita ricalcolato dal margine minimo imposto ('
+      + cappedCount.toLocaleString('it-IT') + ')';
+    tbCapped.classList.toggle('active', SPECIAL_FILTERS.has('capped'));
+    // Se il filtro e' attivo ma non c'e' piu' nulla da mostrare (listino cambiato,
+    // margine minimo rimosso), lo spengo per non lasciare la galleria vuota.
+    if(cappedCount === 0 && SPECIAL_FILTERS.has('capped')){
+      SPECIAL_FILTERS.delete('capped');
+      if(typeof applyFilters === 'function') applyFilters({ refreshCascade: true });
+    }
+  }
   // V2.2.36: topbar buttons con badge + show/hide
   const tbNew = document.getElementById('tbSpecialNew');
   const tbObs = document.getElementById('tbSpecialObs');
@@ -64392,7 +64486,7 @@ function updateSpecialViewsBadges(){
     tbServ.classList.toggle('active', SPECIAL_FILTERS.has('service'));
   }
   if(tbDiv){
-    tbDiv.style.display = (newCount > 0 || obsCount > 0 || personalCount > 0 || serviceCount > 0) ? '' : 'none';
+    tbDiv.style.display = (newCount > 0 || obsCount > 0 || personalCount > 0 || serviceCount > 0 || cappedCount > 0) ? '' : 'none';
   }
   // V2.9.18: sincronizza anche il badge nel dropdown menu topbar (voce "Prodotti Personali")
   if(typeof updateTopbarPersonaliBadge === 'function'){
