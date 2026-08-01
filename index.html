@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.496 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.497 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6189,6 +6189,10 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
 .pp-bom-tot-num.is-cost{color:#dc2626}
 .pp-bom-tot-num.is-sell{color:#0178d4}
 .pp-bom-tot-num.is-list{color:#16a34a}
+/* SV2.10.497 — sotto ogni campo prezzo, a quale colonna del preventivo
+   corrisponde: i tre nomi da soli si prestavano a confusione. */
+.pp-price-hint{display:block;margin-top:4px;font-size:10.5px;color:var(--fg3);line-height:1.35}
+.pp-price-hint strong{color:var(--fg2)}
 .pp-bom-cmp{display:flex;flex-wrap:wrap;gap:16px;font-size:11px;padding:4px 6px 0}
 
 .qcart-optimized .qcart-desc-cell,
@@ -10804,7 +10808,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.496</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.497</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11505,7 +11509,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.496 mobile");
+console.info("[bootstrap] script avvio — SV2.10.497 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13001,7 +13005,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.496';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.497';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13090,6 +13094,7 @@ function personalProductCreate(input){
     content: String(input.content || '').trim(),
     note: String(input.note || '').trim(),   // SV2.10.483
     bom: bomNormalize(input.bom),            // SV2.10.484
+    salePrice: String(input.salePrice || '').trim(),   // SV2.10.497
     category: String(input.category || '').trim(),
     category_parent: String(input.category_parent || '').trim(),
     precio_neto_compra: String(input.precio_neto_compra || '0').trim(),
@@ -13153,7 +13158,7 @@ function personalProductUpdate(idx, updates){
   }
 
   // SV2.10.483: aggiunto 'note' — senza, il campo veniva scartato in silenzio.
-  const editable = ['brand', 'description', 'short_description', 'category', 'category_parent', 'image_path', 'PVP', 'precio_neto_compra', 'extra_images', 'specifications', 'content', 'note'];
+  const editable = ['brand', 'description', 'short_description', 'category', 'category_parent', 'image_path', 'PVP', 'precio_neto_compra', 'extra_images', 'specifications', 'content', 'note', 'salePrice'];
   editable.forEach(k => {
     if(k in updates){
       // V2.9.24: extra_images deve restare un array, gli altri stringa trimmata
@@ -13511,6 +13516,8 @@ function openPersonalProductEditor(opts){
     image_path: existing ? (existing.image_path || '') : (pre ? (pre.image_path || '') : ''),
     // SV2.10.483: note interne, come nei servizi — non finiscono mai in stampa.
     note: existing ? (existing.note || '') : (pre ? (pre.note || '') : ''),
+    // SV2.10.497: prezzo di vendita dell'articolo composto (vuoto = non impostato)
+    salePrice: existing ? (existing.salePrice || '') : (pre ? (pre.salePrice || '') : ''),
     // SV2.10.484: distinta base (sempre normalizzata, mai null)
     bom: bomNormalize(existing ? existing.bom : (pre ? pre.bom : null)),
     // V2.9.27: FIX BUG GRAVE - leggo extra_images dall'item esistente.
@@ -13652,18 +13659,27 @@ function openPersonalProductEditor(opts){
 
         '<div class="co-section">' +
           '<div class="co-section-title">Prezzi</div>' +
-          '<div class="co-field-grid">' +
+          // SV2.10.497: TRE campi, uno per ciascuna colonna del preventivo.
+          '<div class="co-field-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">' +
             '<div class="co-field">' +
-              '<label class="co-field-label" for="ppPvp">Prezzo di Listino (€)</label>' +
+              '<label class="co-field-label" for="ppPvp">Prezzo netto (€)</label>' +
               '<input class="co-field-input" type="number" step="0.01" min="0" id="ppPvp" value="' + escapeAttr(f.PVP) + '" placeholder="0.00">' +
+              '<span class="pp-price-hint">Colonna <strong>LISTINO</strong> del preventivo</span>' +
             '</div>' +
             '<div class="co-field">' +
-              '<label class="co-field-label" for="ppNetto">Costo Netto (€)</label>' +
+              '<label class="co-field-label" for="ppNetto">Costo di acquisto (€)</label>' +
               '<input class="co-field-input" type="number" step="0.01" min="0" id="ppNetto" value="' + escapeAttr(f.precio_neto_compra) + '" placeholder="0.00">' +
+              '<span class="pp-price-hint">Colonna <strong>NETTO ACQ</strong> \u00b7 determina lo Sc. acq.</span>' +
+            '</div>' +
+            '<div class="co-field">' +
+              '<label class="co-field-label" for="ppSalePrice">Prezzo di vendita (€)</label>' +
+              '<input class="co-field-input" type="number" step="0.01" min="0" id="ppSalePrice" value="' + escapeAttr(f.salePrice) + '" placeholder="\u2014" oninput="ppPricesHint()">' +
+              '<span class="pp-price-hint" id="ppPriceHintSale">Colonna <strong>PREZZO</strong> \u00b7 lascia vuoto per usare il listino cliente</span>' +
             '</div>' +
           '</div>' +
           '<p class="settings-hint" style="margin:8px 0 0 0;font-size:11px">' +
-            'Se l\'articolo e\' un puro servizio (es. manodopera) puoi mettere Listino = Netto: lo sconto risulter\u00e0 0%.' +
+            'Se l\'articolo e\' un puro servizio (es. manodopera) puoi mettere Prezzo netto = Costo: lo sconto risulter\u00e0 0%. ' +
+            'Il <strong>Prezzo di vendita</strong> e\' quello che finisce in preventivo: se lo compili, lo sconto cliente della riga viene calcolato di conseguenza.' +
           '</p>' +
         '</div>' +
 
@@ -13727,6 +13743,7 @@ function openPersonalProductEditor(opts){
     }
   });
   if(typeof renderPpBom === 'function') renderPpBom();
+  if(typeof ppPricesHint === 'function') ppPricesHint();   // SV2.10.497
 
   const cleanup = () => bg.remove();
   document.getElementById('ppCancelBtn').addEventListener('click', () => {
@@ -13756,6 +13773,8 @@ function openPersonalProductEditor(opts){
       image_path: document.getElementById('ppImg').value.trim(),
       // SV2.10.483
       note: (function(){ const el = document.getElementById('ppNote'); return el ? el.value.trim() : ''; })(),
+      // SV2.10.497
+      salePrice: (function(){ const el = document.getElementById('ppSalePrice'); return el ? el.value.trim() : ''; })(),
       // SV2.10.484: distinta base (stato locale del modal)
       bom: (function(){
         const b = bomNormalize(_PP_BOM);
@@ -34179,6 +34198,28 @@ function ppBomSyncDefault(origine){
   }
 }
 
+/* SV2.10.497 — sotto il Prezzo di vendita mostro lo sconto che ne risulta sul
+   Prezzo netto: e' il numero che comparira' nella colonna Sc. Cliente del
+   preventivo, e vederlo qui evita di doverlo ricavare a mente. */
+function ppPricesHint(){
+  const el = document.getElementById('ppPriceHintSale');
+  if(!el) return;
+  const pvpEl = document.getElementById('ppPvp');
+  const sEl = document.getElementById('ppSalePrice');
+  const netEl = document.getElementById('ppNetto');
+  const pvp = pvpEl ? priceNum(pvpEl.value) : 0;
+  const sale = sEl ? priceNum(sEl.value) : 0;
+  const costo = netEl ? priceNum(netEl.value) : 0;
+  if(!(sale > 0)){
+    el.innerHTML = 'Colonna <strong>PREZZO</strong> \u00b7 lascia vuoto per usare il listino cliente';
+    return;
+  }
+  const sc = (pvp > 0) ? (1 - sale / pvp) * 100 : null;
+  const marg = (sale > 0 && costo > 0) ? ((sale - costo) / sale * 100) : null;
+  el.innerHTML = 'Sc. cliente <strong>' + (sc != null ? _ppBomFmt(sc, 1) + '%' : '\u2014') + '</strong>' +
+    ' \u00b7 margine <strong>' + (marg != null ? _ppBomFmt(marg, 1) + '%' : '\u2014') + '</strong>';
+}
+
 /* Applica il margine predefinito a TUTTE le righe. */
 function ppBomApplyDefaultMargin(){
   const el = document.getElementById('ppBomDefMarg');
@@ -54274,6 +54315,18 @@ function addToQuoteCart(productIdx, qty){
       if(_info != null){
         _newItem.discountPct = _info.scontoEff;
         _newItem._splApplied = true;
+      }
+    }
+    /* SV2.10.497 — se l'articolo (personale/composto) ha un PREZZO DI VENDITA
+       suo, quello vince: e' una decisione presa sull'articolo, piu' specifica
+       del listino di vendita generale. Il carrello ragiona per sconti, quindi
+       il prezzo viene espresso come sconto sul listino — a 4 decimali, se no
+       il prezzo si scosterebbe di qualche centesimo. */
+    if(_newItem){
+      const _sale = priceNum(getField(p, 'salePrice'));
+      if(_sale > 0 && pvp > 0){
+        _newItem.discountPct = Math.round((1 - _sale / pvp) * 100 * 10000) / 10000;
+        _newItem._salePriceApplied = true;
       }
     }
   }
