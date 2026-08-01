@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.489 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.491 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6112,8 +6112,29 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
 .bom-pick-img .pp-bom-thumb{width:84px;height:84px;flex:0 0 84px}
 .bom-pick-code{font-size:12.5px;font-weight:800;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bom-pick-brand{font-size:10px;font-weight:700;color:#0178d4;text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
-.bom-pick-desc{font-size:11px;color:var(--fg3);line-height:1.35;margin-top:4px;height:44px;overflow:hidden}
+.bom-pick-desc{font-size:11px;color:var(--fg3);line-height:1.35;margin-top:4px;height:30px;overflow:hidden}
 .bom-pick-prices{display:flex;justify-content:space-between;gap:6px;margin-top:7px;padding-top:7px;border-top:1px solid var(--border);font-size:11.5px;color:var(--fg2)}
+/* SV2.10.490 — filtri con etichetta ed etichette identificative sulle schede.
+   Ogni livello ha il suo colore e lo mantiene sia nel filtro sia sulla scheda,
+   cosi' si capisce a colpo d'occhio quale valore appartiene a quale livello. */
+.bom-pick-field{display:flex;flex-direction:column;gap:4px}
+.bom-pick-lab{font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--fg3);padding-left:2px}
+.bom-pick-lab.is-brand{color:#0178d4}
+.bom-pick-lab.is-macro{color:#7c3aed}
+.bom-pick-lab.is-cat{color:#0e9170}
+.bom-pick-sel{min-width:150px;max-width:220px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:13px}
+.bom-pick-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.bom-pick-tag{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bom-pick-tag.is-macro{background:rgba(124,58,237,0.16);color:#7c3aed}
+.bom-pick-tag.is-cat{background:rgba(14,145,112,0.16);color:#0e9170}
+/* SV2.10.491 — paginazione del selettore */
+.bom-pick-pager{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.bom-pg-btn{min-width:32px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;background:var(--bg2);color:var(--fg);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.bom-pg-btn:hover:not(:disabled){border-color:#0178d4;color:#0178d4}
+.bom-pg-btn:disabled{opacity:.4;cursor:default}
+.bom-pg-btn.is-cur{background:#0178d4;border-color:#0178d4;color:#fff;opacity:1;cursor:default}
+.bom-pg-dots{color:var(--fg3);padding:0 2px}
+.bom-pg-info{margin-left:8px;font-size:11.5px;color:var(--fg3)}
 
 /* SV2.10.484 — distinta base nell'editor dei prodotti personali */
 .pp-bom-row{display:grid;grid-template-columns:minmax(0,1fr) 46px 74px 58px 76px 58px 58px 84px 26px;gap:5px;align-items:center;padding:5px 6px;border-bottom:1px solid var(--border)}
@@ -10705,7 +10726,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.489</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.491</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11406,7 +11427,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.489 mobile");
+console.info("[bootstrap] script avvio — SV2.10.491 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12902,7 +12923,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.489';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.491';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -33449,28 +33470,19 @@ function _ppBomBindRows(){
    ═══════════════════════════════════════════════════════════════════════ */
 
 let _BOM_PICK = new Set();   // codici selezionati nel pannello
+let _BOM_PICK_PAGE = 1;      // SV2.10.491: pagina corrente del selettore
 
 function openBomPicker(){
   const ex = document.getElementById('bomPickerModal');
   if(ex) ex.remove();
   _BOM_PICK = new Set();
+  _BOM_PICK_PAGE = 1;
 
   const bg = document.createElement('div');
   bg.className = 'modal-bg';
   bg.id = 'bomPickerModal';
   bg.style.zIndex = '560';   // sopra l'editor del prodotto personale (520)
 
-  // Marche e categorie presenti a catalogo, per i due filtri
-  const marche = new Set(), categorie = new Set();
-  DATA.forEach(p => {
-    if(!p || p.isPersonal === true) return;
-    const b = String(getField(p, 'brand') || '').trim();
-    const c = String(getField(p, 'category') || '').trim();
-    if(b) marche.add(b);
-    if(c) categorie.add(c);
-  });
-  const opts = (set) => Array.from(set).sort((a, b) => a.localeCompare(b, 'it'))
-    .map(v => '<option value="' + escapeAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
 
   bg.innerHTML =
     '<div class="modal bom-picker-modal">' +
@@ -33478,21 +33490,36 @@ function openBomPicker(){
         '<h3 style="margin:0">\uD83E\uDDE9 Aggiungi componenti alla distinta</h3>' +
         '<span id="bomPickCount" style="font-size:12px;color:var(--fg3)"></span>' +
       '</div>' +
-      '<div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center">' +
-        '<input type="text" id="bomPickSearch" placeholder="Cerca per codice o descrizione\u2026" autocomplete="off" ' +
-          'style="flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:14px">' +
-        '<select id="bomPickBrand" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:13px">' +
-          '<option value="">Tutte le marche</option>' + opts(marche) +
-        '</select>' +
-        '<select id="bomPickCat" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:13px">' +
-          '<option value="">Tutte le categorie</option>' + opts(categorie) +
-        '</select>' +
-        '<button type="button" class="btn ghost small" id="bomPickClear" style="font-size:12px">Azzera filtri</button>' +
+      // SV2.10.490: tre filtri (marca / macrocategoria / categoria), ognuno con
+      // la sua etichetta, popolati A CASCATA sui prodotti che passano gli altri.
+      '<div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">' +
+        '<div class="bom-pick-field" style="flex:1;min-width:220px">' +
+          '<label class="bom-pick-lab" for="bomPickSearch">Ricerca</label>' +
+          '<input type="text" id="bomPickSearch" placeholder="Codice o descrizione\u2026" autocomplete="off" ' +
+            'style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:14px">' +
+        '</div>' +
+        '<div class="bom-pick-field">' +
+          '<label class="bom-pick-lab is-brand" for="bomPickBrand">Marca</label>' +
+          '<select id="bomPickBrand" class="bom-pick-sel"></select>' +
+        '</div>' +
+        '<div class="bom-pick-field">' +
+          '<label class="bom-pick-lab is-macro" for="bomPickMacro">Macrocategoria</label>' +
+          '<select id="bomPickMacro" class="bom-pick-sel"></select>' +
+        '</div>' +
+        '<div class="bom-pick-field">' +
+          '<label class="bom-pick-lab is-cat" for="bomPickCat">Categoria</label>' +
+          '<select id="bomPickCat" class="bom-pick-sel"></select>' +
+        '</div>' +
+        '<button type="button" class="btn ghost small" id="bomPickClear" style="font-size:12px;margin-bottom:1px">Azzera filtri</button>' +
       '</div>' +
       '<div class="modal-body" id="bomPickGrid" style="display:block;padding:16px 20px;overflow:auto;flex:1;min-height:0"></div>' +
-      '<div class="modal-foot">' +
-        '<button class="btn ghost" id="bomPickCancel">Annulla</button>' +
-        '<button class="btn primary" id="bomPickOk">Aggiungi alla distinta</button>' +
+      '<div class="modal-foot" style="justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+        // SV2.10.491: navigazione fra le pagine dei risultati
+        '<div id="bomPickPager" class="bom-pick-pager"></div>' +
+        '<div style="display:flex;gap:8px">' +
+          '<button class="btn ghost" id="bomPickCancel">Annulla</button>' +
+          '<button class="btn primary" id="bomPickOk">Aggiungi alla distinta</button>' +
+        '</div>' +
       '</div>' +
     '</div>';
   document.body.appendChild(bg);
@@ -33503,13 +33530,18 @@ function openBomPicker(){
   bg.querySelector('#bomPickClear').onclick = () => {
     bg.querySelector('#bomPickSearch').value = '';
     bg.querySelector('#bomPickBrand').value = '';
+    bg.querySelector('#bomPickMacro').value = '';
     bg.querySelector('#bomPickCat').value = '';
+    _BOM_PICK_PAGE = 1;
     renderBomPicker();
   };
-  ['bomPickSearch', 'bomPickBrand', 'bomPickCat'].forEach(id => {
+  ['bomPickSearch', 'bomPickBrand', 'bomPickMacro', 'bomPickCat'].forEach(id => {
     const el = bg.querySelector('#' + id);
-    el.addEventListener('input', renderBomPicker);
-    el.addEventListener('change', renderBomPicker);
+    // SV2.10.491: cambiando un filtro si torna alla prima pagina, altrimenti si
+    // resterebbe su una pagina che dopo il filtro non esiste piu'.
+    const h = () => { _BOM_PICK_PAGE = 1; renderBomPicker(); };
+    el.addEventListener('input', h);
+    el.addEventListener('change', h);
   });
   bg.querySelector('#bomPickOk').onclick = () => { bomPickerConfirm(); chiudi(); };
 
@@ -33517,38 +33549,92 @@ function openBomPicker(){
   setTimeout(() => { const s = bg.querySelector('#bomPickSearch'); if(s) s.focus(); }, 40);
 }
 
-const BOM_PICK_MAX = 200;   // schede disegnate al massimo, per non impastare il DOM
+/* SV2.10.491: si disegna UNA PAGINA per volta invece di troncare a 200 senza
+   possibilita' di andare oltre. Cosi' il catalogo intero e' raggiungibile e il
+   DOM resta leggero. */
+const BOM_PICK_PER_PAGE = 60;
 
 function renderBomPicker(){
   const grid = document.getElementById('bomPickGrid');
   if(!grid) return;
   const q    = String((document.getElementById('bomPickSearch') || {}).value || '').trim().toLowerCase();
   const fb   = String((document.getElementById('bomPickBrand') || {}).value || '');
+  const fm   = String((document.getElementById('bomPickMacro') || {}).value || '');   // SV2.10.490
   const fc   = String((document.getElementById('bomPickCat') || {}).value || '');
+
+  /* SV2.10.490 — i tre elenchi si popolano A CASCATA: ognuno mostra solo i
+     valori che esistono davvero fra i prodotti che passano GLI ALTRI filtri.
+     Cosi' scegliendo una marca, macrocategorie e categorie si riducono a quelle
+     di quella marca, e non si finisce mai in una selezione che non da' risultati. */
+  const _match = (p, escludi) => {
+    if(!p || !p.name || p.isPersonal === true) return false;
+    if(escludi !== 'brand' && fb && String(getField(p, 'brand') || '').trim() !== fb) return false;
+    if(escludi !== 'macro' && fm && String(getField(p, 'category_parent') || '').trim() !== fm) return false;
+    if(escludi !== 'cat'   && fc && String(getField(p, 'category') || '').trim() !== fc) return false;
+    if(q){
+      const code = String(p.name).toLowerCase();
+      const desc = String(getField(p, 'short_description') || '').toLowerCase();
+      if(code.indexOf(q) < 0 && desc.indexOf(q) < 0) return false;
+    }
+    return true;
+  };
+  const _fill = (id, campo, escludi, etichettaTutti, valoreCorrente) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    // SV2.10.491: accanto a ogni voce quanti articoli restano scegliendola.
+    // Rende visibile che l'elenco e' gia' ristretto dagli altri filtri.
+    const conta = new Map();
+    let tot = 0;
+    DATA.forEach(p => {
+      if(!_match(p, escludi)) return;
+      const v = String(getField(p, campo) || '').trim();
+      if(!v) return;
+      conta.set(v, (conta.get(v) || 0) + 1);
+      tot++;
+    });
+    // il valore selezionato resta sempre in elenco, anche se gli altri filtri
+    // lo hanno escluso: altrimenti si azzererebbe da solo sotto le dita
+    if(valoreCorrente && !conta.has(valoreCorrente)) conta.set(valoreCorrente, 0);
+    const arr = Array.from(conta.keys()).sort((x, y) => x.localeCompare(y, 'it'));
+    el.innerHTML = '<option value="">' + escapeHtml(etichettaTutti) + ' (' + tot.toLocaleString('it-IT') + ')</option>' +
+      arr.map(v => '<option value="' + escapeAttr(v) + '"' + (v === valoreCorrente ? ' selected' : '') + '>' +
+        escapeHtml(v) + ' (' + (conta.get(v) || 0).toLocaleString('it-IT') + ')</option>').join('');
+    el.value = valoreCorrente;
+  };
+  _fill('bomPickBrand', 'brand',           'brand', 'Tutte',        fb);
+  _fill('bomPickMacro', 'category_parent', 'macro', 'Tutte',        fm);
+  _fill('bomPickCat',   'category',        'cat',   'Tutte',        fc);
   const gia  = new Set((_PP_BOM && Array.isArray(_PP_BOM.items)) ? _PP_BOM.items.map(x => x.code) : []);
 
-  const res = [];
-  let totali = 0;
+  const tutti = [];
   for(let i = 0; i < DATA.length; i++){
     const p = DATA[i];
     if(!p || !p.name || p.isPersonal === true) continue;   // la distinta si compone di articoli di CATALOGO
     if(fb && String(getField(p, 'brand') || '').trim() !== fb) continue;
+    if(fm && String(getField(p, 'category_parent') || '').trim() !== fm) continue;   // SV2.10.490
     if(fc && String(getField(p, 'category') || '').trim() !== fc) continue;
     if(q){
       const code = String(p.name).toLowerCase();
       const desc = String(getField(p, 'short_description') || '').toLowerCase();
       if(code.indexOf(q) < 0 && desc.indexOf(q) < 0) continue;
     }
-    totali++;
-    if(res.length < BOM_PICK_MAX) res.push(p);
+    tutti.push(p);
   }
+
+  const totali = tutti.length;
+  const pagine = Math.max(1, Math.ceil(totali / BOM_PICK_PER_PAGE));
+  if(_BOM_PICK_PAGE > pagine) _BOM_PICK_PAGE = pagine;
+  if(_BOM_PICK_PAGE < 1) _BOM_PICK_PAGE = 1;
+  const da = (_BOM_PICK_PAGE - 1) * BOM_PICK_PER_PAGE;
+  const res = tutti.slice(da, da + BOM_PICK_PER_PAGE);
 
   const cnt = document.getElementById('bomPickCount');
   if(cnt){
     cnt.textContent = totali.toLocaleString('it-IT') + ' articoli'
-      + (totali > res.length ? ' \u00b7 mostrati i primi ' + res.length + ', restringi la ricerca' : '')
+      + (totali ? ' \u00b7 ' + (da + 1) + '-' + (da + res.length) : '')
       + (_BOM_PICK.size ? ' \u00b7 ' + _BOM_PICK.size + ' selezionati' : '');
   }
+  _bomPickRenderPager(pagine, totali);
 
   if(!res.length){
     grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--fg3)">Nessun articolo trovato con questi filtri.</div>';
@@ -33567,6 +33653,13 @@ function renderBomPicker(){
       '<div class="bom-pick-code">' + escapeHtml(p.name) + '</div>' +
       '<div class="bom-pick-brand">' + escapeHtml(String(getField(p, 'brand') || '')) + '</div>' +
       '<div class="bom-pick-desc">' + escapeHtml(String(getField(p, 'short_description') || '').slice(0, 90)) + '</div>' +
+      // SV2.10.490: etichette identificative di macrocategoria e categoria
+      '<div class="bom-pick-tags">' +
+        (String(getField(p, 'category_parent') || '').trim()
+          ? '<span class="bom-pick-tag is-macro" title="Macrocategoria">' + escapeHtml(String(getField(p, 'category_parent'))) + '</span>' : '') +
+        (String(getField(p, 'category') || '').trim()
+          ? '<span class="bom-pick-tag is-cat" title="Categoria">' + escapeHtml(String(getField(p, 'category'))) + '</span>' : '') +
+      '</div>' +
       '<div class="bom-pick-prices">' +
         '<span title="Listino">' + (listino != null ? _ppBomFmt(listino, 2) + ' \u20ac' : '\u2014') + '</span>' +
         '<span title="Costo (netto d\u0027acquisto)" style="color:#dc2626;font-weight:700">' + (costo != null ? _ppBomFmt(costo, 2) + ' \u20ac' : '\u2014') + '</span>' +
@@ -33585,6 +33678,41 @@ function renderBomPicker(){
       }
       if(_BOM_PICK.has(code)) _BOM_PICK.delete(code); else _BOM_PICK.add(code);
       renderBomPicker();
+    };
+  });
+}
+
+/* SV2.10.491 — controlli di navigazione fra le pagine. Restano nascosti quando
+   c'e' una pagina sola, per non aggiungere rumore quando non servono. */
+function _bomPickRenderPager(pagine, totali){
+  const box = document.getElementById('bomPickPager');
+  if(!box) return;
+  if(pagine <= 1){ box.innerHTML = ''; return; }
+  const p = _BOM_PICK_PAGE;
+  const btn = (lab, vaiA, attivo, titolo) =>
+    '<button type="button" class="bom-pg-btn' + (attivo ? ' is-cur' : '') + '"' +
+      (vaiA == null ? ' disabled' : ' data-page="' + vaiA + '"') +
+      (titolo ? ' title="' + escapeAttr(titolo) + '"' : '') + '>' + lab + '</button>';
+  // Finestra di 5 numeri attorno alla pagina corrente: con 144 pagine non si
+  // possono elencare tutte.
+  let da = Math.max(1, p - 2), a = Math.min(pagine, da + 4);
+  da = Math.max(1, a - 4);
+  let numeri = '';
+  if(da > 1) numeri += btn('1', 1) + (da > 2 ? '<span class="bom-pg-dots">\u2026</span>' : '');
+  for(let i = da; i <= a; i++) numeri += btn(String(i), i === p ? null : i, i === p);
+  if(a < pagine) numeri += (a < pagine - 1 ? '<span class="bom-pg-dots">\u2026</span>' : '') + btn(String(pagine), pagine);
+
+  box.innerHTML =
+    btn('\u2039 Prec.', p > 1 ? p - 1 : null, false, 'Pagina precedente') +
+    numeri +
+    btn('Succ. \u203a', p < pagine ? p + 1 : null, false, 'Pagina successiva') +
+    '<span class="bom-pg-info">pagina ' + p + ' di ' + pagine + '</span>';
+  box.querySelectorAll('.bom-pg-btn[data-page]').forEach(b => {
+    b.onclick = () => {
+      _BOM_PICK_PAGE = parseInt(b.dataset.page, 10) || 1;
+      renderBomPicker();
+      const g = document.getElementById('bomPickGrid');
+      if(g) g.scrollTop = 0;   // si riparte dall'alto, come ci si aspetta
     };
   });
 }
