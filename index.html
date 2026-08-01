@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.481 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.482 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10638,7 +10638,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.481</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.482</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11339,7 +11339,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.481 mobile");
+console.info("[bootstrap] script avvio — SV2.10.482 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12835,7 +12835,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.481';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.482';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -53587,9 +53587,18 @@ function _qaBarsH(data, valueFmt, opts){
    cortissime). rows = [{code, marginePct, vendita}]. Layout fluido in larghezza.
    La scala e' fissa 0-100: ogni barra e' direttamente confrontabile con le
    linee di riferimento. */
-function _qaMarginChart(rows){
+/* SV2.10.482: la stessa funzione disegna sia il grafico del MARGINE sia quello
+   del RICARICO. opts = { metric, bands, max, step, vuoto }.
+   - metric: 'marginePct' (default) oppure 'ricaricoPct'
+   - il COLORE della barra resta sempre legato al margine, cosi' una riga verde
+     nel primo grafico e' verde anche nel secondo (sono la stessa redditivita').
+   - il ricarico non e' limitato a 100, quindi la scala e' dinamica. */
+function _qaMarginChart(rows, opts){
+  const O = opts || {};
+  const METRIC = O.metric || 'marginePct';
   if(!rows || !rows.length){
-    return '<div style="color:var(--fg3);font-size:12px">Nessuna riga con margine calcolabile</div>';
+    return '<div style="color:var(--fg3);font-size:12px">' +
+      escapeHtml(O.vuoto || 'Nessuna riga con margine calcolabile') + '</div>';
   }
   // Layout a 3 zone orizzontali:
   //   [0 .. LABEL_W]               colonna codici prodotto (a sinistra)
@@ -53601,30 +53610,45 @@ function _qaMarginChart(rows){
   const GAP     = 8;     // spazio fra righe
   const AXIS_H  = 18;    // altezza fascia etichette asse
 
-  // Bande di sfondo: [da%, a%, colore]
-  const bands = [
-    [0, 10,  '#e74c3c'],
-    [10, 20, '#e67e22'],
-    [20, 30, '#ffb627'],
-    [30, 100,'#00a87f'],
-  ];
+  /* Scala: il margine e' per definizione <= 100, il ricarico no. Per il ricarico
+     si arrotonda il massimo verso l'alto a un valore "tondo" (minimo 100), cosi'
+     le barre non escono dal grafico e la griglia resta leggibile. */
+  const MAXV = (function(){
+    if(O.max) return O.max;
+    if(METRIC === 'marginePct') return 100;
+    let m = 0;
+    rows.forEach(r => { const v = r[METRIC]; if(v != null && isFinite(v) && v > m) m = v; });
+    if(m <= 100) return 100;
+    const passo = (m <= 200) ? 25 : (m <= 500 ? 50 : 100);
+    return Math.ceil(m / passo) * passo;
+  })();
+  const STEP = O.step || (MAXV <= 100 ? 10 : (MAXV <= 200 ? 20 : (MAXV <= 500 ? 50 : 100)));
+  const _pos = (v) => Math.max(0, Math.min(100, (v / MAXV) * 100));
+
+  /* Bande di sfondo: [da, a, colore] nell'unita' della metrica.
+     Per il ricarico si usano le SOGLIE EQUIVALENTI a quelle del margine
+     (r = m / (1 - m)): margine 10% = ricarico 11,1% · 20% = 25% · 30% = 42,9%,
+     cosi' le due letture colorano allo stesso modo le stesse righe. */
+  const bands = O.bands || ((METRIC === 'marginePct')
+    ? [ [0, 10, '#e74c3c'], [10, 20, '#e67e22'], [20, 30, '#ffb627'], [30, MAXV, '#00a87f'] ]
+    : [ [0, 100/9, '#e74c3c'], [100/9, 25, '#e67e22'], [25, 300/7, '#ffb627'], [300/7, MAXV, '#00a87f'] ]);
   // L'area-barre e' un blocco con left:LABEL_W e right:VAL_W; dentro, tutto
   // si posiziona in % della sua larghezza.
   const plotStyle = 'position:absolute;left:' + LABEL_W + 'px;right:' + VAL_W + 'px;';
 
-  // Fascia etichette asse (0%..100%)
+  // Fascia etichette asse (0 .. MAXV, passo STEP)
   let axis = '';
-  for(let v = 0; v <= 100; v += 10){
-    axis += '<div style="position:absolute;left:' + v + '%;top:0;transform:translateX(-50%);' +
-      'font-size:9px;font-weight:700;color:var(--fg3);white-space:nowrap">' + v + '%</div>';
+  for(let v = 0; v <= MAXV + 0.001; v += STEP){
+    axis += '<div style="position:absolute;left:' + _pos(v) + '%;top:0;transform:translateX(-50%);' +
+      'font-size:9px;font-weight:700;color:var(--fg3);white-space:nowrap">' + Math.round(v) + '%</div>';
   }
 
   // Griglia (linee verticali tratteggiate)
   const buildGrid = (heightPx) => {
     let g = '';
-    for(let v = 0; v <= 100; v += 10){
+    for(let v = 0; v <= MAXV + 0.001; v += STEP){
       const solid = (v === 0);
-      g += '<div style="position:absolute;left:' + v + '%;top:0;height:' + heightPx + 'px;width:0;' +
+      g += '<div style="position:absolute;left:' + _pos(v) + '%;top:0;height:' + heightPx + 'px;width:0;' +
         'border-left:1px ' + (solid ? 'solid' : 'dashed') + ' ' +
         (solid ? 'var(--border2)' : 'var(--border)') + '"></div>';
     }
@@ -53636,7 +53660,7 @@ function _qaMarginChart(rows){
   // Bande colorate di sfondo (opacita' bassa, non disturbano la lettura)
   let bandsHtml = '';
   bands.forEach(b => {
-    bandsHtml += '<div style="position:absolute;left:' + b[0] + '%;width:' + (b[1]-b[0]) + '%;' +
+    bandsHtml += '<div style="position:absolute;left:' + _pos(b[0]) + '%;width:' + (_pos(b[1]) - _pos(b[0])) + '%;' +
       'top:0;height:' + plotH + 'px;background:' + b[2] + ';opacity:0.10"></div>';
   });
 
@@ -53667,11 +53691,16 @@ function _qaMarginChart(rows){
   let valsHtml = '';
   rows.forEach((r, i) => {
     const y = AXIS_H + i * (ROW_H + GAP);
-    // SV2.10.481: accanto al margine anche il ricarico (fra parentesi, per non
-    // confonderli) e poi il valore di vendita della riga.
-    const valTxt = _qaPct(r.marginePct)
-      + ((r.ricaricoPct != null) ? '  (ric. ' + _qaPct(r.ricaricoPct) + ')' : '')
-      + '  ' + _qaEuro(r.vendita);
+    /* SV2.10.482: davanti la metrica del grafico, fra parentesi l'altra, poi il
+       valore di vendita. Cosi' la stessa funzione produce etichette coerenti in
+       entrambi i grafici senza duplicare codice. */
+    const valTxt = (METRIC === 'ricaricoPct')
+      ? _qaPct(r.ricaricoPct)
+          + ((r.marginePct != null) ? '  (marg. ' + _qaPct(r.marginePct) + ')' : '')
+          + '  ' + _qaEuro(r.vendita)
+      : _qaPct(r.marginePct)
+          + ((r.ricaricoPct != null) ? '  (ric. ' + _qaPct(r.ricaricoPct) + ')' : '')
+          + '  ' + _qaEuro(r.vendita);
     valsHtml += '<div style="position:absolute;right:0;top:' + y + 'px;width:' + (VAL_W-8) + 'px;' +
       'height:' + ROW_H + 'px;display:flex;align-items:center;' +
       'font-size:11px;font-weight:700;color:var(--fg);white-space:nowrap">' +
@@ -53682,7 +53711,8 @@ function _qaMarginChart(rows){
   let barsHtml = '';
   rows.forEach((r, i) => {
     const y = i * (ROW_H + GAP);
-    const pct = (r.marginePct == null) ? 0 : Math.max(0, Math.min(100, r.marginePct));
+    const _v = r[METRIC];
+    const pct = (_v == null) ? 0 : _pos(_v);
     const col = _qaMarginColor(r.marginePct);
     barsHtml += '<div style="position:absolute;left:0;top:' + y + 'px;height:' + ROW_H + 'px;' +
       'width:' + pct + '%;min-width:3px;background:' + col + ';border-radius:4px;' +
@@ -53959,25 +53989,35 @@ function openQuoteChartsDialog(){
       'sono servizi, le altre prodotti. Le righe in alto sono quelle da rivedere.</div>',
     { icon:'\u26A0\uFE0F' });
 
-  // --- Distribuzione margine per fasce ---
-  const distMax = Math.max.apply(null, A.marginBuckets.map(b => b.count)) || 1;
-  const distBars = '<div style="display:flex;gap:8px;align-items:flex-end;height:130px;padding:0 4px">' +
-    A.marginBuckets.map(b => {
-      const h = b.count > 0 ? Math.max(8, b.count / distMax * 105) : 3;
-      const col = _qaMarginColor(b.min === -Infinity ? 5 : (b.min + 5));
-      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">' +
-        '<div style="font-size:12px;font-weight:800;color:var(--fg)">' + b.count + '</div>' +
-        '<div style="width:100%;background:' + col + ';border-radius:4px 4px 0 0;height:' + h + 'px;' +
-          'transition:height .4s ease"></div>' +
-        '<div style="font-size:10px;font-weight:700;color:var(--fg3);text-align:center">' +
-          escapeHtml(b.label) + '</div>' +
-      '</div>';
-    }).join('') +
-  '</div>';
-  const cardDist = _qaCard('Distribuzione righe per fascia di margine',
-    distBars +
-    '<div style="font-size:10px;color:var(--fg3);margin-top:8px">Quante righe ricadono in ogni fascia di marginalita\u0027.</div>',
-    { icon:'\uD83D\uDCCA' });
+  /* SV2.10.482 — al posto della "Distribuzione righe per fascia di margine"
+     (istogramma poco informativo: su preventivi piccoli quasi tutte le righe
+     finivano in un'unica colonna) c'e' ora il RICARICO PER RIGA, stesso stile
+     del grafico del margine. Le due carte sono affiancabili e leggibili insieme:
+     stesse righe, stesso ordine, stessi colori. */
+  const ricaricoRows = A.rows
+    .filter(r => r.ricaricoPct != null)
+    .slice()
+    .sort((a, b) => a.ricaricoPct - b.ricaricoPct)
+    .slice(0, 14)
+    .map(r => ({
+      code: r.code,
+      marginePct: r.marginePct,
+      ricaricoPct: r.ricaricoPct,
+      vendita: r.vendita,
+      isService: !!r.isService,
+    }));
+  const cardDist = _qaCard('Ricarico per riga (dal piu\u0027 debole)',
+    _qaMarginChart(ricaricoRows, { metric:'ricaricoPct', vuoto:'Nessuna riga con ricarico calcolabile' }) +
+    '<div style="font-size:10px;color:var(--fg3);margin-top:12px;line-height:1.5">' +
+      'Ricarico sul COSTO: (prezzo \u2212 costo) / costo. Le bande di sfondo sono le ' +
+      'soglie equivalenti a quelle del margine (margine 10% = ricarico 11,1% \u00b7 ' +
+      '20% = 25% \u00b7 30% = 42,9%), quindi una riga colorata di verde qui lo \u00e8 ' +
+      'anche nel grafico del margine. La scala si adatta al valore massimo. ' +
+      'Le righe con badge ' +
+      '<span style="display:inline-block;background:#3498db;color:#fff;font-weight:700;' +
+      'font-size:8px;padding:1px 5px;border-radius:3px;vertical-align:middle">SERV</span> ' +
+      'sono servizi, le altre prodotti.</div>',
+    { icon:'\uD83D\uDCC8' });
 
   // --- Tabella aggregata per marca ---
   // V2.10.263: tabella "Dettaglio per marca" RAGGRUPPATA per tipo.
