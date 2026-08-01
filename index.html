@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.487 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.489 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6098,6 +6098,23 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
    fanno crescere l'altezza delle righe. La classe sta sul contenitore, cosi' un
    solo interruttore agisce su intestazioni e celle di entrambe le tabelle
    (Cliente e Analisi). */
+/* SV2.10.489 — selettore a schede dei componenti */
+.bom-picker-modal{max-width:none !important;width:94vw !important;height:92vh !important;max-height:92vh !important;}
+.bom-pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:12px}
+.bom-pick-card{position:relative;border:1px solid var(--border);border-radius:10px;background:var(--bg2);padding:10px;cursor:pointer;transition:border-color .12s,transform .12s,box-shadow .12s}
+.bom-pick-card:hover{border-color:#0178d4;transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.22)}
+.bom-pick-card.is-sel{border-color:#0178d4;background:rgba(1,120,212,0.12);box-shadow:inset 0 0 0 1px #0178d4}
+.bom-pick-card.is-in{opacity:.5;cursor:not-allowed}
+.bom-pick-card.is-in:hover{transform:none;border-color:var(--border);box-shadow:none}
+.bom-pick-flag{position:absolute;top:6px;left:6px;background:#64748b;color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:.3px}
+.bom-pick-check{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:#0178d4;color:#fff;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.bom-pick-img{height:88px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.bom-pick-img .pp-bom-thumb{width:84px;height:84px;flex:0 0 84px}
+.bom-pick-code{font-size:12.5px;font-weight:800;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bom-pick-brand{font-size:10px;font-weight:700;color:#0178d4;text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
+.bom-pick-desc{font-size:11px;color:var(--fg3);line-height:1.35;margin-top:4px;height:44px;overflow:hidden}
+.bom-pick-prices{display:flex;justify-content:space-between;gap:6px;margin-top:7px;padding-top:7px;border-top:1px solid var(--border);font-size:11.5px;color:var(--fg2)}
+
 /* SV2.10.484 — distinta base nell'editor dei prodotti personali */
 .pp-bom-row{display:grid;grid-template-columns:minmax(0,1fr) 46px 74px 58px 76px 58px 58px 84px 26px;gap:5px;align-items:center;padding:5px 6px;border-bottom:1px solid var(--border)}
 .pp-bom-row:last-child{border-bottom:none}
@@ -10688,7 +10705,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.487</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.489</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11389,7 +11406,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.487 mobile");
+console.info("[bootstrap] script avvio — SV2.10.489 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12885,7 +12902,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.487';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.489';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13535,11 +13552,16 @@ function openPersonalProductEditor(opts){
               '<input type="checkbox" id="ppBomExplode"' + (f.bom.explode ? ' checked' : '') + '> Permetti di esploderla nel preventivo' +
             '</label>' +
           '</div>' +
-          '<div style="position:relative;margin-bottom:8px">' +
-            '<input type="text" id="ppBomSearch" placeholder="Cerca un articolo del catalogo per codice o descrizione\u2026" ' +
+          // SV2.10.489: ricerca rapida in linea + selettore a schede per la
+          // composizione vera e propria (foto, filtri, selezione multipla).
+          '<div style="display:flex;gap:8px;align-items:stretch;margin-bottom:8px">' +
+            '<button type="button" class="btn primary" onclick="openBomPicker()" style="white-space:nowrap;font-size:13px" title="Sfoglia il catalogo a schede, con foto e filtri, e seleziona piu\u0027 articoli in una volta">\uD83E\uDDE9 Sfoglia catalogo\u2026</button>' +
+            '<div style="position:relative;flex:1">' +
+            '<input type="text" id="ppBomSearch" placeholder="\u2026oppure aggiungi al volo per codice o descrizione" ' +
               'oninput="renderPpBomSearch()" autocomplete="off" ' +
               'style="width:100%;box-sizing:border-box;padding:8px 11px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:13px">' +
             '<div id="ppBomResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--bg2);border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.25);max-height:240px;overflow:auto"></div>' +
+            '</div>' +
           '</div>' +
           '<div class="pp-bom-head"><span>Componente</span><span>Q.t\u00e0</span><span>Costo \u20ac</span><span>Sconto %</span><span>Prezzo \u20ac</span><span>Marg. %</span><span>Ric. %</span><span>Totale \u20ac</span><span></span></div>' +
           '<div id="ppBomList" style="border:1px solid var(--border);border-radius:8px;background:var(--bg3)"></div>' +
@@ -13589,6 +13611,15 @@ function openPersonalProductEditor(opts){
   if(typeof renderPpParams === 'function') renderPpParams();
   // SV2.10.484: stato locale della distinta + primo disegno
   _PP_BOM = bomNormalize(f.bom);
+  // SV2.10.488: riempio il listino mancante sulle righe salvate prima della 486,
+  // cosi' al primo salvataggio la distinta resta completa e non serve premere
+  // "Riallinea costi" per poter usare lo sconto.
+  _PP_BOM.items.forEach(l => {
+    if(!(l.listino > 0)){
+      const _l = bomListinoCatalogo(l.code);
+      if(_l != null) l.listino = _l;
+    }
+  });
   if(typeof renderPpBom === 'function') renderPpBom();
 
   const cleanup = () => bg.remove();
@@ -33211,7 +33242,16 @@ function bomLineCalc(line){
   const netto = (line && isFinite(line.netto)) ? line.netto : 0;
   // SV2.10.486: tutto discende dal PREZZO UNITARIO, non piu' dal margine.
   const prezzoUnit = (line && isFinite(line.prezzo)) ? line.prezzo : 0;
-  const listino = (line && isFinite(line.listino) && line.listino > 0) ? line.listino : null;
+  /* SV2.10.488 — il listino serve allo SCONTO. Le distinte create prima della
+     486 non lo portano (il campo non esisteva), quindi lo sconto risultava non
+     calcolabile e la casella restava disabilitata: sembrava un difetto.
+     Qui si ripiega sul listino attuale di catalogo, cosi' lo sconto e'
+     disponibile da subito anche sulle righe vecchie. */
+  let listino = (line && isFinite(line.listino) && line.listino > 0) ? line.listino : null;
+  if(listino == null && line && line.code && typeof bomListinoCatalogo === 'function'){
+    const _l = bomListinoCatalogo(line.code);
+    if(_l != null) listino = _l;
+  }
   const costo = netto * qty;
   const prezzo = prezzoUnit * qty;
   const marginePct  = (prezzoUnit > 0) ? ((prezzoUnit - netto) / prezzoUnit * 100) : null;
@@ -33367,8 +33407,11 @@ function _ppBomBindRows(){
     if(pz) pz.onchange = () => setPrezzo(num(pz));
     if(sc) sc.onchange = () => {
       const v = num(sc);
-      const li = (isFinite(l.listino) && l.listino > 0) ? l.listino : null;
+      // SV2.10.488: stesso listino usato in visualizzazione (bomLineCalc),
+      // compreso il ripiego sul catalogo per le righe senza listino salvato.
+      const li = bomLineCalc(l).listino;
       if(li == null || v == null){ renderPpBom(); return; }
+      if(!(l.listino > 0)) l.listino = li;   // lo fisso sulla riga
       setPrezzo(li * (1 - v / 100));
     };
     if(m) m.onchange = () => {
@@ -33387,6 +33430,193 @@ function _ppBomBindRows(){
     const del = row.querySelector('.pp-bom-del');
     if(del) del.onclick = () => { _PP_BOM.items.splice(i, 1); renderPpBom(); };
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SV2.10.489 — SELETTORE A SCHEDE per la distinta base.
+   ───────────────────────────────────────────────────────────────────────
+   La ricerca in linea (una casella, 8 risultati testuali) va bene per
+   aggiungere un articolo che si sa gia' come si chiama, ma non per comporre
+   una distinta: serve vedere le foto, filtrare per marca e categoria e
+   selezionarne parecchi in una volta.
+
+   Perche' un selettore SOPRA l'editor e non la galleria vera:
+   uscire dall'editor per andare in galleria significherebbe smontare il modal
+   e perdere tutto quello che l'utente ha scritto e non ancora salvato
+   (descrizioni, parametri, immagini). Qui invece l'editor resta intatto sotto,
+   e questo pannello offre le stesse cose che servono davvero: schede con foto,
+   ricerca, filtri marca/categoria e selezione multipla.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+let _BOM_PICK = new Set();   // codici selezionati nel pannello
+
+function openBomPicker(){
+  const ex = document.getElementById('bomPickerModal');
+  if(ex) ex.remove();
+  _BOM_PICK = new Set();
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'bomPickerModal';
+  bg.style.zIndex = '560';   // sopra l'editor del prodotto personale (520)
+
+  // Marche e categorie presenti a catalogo, per i due filtri
+  const marche = new Set(), categorie = new Set();
+  DATA.forEach(p => {
+    if(!p || p.isPersonal === true) return;
+    const b = String(getField(p, 'brand') || '').trim();
+    const c = String(getField(p, 'category') || '').trim();
+    if(b) marche.add(b);
+    if(c) categorie.add(c);
+  });
+  const opts = (set) => Array.from(set).sort((a, b) => a.localeCompare(b, 'it'))
+    .map(v => '<option value="' + escapeAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
+
+  bg.innerHTML =
+    '<div class="modal bom-picker-modal">' +
+      '<div class="modal-head" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+        '<h3 style="margin:0">\uD83E\uDDE9 Aggiungi componenti alla distinta</h3>' +
+        '<span id="bomPickCount" style="font-size:12px;color:var(--fg3)"></span>' +
+      '</div>' +
+      '<div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center">' +
+        '<input type="text" id="bomPickSearch" placeholder="Cerca per codice o descrizione\u2026" autocomplete="off" ' +
+          'style="flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:14px">' +
+        '<select id="bomPickBrand" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:13px">' +
+          '<option value="">Tutte le marche</option>' + opts(marche) +
+        '</select>' +
+        '<select id="bomPickCat" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:13px">' +
+          '<option value="">Tutte le categorie</option>' + opts(categorie) +
+        '</select>' +
+        '<button type="button" class="btn ghost small" id="bomPickClear" style="font-size:12px">Azzera filtri</button>' +
+      '</div>' +
+      '<div class="modal-body" id="bomPickGrid" style="display:block;padding:16px 20px;overflow:auto;flex:1;min-height:0"></div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="bomPickCancel">Annulla</button>' +
+        '<button class="btn primary" id="bomPickOk">Aggiungi alla distinta</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(bg);
+
+  const chiudi = () => bg.remove();
+  bg.querySelector('#bomPickCancel').onclick = chiudi;
+  bg.addEventListener('mousedown', (e) => { if(e.target === bg) chiudi(); });
+  bg.querySelector('#bomPickClear').onclick = () => {
+    bg.querySelector('#bomPickSearch').value = '';
+    bg.querySelector('#bomPickBrand').value = '';
+    bg.querySelector('#bomPickCat').value = '';
+    renderBomPicker();
+  };
+  ['bomPickSearch', 'bomPickBrand', 'bomPickCat'].forEach(id => {
+    const el = bg.querySelector('#' + id);
+    el.addEventListener('input', renderBomPicker);
+    el.addEventListener('change', renderBomPicker);
+  });
+  bg.querySelector('#bomPickOk').onclick = () => { bomPickerConfirm(); chiudi(); };
+
+  renderBomPicker();
+  setTimeout(() => { const s = bg.querySelector('#bomPickSearch'); if(s) s.focus(); }, 40);
+}
+
+const BOM_PICK_MAX = 200;   // schede disegnate al massimo, per non impastare il DOM
+
+function renderBomPicker(){
+  const grid = document.getElementById('bomPickGrid');
+  if(!grid) return;
+  const q    = String((document.getElementById('bomPickSearch') || {}).value || '').trim().toLowerCase();
+  const fb   = String((document.getElementById('bomPickBrand') || {}).value || '');
+  const fc   = String((document.getElementById('bomPickCat') || {}).value || '');
+  const gia  = new Set((_PP_BOM && Array.isArray(_PP_BOM.items)) ? _PP_BOM.items.map(x => x.code) : []);
+
+  const res = [];
+  let totali = 0;
+  for(let i = 0; i < DATA.length; i++){
+    const p = DATA[i];
+    if(!p || !p.name || p.isPersonal === true) continue;   // la distinta si compone di articoli di CATALOGO
+    if(fb && String(getField(p, 'brand') || '').trim() !== fb) continue;
+    if(fc && String(getField(p, 'category') || '').trim() !== fc) continue;
+    if(q){
+      const code = String(p.name).toLowerCase();
+      const desc = String(getField(p, 'short_description') || '').toLowerCase();
+      if(code.indexOf(q) < 0 && desc.indexOf(q) < 0) continue;
+    }
+    totali++;
+    if(res.length < BOM_PICK_MAX) res.push(p);
+  }
+
+  const cnt = document.getElementById('bomPickCount');
+  if(cnt){
+    cnt.textContent = totali.toLocaleString('it-IT') + ' articoli'
+      + (totali > res.length ? ' \u00b7 mostrati i primi ' + res.length + ', restringi la ricerca' : '')
+      + (_BOM_PICK.size ? ' \u00b7 ' + _BOM_PICK.size + ' selezionati' : '');
+  }
+
+  if(!res.length){
+    grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--fg3)">Nessun articolo trovato con questi filtri.</div>';
+    return;
+  }
+
+  grid.innerHTML = '<div class="bom-pick-grid">' + res.map(p => {
+    const inBom = gia.has(p.name);
+    const sel = _BOM_PICK.has(p.name);
+    const costo = bomCostoCatalogo(p.name);
+    const listino = bomListinoCatalogo(p.name);
+    return '<div class="bom-pick-card' + (sel ? ' is-sel' : '') + (inBom ? ' is-in' : '') + '" data-code="' + escapeAttr(p.name) + '">' +
+      (inBom ? '<span class="bom-pick-flag">gi\u00e0 in distinta</span>' : '') +
+      (sel ? '<span class="bom-pick-check">\u2713</span>' : '') +
+      '<div class="bom-pick-img">' + _ppBomThumb(p) + '</div>' +
+      '<div class="bom-pick-code">' + escapeHtml(p.name) + '</div>' +
+      '<div class="bom-pick-brand">' + escapeHtml(String(getField(p, 'brand') || '')) + '</div>' +
+      '<div class="bom-pick-desc">' + escapeHtml(String(getField(p, 'short_description') || '').slice(0, 90)) + '</div>' +
+      '<div class="bom-pick-prices">' +
+        '<span title="Listino">' + (listino != null ? _ppBomFmt(listino, 2) + ' \u20ac' : '\u2014') + '</span>' +
+        '<span title="Costo (netto d\u0027acquisto)" style="color:#dc2626;font-weight:700">' + (costo != null ? _ppBomFmt(costo, 2) + ' \u20ac' : '\u2014') + '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+
+  grid.querySelectorAll('.bom-pick-card').forEach(card => {
+    card.onclick = () => {
+      const code = card.dataset.code;
+      // Un articolo gia' in distinta non si ri-aggiunge: si cambia la quantita'
+      // nella riga esistente. Evita doppioni difficili da notare.
+      if(card.classList.contains('is-in')){
+        if(typeof toast === 'function') toast('"' + code + '" e\u0027 gia\u0027 in distinta: cambia la quantita\u0027 nella riga', 'err');
+        return;
+      }
+      if(_BOM_PICK.has(code)) _BOM_PICK.delete(code); else _BOM_PICK.add(code);
+      renderBomPicker();
+    };
+  });
+}
+
+/* Inserisce i selezionati nella distinta, col margine predefinito corrente. */
+function bomPickerConfirm(){
+  if(!_BOM_PICK.size){ if(typeof toast === 'function') toast('Nessun articolo selezionato', 'err'); return; }
+  const dm = document.getElementById('ppBomDefMarg');
+  if(dm){
+    const v = parseFloat(String(dm.value).replace(',', '.'));
+    _PP_BOM.defaultMarginPct = (isFinite(v) && v < 100) ? v : null;
+  }
+  const mDef = (_PP_BOM.defaultMarginPct != null) ? _PP_BOM.defaultMarginPct : 0;
+  let n = 0;
+  _BOM_PICK.forEach(code => {
+    if(_PP_BOM.items.some(x => x.code === code)) return;
+    const costo = bomCostoCatalogo(code);
+    const listino = bomListinoCatalogo(code);
+    const c0 = (costo != null) ? costo : 0;
+    _PP_BOM.items.push({
+      code: code,
+      qty: 1,
+      netto: c0,
+      listino: (listino != null) ? listino : 0,
+      prezzo: (mDef < 100 && c0 > 0) ? (c0 / (1 - mDef / 100)) : c0,
+      marginPct: mDef,
+    });
+    n++;
+  });
+  _BOM_PICK = new Set();
+  renderPpBom();
+  if(typeof toast === 'function') toast(n + ' componenti aggiunti alla distinta', 'ok');
 }
 
 /* Ricerca nel catalogo: codice o descrizione, primi 8 risultati. */
