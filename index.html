@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.485 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.486 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6099,7 +6099,7 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
    solo interruttore agisce su intestazioni e celle di entrambe le tabelle
    (Cliente e Analisi). */
 /* SV2.10.484 — distinta base nell'editor dei prodotti personali */
-.pp-bom-row{display:grid;grid-template-columns:minmax(0,1fr) 58px 82px 66px 66px 92px 28px;gap:6px;align-items:center;padding:5px 6px;border-bottom:1px solid var(--border)}
+.pp-bom-row{display:grid;grid-template-columns:minmax(0,1fr) 46px 74px 58px 76px 58px 58px 84px 26px;gap:5px;align-items:center;padding:5px 6px;border-bottom:1px solid var(--border)}
 .pp-bom-row:last-child{border-bottom:none}
 .pp-bom-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--fg)}
 .pp-bom-desc{color:var(--fg3);margin-left:7px;font-size:11px}
@@ -6107,10 +6107,13 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
 .pp-bom-inp:focus{outline:none;border-color:#0178d4}
 .pp-bom-netto{color:#dc2626;font-weight:600}
 .pp-bom-netto.is-stale{border-color:#e67e22;background:rgba(230,126,34,0.10)}
+.pp-bom-sconto.is-stale{border-color:#e67e22;background:rgba(230,126,34,0.10)}
+.pp-bom-prezzo{color:#0178d4;font-weight:700}
+.pp-bom-inp:disabled{opacity:.45;cursor:not-allowed}
 .pp-bom-val{text-align:right;font-size:12px;font-weight:700;color:#0178d4;white-space:nowrap}
 .pp-bom-del{width:24px;height:24px;padding:0;line-height:1;border-radius:5px;border:1px solid var(--border);background:var(--bg2);color:#ef4444;cursor:pointer;font-size:14px;font-family:inherit}
 .pp-bom-del:hover{background:rgba(239,68,68,0.14);border-color:#ef4444}
-.pp-bom-head{display:grid;grid-template-columns:minmax(0,1fr) 58px 82px 66px 66px 92px 28px;gap:6px;padding:0 6px 5px;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--fg3);text-align:right}
+.pp-bom-head{display:grid;grid-template-columns:minmax(0,1fr) 46px 74px 58px 76px 58px 58px 84px 26px;gap:5px;padding:0 6px 5px;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--fg3);text-align:right}
 .pp-bom-head span:first-child{text-align:left}
 .pp-bom-res{display:flex;align-items:center;gap:8px;padding:6px 9px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border)}
 .pp-bom-res:hover{background:var(--bg3)}
@@ -10665,7 +10668,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.485</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.486</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11366,7 +11369,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.485 mobile");
+console.info("[bootstrap] script avvio — SV2.10.486 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12862,7 +12865,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.485';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.486';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13517,7 +13520,7 @@ function openPersonalProductEditor(opts){
               'style="width:100%;box-sizing:border-box;padding:8px 11px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:13px">' +
             '<div id="ppBomResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--bg2);border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.25);max-height:240px;overflow:auto"></div>' +
           '</div>' +
-          '<div class="pp-bom-head"><span>Componente</span><span>Q.t\u00e0</span><span>Costo \u20ac</span><span>Marg. %</span><span>Ric. %</span><span>Prezzo \u20ac</span><span></span></div>' +
+          '<div class="pp-bom-head"><span>Componente</span><span>Q.t\u00e0</span><span>Costo \u20ac</span><span>Sconto %</span><span>Prezzo \u20ac</span><span>Marg. %</span><span>Ric. %</span><span>Totale \u20ac</span><span></span></div>' +
           '<div id="ppBomList" style="border:1px solid var(--border);border-radius:8px;background:var(--bg3)"></div>' +
           '<div id="ppBomTotals"></div>' +
         '</div>' +
@@ -33126,11 +33129,29 @@ function bomNormalize(raw){
       const q = parseFloat(it.qty);
       const n = parseFloat(it.netto);
       const m = parseFloat(it.marginPct);
+      const pz = parseFloat(it.prezzo);
+      const li = parseFloat(it.listino);
+      const netto = isFinite(n) ? n : 0;
+      /* SV2.10.486 — il PREZZO UNITARIO e' il dato canonico della riga.
+         Prima la riga portava solo il margine e il prezzo si ricavava da li';
+         non bastava piu' quando il prezzo (e lo sconto) diventano modificabili
+         a mano, e con costo 0 il margine non e' nemmeno invertibile.
+         Le distinte salvate prima di questa versione non hanno `prezzo`:
+         lo si ricostruisce dal margine, cosi' nulla si perde. */
+      let prezzo = isFinite(pz) ? pz : null;
+      const marg = isFinite(m) ? m : 0;
+      if(prezzo == null) prezzo = (marg < 100) ? (netto / (1 - marg / 100)) : netto;
       out.items.push({
         code: String(it.code),
         qty: (isFinite(q) && q > 0) ? q : 1,
-        netto: isFinite(n) ? n : 0,
-        marginPct: isFinite(m) ? m : 0,
+        netto: netto,
+        prezzo: isFinite(prezzo) ? prezzo : 0,
+        // listino di catalogo: serve allo SCONTO di vendita. E' una fotografia
+        // come il costo, riallineabile col pulsante dedicato.
+        listino: isFinite(li) ? li : 0,
+        // mantenuto allineato al prezzo: lo leggono le versioni precedenti e
+        // resta comodo per ordinare/filtrare senza ricalcolare.
+        marginPct: (prezzo > 0) ? ((prezzo - netto) / prezzo * 100) : 0,
       });
     });
   }
@@ -33152,16 +33173,30 @@ function bomCostoCatalogo(code){
   return isFinite(n) ? n : null;
 }
 
+/* Listino di catalogo di un componente (per calcolare lo sconto di vendita). */
+function bomListinoCatalogo(code){
+  const p = (Array.isArray(DATA) ? DATA.find(x => x && x.name === code) : null);
+  if(!p) return null;
+  let l = priceNum(getField(p, 'PVP'));
+  if(!(l > 0) && typeof getEffectiveProductPrices === 'function'){
+    try { const pr = getEffectiveProductPrices(p); if(pr && pr.listino > 0) l = pr.listino; } catch(_){}
+  }
+  return (l > 0) ? l : null;
+}
+
 /* Totali di una riga: costo riga, prezzo unitario e prezzo riga. */
 function bomLineCalc(line){
   const qty   = (line && isFinite(line.qty)) ? line.qty : 0;
   const netto = (line && isFinite(line.netto)) ? line.netto : 0;
-  const m     = (line && isFinite(line.marginPct)) ? line.marginPct : 0;
+  // SV2.10.486: tutto discende dal PREZZO UNITARIO, non piu' dal margine.
+  const prezzoUnit = (line && isFinite(line.prezzo)) ? line.prezzo : 0;
+  const listino = (line && isFinite(line.listino) && line.listino > 0) ? line.listino : null;
   const costo = netto * qty;
-  // prezzo unitario dal margine sul venduto: p = c / (1 - m/100)
-  const prezzoUnit = (m < 100) ? (netto / (1 - m / 100)) : null;
-  const prezzo = (prezzoUnit != null) ? prezzoUnit * qty : null;
-  return { costo, prezzoUnit, prezzo, ricaricoPct: bomRicFromMarg(m) };
+  const prezzo = prezzoUnit * qty;
+  const marginePct  = (prezzoUnit > 0) ? ((prezzoUnit - netto) / prezzoUnit * 100) : null;
+  const ricaricoPct = (netto > 0) ? ((prezzoUnit - netto) / netto * 100) : null;
+  const scontoPct   = (listino != null) ? ((1 - prezzoUnit / listino) * 100) : null;
+  return { costo, prezzoUnit, prezzo, marginePct, ricaricoPct, scontoPct, listino };
 }
 
 /* Totali della distinta. */
@@ -33171,7 +33206,7 @@ function bomTotals(bom){
   b.items.forEach(l => {
     const c = bomLineCalc(l);
     costo += c.costo;
-    if(c.prezzo != null) prezzo += c.prezzo; else senzaPrezzo++;
+    if(isFinite(c.prezzo)) prezzo += c.prezzo; else senzaPrezzo++;
     righe++;
   });
   const marginePct = (prezzo > 0) ? ((prezzo - costo) / prezzo * 100) : null;
@@ -33201,6 +33236,8 @@ function renderPpBom(){
       const c = bomLineCalc(l);
       const costoCat = bomCostoCatalogo(l.code);
       const scostato = (costoCat != null && Math.abs(costoCat - l.netto) > 0.005);
+      const listCat = bomListinoCatalogo(l.code);
+      const listStale = (listCat != null && Math.abs(listCat - (l.listino || 0)) > 0.005);
       return '<div class="pp-bom-row" data-i="' + i + '">' +
         '<div class="pp-bom-code" title="' + escapeAttr(l.code + (desc ? ' — ' + desc : '')) + '">' +
           (mancante ? '<span title="Articolo non presente nel catalogo attuale" style="color:#dc2626">\u26a0\ufe0f </span>' : '') +
@@ -33210,9 +33247,16 @@ function renderPpBom(){
         '<input class="pp-bom-inp pp-bom-qty" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.qty, 0)) + '" title="Quantita\u0027">' +
         '<input class="pp-bom-inp pp-bom-netto' + (scostato ? ' is-stale' : '') + '" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.netto, 2)) + '"' +
           ' title="Costo unitario' + (scostato ? ' — a catalogo ora e\u0027 ' + _ppBomFmt(costoCat, 2) + ' \u20ac' : '') + '">' +
-        '<input class="pp-bom-inp pp-bom-marg" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.marginPct, 1)) + '" title="Margine sul prezzo di vendita">' +
+        // SV2.10.486: sconto di vendita sul listino di catalogo del componente
+        '<input class="pp-bom-inp pp-bom-sconto' + (listStale ? ' is-stale' : '') + '" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(c.scontoPct, 1)) + '"' +
+          (c.scontoPct == null ? ' disabled' : '') +
+          ' title="Sconto di vendita sul listino' + (c.listino != null ? ' di ' + _ppBomFmt(c.listino, 2) + ' \u20ac' : ' (listino non disponibile)') +
+          (listStale ? ' \u2014 a catalogo ora e\u0027 ' + _ppBomFmt(listCat, 2) + ' \u20ac' : '') + '">' +
+        // SV2.10.486: prezzo unitario, ora modificabile
+        '<input class="pp-bom-inp pp-bom-prezzo" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.prezzo, 2)) + '" title="Prezzo di vendita unitario">' +
+        '<input class="pp-bom-inp pp-bom-marg" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(c.marginePct, 1)) + '" title="Margine sul prezzo di vendita">' +
         '<input class="pp-bom-inp pp-bom-ric" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(c.ricaricoPct, 1)) + '" title="Ricarico sul costo">' +
-        '<span class="pp-bom-val" title="Prezzo della riga">' + _ppBomFmt(c.prezzo, 2) + ' \u20ac</span>' +
+        '<span class="pp-bom-val" title="Totale della riga (prezzo \u00d7 quantita\u0027)">' + _ppBomFmt(c.prezzo, 2) + ' \u20ac</span>' +
         '<button type="button" class="pp-bom-del" title="Rimuovi il componente">\u00d7</button>' +
       '</div>';
     }).join('');
@@ -33248,8 +33292,15 @@ function renderPpBom(){
   _ppBomBindRows();
 }
 
-/* Legge gli input di una riga. Margine e ricarico sono collegati: si scrive in
-   uno e l'altro si ricalcola, perche' sono la stessa informazione. */
+/* SV2.10.486: tiene `marginPct` allineato al prezzo. E' un valore derivato,
+   ma resta salvato nella riga per compatibilita' con le distinte scritte dalle
+   versioni precedenti (che leggevano solo quello). */
+function _ppBomSync(l){
+  l.marginPct = (l.prezzo > 0) ? ((l.prezzo - l.netto) / l.prezzo * 100) : 0;
+}
+
+/* Legge gli input di una riga. Prezzo, sconto, margine e ricarico sono quattro
+   modi di dire la stessa cosa: si scrive in uno e gli altri si riallineano. */
 function _ppBomBindRows(){
   const box = document.getElementById('ppBomList');
   if(!box) return;
@@ -33261,18 +33312,44 @@ function _ppBomBindRows(){
       const v = parseFloat(String(el.value).replace(/\./g, '').replace(',', '.'));
       return isFinite(v) ? v : null;
     };
-    const q = row.querySelector('.pp-bom-qty');
-    const n = row.querySelector('.pp-bom-netto');
-    const m = row.querySelector('.pp-bom-marg');
-    const r = row.querySelector('.pp-bom-ric');
+    const q  = row.querySelector('.pp-bom-qty');
+    const n  = row.querySelector('.pp-bom-netto');
+    const sc = row.querySelector('.pp-bom-sconto');
+    const pz = row.querySelector('.pp-bom-prezzo');
+    const m  = row.querySelector('.pp-bom-marg');
+    const r  = row.querySelector('.pp-bom-ric');
+
+    /* SV2.10.486 — regole di ricalcolo. Il PREZZO UNITARIO e' il perno: ogni
+       campo modificato aggiorna il prezzo (o si lascia aggiornare da esso) e
+       poi tutta la riga si ridisegna coerente.
+       Scelta esplicita sul COSTO: cambiandolo il prezzo NON si muove, si
+       muovono margine e ricarico — e' lo stesso comportamento del carrello
+       (modificare il Netto ACQ non tocca il prezzo di vendita) e ha senso:
+       se il fornitore aumenta, quello che voglio vedere e' quanto margine
+       ho perso, non un prezzo che cambia da solo. */
+    const setPrezzo = (v) => { l.prezzo = (v != null && isFinite(v) && v >= 0) ? v : 0; _ppBomSync(l); renderPpBom(); };
+
     if(q) q.onchange = () => { const v = num(q); l.qty = (v != null && v > 0) ? v : 1; renderPpBom(); };
-    if(n) n.onchange = () => { const v = num(n); l.netto = (v != null && v >= 0) ? v : 0; renderPpBom(); };
-    if(m) m.onchange = () => { const v = num(m); l.marginPct = (v != null && v < 100) ? v : 0; renderPpBom(); };
+    if(n) n.onchange = () => { const v = num(n); l.netto = (v != null && v >= 0) ? v : 0; _ppBomSync(l); renderPpBom(); };
+    if(pz) pz.onchange = () => setPrezzo(num(pz));
+    if(sc) sc.onchange = () => {
+      const v = num(sc);
+      const li = (isFinite(l.listino) && l.listino > 0) ? l.listino : null;
+      if(li == null || v == null){ renderPpBom(); return; }
+      setPrezzo(li * (1 - v / 100));
+    };
+    if(m) m.onchange = () => {
+      const v = num(m);
+      // margine = (p - c)/p  ⇒  p = c / (1 - m/100). Con costo 0 il margine e'
+      // sempre 100% e non determina un prezzo: in quel caso non tocco nulla.
+      if(v == null || v >= 100 || !(l.netto > 0)){ renderPpBom(); return; }
+      setPrezzo(l.netto / (1 - v / 100));
+    };
     if(r) r.onchange = () => {
       const v = num(r);
-      const mm = (v != null) ? bomMargFromRic(v) : null;
-      l.marginPct = (mm != null) ? Math.round(mm * 100) / 100 : 0;
-      renderPpBom();
+      // ricarico = (p - c)/c  ⇒  p = c * (1 + r/100)
+      if(v == null || !(l.netto > 0)){ renderPpBom(); return; }
+      setPrezzo(l.netto * (1 + v / 100));
     };
     const del = row.querySelector('.pp-bom-del');
     if(del) del.onclick = () => { _PP_BOM.items.splice(i, 1); renderPpBom(); };
@@ -33308,12 +33385,26 @@ function renderPpBomSearch(){
     el.onclick = () => {
       const code = el.dataset.code;
       const costo = bomCostoCatalogo(code);
+      const listino = bomListinoCatalogo(code);
+      /* SV2.10.486: leggo il margine predefinito DIRETTAMENTE dal campo, non
+         dallo stato: altrimenti scriverlo senza premere "Applica a tutti" non
+         avrebbe effetto sui componenti aggiunti dopo — comportamento che in
+         prova risultava incomprensibile. */
+      const _dm = document.getElementById('ppBomDefMarg');
+      if(_dm){
+        const _v = parseFloat(String(_dm.value).replace(',', '.'));
+        _PP_BOM.defaultMarginPct = (isFinite(_v) && _v < 100) ? _v : null;
+      }
+      const mDef = (_PP_BOM.defaultMarginPct != null) ? _PP_BOM.defaultMarginPct : 0;
+      const c0 = (costo != null) ? costo : 0;
       _PP_BOM.items.push({
         code: code,
         qty: 1,
-        netto: (costo != null) ? costo : 0,
-        // margine predefinito della distinta, se impostato
-        marginPct: (_PP_BOM.defaultMarginPct != null) ? _PP_BOM.defaultMarginPct : 0,
+        netto: c0,
+        listino: (listino != null) ? listino : 0,
+        // prezzo iniziale dal margine predefinito della distinta
+        prezzo: (mDef < 100 && c0 > 0) ? (c0 / (1 - mDef / 100)) : c0,
+        marginPct: mDef,
       });
       inp.value = '';
       out.style.display = 'none';
@@ -33333,7 +33424,11 @@ function ppBomApplyDefaultMargin(){
     return;
   }
   _PP_BOM.defaultMarginPct = v;
-  _PP_BOM.items.forEach(l => { l.marginPct = v; });
+  _PP_BOM.items.forEach(l => {
+    // SV2.10.486: il margine si applica ricalcolando il PREZZO dal costo.
+    if(l.netto > 0) l.prezzo = l.netto / (1 - v / 100);
+    _ppBomSync(l);
+  });
   renderPpBom();
   if(typeof toast === 'function') toast('Margine ' + _ppBomFmt(v, 1) + '% applicato a ' + _PP_BOM.items.length + ' componenti', 'ok');
 }
@@ -33342,15 +33437,21 @@ function ppBomApplyDefaultMargin(){
    congela il costo al momento dell'inserimento: senza questo pulsante, dopo
    un aggiornamento listino i margini calcolati sarebbero falsi. */
 function ppBomRefreshCosts(){
-  let agg = 0, mancanti = 0;
+  let agg = 0, aggL = 0, mancanti = 0;
   _PP_BOM.items.forEach(l => {
     const c = bomCostoCatalogo(l.code);
-    if(c == null){ mancanti++; return; }
-    if(Math.abs(c - l.netto) > 0.005){ l.netto = c; agg++; }
+    // SV2.10.486: riallineo anche il LISTINO, che ora serve allo sconto: senza,
+    // lo sconto mostrato sarebbe calcolato su un listino vecchio.
+    const li = bomListinoCatalogo(l.code);
+    if(c == null && li == null){ mancanti++; return; }
+    if(c != null && Math.abs(c - l.netto) > 0.005){ l.netto = c; agg++; }
+    if(li != null && Math.abs(li - (l.listino || 0)) > 0.005){ l.listino = li; aggL++; }
+    _ppBomSync(l);
   });
   renderPpBom();
   if(typeof toast === 'function'){
-    toast(agg + ' costi aggiornati dal catalogo' + (mancanti ? ' \u00b7 ' + mancanti + ' articoli non trovati' : ''),
+    toast(agg + ' costi e ' + aggL + ' listini aggiornati dal catalogo'
+      + (mancanti ? ' \u00b7 ' + mancanti + ' articoli non trovati' : ''),
       mancanti ? 'err' : 'ok');
   }
 }
