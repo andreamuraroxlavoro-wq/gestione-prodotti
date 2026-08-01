@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.486 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.487 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6101,8 +6101,12 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
 /* SV2.10.484 — distinta base nell'editor dei prodotti personali */
 .pp-bom-row{display:grid;grid-template-columns:minmax(0,1fr) 46px 74px 58px 76px 58px 58px 84px 26px;gap:5px;align-items:center;padding:5px 6px;border-bottom:1px solid var(--border)}
 .pp-bom-row:last-child{border-bottom:none}
-.pp-bom-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--fg)}
-.pp-bom-desc{color:var(--fg3);margin-left:7px;font-size:11px}
+.pp-bom-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--fg);display:flex;align-items:center;gap:7px}
+.pp-bom-code strong{flex:0 0 auto}
+.pp-bom-thumb{width:30px;height:30px;flex:0 0 30px;object-fit:contain;background:#fff;border:1px solid var(--border);border-radius:5px}
+.pp-bom-thumb-empty{display:flex;align-items:center;justify-content:center;color:var(--fg3);font-size:13px;background:var(--bg2)}
+.pp-bom-res .pp-bom-thumb{width:26px;height:26px;flex:0 0 26px}
+.pp-bom-desc{color:var(--fg3);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .pp-bom-inp{width:100%;box-sizing:border-box;padding:4px 6px;font-size:12px;text-align:right;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:var(--fg);font-family:inherit}
 .pp-bom-inp:focus{outline:none;border-color:#0178d4}
 .pp-bom-netto{color:#dc2626;font-weight:600}
@@ -6659,6 +6663,22 @@ body.theme-light .card-prices .card-price-label{color:#6b7686}
    Il modal-body globale aveva !important sul padding:0 e overflow:hidden
    pensato per il dialog Impostazioni (tabbed). Per il nostro dialog editor
    serve invece un body scrollabile con padding normale. */
+/* SV2.10.487: l'editor del prodotto personale si apre a tutto schermo.
+   Con la distinta base a 9 colonne i 760px di prima erano insufficienti.
+   Selettore per ID e non per classe: `.modal-personal-editor` e' condiviso
+   con l'editor servizi e col picker, che devono restare come sono. */
+#personalProductModal .modal{
+  max-width:none !important;
+  width:96vw !important;
+  height:94vh !important;
+  max-height:94vh !important;
+}
+#personalProductModal .modal-body{
+  max-height:none !important;
+  flex:1 1 auto;
+  min-height:0;
+}
+
 .modal-personal-editor .modal-body{
   display:block !important;
   padding:24px 28px !important;
@@ -10668,7 +10688,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.486</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.487</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11369,7 +11389,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.486 mobile");
+console.info("[bootstrap] script avvio — SV2.10.487 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12865,7 +12885,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.486';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.487';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13398,7 +13418,8 @@ function openPersonalProductEditor(opts){
     : 'Crea un servizio (es. Installazione, Manodopera) o un articolo personale che non e\' presente nel catalogo. Il prodotto verra\' aggiunto alla sezione \'Prodotti Personali\' ed e\' utilizzabile nei preventivi come gli altri.';
 
   bg.innerHTML =
-    '<div class="modal" style="max-width:760px">' +
+    // SV2.10.487: niente max-width inline, ci pensa il CSS (#personalProductModal)
+    '<div class="modal">' +
       '<div class="modal-head">' +
         '<h3>' + titleIcon + ' ' + titleText + '</h3>' +
       '</div>' +
@@ -33221,6 +33242,16 @@ function _ppBomFmt(n, dec){
   return n.toLocaleString('it-IT', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
+/* SV2.10.487 — miniatura di un componente. Se l'articolo non ha immagine (o non
+   e' piu' in catalogo) resta un segnaposto della stessa dimensione, cosi' le
+   righe non si disallineano. onerror nasconde le immagini che non caricano. */
+function _ppBomThumb(prod){
+  const url = prod ? (typeof imgUrl === 'function' ? imgUrl(getField(prod, 'image_path')) : getField(prod, 'image_path')) : '';
+  if(!url) return '<span class="pp-bom-thumb pp-bom-thumb-empty">\u2751</span>';
+  return '<img class="pp-bom-thumb" src="' + escapeAttr(url) + '" alt="" loading="lazy" ' +
+    'onerror="this.outerHTML=\'<span class=&quot;pp-bom-thumb pp-bom-thumb-empty&quot;>\u2751</span>\'">';
+}
+
 function renderPpBom(){
   const box = document.getElementById('ppBomList');
   if(!box) return;
@@ -33239,7 +33270,9 @@ function renderPpBom(){
       const listCat = bomListinoCatalogo(l.code);
       const listStale = (listCat != null && Math.abs(listCat - (l.listino || 0)) > 0.005);
       return '<div class="pp-bom-row" data-i="' + i + '">' +
+        // SV2.10.487: miniatura del componente
         '<div class="pp-bom-code" title="' + escapeAttr(l.code + (desc ? ' — ' + desc : '')) + '">' +
+          _ppBomThumb(prod) +
           (mancante ? '<span title="Articolo non presente nel catalogo attuale" style="color:#dc2626">\u26a0\ufe0f </span>' : '') +
           '<strong>' + escapeHtml(l.code) + '</strong>' +
           (desc ? '<span class="pp-bom-desc">' + escapeHtml(desc) + '</span>' : '') +
@@ -33376,6 +33409,7 @@ function renderPpBomSearch(){
   out.innerHTML = res.map(p => {
     const costo = bomCostoCatalogo(p.name);
     return '<div class="pp-bom-res" data-code="' + escapeAttr(p.name) + '">' +
+      _ppBomThumb(p) +
       '<strong>' + escapeHtml(p.name) + '</strong> ' +
       '<span style="color:var(--fg3)">' + escapeHtml(String(getField(p, 'short_description') || '').slice(0, 60)) + '</span>' +
       '<span style="margin-left:auto;color:#dc2626;font-weight:700">' + _ppBomFmt(costo, 2) + ' \u20ac</span>' +
