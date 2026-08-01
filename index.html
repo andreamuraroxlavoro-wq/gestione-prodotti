@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.493 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.494 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6137,7 +6137,7 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
 .bom-pg-info{margin-left:8px;font-size:11.5px;color:var(--fg3)}
 
 /* SV2.10.484 — distinta base nell'editor dei prodotti personali */
-.pp-bom-row{display:grid;grid-template-columns:minmax(0,1fr) 46px 74px 58px 76px 58px 58px 84px 26px;gap:5px;align-items:center;padding:5px 6px;border-bottom:1px solid var(--border)}
+.pp-bom-row{display:grid;grid-template-columns:minmax(0,1fr) 44px 74px 56px 74px 56px 74px 54px 54px 82px 26px;gap:5px;align-items:center;padding:5px 6px;border-bottom:1px solid var(--border)}
 .pp-bom-row:last-child{border-bottom:none}
 .pp-bom-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--fg);display:flex;align-items:center;gap:7px}
 .pp-bom-code strong{flex:0 0 auto}
@@ -6149,13 +6149,14 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
 .pp-bom-inp:focus{outline:none;border-color:#0178d4}
 .pp-bom-netto{color:#dc2626;font-weight:600}
 .pp-bom-netto.is-stale{border-color:#e67e22;background:rgba(230,126,34,0.10)}
-.pp-bom-sconto.is-stale{border-color:#e67e22;background:rgba(230,126,34,0.10)}
+.pp-bom-sconto.is-stale, .pp-bom-listino.is-stale{border-color:#e67e22;background:rgba(230,126,34,0.10)}
+.pp-bom-scacq{color:#dc2626;font-weight:600}
 .pp-bom-prezzo{color:#0178d4;font-weight:700}
 .pp-bom-inp:disabled{opacity:.45;cursor:not-allowed}
 .pp-bom-val{text-align:right;font-size:12px;font-weight:700;color:#0178d4;white-space:nowrap}
 .pp-bom-del{width:24px;height:24px;padding:0;line-height:1;border-radius:5px;border:1px solid var(--border);background:var(--bg2);color:#ef4444;cursor:pointer;font-size:14px;font-family:inherit}
 .pp-bom-del:hover{background:rgba(239,68,68,0.14);border-color:#ef4444}
-.pp-bom-head{display:grid;grid-template-columns:minmax(0,1fr) 46px 74px 58px 76px 58px 58px 84px 26px;gap:5px;padding:0 6px 5px;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--fg3);text-align:right}
+.pp-bom-head{display:grid;grid-template-columns:minmax(0,1fr) 44px 74px 56px 74px 56px 74px 54px 54px 82px 26px;gap:5px;padding:0 6px 5px;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--fg3);text-align:right}
 .pp-bom-head span:first-child{text-align:left}
 .pp-bom-res{display:flex;align-items:center;gap:8px;padding:6px 9px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border)}
 .pp-bom-res:hover{background:var(--bg3)}
@@ -10775,7 +10776,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.493</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.494</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11476,7 +11477,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.493 mobile");
+console.info("[bootstrap] script avvio — SV2.10.494 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12972,7 +12973,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.493';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.494';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13614,8 +13615,12 @@ function openPersonalProductEditor(opts){
             'Listino e Netto del prodotto restano quelli che scrivi tu, e sotto trovi il confronto fra i due valori.' +
           '</p>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">' +
-            '<span style="font-size:11px;font-weight:700;color:var(--fg2)">Margine predefinito</span>' +
-            '<input type="text" inputmode="decimal" id="ppBomDefMarg" value="' + escapeAttr(f.bom.defaultMarginPct != null ? String(f.bom.defaultMarginPct).replace('.', ',') : '') + '" placeholder="—" style="width:64px;padding:5px 7px;text-align:right;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:12px"> %' +
+            '<span style="font-size:11px;font-weight:700;color:var(--fg2)">Margine predef.</span>' +
+            '<input type="text" inputmode="decimal" id="ppBomDefMarg" value="' + escapeAttr(f.bom.defaultMarginPct != null ? String(f.bom.defaultMarginPct).replace('.', ',') : '') + '" placeholder="—" oninput="ppBomSyncDefault(\'marg\')" style="width:60px;padding:5px 7px;text-align:right;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:12px"> %' +
+            // SV2.10.494: ricarico predefinito, legato al margine (sono la stessa
+            // cosa detta in due modi: si scrive in uno e l'altro si aggiorna).
+            '<span style="font-size:11px;font-weight:700;color:var(--fg2);margin-left:6px">Ricarico predef.</span>' +
+            '<input type="text" inputmode="decimal" id="ppBomDefRic" value="' + escapeAttr((function(){ const r = bomRicFromMarg(f.bom.defaultMarginPct); return (f.bom.defaultMarginPct != null && r != null) ? (Math.round(r * 10) / 10).toString().replace('.', ',') : ''; })()) + '" placeholder="—" oninput="ppBomSyncDefault(\'ric\')" style="width:60px;padding:5px 7px;text-align:right;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:12px"> %' +
             '<button type="button" class="btn ghost small" onclick="ppBomApplyDefaultMargin()" style="font-size:12px">Applica a tutti</button>' +
             '<button type="button" class="btn ghost small" onclick="ppBomRefreshCosts()" style="font-size:12px" title="Riporta i costi ai valori attuali del catalogo">\u21bb Riallinea costi</button>' +
             '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-left:auto">' +
@@ -13636,7 +13641,7 @@ function openPersonalProductEditor(opts){
             '<div id="ppBomResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--bg2);border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.25);max-height:240px;overflow:auto"></div>' +
             '</div>' +
           '</div>' +
-          '<div class="pp-bom-head"><span>Componente</span><span>Q.t\u00e0</span><span>Costo \u20ac</span><span>Sconto %</span><span>Prezzo \u20ac</span><span>Marg. %</span><span>Ric. %</span><span>Totale \u20ac</span><span></span></div>' +
+          '<div class="pp-bom-head"><span>Componente</span><span>Q.t\u00e0</span><span>Listino \u20ac</span><span>Sc. acq. %</span><span>Costo \u20ac</span><span>Sc. vend. %</span><span>Prezzo \u20ac</span><span>Marg. %</span><span>Ric. %</span><span>Totale \u20ac</span><span></span></div>' +
           '<div id="ppBomList" style="border:1px solid var(--border);border-radius:8px;background:var(--bg3)"></div>' +
           '<div id="ppBomTotals"></div>' +
         '</div>' +
@@ -33352,7 +33357,9 @@ function bomLineCalc(line){
   const marginePct  = (prezzoUnit > 0) ? ((prezzoUnit - netto) / prezzoUnit * 100) : null;
   const ricaricoPct = (netto > 0) ? ((prezzoUnit - netto) / netto * 100) : null;
   const scontoPct   = (listino != null) ? ((1 - prezzoUnit / listino) * 100) : null;
-  return { costo, prezzoUnit, prezzo, marginePct, ricaricoPct, scontoPct, listino };
+  // SV2.10.494: sconto d'ACQUISTO, cioe' quanto si compra sotto il listino.
+  const scontoAcqPct = (listino != null) ? ((1 - netto / listino) * 100) : null;
+  return { costo, prezzoUnit, prezzo, marginePct, ricaricoPct, scontoPct, scontoAcqPct, listino };
 }
 
 /* Totali della distinta. */
@@ -33412,14 +33419,19 @@ function renderPpBom(){
           '<strong>' + escapeHtml(l.code) + '</strong>' +
           (desc ? '<span class="pp-bom-desc">' + escapeHtml(desc) + '</span>' : '') +
         '</div>' +
+        // SV2.10.494 — ordine: Q.tà | Listino | Sc. acq. | Costo | Sc. vend. | Prezzo | Marg. | Ric. | Totale
         '<input class="pp-bom-inp pp-bom-qty" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.qty, 0)) + '" title="Quantita\u0027">' +
+        '<input class="pp-bom-inp pp-bom-listino' + (listStale ? ' is-stale' : '') + '" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.listino, 2)) + '"' +
+          ' title="Prezzo di listino del componente' + (listStale ? ' \u2014 a catalogo ora e\u0027 ' + _ppBomFmt(listCat, 2) + ' \u20ac' : '') + '">' +
+        '<input class="pp-bom-inp pp-bom-scacq" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(c.scontoAcqPct, 1)) + '"' +
+          (c.scontoAcqPct == null ? ' disabled' : '') +
+          ' title="Sconto d\u0027acquisto sul listino: quanto lo si compra sotto. Modificandolo si ricalcola il costo.">' +
         '<input class="pp-bom-inp pp-bom-netto' + (scostato ? ' is-stale' : '') + '" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.netto, 2)) + '"' +
           ' title="Costo unitario' + (scostato ? ' — a catalogo ora e\u0027 ' + _ppBomFmt(costoCat, 2) + ' \u20ac' : '') + '">' +
         // SV2.10.486: sconto di vendita sul listino di catalogo del componente
         '<input class="pp-bom-inp pp-bom-sconto' + (listStale ? ' is-stale' : '') + '" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(c.scontoPct, 1)) + '"' +
           (c.scontoPct == null ? ' disabled' : '') +
-          ' title="Sconto di vendita sul listino' + (c.listino != null ? ' di ' + _ppBomFmt(c.listino, 2) + ' \u20ac' : ' (listino non disponibile)') +
-          (listStale ? ' \u2014 a catalogo ora e\u0027 ' + _ppBomFmt(listCat, 2) + ' \u20ac' : '') + '">' +
+          ' title="Sconto di vendita sul listino' + (c.listino != null ? ' di ' + _ppBomFmt(c.listino, 2) + ' \u20ac' : ' (listino non disponibile)') + '">' +
         // SV2.10.486: prezzo unitario, ora modificabile
         '<input class="pp-bom-inp pp-bom-prezzo" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.prezzo, 2)) + '" title="Prezzo di vendita unitario">' +
         '<input class="pp-bom-inp pp-bom-marg" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(c.marginePct, 1)) + '" title="Margine sul prezzo di vendita">' +
@@ -33481,6 +33493,8 @@ function _ppBomBindRows(){
       return isFinite(v) ? v : null;
     };
     const q  = row.querySelector('.pp-bom-qty');
+    const li = row.querySelector('.pp-bom-listino');   // SV2.10.494
+    const sa = row.querySelector('.pp-bom-scacq');     // SV2.10.494
     const n  = row.querySelector('.pp-bom-netto');
     const sc = row.querySelector('.pp-bom-sconto');
     const pz = row.querySelector('.pp-bom-prezzo');
@@ -33498,6 +33512,23 @@ function _ppBomBindRows(){
     const setPrezzo = (v) => { l.prezzo = (v != null && isFinite(v) && v >= 0) ? v : 0; _ppBomSync(l); renderPpBom(); };
 
     if(q) q.onchange = () => { const v = num(q); l.qty = (v != null && v > 0) ? v : 1; renderPpBom(); };
+    /* SV2.10.494 — LISTINO: cambiandolo restano fermi costo e prezzo (sono i
+       dati veri della riga); si muovono i due sconti, che sul listino sono
+       calcolati. E' l'unica lettura coerente: il listino e' il riferimento,
+       non una grandezza che decide costo o prezzo. */
+    if(li) li.onchange = () => { const v = num(li); l.listino = (v != null && v >= 0) ? v : 0; renderPpBom(); };
+    /* SC. ACQ.: e' il modo naturale di dire il costo quando si ragiona per
+       sconti. Ricalcola il COSTO dal listino; il prezzo resta fermo, quindi si
+       muovono margine e ricarico — stessa regola della colonna Costo. */
+    if(sa) sa.onchange = () => {
+      const v = num(sa);
+      const lst = bomLineCalc(l).listino;
+      if(lst == null || v == null){ renderPpBom(); return; }
+      if(!(l.listino > 0)) l.listino = lst;
+      l.netto = lst * (1 - v / 100);
+      _ppBomSync(l);
+      renderPpBom();
+    };
     if(n) n.onchange = () => { const v = num(n); l.netto = (v != null && v >= 0) ? v : 0; _ppBomSync(l); renderPpBom(); };
     if(pz) pz.onchange = () => setPrezzo(num(pz));
     if(sc) sc.onchange = () => {
@@ -34076,6 +34107,29 @@ function renderPpBomSearch(){
       renderPpBom();
     };
   });
+}
+
+/* SV2.10.494 — margine e ricarico predefiniti sono lo stesso vincolo espresso
+   in due modi: scrivendo in uno si aggiorna l'altro. Il valore memorizzato
+   resta il MARGINE (defaultMarginPct), il ricarico e' solo un modo di dirlo. */
+function ppBomSyncDefault(origine){
+  const m = document.getElementById('ppBomDefMarg');
+  const r = document.getElementById('ppBomDefRic');
+  if(!m || !r) return;
+  const leggi = (el) => {
+    const t = String(el.value || '').trim();
+    if(!t) return null;
+    const v = parseFloat(t.replace(',', '.'));
+    return isFinite(v) ? v : null;
+  };
+  const scrivi = (el, v) => { el.value = (v == null) ? '' : String(Math.round(v * 10) / 10).replace('.', ','); };
+  if(origine === 'marg'){
+    const v = leggi(m);
+    scrivi(r, (v != null && v < 100) ? bomRicFromMarg(v) : null);
+  } else {
+    const v = leggi(r);
+    scrivi(m, (v != null) ? bomMargFromRic(v) : null);
+  }
 }
 
 /* Applica il margine predefinito a TUTTE le righe. */
