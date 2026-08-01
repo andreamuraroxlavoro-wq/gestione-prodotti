@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.483 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.484 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6090,6 +6090,25 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
    fanno crescere l'altezza delle righe. La classe sta sul contenitore, cosi' un
    solo interruttore agisce su intestazioni e celle di entrambe le tabelle
    (Cliente e Analisi). */
+/* SV2.10.484 — distinta base nell'editor dei prodotti personali */
+.pp-bom-row{display:grid;grid-template-columns:minmax(0,1fr) 58px 82px 66px 66px 92px 28px;gap:6px;align-items:center;padding:5px 6px;border-bottom:1px solid var(--border)}
+.pp-bom-row:last-child{border-bottom:none}
+.pp-bom-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--fg)}
+.pp-bom-desc{color:var(--fg3);margin-left:7px;font-size:11px}
+.pp-bom-inp{width:100%;box-sizing:border-box;padding:4px 6px;font-size:12px;text-align:right;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:var(--fg);font-family:inherit}
+.pp-bom-inp:focus{outline:none;border-color:#0178d4}
+.pp-bom-netto{color:#dc2626;font-weight:600}
+.pp-bom-netto.is-stale{border-color:#e67e22;background:rgba(230,126,34,0.10)}
+.pp-bom-val{text-align:right;font-size:12px;font-weight:700;color:#0178d4;white-space:nowrap}
+.pp-bom-del{width:24px;height:24px;padding:0;line-height:1;border-radius:5px;border:1px solid var(--border);background:var(--bg2);color:#ef4444;cursor:pointer;font-size:14px;font-family:inherit}
+.pp-bom-del:hover{background:rgba(239,68,68,0.14);border-color:#ef4444}
+.pp-bom-head{display:grid;grid-template-columns:minmax(0,1fr) 58px 82px 66px 66px 92px 28px;gap:6px;padding:0 6px 5px;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--fg3);text-align:right}
+.pp-bom-head span:first-child{text-align:left}
+.pp-bom-res{display:flex;align-items:center;gap:8px;padding:6px 9px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border)}
+.pp-bom-res:hover{background:var(--bg3)}
+.pp-bom-tot-line{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--fg2);padding:8px 6px 0}
+.pp-bom-cmp{display:flex;flex-wrap:wrap;gap:16px;font-size:11px;padding:4px 6px 0}
+
 .qcart-optimized .qcart-desc-cell,
 .qcart-optimized .qcart-marca-cell{ display:none !important; }
 
@@ -10638,7 +10657,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.483</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.484</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11339,7 +11358,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.483 mobile");
+console.info("[bootstrap] script avvio — SV2.10.484 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12835,7 +12854,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.483';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.484';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12923,6 +12942,7 @@ function personalProductCreate(input){
     specifications: String(input.specifications || '').trim(),
     content: String(input.content || '').trim(),
     note: String(input.note || '').trim(),   // SV2.10.483
+    bom: bomNormalize(input.bom),            // SV2.10.484
     category: String(input.category || '').trim(),
     category_parent: String(input.category_parent || '').trim(),
     precio_neto_compra: String(input.precio_neto_compra || '0').trim(),
@@ -12997,6 +13017,11 @@ function personalProductUpdate(idx, updates){
       }
     }
   });
+  // SV2.10.484: distinta base (oggetto) — come params, va fuori dalla whitelist
+  // delle stringhe, altrimenti String(...) la trasformerebbe in "[object Object]".
+  if('bom' in updates){
+    item.bom = bomNormalize(updates.bom);
+  }
   // SV2.10.435: Parametri tecnici (oggetto) — aggiornati a parte, con paramsRaw sincronizzato
   if('params' in updates){
     item.params = (updates.params && typeof updates.params === 'object' && !Array.isArray(updates.params)) ? updates.params : {};
@@ -13339,6 +13364,8 @@ function openPersonalProductEditor(opts){
     image_path: existing ? (existing.image_path || '') : (pre ? (pre.image_path || '') : ''),
     // SV2.10.483: note interne, come nei servizi — non finiscono mai in stampa.
     note: existing ? (existing.note || '') : (pre ? (pre.note || '') : ''),
+    // SV2.10.484: distinta base (sempre normalizzata, mai null)
+    bom: bomNormalize(existing ? existing.bom : (pre ? pre.bom : null)),
     // V2.9.27: FIX BUG GRAVE - leggo extra_images dall'item esistente.
     // Prima questo campo non veniva letto, causando perdita TOTALE delle
     // immagini extra al successivo save (l'hidden field veniva inizializzato
@@ -13459,6 +13486,34 @@ function openPersonalProductEditor(opts){
           '<textarea class="co-field-input" id="ppNote" rows="2" placeholder="Annotazioni private" style="resize:vertical;min-height:50px;width:100%;box-sizing:border-box">' + escapeHtml(f.note) + '</textarea>' +
         '</div>' +
 
+        // SV2.10.484: DISTINTA BASE — quali articoli di catalogo compongono
+        // questo prodotto personale, con margine/ricarico per singola riga.
+        '<div class="co-section">' +
+          '<div class="co-section-title">Distinta base <span style="color:var(--fg3);font-weight:400;text-transform:none;letter-spacing:0">(materiali che lo compongono)</span></div>' +
+          '<p class="settings-hint" style="margin:0 0 10px 0;font-size:11px">' +
+            'Serve a sapere com\'e\' fatto e quanto costa davvero. I prezzi qui sotto sono <strong>solo informativi</strong>: ' +
+            'Listino e Netto del prodotto restano quelli che scrivi tu, e sotto trovi il confronto fra i due valori.' +
+          '</p>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">' +
+            '<span style="font-size:11px;font-weight:700;color:var(--fg2)">Margine predefinito</span>' +
+            '<input type="text" inputmode="decimal" id="ppBomDefMarg" value="' + escapeAttr(f.bom.defaultMarginPct != null ? String(f.bom.defaultMarginPct).replace('.', ',') : '') + '" placeholder="—" style="width:64px;padding:5px 7px;text-align:right;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:12px"> %' +
+            '<button type="button" class="btn ghost small" onclick="ppBomApplyDefaultMargin()" style="font-size:12px">Applica a tutti</button>' +
+            '<button type="button" class="btn ghost small" onclick="ppBomRefreshCosts()" style="font-size:12px" title="Riporta i costi ai valori attuali del catalogo">\u21bb Riallinea costi</button>' +
+            '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-left:auto">' +
+              '<input type="checkbox" id="ppBomExplode"' + (f.bom.explode ? ' checked' : '') + '> Permetti di esploderla nel preventivo' +
+            '</label>' +
+          '</div>' +
+          '<div style="position:relative;margin-bottom:8px">' +
+            '<input type="text" id="ppBomSearch" placeholder="Cerca un articolo del catalogo per codice o descrizione\u2026" ' +
+              'oninput="renderPpBomSearch()" autocomplete="off" ' +
+              'style="width:100%;box-sizing:border-box;padding:8px 11px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:13px">' +
+            '<div id="ppBomResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--bg2);border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.25);max-height:240px;overflow:auto"></div>' +
+          '</div>' +
+          '<div class="pp-bom-head"><span>Componente</span><span>Q.t\u00e0</span><span>Costo \u20ac</span><span>Marg. %</span><span>Ric. %</span><span>Prezzo \u20ac</span><span></span></div>' +
+          '<div id="ppBomList" style="border:1px solid var(--border);border-radius:8px;background:var(--bg3)"></div>' +
+          '<div id="ppBomTotals"></div>' +
+        '</div>' +
+
         '<div class="co-section">' +
           '<div class="co-section-title">Immagini del prodotto</div>' +
           // V2.9.24: galleria gestita con copertina + immagini extra + drag-and-drop.
@@ -13500,6 +13555,9 @@ function openPersonalProductEditor(opts){
   _PP_LABELS = (existing && existing.paramLabels && typeof existing.paramLabels === 'object' && !Array.isArray(existing.paramLabels))
     ? JSON.parse(JSON.stringify(existing.paramLabels)) : {};
   if(typeof renderPpParams === 'function') renderPpParams();
+  // SV2.10.484: stato locale della distinta + primo disegno
+  _PP_BOM = bomNormalize(f.bom);
+  if(typeof renderPpBom === 'function') renderPpBom();
 
   const cleanup = () => bg.remove();
   document.getElementById('ppCancelBtn').addEventListener('click', () => {
@@ -13529,6 +13587,18 @@ function openPersonalProductEditor(opts){
       image_path: document.getElementById('ppImg').value.trim(),
       // SV2.10.483
       note: (function(){ const el = document.getElementById('ppNote'); return el ? el.value.trim() : ''; })(),
+      // SV2.10.484: distinta base (stato locale del modal)
+      bom: (function(){
+        const b = bomNormalize(_PP_BOM);
+        const ex = document.getElementById('ppBomExplode');
+        b.explode = !!(ex && ex.checked);
+        const dm = document.getElementById('ppBomDefMarg');
+        if(dm){
+          const v = parseFloat(String(dm.value).replace(',', '.'));
+          b.defaultMarginPct = isFinite(v) ? v : null;
+        }
+        return b;
+      })(),
       // SV2.10.435: Specifiche e Contenuto confezione (HTML dai due editor WYSIWYG del modal)
       specifications: (function(){ const el = document.querySelector('#personalProductModal .wysiwyg-editor[data-field="specifications"]'); return el ? el.innerHTML.trim() : ''; })(),
       content: (function(){ const el = document.querySelector('#personalProductModal .wysiwyg-editor[data-field="content"]'); return el ? el.innerHTML.trim() : ''; })(),
@@ -32987,6 +33057,286 @@ function delParam(k){
    Replica la logica di renderParamsList/addParam/delParam ma su uno stato
    locale (_PP_PARAMS), perché il modal personale non usa CURRENT_EDIT.
    ========================================================================== */
+/* ═══════════════════════════════════════════════════════════════════════
+   SV2.10.484 — DISTINTA BASE dei PRODOTTI PERSONALI
+   ───────────────────────────────────────────────────────────────────────
+   Elenca gli articoli DI CATALOGO che compongono un prodotto personale, con
+   quantita', costo e margine/ricarico gestiti riga per riga.
+
+   Decisioni prese con l'utente:
+   - I prezzi del prodotto personale (Listino / Netto) NON vengono toccati:
+     la distinta e' SOLO INFORMATIVA. Mostra il confronto fra quanto calcola
+     e quanto e' stato scritto a mano, ma non sovrascrive nulla.
+   - L'esplosione nel preventivo e' OPZIONALE: un interruttore per prodotto
+     abilita il pulsante che, nel carrello, sostituisce la riga con i suoi
+     componenti.
+
+   Struttura salvata dentro l'articolo:
+     bom = { defaultMarginPct: number|null,
+             explode: bool,
+             items: [ { code, qty, netto, marginPct } ] }
+   `netto` e' una FOTOGRAFIA del costo al momento dell'inserimento (i listini
+   cambiano): il pulsante "Riallinea costi" la riporta ai valori correnti.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+let _PP_BOM = { defaultMarginPct: null, explode: false, items: [] };
+
+/* Conversioni margine <-> ricarico. Il margine e' sul PREZZO DI VENDITA
+   (m = (p-c)/p), il ricarico sul COSTO (r = (p-c)/c). */
+function bomRicFromMarg(m){
+  const v = parseFloat(m);
+  if(!isFinite(v) || v >= 100) return null;
+  return (v / (100 - v)) * 100;
+}
+function bomMargFromRic(r){
+  const v = parseFloat(r);
+  if(!isFinite(v) || v <= -100) return null;
+  return (v / (100 + v)) * 100;
+}
+
+/* Normalizza qualunque cosa sia stata salvata (o importata dal Drive) in una
+   distinta valida: mai null, mai campi di tipo sbagliato. */
+function bomNormalize(raw){
+  const out = { defaultMarginPct: null, explode: false, items: [] };
+  if(!raw || typeof raw !== 'object') return out;
+  const d = parseFloat(raw.defaultMarginPct);
+  out.defaultMarginPct = isFinite(d) ? d : null;
+  out.explode = raw.explode === true;
+  if(Array.isArray(raw.items)){
+    raw.items.forEach(it => {
+      if(!it || !it.code) return;
+      const q = parseFloat(it.qty);
+      const n = parseFloat(it.netto);
+      const m = parseFloat(it.marginPct);
+      out.items.push({
+        code: String(it.code),
+        qty: (isFinite(q) && q > 0) ? q : 1,
+        netto: isFinite(n) ? n : 0,
+        marginPct: isFinite(m) ? m : 0,
+      });
+    });
+  }
+  return out;
+}
+
+/* Costo corrente di un articolo di catalogo: usa il netto EFFETTIVO
+   (comprensivo della cascata di sconti d'acquisto) quando disponibile. */
+function bomCostoCatalogo(code){
+  const p = (Array.isArray(DATA) ? DATA.find(x => x && x.name === code) : null);
+  if(!p) return null;
+  if(typeof getEffectiveProductPrices === 'function'){
+    try {
+      const pr = getEffectiveProductPrices(p);
+      if(pr && pr.nettoEff != null && isFinite(pr.nettoEff)) return pr.nettoEff;
+    } catch(_){}
+  }
+  const n = priceNum(getField(p, 'precio_neto_compra'));
+  return isFinite(n) ? n : null;
+}
+
+/* Totali di una riga: costo riga, prezzo unitario e prezzo riga. */
+function bomLineCalc(line){
+  const qty   = (line && isFinite(line.qty)) ? line.qty : 0;
+  const netto = (line && isFinite(line.netto)) ? line.netto : 0;
+  const m     = (line && isFinite(line.marginPct)) ? line.marginPct : 0;
+  const costo = netto * qty;
+  // prezzo unitario dal margine sul venduto: p = c / (1 - m/100)
+  const prezzoUnit = (m < 100) ? (netto / (1 - m / 100)) : null;
+  const prezzo = (prezzoUnit != null) ? prezzoUnit * qty : null;
+  return { costo, prezzoUnit, prezzo, ricaricoPct: bomRicFromMarg(m) };
+}
+
+/* Totali della distinta. */
+function bomTotals(bom){
+  const b = bomNormalize(bom);
+  let costo = 0, prezzo = 0, righe = 0, senzaPrezzo = 0;
+  b.items.forEach(l => {
+    const c = bomLineCalc(l);
+    costo += c.costo;
+    if(c.prezzo != null) prezzo += c.prezzo; else senzaPrezzo++;
+    righe++;
+  });
+  const marginePct = (prezzo > 0) ? ((prezzo - costo) / prezzo * 100) : null;
+  const ricaricoPct = (costo > 0) ? ((prezzo - costo) / costo * 100) : null;
+  return { righe, costo, prezzo, marginePct, ricaricoPct, senzaPrezzo };
+}
+
+/* ── UI dentro l'editor del prodotto personale ────────────────────────── */
+
+function _ppBomFmt(n, dec){
+  if(n == null || !isFinite(n)) return '—';
+  return n.toLocaleString('it-IT', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+function renderPpBom(){
+  const box = document.getElementById('ppBomList');
+  if(!box) return;
+  const b = _PP_BOM;
+  if(!b.items.length){
+    box.innerHTML = '<div style="padding:14px;text-align:center;color:var(--fg3);font-size:12px">' +
+      'Nessun componente. Cerca un articolo qui sopra per aggiungerlo.</div>';
+  } else {
+    box.innerHTML = b.items.map((l, i) => {
+      const prod = (Array.isArray(DATA) ? DATA.find(x => x && x.name === l.code) : null);
+      const desc = prod ? String(getField(prod, 'short_description') || '').slice(0, 70) : '';
+      const mancante = !prod;
+      const c = bomLineCalc(l);
+      const costoCat = bomCostoCatalogo(l.code);
+      const scostato = (costoCat != null && Math.abs(costoCat - l.netto) > 0.005);
+      return '<div class="pp-bom-row" data-i="' + i + '">' +
+        '<div class="pp-bom-code" title="' + escapeAttr(l.code + (desc ? ' — ' + desc : '')) + '">' +
+          (mancante ? '<span title="Articolo non presente nel catalogo attuale" style="color:#dc2626">\u26a0\ufe0f </span>' : '') +
+          '<strong>' + escapeHtml(l.code) + '</strong>' +
+          (desc ? '<span class="pp-bom-desc">' + escapeHtml(desc) + '</span>' : '') +
+        '</div>' +
+        '<input class="pp-bom-inp pp-bom-qty" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.qty, 0)) + '" title="Quantita\u0027">' +
+        '<input class="pp-bom-inp pp-bom-netto' + (scostato ? ' is-stale' : '') + '" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.netto, 2)) + '"' +
+          ' title="Costo unitario' + (scostato ? ' — a catalogo ora e\u0027 ' + _ppBomFmt(costoCat, 2) + ' \u20ac' : '') + '">' +
+        '<input class="pp-bom-inp pp-bom-marg" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.marginPct, 1)) + '" title="Margine sul prezzo di vendita">' +
+        '<input class="pp-bom-inp pp-bom-ric" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(c.ricaricoPct, 1)) + '" title="Ricarico sul costo">' +
+        '<span class="pp-bom-val" title="Prezzo della riga">' + _ppBomFmt(c.prezzo, 2) + ' \u20ac</span>' +
+        '<button type="button" class="pp-bom-del" title="Rimuovi il componente">\u00d7</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  // Totali + confronto con i prezzi scritti a mano (solo informativo)
+  const t = bomTotals(b);
+  const foot = document.getElementById('ppBomTotals');
+  if(foot){
+    const pvpEl = document.getElementById('ppPvp');
+    const netEl = document.getElementById('ppNetto');
+    const pvp = pvpEl ? priceNum(pvpEl.value) : null;
+    const net = netEl ? priceNum(netEl.value) : null;
+    const cmp = (etichetta, calcolato, scritto) => {
+      if(!(scritto > 0) || calcolato == null) return '';
+      const d = calcolato - scritto;
+      const seg = Math.abs(d) < 0.005 ? '#16a34a' : (d > 0 ? '#dc2626' : '#e67e22');
+      return '<span style="color:' + seg + '">' + etichetta + ' scritto a mano ' + _ppBomFmt(scritto, 2) +
+        ' \u20ac \u00b7 differenza ' + (d > 0 ? '+' : '') + _ppBomFmt(d, 2) + ' \u20ac</span>';
+    };
+    foot.innerHTML = t.righe
+      ? '<div class="pp-bom-tot-line">' +
+          '<span><strong>' + t.righe + '</strong> componenti</span>' +
+          '<span>Costo <strong style="color:#dc2626">' + _ppBomFmt(t.costo, 2) + ' \u20ac</strong></span>' +
+          '<span>Prezzo <strong style="color:#0178d4">' + _ppBomFmt(t.prezzo, 2) + ' \u20ac</strong></span>' +
+          '<span>Margine <strong>' + _ppBomFmt(t.marginePct, 1) + '%</strong></span>' +
+          '<span>Ricarico <strong>' + _ppBomFmt(t.ricaricoPct, 1) + '%</strong></span>' +
+        '</div>' +
+        '<div class="pp-bom-cmp">' + cmp('Netto', t.costo, net) + cmp('Listino', t.prezzo, pvp) + '</div>'
+      : '';
+  }
+
+  _ppBomBindRows();
+}
+
+/* Legge gli input di una riga. Margine e ricarico sono collegati: si scrive in
+   uno e l'altro si ricalcola, perche' sono la stessa informazione. */
+function _ppBomBindRows(){
+  const box = document.getElementById('ppBomList');
+  if(!box) return;
+  box.querySelectorAll('.pp-bom-row').forEach(row => {
+    const i = parseInt(row.dataset.i, 10);
+    const l = _PP_BOM.items[i];
+    if(!l) return;
+    const num = (el) => {
+      const v = parseFloat(String(el.value).replace(/\./g, '').replace(',', '.'));
+      return isFinite(v) ? v : null;
+    };
+    const q = row.querySelector('.pp-bom-qty');
+    const n = row.querySelector('.pp-bom-netto');
+    const m = row.querySelector('.pp-bom-marg');
+    const r = row.querySelector('.pp-bom-ric');
+    if(q) q.onchange = () => { const v = num(q); l.qty = (v != null && v > 0) ? v : 1; renderPpBom(); };
+    if(n) n.onchange = () => { const v = num(n); l.netto = (v != null && v >= 0) ? v : 0; renderPpBom(); };
+    if(m) m.onchange = () => { const v = num(m); l.marginPct = (v != null && v < 100) ? v : 0; renderPpBom(); };
+    if(r) r.onchange = () => {
+      const v = num(r);
+      const mm = (v != null) ? bomMargFromRic(v) : null;
+      l.marginPct = (mm != null) ? Math.round(mm * 100) / 100 : 0;
+      renderPpBom();
+    };
+    const del = row.querySelector('.pp-bom-del');
+    if(del) del.onclick = () => { _PP_BOM.items.splice(i, 1); renderPpBom(); };
+  });
+}
+
+/* Ricerca nel catalogo: codice o descrizione, primi 8 risultati. */
+function renderPpBomSearch(){
+  const inp = document.getElementById('ppBomSearch');
+  const out = document.getElementById('ppBomResults');
+  if(!inp || !out) return;
+  const q = String(inp.value || '').trim().toLowerCase();
+  if(q.length < 2){ out.style.display = 'none'; out.innerHTML = ''; return; }
+  const gia = new Set(_PP_BOM.items.map(x => x.code));
+  const res = [];
+  for(let i = 0; i < DATA.length && res.length < 8; i++){
+    const p = DATA[i];
+    if(!p || !p.name || gia.has(p.name)) continue;
+    const code = String(p.name).toLowerCase();
+    const desc = String(getField(p, 'short_description') || '').toLowerCase();
+    if(code.indexOf(q) >= 0 || desc.indexOf(q) >= 0) res.push(p);
+  }
+  out.style.display = res.length ? 'block' : 'none';
+  out.innerHTML = res.map(p => {
+    const costo = bomCostoCatalogo(p.name);
+    return '<div class="pp-bom-res" data-code="' + escapeAttr(p.name) + '">' +
+      '<strong>' + escapeHtml(p.name) + '</strong> ' +
+      '<span style="color:var(--fg3)">' + escapeHtml(String(getField(p, 'short_description') || '').slice(0, 60)) + '</span>' +
+      '<span style="margin-left:auto;color:#dc2626;font-weight:700">' + _ppBomFmt(costo, 2) + ' \u20ac</span>' +
+    '</div>';
+  }).join('');
+  out.querySelectorAll('.pp-bom-res').forEach(el => {
+    el.onclick = () => {
+      const code = el.dataset.code;
+      const costo = bomCostoCatalogo(code);
+      _PP_BOM.items.push({
+        code: code,
+        qty: 1,
+        netto: (costo != null) ? costo : 0,
+        // margine predefinito della distinta, se impostato
+        marginPct: (_PP_BOM.defaultMarginPct != null) ? _PP_BOM.defaultMarginPct : 0,
+      });
+      inp.value = '';
+      out.style.display = 'none';
+      out.innerHTML = '';
+      renderPpBom();
+    };
+  });
+}
+
+/* Applica il margine predefinito a TUTTE le righe. */
+function ppBomApplyDefaultMargin(){
+  const el = document.getElementById('ppBomDefMarg');
+  if(!el) return;
+  const v = parseFloat(String(el.value).replace(',', '.'));
+  if(!isFinite(v) || v >= 100){
+    if(typeof toast === 'function') toast('Margine non valido (dev\u0027essere sotto 100)', 'err');
+    return;
+  }
+  _PP_BOM.defaultMarginPct = v;
+  _PP_BOM.items.forEach(l => { l.marginPct = v; });
+  renderPpBom();
+  if(typeof toast === 'function') toast('Margine ' + _ppBomFmt(v, 1) + '% applicato a ' + _PP_BOM.items.length + ' componenti', 'ok');
+}
+
+/* Riporta i costi ai valori attuali del catalogo. Serve perche' la distinta
+   congela il costo al momento dell'inserimento: senza questo pulsante, dopo
+   un aggiornamento listino i margini calcolati sarebbero falsi. */
+function ppBomRefreshCosts(){
+  let agg = 0, mancanti = 0;
+  _PP_BOM.items.forEach(l => {
+    const c = bomCostoCatalogo(l.code);
+    if(c == null){ mancanti++; return; }
+    if(Math.abs(c - l.netto) > 0.005){ l.netto = c; agg++; }
+  });
+  renderPpBom();
+  if(typeof toast === 'function'){
+    toast(agg + ' costi aggiornati dal catalogo' + (mancanti ? ' \u00b7 ' + mancanti + ' articoli non trovati' : ''),
+      mancanti ? 'err' : 'ok');
+  }
+}
+
 let _PP_PARAMS = {};
 let _PP_LABELS = {};
 function renderPpParams(){
@@ -56023,6 +56373,101 @@ function openQuotePrintSettingsDialog(){
   document.addEventListener('keydown', esc);
 }
 
+/* SV2.10.484 — ESPLOSIONE DELLA DISTINTA nel preventivo.
+   Sostituisce la riga del prodotto personale con i suoi componenti di catalogo.
+   Ogni componente entra come riga normale: il prezzo deciso nella distinta
+   (costo + margine) viene espresso come SCONTO CLIENTE sul listino di catalogo,
+   che e' il modello dati del carrello — cosi' totali, margini e stampe
+   funzionano senza casi speciali.
+   L'operazione e' irreversibile sulla riga (il prodotto padre sparisce), quindi
+   viene chiesta conferma con il dettaglio di cosa succedera'. */
+function qcartExplodeBom(code){
+  const st = window._QUOTE_STATE;
+  if(!st || !Array.isArray(st.items)) return;
+  const pos = st.items.findIndex(x => x && x.code === code);
+  if(pos < 0) return;
+  const riga = st.items[pos];
+  const prod = DATA.find(x => x && x.name === code);
+  if(!prod){ if(typeof toast === 'function') toast('Prodotto non trovato nel catalogo', 'err'); return; }
+  const b = bomNormalize(prod.bom);
+  if(!b.items.length){ if(typeof toast === 'function') toast('Questo prodotto non ha una distinta base', 'err'); return; }
+
+  const qtyPadre = (riga.qty != null && isFinite(riga.qty)) ? riga.qty : 1;
+  const nuove = [];
+  const mancanti = [];
+  b.items.forEach(l => {
+    const comp = DATA.find(x => x && x.name === l.code);
+    if(!comp){ mancanti.push(l.code); return; }
+    const idx = DATA.indexOf(comp);
+    let listino = priceNum(getField(comp, 'PVP'));
+    if(!(listino > 0) && typeof getEffectiveProductPrices === 'function'){
+      try { const pr = getEffectiveProductPrices(comp); if(pr && pr.listino > 0) listino = pr.listino; } catch(_){}
+    }
+    const calc = bomLineCalc(l);
+    const prezzoUnit = (calc.prezzoUnit != null) ? calc.prezzoUnit : l.netto;
+    const sconto = (listino > 0) ? Math.max(0, Math.min(100, (1 - prezzoUnit / listino) * 100)) : 0;
+    nuove.push({
+      code: comp.name,
+      idx: idx,
+      qty: l.qty * qtyPadre,
+      pvp: (listino > 0) ? listino : prezzoUnit,
+      netto: l.netto,
+      // 4 decimali, non 2: arrotondando lo sconto al centesimo di punto il
+      // prezzo del componente si scostava di qualche centesimo di euro da
+      // quello deciso nella distinta (es. 250,00 diventava 249,99).
+      discountPct: Math.round(sconto * 10000) / 10000,
+      nameShort: getField(comp, 'short_description') || comp.name,
+      nameFull: getField(comp, 'short_description') || comp.name,
+      brand: getField(comp, 'brand') || '',
+    });
+  });
+
+  if(!nuove.length){ if(typeof toast === 'function') toast('Nessun componente presente nel catalogo attuale', 'err'); return; }
+
+  /* Il carrello identifica le righe dal CODICE: due righe con lo stesso codice
+     manderebbero in confusione quantita', sconti ed eliminazione (gli handler
+     fanno items.find(it => it.code === code) e troverebbero sempre la prima).
+     Quindi un componente gia' presente nel preventivo non crea una riga nuova:
+     si sommano le quantita' alla riga esistente. */
+  const daInserire = [];
+  const fusi = [];
+  nuove.forEach(n => {
+    const esistente = st.items.find((x, i) => x && i !== pos && x.code === n.code);
+    if(esistente){
+      esistente.qty = (isFinite(esistente.qty) ? esistente.qty : 0) + n.qty;
+      fusi.push(n.code);
+    } else {
+      daInserire.push(n);
+    }
+  });
+
+  const msg = 'Sostituisco la riga "' + code + '" con ' + nuove.length + ' componenti'
+    + (qtyPadre !== 1 ? ' (quantita\u0027 moltiplicate per ' + qtyPadre + ')' : '') + '.'
+    + (fusi.length ? '\n\nGia\u0027 presenti nel preventivo, le quantita\u0027 verranno SOMMATE alle righe esistenti:\n\u2022 ' + fusi.join('\n\u2022 ') : '')
+    + (mancanti.length ? '\n\nNON verranno inseriti, perche\u0027 non sono nel catalogo attuale:\n\u2022 ' + mancanti.join('\n\u2022 ') : '')
+    + '\n\nL\u0027operazione non si annulla. Procedo?';
+  if(!window.confirm(msg)){
+    // Ripristino le quantita' sommate sopra: la conferma e' arrivata DOPO il
+    // calcolo delle fusioni, quindi senza questo l'annullamento lascerebbe
+    // il preventivo modificato.
+    nuove.forEach(n => {
+      if(fusi.indexOf(n.code) < 0) return;
+      const esistente = st.items.find((x, i) => x && i !== pos && x.code === n.code);
+      if(esistente) esistente.qty -= n.qty;
+    });
+    return;
+  }
+
+  st.items.splice(pos, 1, ...daInserire);
+  if(typeof renderQuoteCartContent === 'function') renderQuoteCartContent();
+  if(typeof _persistQuoteState === 'function'){ try { _persistQuoteState(); } catch(_){} }
+  if(typeof toast === 'function'){
+    toast('Distinta esplosa: ' + daInserire.length + ' componenti inseriti'
+      + (fusi.length ? ' \u00b7 ' + fusi.length + ' sommati a righe esistenti' : '')
+      + (mancanti.length ? ' \u00b7 ' + mancanti.length + ' non trovati' : ''), mancanti.length ? 'err' : 'ok');
+  }
+}
+
 /* SV2.10.479 — applica lo stato dell'interruttore DESCRIZIONE: classe sul
    contenitore delle tabelle + aspetto ed etichetta del pulsante. Chiamata sia
    al click sia dopo ogni render (il DOM viene ricostruito ogni volta). */
@@ -56301,7 +56746,7 @@ function renderQuoteCartContent(){
               return (_img || _stk) ? '<span class="qcart-foto-wrap">' + _img + _stk + '</span>' : '';
             })() +
           '</td>' +
-          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = (Array.isArray(DATA) ? (DATA.find(x => x && x.name === it.code) || DATA[it.idx]) : null); if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true){ /* SV2.10.484: se il prodotto personale ha una distinta ESPLODIBILE offro il pulsante che sostituisce la riga coi suoi componenti */ const _b = (typeof bomNormalize === 'function') ? bomNormalize(_p.bom) : null; const _exp = (_b && _b.explode && _b.items.length) ? ' <button type="button" class="qcart-bom-explode" data-code="' + escapeAttr(it.code) + '" title="Sostituisci questa riga con i ' + _b.items.length + ' componenti della distinta base" style="border:none;background:rgba(1,120,212,0.15);color:#0178d4;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">\u2935 ESPLODI (' + _b.items.length + ')</button>' : ''; return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>' + _exp; } return ''; })()) + '</td>' +
           '<td class="qcart-marca-cell" style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
             const cleanName = getCleanItemName(it);
@@ -56458,7 +56903,7 @@ function renderQuoteCartContent(){
               return (_img || _stk) ? '<span class="qcart-foto-wrap">' + _img + _stk + '</span>' : '';
             })() +
           '</td>' +
-          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = DATA[it.idx]; if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true) return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>'; return ''; })()) + '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = (Array.isArray(DATA) ? (DATA.find(x => x && x.name === it.code) || DATA[it.idx]) : null); if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true){ /* SV2.10.484: se il prodotto personale ha una distinta ESPLODIBILE offro il pulsante che sostituisce la riga coi suoi componenti */ const _b = (typeof bomNormalize === 'function') ? bomNormalize(_p.bom) : null; const _exp = (_b && _b.explode && _b.items.length) ? ' <button type="button" class="qcart-bom-explode" data-code="' + escapeAttr(it.code) + '" title="Sostituisci questa riga con i ' + _b.items.length + ' componenti della distinta base" style="border:none;background:rgba(1,120,212,0.15);color:#0178d4;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">\u2935 ESPLODI (' + _b.items.length + ')</button>' : ''; return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>' + _exp; } return ''; })()) + '</td>' +
           '<td class="qcart-marca-cell" style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
             const cleanName = getCleanItemName(it);
@@ -56611,6 +57056,11 @@ function renderQuoteCartContent(){
       renderQuoteCartContent();
     });
   });
+  // SV2.10.484: click su "ESPLODI" → sostituisce la riga con i componenti
+  container.querySelectorAll('.qcart-bom-explode').forEach(btn => {
+    btn.addEventListener('click', () => qcartExplodeBom(btn.dataset.code));
+  });
+
   // SV2.10.357: click sul badge "✏️ LIBERA" → riapre il form di modifica della voce
   container.querySelectorAll('.qcart-free-edit').forEach(btn => {
     btn.addEventListener('click', () => {
