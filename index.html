@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.495 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.496 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5780,10 +5780,21 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
 
 /* V2.2.36 — Badge stato sopra l'immagine della card (NUOVO / SCATALOGATO).
    Posizione: alto-sinistra, sotto la checkbox di selezione (se presente). */
-.card-state-badge{
+/* SV2.10.496 — i badge di stato stanno in una COLONNA. Prima erano tutti
+   position:absolute alla stessa coordinata e si sovrapponevano appena ne
+   comparivano due (es. PERSONALE + COMPOSTO): si vedeva solo l'ultimo. */
+.card-state-badges{
   position:absolute;
   top:8px; left:8px;
   z-index:5;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:5px;
+  pointer-events:none;
+}
+.card-state-badge{
+  position:static;
   padding:4px 10px;
   border-radius:4px;
   font-size:10px; font-weight:700;
@@ -5810,10 +5821,11 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
 /* SV2.10.485: badge per i prodotti personali che hanno una distinta base.
    Azzurro come il pulsante ESPLODI del carrello, cosi' i due segnali della
    stessa cosa si riconoscono a colpo d'occhio. */
+/* SV2.10.496: verde, come il pulsante puzzle in galleria. */
 .card-state-badge.state-composed{
-  background:#0178d4;
+  background:#16a34a;
   color:#fff;
-  border-color:#0160aa;
+  border-color:#15803d;
 }
 /* V2.10.61 + V2.10.68: badge verde smeraldo per i servizi in galleria
    (sottoinsieme dei personali con isService:true). */
@@ -5953,11 +5965,11 @@ body.theme-light .card-margin-badge{ background:#7c3aed; color:#fff; }
 body.theme-light .card-margin-badge.is-ricarico{ background:#BBF7D0; color:#064E3B; }
 /* Quando è presente il badge sconto, le indicazioni di stato (MODIFICATO, NUOVO,
    SCATALOGATO, SERVIZIO, PERSONALE) scendono SOTTO per non sovrapporsi al badge. */
-.card.has-disc-badge .card-state-badge{ top:40px; }
+.card.has-disc-badge .card-state-badges{ top:40px; }
 .card.has-disc-badge.edited::after{ top:40px; }
 /* SV2.10.402: sconto, sconto-vendita e margine stanno tutti sulla stessa riga (nel
    wrapper .card-badge-tl), quindi i badge di stato scendono di una sola riga. */
-.card.has-margin-badge .card-state-badge{ top:40px; }
+.card.has-margin-badge .card-state-badges{ top:40px; }
 .card.has-margin-badge.edited::after{ top:40px; }
 
 /* Visual treatment per card SCATALOGATA: solo card-level (opacità leggera + sfondo rosa).
@@ -10792,7 +10804,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.495</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.496</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11493,7 +11505,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.495 mobile");
+console.info("[bootstrap] script avvio — SV2.10.496 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12989,7 +13001,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.495';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.496';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13598,30 +13610,6 @@ function openPersonalProductEditor(opts){
           '</div>' +
         '</div>' +
 
-        '<div class="co-section">' +
-          '<div class="co-section-title">Prezzi</div>' +
-          '<div class="co-field-grid">' +
-            '<div class="co-field">' +
-              '<label class="co-field-label" for="ppPvp">Prezzo di Listino (€)</label>' +
-              '<input class="co-field-input" type="number" step="0.01" min="0" id="ppPvp" value="' + escapeAttr(f.PVP) + '" placeholder="0.00">' +
-            '</div>' +
-            '<div class="co-field">' +
-              '<label class="co-field-label" for="ppNetto">Costo Netto (€)</label>' +
-              '<input class="co-field-input" type="number" step="0.01" min="0" id="ppNetto" value="' + escapeAttr(f.precio_neto_compra) + '" placeholder="0.00">' +
-            '</div>' +
-          '</div>' +
-          '<p class="settings-hint" style="margin:8px 0 0 0;font-size:11px">' +
-            'Se l\'articolo e\' un puro servizio (es. manodopera) puoi mettere Listino = Netto: lo sconto risulter\u00e0 0%.' +
-          '</p>' +
-        '</div>' +
-
-        // SV2.10.483: NOTE INTERNE — stesso campo dei servizi (#svcNote), stessa
-        // semantica: annotazioni private, mai stampate nei preventivi.
-        '<div class="co-section">' +
-          '<div class="co-section-title">Note interne <span style="color:var(--fg3);font-weight:400;text-transform:none;letter-spacing:0">(non stampate)</span></div>' +
-          '<textarea class="co-field-input" id="ppNote" rows="2" placeholder="Annotazioni private" style="resize:vertical;min-height:50px;width:100%;box-sizing:border-box">' + escapeHtml(f.note) + '</textarea>' +
-        '</div>' +
-
         // SV2.10.484: DISTINTA BASE — quali articoli di catalogo compongono
         // questo prodotto personale, con margine/ricarico per singola riga.
         '<div class="co-section">' +
@@ -13660,6 +13648,30 @@ function openPersonalProductEditor(opts){
           '<div class="pp-bom-head"><span>Componente</span><span>Q.t\u00e0</span><span>Listino \u20ac</span><span>Sc. acq. %</span><span>Costo \u20ac</span><span>Sc. vend. %</span><span>Prezzo \u20ac</span><span>Marg. %</span><span>Ric. %</span><span>Totale \u20ac</span><span></span></div>' +
           '<div id="ppBomList" style="border:1px solid var(--border);border-radius:8px;background:var(--bg3)"></div>' +
           '<div id="ppBomTotals"></div>' +
+        '</div>' +
+
+        '<div class="co-section">' +
+          '<div class="co-section-title">Prezzi</div>' +
+          '<div class="co-field-grid">' +
+            '<div class="co-field">' +
+              '<label class="co-field-label" for="ppPvp">Prezzo di Listino (€)</label>' +
+              '<input class="co-field-input" type="number" step="0.01" min="0" id="ppPvp" value="' + escapeAttr(f.PVP) + '" placeholder="0.00">' +
+            '</div>' +
+            '<div class="co-field">' +
+              '<label class="co-field-label" for="ppNetto">Costo Netto (€)</label>' +
+              '<input class="co-field-input" type="number" step="0.01" min="0" id="ppNetto" value="' + escapeAttr(f.precio_neto_compra) + '" placeholder="0.00">' +
+            '</div>' +
+          '</div>' +
+          '<p class="settings-hint" style="margin:8px 0 0 0;font-size:11px">' +
+            'Se l\'articolo e\' un puro servizio (es. manodopera) puoi mettere Listino = Netto: lo sconto risulter\u00e0 0%.' +
+          '</p>' +
+        '</div>' +
+
+        // SV2.10.483: NOTE INTERNE — stesso campo dei servizi (#svcNote), stessa
+        // semantica: annotazioni private, mai stampate nei preventivi.
+        '<div class="co-section">' +
+          '<div class="co-section-title">Note interne <span style="color:var(--fg3);font-weight:400;text-transform:none;letter-spacing:0">(non stampate)</span></div>' +
+          '<textarea class="co-field-input" id="ppNote" rows="2" placeholder="Annotazioni private" style="resize:vertical;min-height:50px;width:100%;box-sizing:border-box">' + escapeHtml(f.note) + '</textarea>' +
         '</div>' +
 
         '<div class="co-section">' +
@@ -30481,7 +30493,7 @@ function renderGallery(main, list){
       <div class="card-img">
         ${selBox}
         ${(discBadge || saleDiscBadge || marginBadge) ? `<div class="card-badge-tl">${discBadge}${saleDiscBadge}${marginBadge}</div>` : ''}
-        ${stateBadge}
+        ${stateBadge ? `<div class="card-state-badges">${stateBadge}</div>` : ''}
         ${img? `<img loading="lazy" src="${img}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder',textContent:'NO IMG'}))">` : '<div class="placeholder">NO IMG</div>'}
         <span class="eye-trigger" role="button" tabindex="-1" aria-label="Mostra dettagli prodotto" title="Mostra dettagli prodotto">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -34999,7 +35011,7 @@ function renderRelatedList(){
       </span>`;
       card.innerHTML = `
         <div class="card-img">
-          ${_relStateBadge}
+          ${_relStateBadge ? `<div class="card-state-badges">${_relStateBadge}</div>` : ''}
           ${img? `<img loading="lazy" src="${escapeAttr(img)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder',textContent:'NO IMG'}))">` : '<div class="placeholder">NO IMG</div>'}
           <span class="eye-trigger" role="button" tabindex="-1" aria-label="Mostra dettagli prodotto" title="Mostra dettagli prodotto">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
