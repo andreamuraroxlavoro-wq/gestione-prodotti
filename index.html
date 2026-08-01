@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.492 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.493 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8055,7 +8055,10 @@ body.theme-light .loader-card{
   border-radius:9px;background:#CCFF00;color:#14310a;font-size:10px;font-weight:900;
   display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,0,0,.25);
 }
-body.bom-mode .card-img .quote-trigger{ top:198px; }
+/* SV2.10.493: mentre si compone una distinta il CARRELLO sparisce dalle schede.
+   Cosi' non c'e' modo di sbagliare bersaglio: l'unico pulsante d'azione e' il
+   puzzle verde, e si vede a colpo d'occhio in che modalita' si e'. */
+body.bom-mode .card-img .quote-trigger{ display:none !important; }
 
 /* Barra della modalita' distinta */
 .bom-mode-bar{
@@ -10772,7 +10775,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.492</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.493</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11473,7 +11476,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.492 mobile");
+console.info("[bootstrap] script avvio — SV2.10.493 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12969,7 +12972,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.492';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.493';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -30477,9 +30480,11 @@ function renderGallery(main, list){
           /* SV2.10.492: pulsante VERDE "aggiungi alla distinta", visibile solo
              mentre si sta componendo una distinta (body.bom-mode). Sta appena
              sopra il carrello, che in quella modalita' scende di una posizione. */
-          if(!_BOM_MODE || p.isPersonal === true) return '';
+          // SV2.10.493: anche personali e servizi possono essere componenti;
+          // si esclude solo l'articolo che si sta componendo.
+          if(!_BOM_MODE) return '';
           const _bCode = String(getField(p, 'name') || '').trim();
-          if(!_bCode) return '';
+          if(!_bCode || _bCode === _BOM_MODE.code) return '';
           const _tgt = DATA.find(x => x && x.name === _BOM_MODE.code);
           const _bl = _tgt ? bomNormalize(_tgt.bom).items.find(x => x.code === _bCode) : null;
           const _bq = _bl ? _bl.qty : 0;
@@ -33617,14 +33622,38 @@ function renderBomModeBar(){
   bar.querySelector('#bomModeCancel').onclick = () => bomModeExit(false);
 }
 
-/* Aggiunge alla distinta l'articolo di catalogo cliccato in galleria. */
+/* SV2.10.493 — `code` contiene `cercato` nella sua distinta, anche in
+   profondita'? Serve a impedire i cicli (A dentro B dentro A), che renderebbero
+   il calcolo di costo e prezzo infinito. Profondita' limitata per sicurezza. */
+function bomContiene(code, cercato, _depth){
+  const d = _depth || 0;
+  if(d > 6) return false;
+  const p = DATA.find(x => x && x.name === code);
+  if(!p || !p.bom) return false;
+  const items = bomNormalize(p.bom).items;
+  for(let i = 0; i < items.length; i++){
+    if(items[i].code === cercato) return true;
+    if(bomContiene(items[i].code, cercato, d + 1)) return true;
+  }
+  return false;
+}
+
+/* Aggiunge alla distinta l'articolo cliccato in galleria. */
 function bomModeAdd(code){
   if(!_BOM_MODE) return;
   const target = DATA.find(x => x && x.name === _BOM_MODE.code && x.isPersonal === true);
   const comp = DATA.find(x => x && x.name === code);
   if(!target || !comp){ if(typeof toast === 'function') toast('Articolo non trovato', 'err'); return; }
-  if(comp.isPersonal === true){
-    if(typeof toast === 'function') toast('La distinta si compone di articoli di CATALOGO', 'err');
+  /* SV2.10.493: anche prodotti personali e servizi possono essere componenti
+     (un kit puo' includere un altro kit, o la manodopera). L'unico limite e' il
+     ciclo: un articolo non puo' contenere se stesso, nemmeno per vie indirette,
+     altrimenti costo e prezzo non sarebbero calcolabili. */
+  if(code === _BOM_MODE.code){
+    if(typeof toast === 'function') toast('Un articolo non puo\u0027 contenere se stesso', 'err');
+    return;
+  }
+  if(bomContiene(code, _BOM_MODE.code)){
+    if(typeof toast === 'function') toast('"' + code + '" contiene gia\u0027 "' + _BOM_MODE.code + '": si creerebbe un ciclo', 'err', 4500);
     return;
   }
   const b = bomNormalize(target.bom);
@@ -33791,13 +33820,19 @@ function renderBomPicker(){
   const fb   = String((document.getElementById('bomPickBrand') || {}).value || '');
   const fm   = String((document.getElementById('bomPickMacro') || {}).value || '');   // SV2.10.490
   const fc   = String((document.getElementById('bomPickCat') || {}).value || '');
+  // SV2.10.493: codice dell'articolo che si sta componendo — dichiarato QUI
+  // perche' _match/_fill lo usano poche righe sotto (con la const in fondo
+  // scattava un ReferenceError da zona morta temporale).
+  const _bomSelfEl = document.getElementById('ppCode');
+  const _bomSelf = _bomSelfEl ? String(_bomSelfEl.value || '').trim() : '';
 
   /* SV2.10.490 — i tre elenchi si popolano A CASCATA: ognuno mostra solo i
      valori che esistono davvero fra i prodotti che passano GLI ALTRI filtri.
      Cosi' scegliendo una marca, macrocategorie e categorie si riducono a quelle
      di quella marca, e non si finisce mai in una selezione che non da' risultati. */
   const _match = (p, escludi) => {
-    if(!p || !p.name || p.isPersonal === true) return false;
+    if(!p || !p.name) return false;
+    if(_bomSelf && (p.name === _bomSelf || bomContiene(p.name, _bomSelf))) return false;
     if(escludi !== 'brand' && fb && String(getField(p, 'brand') || '').trim() !== fb) return false;
     if(escludi !== 'macro' && fm && String(getField(p, 'category_parent') || '').trim() !== fm) return false;
     if(escludi !== 'cat'   && fc && String(getField(p, 'category') || '').trim() !== fc) return false;
@@ -33839,7 +33874,10 @@ function renderBomPicker(){
   const tutti = [];
   for(let i = 0; i < DATA.length; i++){
     const p = DATA[i];
-    if(!p || !p.name || p.isPersonal === true) continue;   // la distinta si compone di articoli di CATALOGO
+    // SV2.10.493: ammessi anche personali e servizi; esclusi l'articolo che si
+    // sta componendo e quelli che lo contengono (creerebbero un ciclo).
+    if(!p || !p.name) continue;
+    if(_bomSelf && (p.name === _bomSelf || bomContiene(p.name, _bomSelf))) continue;
     if(fb && String(getField(p, 'brand') || '').trim() !== fb) continue;
     if(fm && String(getField(p, 'category_parent') || '').trim() !== fm) continue;   // SV2.10.490
     if(fc && String(getField(p, 'category') || '').trim() !== fc) continue;
@@ -33985,10 +34023,14 @@ function renderPpBomSearch(){
   const q = String(inp.value || '').trim().toLowerCase();
   if(q.length < 2){ out.style.display = 'none'; out.innerHTML = ''; return; }
   const gia = new Set(_PP_BOM.items.map(x => x.code));
+  // SV2.10.493: escluso l'articolo stesso e chi lo contiene (anti-ciclo)
+  const _selfEl = document.getElementById('ppCode');
+  const _self = _selfEl ? String(_selfEl.value || '').trim() : '';
   const res = [];
   for(let i = 0; i < DATA.length && res.length < 8; i++){
     const p = DATA[i];
     if(!p || !p.name || gia.has(p.name)) continue;
+    if(_self && (p.name === _self || bomContiene(p.name, _self))) continue;
     const code = String(p.name).toLowerCase();
     const desc = String(getField(p, 'short_description') || '').toLowerCase();
     if(code.indexOf(q) >= 0 || desc.indexOf(q) >= 0) res.push(p);
