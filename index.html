@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.494 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.495 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6161,6 +6161,22 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
 .pp-bom-res{display:flex;align-items:center;gap:8px;padding:6px 9px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border)}
 .pp-bom-res:hover{background:var(--bg3)}
 .pp-bom-tot-line{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--fg2);padding:8px 6px 0}
+/* SV2.10.495 — riga dei totali: stessa griglia delle righe, cosi' i numeri
+   cadono esattamente sotto le rispettive colonne. */
+.pp-bom-totrow{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 44px 74px 56px 74px 56px 74px 54px 54px 82px 26px;
+  gap:5px;align-items:center;
+  margin-top:8px;padding:9px 6px;
+  border-top:2px solid var(--border2);
+  background:var(--bg3);border-radius:0 0 8px 8px;
+  font-size:12.5px;font-weight:800;color:var(--fg);
+}
+.pp-bom-tot-lab{font-size:11px;font-weight:800;letter-spacing:.4px;color:var(--fg2)}
+.pp-bom-tot-num{text-align:right;padding-right:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-bom-tot-num.is-cost{color:#dc2626}
+.pp-bom-tot-num.is-sell{color:#0178d4}
+.pp-bom-tot-num.is-list{color:#16a34a}
 .pp-bom-cmp{display:flex;flex-wrap:wrap;gap:16px;font-size:11px;padding:4px 6px 0}
 
 .qcart-optimized .qcart-desc-cell,
@@ -10776,7 +10792,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.494</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.495</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11477,7 +11493,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.494 mobile");
+console.info("[bootstrap] script avvio — SV2.10.495 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12973,7 +12989,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.494';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.495';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -33365,16 +33381,23 @@ function bomLineCalc(line){
 /* Totali della distinta. */
 function bomTotals(bom){
   const b = bomNormalize(bom);
-  let costo = 0, prezzo = 0, righe = 0, senzaPrezzo = 0;
+  let costo = 0, prezzo = 0, righe = 0, senzaPrezzo = 0, listino = 0, pezzi = 0;
   b.items.forEach(l => {
     const c = bomLineCalc(l);
     costo += c.costo;
     if(isFinite(c.prezzo)) prezzo += c.prezzo; else senzaPrezzo++;
+    // SV2.10.495: totale A LISTINO (listino unitario per la quantita') e pezzi.
+    if(c.listino != null) listino += c.listino * (isFinite(l.qty) ? l.qty : 0);
+    pezzi += (isFinite(l.qty) ? l.qty : 0);
     righe++;
   });
   const marginePct = (prezzo > 0) ? ((prezzo - costo) / prezzo * 100) : null;
   const ricaricoPct = (costo > 0) ? ((prezzo - costo) / costo * 100) : null;
-  return { righe, costo, prezzo, marginePct, ricaricoPct, senzaPrezzo };
+  // Sconti MEDI PONDERATI sul valore, non medie aritmetiche delle percentuali:
+  // una riga da 500 € pesa piu' di una da 5 €, e la media semplice mentirebbe.
+  const scontoAcqPct = (listino > 0) ? ((1 - costo / listino) * 100) : null;
+  const scontoVendPct = (listino > 0) ? ((1 - prezzo / listino) * 100) : null;
+  return { righe, pezzi, costo, prezzo, listino, marginePct, ricaricoPct, scontoAcqPct, scontoVendPct, senzaPrezzo };
 }
 
 /* ── UI dentro l'editor del prodotto personale ────────────────────────── */
@@ -33457,13 +33480,25 @@ function renderPpBom(){
       return '<span style="color:' + seg + '">' + etichetta + ' scritto a mano ' + _ppBomFmt(scritto, 2) +
         ' \u20ac \u00b7 differenza ' + (d > 0 ? '+' : '') + _ppBomFmt(d, 2) + ' \u20ac</span>';
     };
+    /* SV2.10.495 — riga dei totali ALLINEATA alle colonne (stessa griglia della
+       tabella), cosi' ogni numero sta sotto la sua colonna e si legge senza
+       cercarlo. Le percentuali sono medie PONDERATE, non medie delle
+       percentuali. Nelle celle di Listino, Costo e Totale c'e' il valore per la
+       QUANTITA'; la colonna Prezzo resta vuota perche' sommare prezzi unitari
+       non vorrebbe dire nulla — il totale di vendita e' in TOTALE. */
     foot.innerHTML = t.righe
-      ? '<div class="pp-bom-tot-line">' +
-          '<span><strong>' + t.righe + '</strong> componenti</span>' +
-          '<span>Costo <strong style="color:#dc2626">' + _ppBomFmt(t.costo, 2) + ' \u20ac</strong></span>' +
-          '<span>Prezzo <strong style="color:#0178d4">' + _ppBomFmt(t.prezzo, 2) + ' \u20ac</strong></span>' +
-          '<span>Margine <strong>' + _ppBomFmt(t.marginePct, 1) + '%</strong></span>' +
-          '<span>Ricarico <strong>' + _ppBomFmt(t.ricaricoPct, 1) + '%</strong></span>' +
+      ? '<div class="pp-bom-totrow">' +
+          '<span class="pp-bom-tot-lab">TOTALI \u00b7 ' + t.righe + ' componenti</span>' +
+          '<span class="pp-bom-tot-num">' + _ppBomFmt(t.pezzi, 0) + '</span>' +
+          '<span class="pp-bom-tot-num is-list" title="Totale a listino (listino \u00d7 quantita\u0027)">' + _ppBomFmt(t.listino, 2) + '</span>' +
+          '<span class="pp-bom-tot-num is-cost">' + _ppBomFmt(t.scontoAcqPct, 1) + '</span>' +
+          '<span class="pp-bom-tot-num is-cost" title="Totale costo d\u0027acquisto">' + _ppBomFmt(t.costo, 2) + '</span>' +
+          '<span class="pp-bom-tot-num">' + _ppBomFmt(t.scontoVendPct, 1) + '</span>' +
+          '<span class="pp-bom-tot-num"></span>' +
+          '<span class="pp-bom-tot-num">' + _ppBomFmt(t.marginePct, 1) + '</span>' +
+          '<span class="pp-bom-tot-num">' + _ppBomFmt(t.ricaricoPct, 1) + '</span>' +
+          '<span class="pp-bom-tot-num is-sell" title="Totale di vendita">' + _ppBomFmt(t.prezzo, 2) + ' \u20ac</span>' +
+          '<span></span>' +
         '</div>' +
         '<div class="pp-bom-cmp">' + cmp('Netto', t.costo, net) + cmp('Listino', t.prezzo, pvp) + '</div>'
       : '';
