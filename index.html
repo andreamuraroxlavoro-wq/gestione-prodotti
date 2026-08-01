@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.480 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.481 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10638,7 +10638,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.480</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.481</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11339,7 +11339,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.480 mobile");
+console.info("[bootstrap] script avvio — SV2.10.481 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12835,7 +12835,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.480';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.481';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -53366,6 +53366,9 @@ function computeQuoteAnalytics(){
       isPersonal: !!it.isPersonal,
       qty, pvp, netto, dPct,
       listino, vendita, costo, guadagno, marginePct,
+      // SV2.10.481: ricarico di riga — stesso guadagno del margine ma rapportato
+      // al COSTO. Serve alle tabelle e al grafico "margine per riga".
+      ricaricoPct: (costo > 0) ? (guadagno / costo * 100) : null,
     });
   }
 
@@ -53593,7 +53596,7 @@ function _qaMarginChart(rows){
   //   [LABEL_W .. -VAL_W]          area barre + griglia + bande (fluida)
   //   [ultimi VAL_W px a destra]   valore (margine % + euro), fuori dalla barra
   const LABEL_W = 168;   // larghezza colonna codice
-  const VAL_W   = 116;   // spazio a destra per il valore esterno
+  const VAL_W   = 176;   // SV2.10.481: allargato da 116 per ospitare anche il ricarico
   const ROW_H   = 26;    // altezza barra
   const GAP     = 8;     // spazio fra righe
   const AXIS_H  = 18;    // altezza fascia etichette asse
@@ -53664,7 +53667,11 @@ function _qaMarginChart(rows){
   let valsHtml = '';
   rows.forEach((r, i) => {
     const y = AXIS_H + i * (ROW_H + GAP);
-    const valTxt = _qaPct(r.marginePct) + '  ' + _qaEuro(r.vendita);
+    // SV2.10.481: accanto al margine anche il ricarico (fra parentesi, per non
+    // confonderli) e poi il valore di vendita della riga.
+    const valTxt = _qaPct(r.marginePct)
+      + ((r.ricaricoPct != null) ? '  (ric. ' + _qaPct(r.ricaricoPct) + ')' : '')
+      + '  ' + _qaEuro(r.vendita);
     valsHtml += '<div style="position:absolute;right:0;top:' + y + 'px;width:' + (VAL_W-8) + 'px;' +
       'height:' + ROW_H + 'px;display:flex;align-items:center;' +
       'font-size:11px;font-weight:700;color:var(--fg);white-space:nowrap">' +
@@ -53938,6 +53945,7 @@ function openQuoteChartsDialog(){
   const marginRows = A.rowsByMargin.slice(0, 14).map(r => ({
     code: r.code,
     marginePct: r.marginePct,
+    ricaricoPct: r.ricaricoPct,   // SV2.10.481: mostrato accanto al margine
     vendita: r.vendita,
     isService: !!r.isService,
   }));
@@ -53986,6 +53994,7 @@ function openQuoteChartsDialog(){
       s.vendita += g.vendita; s.costo += g.costo; s.guadagno += g.guadagno;
     });
     s.marginePct = (s.vendita > 0 && s.costo > 0) ? (s.guadagno / s.vendita * 100) : null;
+    s.ricaricoPct = (s.costo > 0) ? (s.guadagno / s.costo * 100) : null;   // SV2.10.481
     s.scontoPct  = (s.listino > 0) ? ((s.listino - s.vendita) / s.listino * 100) : null;
     s.quotaVendita = (t.vendita > 0) ? (s.vendita / t.vendita * 100) : 0;
     return s;
@@ -54006,13 +54015,16 @@ function openQuoteChartsDialog(){
       '<td style="text-align:right;padding:6px 8px;font-weight:700;color:#00a87f">' + _qaEuro(g.guadagno) + '</td>' +
       '<td style="text-align:right;padding:6px 8px;font-weight:800;color:' + _qaMarginColor(g.marginePct) + '">' +
         _qaPct(g.marginePct) + '</td>' +
+      // SV2.10.481: stesso colore del margine — descrivono la stessa redditivita'.
+      '<td style="text-align:right;padding:6px 8px;font-weight:800;color:' + _qaMarginColor(g.marginePct) + '">' +
+        _qaPct(g.ricaricoPct) + '</td>' +
       '<td style="text-align:right;padding:6px 8px;color:var(--fg3)">' + _qaPct(g.quotaVendita) + '</td>' +
     '</tr>';
 
   // Riga intestazione di gruppo (Prodotti / Servizi).
   const _groupHeader = (label, accent) =>
     '<tr style="background:' + accent + '14">' +
-      '<td colspan="10" style="padding:6px 8px;font-size:10px;font-weight:800;' +
+      '<td colspan="11" style="padding:6px 8px;font-size:10px;font-weight:800;' +
         'text-transform:uppercase;letter-spacing:.6px;color:' + accent + '">' +
         '\u25A0 ' + escapeHtml(label) + '</td>' +
     '</tr>';
@@ -54031,6 +54043,8 @@ function openQuoteChartsDialog(){
       '<td style="text-align:right;padding:6px 8px;color:#00a87f">' + _qaEuro(s.guadagno) + '</td>' +
       '<td style="text-align:right;padding:6px 8px;color:' + _qaMarginColor(s.marginePct) + '">' +
         _qaPct(s.marginePct) + '</td>' +
+      '<td style="text-align:right;padding:6px 8px;color:' + _qaMarginColor(s.marginePct) + '">' +
+        _qaPct(s.ricaricoPct) + '</td>' +
       '<td style="text-align:right;padding:6px 8px;color:var(--fg3)">' + _qaPct(s.quotaVendita) + '</td>' +
     '</tr>';
 
@@ -54060,6 +54074,7 @@ function openQuoteChartsDialog(){
         '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Costo</th>' +
         '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Guadagno</th>' +
         '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Margine</th>' +
+        '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Ricarico</th>' +
         '<th style="text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase">Quota</th>' +
       '</tr></thead><tbody>' + brandTableRows + '</tbody>' +
       '<tfoot><tr style="border-top:2px solid var(--border2);font-weight:800">' +
@@ -54072,6 +54087,7 @@ function openQuoteChartsDialog(){
         '<td style="text-align:right;padding:7px 8px;color:#e74c3c">' + _qaEuro(t.costo) + '</td>' +
         '<td style="text-align:right;padding:7px 8px;color:#00a87f">' + _qaEuro(t.guadagno) + '</td>' +
         '<td style="text-align:right;padding:7px 8px;color:' + _qaMarginColor(t.marginePct) + '">' + _qaPct(t.marginePct) + '</td>' +
+        '<td style="text-align:right;padding:7px 8px;color:' + _qaMarginColor(t.marginePct) + '">' + _qaPct(t.ricaricoPct) + '</td>' +
         '<td style="text-align:right;padding:7px 8px;color:var(--fg3)">100%</td>' +
       '</tr></tfoot>' +
     '</table></div>';
@@ -54088,6 +54104,8 @@ function openQuoteChartsDialog(){
       '<td style="text-align:right;padding:5px 8px;font-weight:700;color:#00a87f">' + _qaEuro(r.guadagno) + '</td>' +
       '<td style="text-align:right;padding:5px 8px;font-weight:800;color:' + _qaMarginColor(r.marginePct) + '">' +
         _qaPct(r.marginePct) + '</td>' +
+      '<td style="text-align:right;padding:5px 8px;font-weight:800;color:' + _qaMarginColor(r.marginePct) + '">' +
+        _qaPct(r.ricaricoPct) + '</td>' +
     '</tr>'
   ).join('');
   const topGainTable =
@@ -54099,6 +54117,7 @@ function openQuoteChartsDialog(){
         '<th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase">Q.t\u00e0</th>' +
         '<th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase">Guadagno</th>' +
         '<th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase">Margine</th>' +
+        '<th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase">Ricarico</th>' +
       '</tr></thead><tbody>' + topGain + '</tbody></table></div>';
   const cardTopGain = _qaCard('Righe piu\u0027 redditizie', topGainTable, { icon:'\uD83C\uDFC6', span:true });
 
