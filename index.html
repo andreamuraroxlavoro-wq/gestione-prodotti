@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.491 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.492 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8024,6 +8024,52 @@ body.theme-light .loader-card{
    ════════════════════════════════════════════════════════════════════════ */
 
 /* Bottone "P" sulle card prodotto: visibile solo quando body.quote-mode è attivo */
+/* SV2.10.492 — pulsante "aggiungi alla distinta": verde, appena SOPRA il
+   carrello. Compare solo in modalita' distinta (body.bom-mode), e in quel caso
+   il carrello scende di una posizione per fargli spazio: fuori da quella
+   modalita' la colonna di icone resta esattamente com'era. */
+.card-img .bom-trigger{
+  position:absolute;
+  top:160px;
+  right:8px;
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:rgba(22,163,74,0.94);
+  border:1px solid rgba(255,255,255,0.45);
+  box-shadow:0 2px 6px rgba(0,0,0,0.25);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  color:#fff;
+  padding:0;
+  z-index:7;
+  transition:transform .12s, background .12s;
+}
+.card-img .bom-trigger svg{width:17px;height:17px}
+.card-img .bom-trigger:hover{transform:scale(1.12);background:#15803d}
+.card-img .bom-trigger.in-bom{background:#0e9170;box-shadow:0 0 0 2px #CCFF00}
+.card-img .bom-trigger-qty{
+  position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;
+  border-radius:9px;background:#CCFF00;color:#14310a;font-size:10px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,0,0,.25);
+}
+body.bom-mode .card-img .quote-trigger{ top:198px; }
+
+/* Barra della modalita' distinta */
+.bom-mode-bar{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:1200;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;max-width:94vw;
+  padding:10px 16px;border-radius:12px;
+  background:#16a34a;color:#fff;border:1px solid rgba(255,255,255,.35);
+  box-shadow:0 10px 30px rgba(0,0,0,.45);font-size:13px;
+}
+.bom-mode-ico{font-size:18px}
+.bom-mode-txt{max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bom-mode-cnt{background:rgba(0,0,0,.22);padding:3px 10px;border-radius:8px;font-weight:700;white-space:nowrap}
+.bom-mode-bar .btn{white-space:nowrap}
+
 .card-img .quote-trigger{
   position:absolute;
   top:160px;      /* V2.10.297: spostato per accomodare il nuovo fantasmino outlet sopra */
@@ -10726,7 +10772,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.491</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.492</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11427,7 +11473,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.491 mobile");
+console.info("[bootstrap] script avvio — SV2.10.492 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12923,7 +12969,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.491';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.492';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13576,7 +13622,10 @@ function openPersonalProductEditor(opts){
           // SV2.10.489: ricerca rapida in linea + selettore a schede per la
           // composizione vera e propria (foto, filtri, selezione multipla).
           '<div style="display:flex;gap:8px;align-items:stretch;margin-bottom:8px">' +
-            '<button type="button" class="btn primary" onclick="openBomPicker()" style="white-space:nowrap;font-size:13px" title="Sfoglia il catalogo a schede, con foto e filtri, e seleziona piu\u0027 articoli in una volta">\uD83E\uDDE9 Sfoglia catalogo\u2026</button>' +
+            // SV2.10.492: la via principale e' la GALLERIA vera (filtri, ricerca
+            // per parametri, anteprime: tutto quello che l'utente usa gia').
+            '<button type="button" class="btn success" onclick="ppBomFromCatalog()" style="white-space:nowrap;font-size:13px" title="Salva l\u0027articolo e torna alla galleria: su ogni scheda comparira\u0027 un pulsante verde per aggiungere il prodotto a questa distinta">\uD83E\uDDE9 Scegli dalla galleria\u2026</button>' +
+            '<button type="button" class="btn ghost" onclick="openBomPicker()" style="white-space:nowrap;font-size:13px" title="Pannello rapido a schede, senza uscire dall\u0027editor">Pannello rapido</button>' +
             '<div style="position:relative;flex:1">' +
             '<input type="text" id="ppBomSearch" placeholder="\u2026oppure aggiungi al volo per codice o descrizione" ' +
               'oninput="renderPpBomSearch()" autocomplete="off" ' +
@@ -30425,6 +30474,26 @@ function renderGallery(main, list){
           return `<span class="stock-min-badge" title="Quantità minima a magazzino: ${_mm}">${_mm}</span>`;
         })()}
         ${(() => {
+          /* SV2.10.492: pulsante VERDE "aggiungi alla distinta", visibile solo
+             mentre si sta componendo una distinta (body.bom-mode). Sta appena
+             sopra il carrello, che in quella modalita' scende di una posizione. */
+          if(!_BOM_MODE || p.isPersonal === true) return '';
+          const _bCode = String(getField(p, 'name') || '').trim();
+          if(!_bCode) return '';
+          const _tgt = DATA.find(x => x && x.name === _BOM_MODE.code);
+          const _bl = _tgt ? bomNormalize(_tgt.bom).items.find(x => x.code === _bCode) : null;
+          const _bq = _bl ? _bl.qty : 0;
+          return `<button class="bom-trigger${_bq > 0 ? ' in-bom' : ''}" type="button"
+            data-bom-code="${escapeAttr(_bCode)}"
+            aria-label="Aggiungi alla distinta"
+            title="${_bq > 0 ? 'Nella distinta: ' + _bq + ' · clicca per aggiungerne un altro' : 'Aggiungi alla distinta di ' + escapeAttr(_BOM_MODE.code)}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4a2 2 0 0 0-2 2v3.8h1.5a2.7 2.7 0 0 1 0 5.4H2V20a2 2 0 0 0 2 2h3.8v-1.5a2.7 2.7 0 0 1 5.4 0V22H17a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z"/>
+            </svg>
+            ${_bq > 0 ? `<span class="bom-trigger-qty">${_bq}</span>` : ''}
+          </button>`;
+        })()}
+        ${(() => {
           // V2.10.298: il pulsante carrello mostra un badge con la quantità del prodotto
           // attualmente nel carrello preventivo. Il data-cart-code (= name canonico)
           // permette al refresh di trovare e aggiornare il pulsante senza re-render.
@@ -33452,6 +33521,167 @@ function _ppBomBindRows(){
     if(del) del.onclick = () => { _PP_BOM.items.splice(i, 1); renderPpBom(); };
   });
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SV2.10.492 — COMPOSIZIONE DELLA DISTINTA DALLA GALLERIA
+   ───────────────────────────────────────────────────────────────────────
+   Invece di ricostruire una ricerca dentro un pannello, si usa la galleria
+   vera: quella che l'utente adopera gia' tutti i giorni, con i suoi filtri,
+   ordinamenti, anteprime e ricerca per parametri.
+
+   Come funziona:
+   - dall'editor del prodotto personale si entra in "modalita' distinta";
+     l'articolo viene PRIMA salvato (l'editor si chiude, e senza salvare si
+     perderebbero le modifiche in corso), poi si torna alla galleria;
+   - una barra in alto ricorda su quale articolo si sta lavorando e quanti
+     componenti ha;
+   - su ogni scheda compare un pulsante verde a forma di puzzle, appena sopra
+     il carrello: un clic e l'articolo entra nella distinta;
+   - "Fine" riapre l'editor sull'articolo, con la distinta aggiornata.
+
+   Il componente viene aggiunto e SALVATO subito nel prodotto (via
+   personalProductUpdate): la modalita' puo' durare quanto si vuole senza il
+   rischio di perdere il lavoro se si chiude la pagina.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+let _BOM_MODE = null;   // { code } dell'articolo personale in composizione
+
+/* Entra in modalita' distinta partendo dall'editor. Salva prima l'articolo. */
+function ppBomFromCatalog(){
+  const codeEl = document.getElementById('ppCode');
+  const code = codeEl ? String(codeEl.value || '').trim() : '';
+  if(!code){
+    if(typeof toast === 'function') toast('Dai prima un codice all\u0027articolo', 'err');
+    return;
+  }
+  const saveBtn = document.getElementById('ppSaveBtn');
+  if(!saveBtn) return;
+  // Salvo con lo stesso percorso del pulsante Salva: cosi' non esiste una
+  // seconda strada di salvataggio da tenere allineata.
+  saveBtn.click();
+  setTimeout(() => {
+    const p = DATA.find(x => x && x.name === code && x.isPersonal === true);
+    if(!p){
+      if(typeof toast === 'function') toast('Salvataggio non riuscito: la modalita\u0027 distinta non e\u0027 stata attivata', 'err', 4000);
+      return;
+    }
+    bomModeEnter(code);
+  }, 200);
+}
+
+function bomModeEnter(code){
+  _BOM_MODE = { code: code };
+  document.body.classList.add('bom-mode');
+  if(typeof render === 'function') render();
+  renderBomModeBar();
+  if(typeof toast === 'function'){
+    toast('Modalita\u0027 distinta attiva: usa il pulsante verde \uD83E\uDDE9 sulle schede', 'ok', 3500);
+  }
+}
+
+/* Esce dalla modalita'. `torna` = riapre l'editor sull'articolo. */
+function bomModeExit(torna){
+  const code = _BOM_MODE ? _BOM_MODE.code : null;
+  _BOM_MODE = null;
+  document.body.classList.remove('bom-mode');
+  const bar = document.getElementById('bomModeBar');
+  if(bar) bar.remove();
+  if(typeof render === 'function') render();
+  if(torna && code){
+    const idx = DATA.findIndex(x => x && x.name === code && x.isPersonal === true);
+    if(idx >= 0 && typeof openPersonalProductEditor === 'function') openPersonalProductEditor({ idx: idx });
+  }
+}
+
+/* Barra fissa in alto: ricorda su cosa si sta lavorando. Senza, dopo qualche
+   ricerca non si saprebbe piu' perche' le schede hanno un pulsante in piu'. */
+function renderBomModeBar(){
+  const vecchia = document.getElementById('bomModeBar');
+  if(vecchia) vecchia.remove();
+  if(!_BOM_MODE) return;
+  const p = DATA.find(x => x && x.name === _BOM_MODE.code);
+  const b = p ? bomNormalize(p.bom) : { items: [] };
+  const t = bomTotals(b);
+  const bar = document.createElement('div');
+  bar.id = 'bomModeBar';
+  bar.className = 'bom-mode-bar';
+  bar.innerHTML =
+    '<span class="bom-mode-ico">\uD83E\uDDE9</span>' +
+    '<span class="bom-mode-txt">Stai componendo la distinta di <strong>' + escapeHtml(_BOM_MODE.code) + '</strong>' +
+      (p ? ' \u00b7 ' + escapeHtml(String(getField(p, 'short_description') || '').slice(0, 60)) : '') + '</span>' +
+    '<span class="bom-mode-cnt">' + b.items.length + ' componenti \u00b7 costo ' + _ppBomFmt(t.costo, 2) + ' \u20ac</span>' +
+    '<button type="button" class="btn small primary" id="bomModeDone">\u2713 Fine, torna all\u0027articolo</button>' +
+    '<button type="button" class="btn small ghost" id="bomModeCancel">Esci</button>';
+  document.body.appendChild(bar);
+  bar.querySelector('#bomModeDone').onclick = () => bomModeExit(true);
+  bar.querySelector('#bomModeCancel').onclick = () => bomModeExit(false);
+}
+
+/* Aggiunge alla distinta l'articolo di catalogo cliccato in galleria. */
+function bomModeAdd(code){
+  if(!_BOM_MODE) return;
+  const target = DATA.find(x => x && x.name === _BOM_MODE.code && x.isPersonal === true);
+  const comp = DATA.find(x => x && x.name === code);
+  if(!target || !comp){ if(typeof toast === 'function') toast('Articolo non trovato', 'err'); return; }
+  if(comp.isPersonal === true){
+    if(typeof toast === 'function') toast('La distinta si compone di articoli di CATALOGO', 'err');
+    return;
+  }
+  const b = bomNormalize(target.bom);
+  const gia = b.items.find(x => x.code === code);
+  if(gia){
+    // Ri-cliccare aumenta la quantita': e' il gesto naturale, ed evita la riga
+    // doppia che poi sarebbe da correggere a mano.
+    gia.qty = (isFinite(gia.qty) ? gia.qty : 0) + 1;
+  } else {
+    const costo = bomCostoCatalogo(code);
+    const listino = bomListinoCatalogo(code);
+    const mDef = (b.defaultMarginPct != null) ? b.defaultMarginPct : 0;
+    const c0 = (costo != null) ? costo : 0;
+    b.items.push({
+      code: code,
+      qty: 1,
+      netto: c0,
+      listino: (listino != null) ? listino : 0,
+      prezzo: (mDef < 100 && c0 > 0) ? (c0 / (1 - mDef / 100)) : c0,
+      marginPct: mDef,
+    });
+  }
+  const idx = DATA.indexOf(target);
+  try {
+    personalProductUpdate(idx, { bom: b });
+  } catch(e){
+    if(typeof toast === 'function') toast('Errore: ' + (e.message || e), 'err', 4000);
+    return;
+  }
+  renderBomModeBar();
+  // Aggiorno solo il badge del pulsante, senza ridisegnare tutta la galleria:
+  // un render completo farebbe perdere la posizione di scorrimento.
+  const btn = document.querySelector('.bom-trigger[data-bom-code="' + (window.CSS && CSS.escape ? CSS.escape(code) : code) + '"]');
+  if(btn){
+    const nuovo = bomNormalize(target.bom).items.find(x => x.code === code);
+    const q = nuovo ? nuovo.qty : 1;
+    btn.classList.add('in-bom');
+    let badge = btn.querySelector('.bom-trigger-qty');
+    if(!badge){
+      badge = document.createElement('span');
+      badge.className = 'bom-trigger-qty';
+      btn.appendChild(badge);
+    }
+    badge.textContent = q;
+    btn.title = 'Nella distinta: ' + q + ' \u00b7 clicca per aggiungerne un altro';
+  }
+  if(typeof toast === 'function') toast(code + ' aggiunto alla distinta', 'ok', 1600);
+}
+
+/* Un solo ascoltatore delegato: le schede vengono ridisegnate di continuo. */
+document.addEventListener('click', (e) => {
+  const b = e.target && e.target.closest ? e.target.closest('.bom-trigger') : null;
+  if(!b) return;
+  e.preventDefault();
+  e.stopPropagation();
+  bomModeAdd(b.dataset.bomCode);
+}, true);
 
 /* ═══════════════════════════════════════════════════════════════════════
    SV2.10.489 — SELETTORE A SCHEDE per la distinta base.
