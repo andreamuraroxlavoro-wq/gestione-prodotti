@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.478 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.479 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6085,6 +6085,11 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
    `align-self:flex-start` la porta sulla PRIMA riga del blocco prezzi (quella
    del Listino), che e' una colonna allineata a destra; senza, il contenitore
    `align-items:center` la centrerebbe fra le due righe di prezzo. */
+/* SV2.10.479: colonna DESCRIZIONE nascondibile nel carrello preventivo.
+   La classe sta sul contenitore, cosi' un solo interruttore agisce su
+   intestazione e celle di entrambe le tabelle (Cliente e Analisi). */
+.qcart-hide-desc .qcart-desc-cell{ display:none !important; }
+
 .card-flagdate{
   align-self:flex-start;
   font-size:11px;
@@ -10630,7 +10635,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.478</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.479</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11331,7 +11336,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.478 mobile");
+console.info("[bootstrap] script avvio — SV2.10.479 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12827,7 +12832,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.478';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.479';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -55305,6 +55310,10 @@ function openQuoteCart(){
         // V2.10.263: pulsante "Elimina righe" - cancella le righe spuntate con le
         // checkbox del carrello (stesso meccanismo di selezione di "Aggiorna preventivo").
         '<button class="btn small" id="quoteCartDeleteRowsBtn" type="button" title="Elimina le righe selezionate con le checkbox" style="font-size:13px;background:#ef4444;color:#fff;border-color:#ef4444">🗑️ Elimina righe</button>' +
+        // SV2.10.479: interruttore colonna DESCRIZIONE. Nasconderla accorcia
+        // molto le righe (il testo lungo e' quello che le fa crescere in altezza)
+        // e restringe la tabella, rendendo leggibili tutte le colonne numeriche.
+        '<button class="btn small" id="quoteCartToggleDescBtn" type="button" style="font-size:13px"></button>' +
         '<button class="btn small ghost" id="quoteCartSettingsBtn" type="button" title="Modalità preventivo e descrizione" style="font-size:13px">⚙️ Impostazioni preventivo</button>' +
         // V2.10.263: pulsante "Grafici" — apre il cruscotto di analisi statistica
         // del preventivo (composizione per marca/categoria, margini, sconti, ecc.).
@@ -55361,6 +55370,18 @@ function openQuoteCart(){
     if(acts) acts.addEventListener('click', (e) => { if(e.target.closest('.btn')) bg.classList.remove('qc-actions-open'); });
   })();
   document.getElementById('quoteCartSettingsBtn').addEventListener('click', () => openQuoteSettingsDialog());
+  /* SV2.10.479 — interruttore colonna DESCRIZIONE. */
+  const _descBtn = document.getElementById('quoteCartToggleDescBtn');
+  if(_descBtn && !_descBtn.dataset.init){
+    _descBtn.dataset.init = '1';
+    _descBtn.addEventListener('click', () => {
+      SETTINGS.qcartHideDesc = !SETTINGS.qcartHideDesc;
+      if(typeof saveSettings === 'function') saveSettings();
+      _qcartApplyDescVisibility();
+    });
+  }
+  if(typeof _qcartApplyDescVisibility === 'function') _qcartApplyDescVisibility();
+
   // V2.10.263: handler pulsante "Grafici" — cruscotto analisi statistica
   (function(){
     const cBtn = document.getElementById('quoteCartChartsBtn');
@@ -55927,6 +55948,26 @@ function openQuotePrintSettingsDialog(){
   document.addEventListener('keydown', esc);
 }
 
+/* SV2.10.479 — applica lo stato dell'interruttore DESCRIZIONE: classe sul
+   contenitore delle tabelle + aspetto ed etichetta del pulsante. Chiamata sia
+   al click sia dopo ogni render (il DOM viene ricostruito ogni volta). */
+function _qcartApplyDescVisibility(){
+  const nascosta = !!(typeof SETTINGS !== 'undefined' && SETTINGS && SETTINGS.qcartHideDesc);
+  const cont = document.getElementById('quoteCartContent');
+  if(cont) cont.classList.toggle('qcart-hide-desc', nascosta);
+  const btn = document.getElementById('quoteCartToggleDescBtn');
+  if(btn){
+    btn.innerHTML = nascosta ? '📄 Mostra descrizione' : '📄 Nascondi descrizione';
+    btn.title = nascosta
+      ? 'La colonna Descrizione è nascosta: righe più basse e tabella più stretta. Clicca per rimostrarla.'
+      : 'Nascondi la colonna Descrizione per accorciare le righe e restringere la tabella.';
+    btn.style.background    = nascosta ? '#f59e0b' : '';
+    btn.style.color         = nascosta ? '#1f2937' : '';
+    btn.style.borderColor   = nascosta ? '#f59e0b' : '';
+    btn.classList.toggle('ghost', !nascosta);
+  }
+}
+
 function renderQuoteCartContent(){
   const container = document.getElementById('quoteCartContent');
   if(!container) return;
@@ -56188,7 +56229,7 @@ function renderQuoteCartContent(){
           (function(){
             const cleanName = getCleanItemName(it);
             const truncated = cleanName.slice(0, 175);
-            return '<td style="font-size:14px;color:var(--fg2);max-width:400px;line-height:1.4;text-align:justify;text-align-last:left;hyphens:auto" title="' + escapeAttr(cleanName) + '">' + escapeHtml(truncated) + (cleanName.length > 175 ? '…' : '') + '</td>';
+            return '<td class="qcart-desc-cell" style="font-size:14px;color:var(--fg2);max-width:400px;line-height:1.4;text-align:justify;text-align-last:left;hyphens:auto" title="' + escapeAttr(cleanName) + '">' + escapeHtml(truncated) + (cleanName.length > 175 ? '…' : '') + '</td>';
           })() +
           '<td>' +
             '<div style="display:flex;align-items:center;gap:6px;justify-content:center">' +
@@ -56243,7 +56284,7 @@ function renderQuoteCartContent(){
             '<th>Foto</th>' +  // V2.7.9: rinominato (era Img)
             '<th>Codice</th>' +
             '<th>Marca</th>' +
-            '<th>Descrizione</th>' +
+            '<th class="qcart-desc-cell">Descrizione</th>' +
             '<th style="text-align:center">Q.tà</th>' +  // V2.7.4: centrato sopra il box quantità
             '<th class="num">Listino</th>' +
             '<th class="num" style="text-align:center">Sconto</th>' +  // V2.7.4: centrato sopra il box sconto
@@ -56340,7 +56381,7 @@ function renderQuoteCartContent(){
           (function(){
             const cleanName = getCleanItemName(it);
             const truncated = cleanName.slice(0, 175);
-            return '<td style="font-size:14px;color:var(--fg2);max-width:400px;line-height:1.4;text-align:justify;text-align-last:left;hyphens:auto" title="' + escapeAttr(cleanName) + '">' + escapeHtml(truncated) + (cleanName.length > 175 ? '…' : '') + '</td>';
+            return '<td class="qcart-desc-cell" style="font-size:14px;color:var(--fg2);max-width:400px;line-height:1.4;text-align:justify;text-align-last:left;hyphens:auto" title="' + escapeAttr(cleanName) + '">' + escapeHtml(truncated) + (cleanName.length > 175 ? '…' : '') + '</td>';
           })() +
           '<td>' +
             '<div style="display:flex;align-items:center;gap:6px;justify-content:center">' +
@@ -56443,7 +56484,7 @@ function renderQuoteCartContent(){
             '<th>Img</th>' +
             '<th>Codice</th>' +
             '<th>Marca</th>' +
-            '<th>Descrizione</th>' +
+            '<th class="qcart-desc-cell">Descrizione</th>' +
             '<th style="text-align:center">Q.tà</th>' +  // V2.7.4: centrato sopra il box quantità
             '<th class="num">Listino</th>' +
             '<th class="num">Sconto ACQ</th>' +
@@ -56458,6 +56499,12 @@ function renderQuoteCartContent(){
   }
 
   container.innerHTML = summaryCards + tableHtml;
+
+  /* SV2.10.479 — colonna DESCRIZIONE mostrata/nascosta.
+     La classe va riapplicata a ogni render perche' il contenitore viene
+     ricostruito da capo; lo stato vive in SETTINGS.qcartHideDesc ed e' quindi
+     persistente fra sessioni. */
+  if(typeof _qcartApplyDescVisibility === 'function') _qcartApplyDescVisibility();
 
   // Event delegation per i controlli quantità
   container.querySelectorAll('.qcart-qty-minus').forEach(btn => {
