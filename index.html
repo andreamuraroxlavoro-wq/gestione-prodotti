@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.482 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.483 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10638,7 +10638,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.482</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.483</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11339,7 +11339,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.482 mobile");
+console.info("[bootstrap] script avvio — SV2.10.483 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -12835,7 +12835,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.482';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.483';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -12922,6 +12922,7 @@ function personalProductCreate(input){
     short_description_html: '',
     specifications: String(input.specifications || '').trim(),
     content: String(input.content || '').trim(),
+    note: String(input.note || '').trim(),   // SV2.10.483
     category: String(input.category || '').trim(),
     category_parent: String(input.category_parent || '').trim(),
     precio_neto_compra: String(input.precio_neto_compra || '0').trim(),
@@ -12984,7 +12985,8 @@ function personalProductUpdate(idx, updates){
     }
   }
 
-  const editable = ['brand', 'description', 'short_description', 'category', 'category_parent', 'image_path', 'PVP', 'precio_neto_compra', 'extra_images', 'specifications', 'content'];
+  // SV2.10.483: aggiunto 'note' — senza, il campo veniva scartato in silenzio.
+  const editable = ['brand', 'description', 'short_description', 'category', 'category_parent', 'image_path', 'PVP', 'precio_neto_compra', 'extra_images', 'specifications', 'content', 'note'];
   editable.forEach(k => {
     if(k in updates){
       // V2.9.24: extra_images deve restare un array, gli altri stringa trimmata
@@ -13335,6 +13337,8 @@ function openPersonalProductEditor(opts){
     PVP: existing ? (existing.PVP || '') : (pre ? (pre.PVP || '') : ''),
     precio_neto_compra: existing ? (existing.precio_neto_compra || '') : (pre ? (pre.precio_neto_compra || '') : ''),
     image_path: existing ? (existing.image_path || '') : (pre ? (pre.image_path || '') : ''),
+    // SV2.10.483: note interne, come nei servizi — non finiscono mai in stampa.
+    note: existing ? (existing.note || '') : (pre ? (pre.note || '') : ''),
     // V2.9.27: FIX BUG GRAVE - leggo extra_images dall'item esistente.
     // Prima questo campo non veniva letto, causando perdita TOTALE delle
     // immagini extra al successivo save (l'hidden field veniva inizializzato
@@ -13448,6 +13452,13 @@ function openPersonalProductEditor(opts){
           '</p>' +
         '</div>' +
 
+        // SV2.10.483: NOTE INTERNE — stesso campo dei servizi (#svcNote), stessa
+        // semantica: annotazioni private, mai stampate nei preventivi.
+        '<div class="co-section">' +
+          '<div class="co-section-title">Note interne <span style="color:var(--fg3);font-weight:400;text-transform:none;letter-spacing:0">(non stampate)</span></div>' +
+          '<textarea class="co-field-input" id="ppNote" rows="2" placeholder="Annotazioni private" style="resize:vertical;min-height:50px;width:100%;box-sizing:border-box">' + escapeHtml(f.note) + '</textarea>' +
+        '</div>' +
+
         '<div class="co-section">' +
           '<div class="co-section-title">Immagini del prodotto</div>' +
           // V2.9.24: galleria gestita con copertina + immagini extra + drag-and-drop.
@@ -13516,6 +13527,8 @@ function openPersonalProductEditor(opts){
       PVP: document.getElementById('ppPvp').value.trim() || '0',
       precio_neto_compra: document.getElementById('ppNetto').value.trim() || '0',
       image_path: document.getElementById('ppImg').value.trim(),
+      // SV2.10.483
+      note: (function(){ const el = document.getElementById('ppNote'); return el ? el.value.trim() : ''; })(),
       // SV2.10.435: Specifiche e Contenuto confezione (HTML dai due editor WYSIWYG del modal)
       specifications: (function(){ const el = document.querySelector('#personalProductModal .wysiwyg-editor[data-field="specifications"]'); return el ? el.innerHTML.trim() : ''; })(),
       content: (function(){ const el = document.querySelector('#personalProductModal .wysiwyg-editor[data-field="content"]'); return el ? el.innerHTML.trim() : ''; })(),
