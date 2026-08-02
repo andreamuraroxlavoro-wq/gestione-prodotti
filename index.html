@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.513 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.515 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11032,7 +11032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.513</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.515</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11735,7 +11735,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.513 mobile");
+console.info("[bootstrap] script avvio — SV2.10.515 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13231,7 +13231,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.513';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.515';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -62082,9 +62082,14 @@ async function exportQuoteDocx(options){
           borders: cellBorders,
           verticalAlign: VerticalAlign.CENTER,
         }),
-        // SV2.10.510: riga marcata "prezzo netto" → nessun listino
+        // SV2.10.515: se la colonna Sconto non e' stampata, la dicitura verde
+        // "Prezzo Netto" ricade qui, nella colonna Listino (altrimenti vuota).
         list: () => new TableCell({
-          children: [para(mk((isZeroQty || _isNetto) ? '' : (it.pvp != null ? _qFmtEur(it.pvp) : '—'), { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.RIGHT })],
+          children: [para(
+            (_isNetto && !isZeroQty && !showSconto)
+              ? mk('Prezzo Netto', { bold: true, color: '16A34A', size: 20 })
+              : mk((isZeroQty || _isNetto) ? '' : (it.pvp != null ? _qFmtEur(it.pvp) : '—'), { color: TEXT_MID, size: 19 }),
+            { alignment: AlignmentType.RIGHT })],
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 80 },
           borders: cellBorders,
@@ -62205,7 +62210,8 @@ async function exportQuoteDocx(options){
       }));
     }
     // SV2.10.511: riga dedicata al totale delle voci a prezzo netto
-    if(_tNetto > 0.005){
+    // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
+    if((showListino || showSconto) && _tNetto > 0.005){
       totalRows.push(new TableRow({
         children: [
           new TableCell({
@@ -62763,9 +62769,10 @@ async function exportQuoteWord(){
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
           qty:      '<td class="col-qty">' + (isZeroQty ? '' : it.qty) + '</td>',
-          // SV2.10.510: riga "prezzo netto" → listino vuoto e dicitura verde
-          // al posto della percentuale (font ridotto, va a capo se serve)
-          list:     '<td class="col-money">' + ((isZeroQty || _isNetto) ? '' : fmt(it.pvp)) + '</td>',
+          // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
+          // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
+          // Mai in entrambe.
+          list:     '<td class="col-money">' + (isZeroQty ? '' : (_isNetto ? (showSconto ? '' : '<span class="netto-tag">Prezzo Netto</span>') : fmt(it.pvp))) + '</td>',
           discount: '<td class="col-discount">' + (_isNetto ? '<span class="netto-tag">Prezzo Netto</span>' : dPctStr) + '</td>',
           price:    '<td class="col-money">' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',
           rtotal:   '<td class="col-money col-tot"><b>' + (isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',
@@ -62790,7 +62797,8 @@ async function exportQuoteWord(){
           ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
           : '') +
         // SV2.10.511: riga dedicata alle voci a prezzo netto
-        ((t.nettoRowsSellPrice || 0) > 0.005
+        // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
+        ((showListino || showSconto) && (t.nettoRowsSellPrice || 0) > 0.005
           ? '<tr><td class="label">Totale Prezzi Netti</td><td class="val" style="color:#16a34a">' + _qFmtEur(t.nettoRowsSellPrice) + '</td></tr>'
           : '') +
         // V2.10.150: "TOTALE" → "TOTALE IMPONIBILE" se IVA inclusa
@@ -62941,7 +62949,7 @@ async function exportQuoteWord(){
         'table.items td.col-discount{font-weight:600;color:#dc2626}' +
         // SV2.10.510: dicitura per le righe a prezzo netto. Font ridotto e
         // white-space normal per stare nella colonna stretta dello sconto.
-        'table.items td.col-discount .netto-tag{display:inline-block;color:#16a34a;font-weight:700;font-size:11pt;line-height:1.15;letter-spacing:0.2px;white-space:normal;text-align:right}' +
+        'table.items td .netto-tag{display:inline-block;color:#16a34a;font-weight:700;font-size:11pt;line-height:1.15;letter-spacing:0.2px;white-space:normal;text-align:right}' +
         'table.items td.col-tot{font-weight:700;color:#1f2937}' +
         '.totals{margin-top:18pt;display:table;width:100%}' +
         '.totals-table{margin-left:auto;width:55%;border-collapse:collapse;font-size:11pt}' +
@@ -63876,8 +63884,10 @@ async function exportQuotePdfNative(options){
         img: '',  // immagine renderizzata in didDrawCell
         desc: descText,
         qty: isZeroQty ? '' : String(it.qty),
-        // SV2.10.510: riga "prezzo netto" → listino vuoto, dicitura al posto della %
-        list: (isZeroQty || _isNetto) ? '' : (it.pvp != null ? _qFmtEur(it.pvp) : '—'),
+        // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
+        // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
+        // Mai in entrambe.
+        list: isZeroQty ? '' : (_isNetto ? (showSconto ? '' : 'Prezzo Netto') : (it.pvp != null ? _qFmtEur(it.pvp) : '—')),
         discount: _isNetto ? 'Prezzo Netto' : dPctStr,
         price: isZeroQty ? '' : (sellUnit != null ? _qFmtEur(sellUnit) : '—'),
         rtotal: isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—'),
@@ -63934,6 +63944,15 @@ async function exportQuotePdfNative(options){
         }
         // Styling celle specifiche
         if(data.section === 'body'){
+          // SV2.10.515: la dicitura "Prezzo Netto" puo' ora comparire nella colonna
+          // Sconto OPPURE in quella Listino: la riconosco dal testo, non dall'indice.
+          const _rawTxt = Array.isArray(data.cell.raw) ? String(data.cell.raw[0] || '') : String(data.cell.raw == null ? '' : data.cell.raw);
+          if(_rawTxt === 'Prezzo Netto'){
+            data.cell.styles.textColor = [22, 163, 74];
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fontSize = 10;
+            return;
+          }
           if(data.column.index === idxDiscount){
             // SV2.10.510: nelle righe a prezzo netto la cella riporta la dicitura
             // al posto della percentuale: verde e in corpo ridotto per starci.
@@ -64158,7 +64177,7 @@ async function exportQuotePdfNative(options){
     const _tList  = (t.visibleListPrice != null) ? t.visibleListPrice : t.totalPvp;
     const _tDisc  = (t.visibleDiscountValue != null) ? t.visibleDiscountValue : t.totalDiscountValue;
     const _tNetto = t.nettoRowsSellPrice || 0;
-    const neededH = ((showListino && _tList > 0.005) ? 22 : 0) + (_tDisc > 0.005 ? 22 : 0) + (_tNetto > 0.005 ? 22 : 0) + 36;
+    const neededH = ((showListino && _tList > 0.005) ? 22 : 0) + (_tDisc > 0.005 ? 22 : 0) + (((showListino || showSconto) && _tNetto > 0.005) ? 22 : 0) + 36;
     if(cursorY + neededH > PAGE_H - FOOTER_RESERVE){
       doc.addPage();
       drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
@@ -64189,7 +64208,8 @@ async function exportQuotePdfNative(options){
       cursorY += 6;
     }
     // SV2.10.511: riga dedicata al totale delle voci a prezzo netto
-    if(_tNetto > 0.005){
+    // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
+    if((showListino || showSconto) && _tNetto > 0.005){
       setText(10, 'bold', COL.textMuted);
       doc.text('Totale Prezzi Netti', totalsX + labelW - 5, cursorY + 12, { align: 'right' });
       setText(10, 'bold', [22, 163, 74]);
@@ -64540,9 +64560,10 @@ async function exportQuotePdf(){
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
           qty:      '<td class="col-qty">' + (isZeroQty ? '' : it.qty) + '</td>',
-          // SV2.10.510: riga "prezzo netto" → listino vuoto e dicitura verde
-          // al posto della percentuale (font ridotto, va a capo se serve)
-          list:     '<td class="col-money">' + ((isZeroQty || _isNetto) ? '' : fmt(it.pvp)) + '</td>',
+          // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
+          // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
+          // Mai in entrambe.
+          list:     '<td class="col-money">' + (isZeroQty ? '' : (_isNetto ? (showSconto ? '' : '<span class="netto-tag">Prezzo Netto</span>') : fmt(it.pvp))) + '</td>',
           discount: '<td class="col-discount">' + (_isNetto ? '<span class="netto-tag">Prezzo Netto</span>' : dPctStr) + '</td>',
           price:    '<td class="col-money">' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',
           rtotal:   '<td class="col-money col-tot"><b>' + (isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',
@@ -64565,7 +64586,8 @@ async function exportQuotePdf(){
           ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
           : '') +
         // SV2.10.511: riga dedicata alle voci a prezzo netto
-        ((t.nettoRowsSellPrice || 0) > 0.005
+        // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
+        ((showListino || showSconto) && (t.nettoRowsSellPrice || 0) > 0.005
           ? '<tr><td class="label">Totale Prezzi Netti</td><td class="val" style="color:#16a34a">' + _qFmtEur(t.nettoRowsSellPrice) + '</td></tr>'
           : '') +
         // V2.10.150: "TOTALE" → "TOTALE IMPONIBILE" se IVA inclusa
@@ -64707,7 +64729,7 @@ async function exportQuotePdf(){
         'table.items td.col-discount{font-weight:600;color:#dc2626}' +
         // SV2.10.510: dicitura per le righe a prezzo netto. Font ridotto e
         // white-space normal per stare nella colonna stretta dello sconto.
-        'table.items td.col-discount .netto-tag{display:inline-block;color:#16a34a;font-weight:700;font-size:10pt;line-height:1.15;letter-spacing:0.2px;white-space:normal;text-align:right}' +
+        'table.items td .netto-tag{display:inline-block;color:#16a34a;font-weight:700;font-size:10pt;line-height:1.15;letter-spacing:0.2px;white-space:normal;text-align:right}' +
         'table.items td.col-tot{font-weight:700;color:#1f2937}' +
         '.num{text-align:right;font-variant-numeric:tabular-nums}' +
         '.muted{color:#9ca3af;font-size:8.5pt}' +
