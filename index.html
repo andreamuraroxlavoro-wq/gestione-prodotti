@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.507 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.508 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10917,7 +10917,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.507</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.508</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11620,7 +11620,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.507 mobile");
+console.info("[bootstrap] script avvio — SV2.10.508 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13116,7 +13116,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.507';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.508';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -51302,7 +51302,11 @@ function quoteDeleteVersion(quoteId, versionNumber){
 /* Calcola un hash semplice ma efficace dello state corrente del carrello.
    Include items (code+qty+pvp+netto+discountPct), settings (mode, descMode).
    String concatenata + hash 32-bit. Stabile tra refresh. */
-function _quoteComputeStateHash(){
+/* SV2.10.508: `modeOverride` serve SOLO per la compatibilita' con gli snapshot
+   salvati prima della 508, che includevano la modalita' di vista nell'impronta.
+   Chiamata senza argomenti calcola il formato NUOVO, in cui la modalita' non
+   entra: Analisi/Cliente e' una vista, non un contenuto del preventivo. */
+function _quoteComputeStateHash(modeOverride){
   if(!window._QUOTE_STATE) return '0';
   const items = window._QUOTE_STATE.items || [];
   // Costruisco una stringa stabile (ordino chiavi per non dipendere dall'ordine in memoria)
@@ -51318,7 +51322,8 @@ function _quoteComputeStateHash(){
   });
   const settings = window._QUOTE_STATE.settings || {};
   const settingsPart = [
-    settings.mode || '',
+    // modalita' di vista ESCLUSA dal formato nuovo (modeOverride === undefined)
+    (modeOverride !== undefined ? modeOverride : ''),
     settings.descMode || '',
     // V2.10.24: testi liberi nel fingerprint per dirty-tracking
     settings.freeTextHeader || '',
@@ -51370,8 +51375,22 @@ function quoteUnbindFromCart(){
 function quoteIsCartDirty(){
   const bq = window._QUOTE_STATE.boundQuote;
   if(!bq || !bq.snapshotHash) return false;
-  const currentHash = _quoteComputeStateHash();
-  return currentHash !== bq.snapshotHash;
+  return !_quoteStateMatchesHash(bq.snapshotHash);
+}
+
+/* SV2.10.508 — confronto con lo snapshot salvato.
+   Prima il semplice `hash !== snapshotHash` segnalava "non salvato in archivio"
+   anche solo passando da Cliente ad Analisi, perche' `settings.mode` entrava
+   nell'impronta: incoerente, visto che quel pulsante cambia solo la vista.
+   Ora la modalita' non entra piu' nel calcolo. Per non far risultare "sporchi"
+   tutti i preventivi gia' collegati (i cui snapshot furono calcolati COL mode),
+   si accetta anche la corrispondenza con le due impronte in formato legacy. */
+function _quoteStateMatchesHash(stored){
+  if(!stored) return false;
+  if(_quoteComputeStateHash() === stored) return true;            // formato nuovo
+  if(_quoteComputeStateHash('analysis') === stored) return true;  // legacy, salvato in Analisi
+  if(_quoteComputeStateHash('client') === stored) return true;    // legacy, salvato in Cliente
+  return false;
 }
 
 /* Aggiorna lo snapshot hash (da chiamare dopo un save al preventivo).
