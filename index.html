@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.517 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.519 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11032,7 +11032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.517</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.519</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11735,7 +11735,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.517 mobile");
+console.info("[bootstrap] script avvio — SV2.10.519 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13231,7 +13231,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.517';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.519';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -55206,7 +55206,10 @@ function addToQuoteCart(productIdx, qty){
     // Aggiorno snapshot prezzi (potrebbero essere cambiati o avere nuovi sconti aggiuntivi)
     window._QUOTE_STATE.items[existingIdx].pvp = pvp;
     // SV2.10.517: senza questo, ri-aggiungendo l'articolo la riga tornerebbe senza prezzo.
-    if(_saleAsList != null) window._QUOTE_STATE.items[existingIdx].nettoPrice = true;
+    if(_saleAsList != null){
+      window._QUOTE_STATE.items[existingIdx].nettoPrice = true;
+      window._QUOTE_STATE.items[existingIdx]._noListino = true;
+    }
     window._QUOTE_STATE.items[existingIdx].netto = netto;
     window._QUOTE_STATE.items[existingIdx].nettoOrig = nettoOrig;
     window._QUOTE_STATE.items[existingIdx].cascadeAdjArr = cascadeAdjArr;
@@ -55297,7 +55300,7 @@ function addToQuoteCart(productIdx, qty){
       /* SV2.10.517: se il prezzo di vendita fa da base di riga, quel valore non
          e' un listino ⇒ la riga nasce marcata "prezzo netto" (SV2.10.510), cosi'
          in stampa il listino resta nascosto e compare la dicitura "Prezzo Netto". */
-      if(_saleAsList != null){ _newItem.nettoPrice = true; }
+      if(_saleAsList != null){ _newItem.nettoPrice = true; _newItem._noListino = true; }
       if(_sale > 0 && pvp > 0){
         _newItem.discountPct = Math.round((1 - _sale / pvp) * 100 * 10000) / 10000;
         _newItem._salePriceApplied = true;
@@ -55475,6 +55478,11 @@ function computeQuoteTotals(){
   let visibleListPrice = 0;      // listino delle sole righe NON marcate prezzo netto
   let visibleSellPrice = 0;      // vendita delle stesse righe
   let nettoRowsSellPrice = 0;    // vendita delle righe marcate prezzo netto
+  // SV2.10.519: media sconto pesata calcolata SOLO sulle righe con un listino
+  // vero; includere le righe a prezzo netto (sconto 0 su un listino inventato)
+  // abbassava artificiosamente lo sconto medio mostrato nelle KPI card.
+  let visibleWeightedDiscSum = 0;
+  let visibleWeightedDiscBase = 0;
   // V2.10.170: scomposizione Prodotti/Servizi per le KPI card dell'analisi.
   // Regola classificazione: Servizio = isService=true (riconosciuto via _isServiceItem,
   // che usa servicesList() come fonte di verita' affidabile anche quando window.DATA
@@ -55511,9 +55519,13 @@ function computeQuoteTotals(){
       // SV2.10.511: separazione righe a prezzo netto
       if(it.nettoPrice === true){
         nettoRowsSellPrice += lineSell;
+        bucket.nettoRowsSell = (bucket.nettoRowsSell || 0) + lineSell;
       } else {
         visibleListPrice += lineList;
         visibleSellPrice += lineSell;
+        visibleWeightedDiscSum  += dPct * lineList;
+        visibleWeightedDiscBase += lineList;
+        bucket.visibleListPrice = (bucket.visibleListPrice || 0) + lineList;
       }
     }
     if(nettoValid){
@@ -55558,6 +55570,7 @@ function computeQuoteTotals(){
     // SV2.10.511: totali al netto delle righe marcate "prezzo netto"
     visibleListPrice,
     visibleDiscountValue: (visibleListPrice - visibleSellPrice),
+    visibleAvgDiscountPct: (visibleWeightedDiscBase > 0 ? (visibleWeightedDiscSum / visibleWeightedDiscBase) : null),
     nettoRowsSellPrice,
     // V2.10.170: scomposizione per KPI card analisi
     split,
@@ -58528,27 +58541,35 @@ function renderQuoteCartContent(){
     // ── KPI cards Modalità CLIENTE ──
     // Niente netto/margine (sono dati interni). Mostro: Articoli, Totale Listino,
     // Sconto medio (con valore in € accanto), Totale Vendita (in evidenza).
-    const showDiscount = (t.avgDiscountPct != null && t.totalDiscountValue > 0.005);
+    /* SV2.10.519: le KPI leggono ora i totali AL NETTO delle righe a prezzo netto,
+       gli stessi che finiscono in stampa (511/514). Prima "Totale Listino" e
+       "Risparmio cliente" contavano anche un listino inventato e lo sconto medio
+       risultava piu' basso del vero. */
+    const _kList  = (t.visibleListPrice != null) ? t.visibleListPrice : t.totalPvp;
+    const _kDisc  = (t.visibleDiscountValue != null) ? t.visibleDiscountValue : t.totalDiscountValue;
+    const _kAvg   = (t.visibleAvgDiscountPct != null) ? t.visibleAvgDiscountPct : t.avgDiscountPct;
+    const _kNetto = t.nettoRowsSellPrice || 0;
+    const showDiscount = (_kAvg != null && _kDisc > 0.005);
     summaryCards =
       '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px">' +
         // V2.10.173: rimossa card "Articoli" per dare piu' spazio alle altre card numeriche.
         '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #0178d4;border-radius:8px;padding:15px 18px">' +
           '<div style="' + cardLabel + '">Totale Listino</div>' +
-          '<div style="' + cardValue + '">' + _qFmtEur(t.totalPvp) + '</div>' +
-          '<div style="' + cardSub   + '">prezzo di listino</div>' +
+          '<div style="' + cardValue + '">' + _qFmtEur(_kList) + '</div>' +
+          '<div style="' + cardSub   + '">' + (_kNetto > 0.005 ? 'prezzo di listino \u00b7 esclusi ' + _qFmtEur(_kNetto) + ' a prezzo netto' : 'prezzo di listino') + '</div>' +
         '</div>' +
         '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #ef4444;border-radius:8px;padding:15px 18px">' +
           '<div style="' + cardLabel + '">Sconto medio</div>' +
           // V2.8.3: classi qcart-kpi-* per fast-update live al cambio di sconto
-          '<div class="qcart-kpi-smedio-val" style="' + cardValue + '">' + (showDiscount ? _qFmtPct(t.avgDiscountPct, 1) : '—') + '</div>' +
-          '<div class="qcart-kpi-smedio-sub" style="' + cardSub   + '">' + (showDiscount ? '−' + _qFmtEur(t.totalDiscountValue) : 'nessuno sconto applicato') + '</div>' +
+          '<div class="qcart-kpi-smedio-val" style="' + cardValue + '">' + (showDiscount ? _qFmtPct(_kAvg, 1) : '—') + '</div>' +
+          '<div class="qcart-kpi-smedio-sub" style="' + cardSub   + '">' + (showDiscount ? '−' + _qFmtEur(_kDisc) : 'nessuno sconto applicato') + '</div>' +
         '</div>' +
         // V2.6.7: card dedicata "Risparmio cliente" — mostra l'importo in € che il
         // cliente non paga rispetto al listino. Accento verde acqua coerente con
         // la card "Guadagno" in Mod. Analisi (positivo, sinonimo di risparmio).
         '<div style="flex:1;min-width:175px;background:var(--bg);border:1px solid var(--border);border-left:3px solid #10b981;border-radius:8px;padding:15px 18px">' +
           '<div style="' + cardLabel + '">Risparmio cliente</div>' +
-          '<div class="qcart-kpi-risp-val" style="' + cardValue + '">' + (showDiscount ? _qFmtEur(t.totalDiscountValue) : '—') + '</div>' +
+          '<div class="qcart-kpi-risp-val" style="' + cardValue + '">' + (showDiscount ? _qFmtEur(_kDisc) : '—') + '</div>' +
           '<div class="qcart-kpi-risp-sub" style="' + cardSub   + '">' + (showDiscount ? 'rispetto al listino' : 'nessuno sconto applicato') + '</div>' +
         '</div>' +
         '<div style="flex:1;min-width:175px;background:linear-gradient(135deg,rgba(34,197,94,0.06),rgba(34,197,94,0.02));border:1px solid rgba(34,197,94,0.4);border-left:3px solid #22c55e;border-radius:8px;padding:15px 18px">' +
@@ -58580,9 +58601,10 @@ function renderQuoteCartContent(){
           // V2.10.172: il valore principale mostra solo i Prodotti (i servizi non hanno
           // un vero "listino di mercato", quindi escluderli dal totale PVP e' piu' corretto
           // semanticamente). Logica interna inalterata: t.totalPvp resta il totale completo.
-          '<div style="' + cardValue + '">' + _qFmtEur(t.split.prod.totalPvp) + '</div>' +
+          // SV2.10.519: anche qui il listino esclude le righe a prezzo netto
+          '<div style="' + cardValue + '">' + _qFmtEur(t.split.prod.visibleListPrice || 0) + '</div>' +
           '<div style="' + cardSub   + '">listino (solo prodotti)</div>' +
-          _renderSplit(t.split.prod.totalPvp, t.split.serv.totalPvp, _qFmtEur) +
+          _renderSplit(t.split.prod.visibleListPrice || 0, t.split.serv.visibleListPrice || 0, _qFmtEur) +
         '</div>' +
         // V2.10.175: ordine card scambiato — Totale Netto prima di Totale Vendita
         // V2.9.31: card "Totale Netto" (Costi acquisto) - toggleabile
@@ -58786,6 +58808,14 @@ function renderQuoteCartContent(){
       // V2.10.185: qty=0 → riga "parcheggiata". Resta visibile ma con celle
       // numeriche vuote ed esclusa dai calcoli.
       const isZeroQty = (it.qty === 0);
+      /* SV2.10.518 — riga il cui "listino" e' in realta' il PREZZO DI VENDITA
+         imposto (articolo personale senza listino, vedi 517). Per queste righe
+         Listino e Sconto ACQ non esistono: mostrarli sarebbe una finzione (lo
+         "sconto d'acquisto" verrebbe calcolato su un listino inventato). Si
+         mostra il solo costo d'acquisto; lo sconto di vendita e' bloccato a 0
+         perche' non c'e' un listino da cui scontare, e resta editabile il prezzo
+         di vendita. Margine e ricarico non usano il listino: restano corretti. */
+      const _noList = (it._noListino === true);
       const _dash = '<span style="color:var(--fg3)">—</span>';
       const subPvp = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * it.qty : null;
       const subNetto = (!isZeroQty && it.netto != null && it.netto > 0) ? it.netto * it.qty : null;
@@ -58881,7 +58911,7 @@ function renderQuoteCartContent(){
               '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
             '</div>' +
           '</td>' +
-          '<td class="num">' + ((it.isFreeField || isZeroQty) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
+          '<td class="num">' + ((it.isFreeField || isZeroQty || _noList) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
           // V2.5.7: nuova colonna "Sconto" tra PVP e Netto. Viola con ★ se cascata.
           // V2.10.263: cella "Sconto ACQ" EDITABILE. Lo sconto e' derivato dal
           // netto (sconto% = (1-netto/pvp)*100); modificandolo si ricalcola il
@@ -58889,7 +58919,7 @@ function renderQuoteCartContent(){
           // override e' evidenziata con sfondo verde tenue (vedi <tr>), non piu'
           // col pallino. Il badge ★ cascata resta informativo.
           '<td class="num"' + scTip + '>' +
-            ((it.isFreeField || isZeroQty) ? _dash :
+            ((it.isFreeField || isZeroQty || _noList) ? _dash :
               (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)
                 ? '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
                     '<input type="text" inputmode="decimal" class="qcart-scacq-input" data-code="' + escapeAttr(it.code) + '" ' +
@@ -58933,7 +58963,8 @@ function renderQuoteCartContent(){
               // colonna "Sc. Cliente" e l'unita' "%" rendono il significato chiaro.
               '<input type="number" class="qcart-discount-input qcart-sccli-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + _fmtDiscountForInput(scCliente) + '" min="0" max="100" step="0.01" ' +
                 'style="width:54px;padding:3px 6px;font-size:12px" ' +
-                (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>' +
+                (_noList ? 'disabled title="Articolo senza prezzo di listino: si imposta direttamente il prezzo di vendita"'
+                         : (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '')) + '>' +
               '<span style="font-size:11px;color:var(--fg3);font-weight:600">%</span>' +
             '</div>') +
           '</td>' +
@@ -59829,18 +59860,21 @@ function updateClientRowAfterDiscountChange(inputEl){
   // avere coerenza assoluta dei numeri rispetto alle KPI cards.
   try {
     const t = computeQuoteTotals();
-    const showDiscount = t.totalPvp > 0 && t.totalDiscountValue > 0.005;
+    // SV2.10.519: stessi valori delle KPI card (righe a prezzo netto escluse)
+    const _kDisc = (t.visibleDiscountValue != null) ? t.visibleDiscountValue : t.totalDiscountValue;
+    const _kAvg  = (t.visibleAvgDiscountPct != null) ? t.visibleAvgDiscountPct : t.avgDiscountPct;
+    const showDiscount = _kAvg != null && _kDisc > 0.005;
 
     // Sconto medio (valore + sub con importo)
     const smedioVal = document.querySelector('.qcart-kpi-smedio-val');
     const smedioSub = document.querySelector('.qcart-kpi-smedio-sub');
-    if(smedioVal) smedioVal.textContent = showDiscount ? _qFmtPct(t.avgDiscountPct, 1) : '—';
-    if(smedioSub) smedioSub.textContent = showDiscount ? ('−' + _qFmtEur(t.totalDiscountValue)) : 'nessuno sconto applicato';
+    if(smedioVal) smedioVal.textContent = showDiscount ? _qFmtPct(_kAvg, 1) : '—';
+    if(smedioSub) smedioSub.textContent = showDiscount ? ('−' + _qFmtEur(_kDisc)) : 'nessuno sconto applicato';
 
     // Risparmio cliente
     const rispVal = document.querySelector('.qcart-kpi-risp-val');
     const rispSub = document.querySelector('.qcart-kpi-risp-sub');
-    if(rispVal) rispVal.textContent = showDiscount ? _qFmtEur(t.totalDiscountValue) : '—';
+    if(rispVal) rispVal.textContent = showDiscount ? _qFmtEur(_kDisc) : '—';
     if(rispSub) rispSub.textContent = showDiscount ? 'rispetto al listino' : 'nessuno sconto applicato';
 
     // Totale Vendita (la classe e' presente sia in Cliente sia in Analisi: aggiorno
