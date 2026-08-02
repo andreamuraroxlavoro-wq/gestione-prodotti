@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.500 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.504 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -3034,6 +3034,18 @@ body.theme-light .prm-value-count{ color:#7c3aed !important; }
   cursor:not-allowed;
   pointer-events:none;
 }
+/* SV2.10.501: sincronizzazione Drive disattivata dal master switch.
+   I pulsanti cloud restano visibili ma grigi e non cliccabili, e il badge
+   numerico delle modifiche in coda viene nascosto (il numero implicherebbe
+   un'azione che in questo stato non e' possibile). */
+.icon-btn.is-drive-off{
+  color:#6b7280 !important;
+  opacity:0.40;
+  cursor:not-allowed !important;
+  pointer-events:none;
+  filter:grayscale(1);
+}
+.icon-btn.is-drive-off .tb-drive-push-badge{ display:none !important; }
 @keyframes tb-drive-spin{
   from{ transform:rotate(0deg) }
   to  { transform:rotate(360deg) }
@@ -10808,7 +10820,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.500</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.504</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11511,7 +11523,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.500 mobile");
+console.info("[bootstrap] script avvio — SV2.10.504 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13007,7 +13019,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.500';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.504';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -17842,14 +17854,12 @@ function driveSetEnabled(enabled){
     if(typeof toast === 'function'){
       toast('Sincronizzazione riattivata', 'ok', 2500);
     }
-    if(DRIVE_STATE.url && DRIVE_STATE.initialized && DRIVE_DELTA.size() > 0){
-      // Sync immediato delle modifiche accumulate, indipendentemente dalla modalità
-      // (perché esistono già: vanno smaltite)
-      setTimeout(() => {
-        if(DRIVE_DELTA.size() > 0 && !DRIVE_STATE.syncing && DRIVE_STATE.enabled){
-          _driveSendDelta(false).catch(e => console.warn('[drive] post-enable sync failed', e));
-        }
-      }, 800);
+    // SV2.10.501: NESSUN salvataggio automatico alla riattivazione. Prima partiva
+    // _driveSendDelta() da solo dopo 800 ms: se nel frattempo i dati veri erano su
+    // Drive (es. lavoro fatto da un altro PC) il push silenzioso li sovrascriveva.
+    // Ora la direzione la sceglie l'utente.
+    if(DRIVE_STATE.url && DRIVE_STATE.initialized){
+      setTimeout(function(){ try { driveAskDirectionOnEnable(); } catch(e){ console.warn('[drive] ask direction failed', e); } }, 400);
     }
     // V2.10.94: riavvia polling se configurato
     if(DRIVE_STATE.url && DRIVE_STATE.initialized && DRIVE_STATE.pollIntervalMin > 0){
@@ -17860,6 +17870,44 @@ function driveSetEnabled(enabled){
   _driveUpdateBadge();
   // V2.10.96: aggiorna visibilità bottone Refresh in topbar
   if(typeof _driveUpdateTopbarRefreshBtn === 'function') _driveUpdateTopbarRefreshBtn();
+  // SV2.10.501: aggiorna anche lo stato grigio/attivo delle icone cloud
+  if(typeof _driveUpdateLocalModeUI === 'function') _driveUpdateLocalModeUI();
+}
+
+/* SV2.10.501 — Alla riattivazione della sincronizzazione la direzione la sceglie
+   l'utente: caricare le modifiche locali su Drive, scaricare da Drive, o niente.
+   Nessuna delle due parte da sola. */
+function driveAskDirectionOnEnable(){
+  if(document.getElementById('drvDirModal')) return;
+  var deltaPending    = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
+  var targetedPending = (typeof DRIVE_TARGETED_DIRTY !== 'undefined' && DRIVE_TARGETED_DIRTY.size) ? DRIVE_TARGETED_DIRTY.size() : 0;
+  var pending = deltaPending + targetedPending;
+
+  var bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'drvDirModal';
+  bg.style.zIndex = '400';
+  bg.onclick = function(e){ if(e.target === bg) bg.remove(); };
+  bg.innerHTML =
+    '<div class="modal" style="max-width:520px">' +
+      '<div class="modal-head"><h3>Sincronizzazione riattivata</h3></div>' +
+      '<div class="modal-body" style="font-size:13px;line-height:1.6;color:var(--fg2)">' +
+        '<p style="margin:0 0 10px">Scegli tu cosa fare adesso: non viene eseguita nessuna operazione automatica.</p>' +
+        (pending > 0
+          ? '<p style="margin:0 0 10px">Ci sono <b>' + pending + '</b> modific' + (pending === 1 ? 'a locale in coda' : 'he locali in coda') + '.</p>'
+          : '<p style="margin:0 0 10px">Non ci sono modifiche locali in coda.</p>') +
+        '<p style="margin:0;color:var(--fg3);font-size:12px">Se hai lavorato su un altro computer, scarica da Drive prima di caricare, altrimenti sovrascrivi il lavoro pi\u00f9 recente.</p>' +
+      '</div>' +
+      '<div class="modal-foot" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">' +
+        '<button type="button" class="btn-pill subtle" id="drvDirLater">Decido dopo</button>' +
+        '<button type="button" class="btn-pill" id="drvDirPull">\u2b07 Scarica da Drive</button>' +
+        '<button type="button" class="btn-pill" id="drvDirPush">\u2b06 Carica su Drive</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(bg);
+  document.getElementById('drvDirLater').onclick = function(){ bg.remove(); };
+  document.getElementById('drvDirPull').onclick  = function(){ bg.remove(); driveManualPull(null); };
+  document.getElementById('drvDirPush').onclick  = function(){ bg.remove(); driveManualPush(null); };
 }
 
 // V2.10.112: modalità unificata. Astrae i 3 stati possibili in un singolo selettore
@@ -20669,13 +20717,11 @@ function _driveUpdateBadge(forceColor, forceLabel){
     label = 'Drive non configurato';
   } else if(!DRIVE_STATE.enabled){
     // V2.2.40/V2.2.41: master switch OFF → label include nuvoletta sbarrata + nome esteso
+    // SV2.10.503: niente conteggio "N in coda" a servizio disattivato. Le modifiche
+    // restano in coda internamente (DRIVE_DELTA non viene svuotato), ma indicarle
+    // suggerisce un'attesa di invio che in questo stato non avverra' mai.
     color = 'disabled';
-    const pending = DRIVE_DELTA.size();
-    if(pending > 0){
-      label = `☁️ Google Drive Sync Disattivato · ${pending} in coda`;
-    } else {
-      label = '☁️ Google Drive Sync Disattivato';
-    }
+    label = '☁️ Google Drive Sync Disattivato';
   } else if(DRIVE_STATE.lastSyncError){
     color = 'red';
     label = 'Errore: ' + DRIVE_STATE.lastSyncError;
@@ -21179,13 +21225,42 @@ function _driveUpdateLocalModeUI(){
   // cliccabile per push manuale immediato.
   var btnPush = document.getElementById('btnDriveManualPush');
   var btnPull = document.getElementById('btnDriveManualPull');
+  // SV2.10.501: master switch OFF (Drive configurato ma sincronizzazione spenta).
+  // Entrambe le icone restano visibili ma disattivate, senza badge numerico.
+  var drvOff = !!(DRIVE_STATE.url && !DRIVE_STATE.enabled);
+  if(drvOff){
+    var _offTitle = 'Sincronizzazione Drive disattivata \u2014 riattivala da Backup & Sincronizzazione';
+    [btnPush, btnPull].forEach(function(b){
+      if(!b) return;
+      b.style.display = '';
+      b.classList.add('is-drive-off');
+      b.classList.remove('has-pending');
+      b.setAttribute('aria-disabled', 'true');
+      b.title = _offTitle;
+      b.setAttribute('aria-label', _offTitle);
+    });
+    var _offBadge = document.getElementById('btnDriveManualPushBadge');
+    if(_offBadge) _offBadge.style.display = 'none';
+    var _offRefresh = document.getElementById('btnDriveRefresh');
+    if(_offRefresh) _offRefresh.style.display = 'none';
+    return;
+  }
+  [btnPush, btnPull].forEach(function(b){
+    if(!b) return;
+    b.classList.remove('is-drive-off');
+    b.removeAttribute('aria-disabled');
+  });
   // V2.10.168: pending = DRIVE_DELTA.size() + DRIVE_TARGETED_DIRTY.size().
   // Vedi commento più sopra sul perché del calcolo combinato.
   var deltaPending = (typeof DRIVE_DELTA !== 'undefined' && DRIVE_DELTA.size) ? DRIVE_DELTA.size() : 0;
   var targetedPending = (typeof DRIVE_TARGETED_DIRTY !== 'undefined' && DRIVE_TARGETED_DIRTY.size) ? DRIVE_TARGETED_DIRTY.size() : 0;
   var pending = deltaPending + targetedPending;
   if(btnPush){
-    btnPush.style.display = (on || pending > 0) ? '' : 'none';
+    // SV2.10.504: la ☁️⬆ e' ora SEMPRE visibile quando Drive e' configurato (come la
+    // ⬇ dalla 502), non piu' solo in Modalita' Locale o con modifiche in coda. Le due
+    // frecce restano affiancate e cambiano solo aspetto: grigie a servizio spento,
+    // gialle (has-pending) con modifiche da inviare, normali a coda vuota.
+    btnPush.style.display = DRIVE_STATE.url ? '' : 'none';
     // V2.10.106: la classe has-pending tinge il push di giallo acido (#CCFF00)
     // quando ci sono modifiche in coda. Lo stato 'busy' (operazione in corso)
     // prende comunque la precedenza via specificità delle classi btn-state-*.
@@ -21209,7 +21284,10 @@ function _driveUpdateLocalModeUI(){
     }
   }
   if(btnPull){
-    btnPull.style.display = on ? '' : 'none';
+    // SV2.10.502: la ☁️⬇ e' ora SEMPRE visibile quando Drive e' configurato e attivo,
+    // non piu' solo in Modalita' Locale. Il pull manuale e' un'azione che ha senso
+    // in qualunque modalita' (allinearsi a un altro PC prima di lavorare).
+    btnPull.style.display = DRIVE_STATE.url ? '' : 'none';
     btnPull.title = 'Scarica modifiche da Drive (☁️⬇)';
     btnPull.setAttribute('aria-label', btnPull.title);
   }
@@ -21238,6 +21316,11 @@ function _driveUpdateLocalModeUI(){
 async function driveManualPush(btn){
   if(!DRIVE_STATE.url){
     alert('Drive non configurato.');
+    return;
+  }
+  // SV2.10.501: master switch OFF — nessuna operazione Drive possibile
+  if(!DRIVE_STATE.enabled){
+    if(typeof toast === 'function') toast('Sincronizzazione Drive disattivata', 'warn', 3000);
     return;
   }
   if(DRIVE_STATE.syncing){
@@ -21319,6 +21402,11 @@ async function driveManualPush(btn){
 async function driveManualPull(btn){
   if(!DRIVE_STATE.url){
     alert('Drive non configurato.');
+    return;
+  }
+  // SV2.10.501: master switch OFF — nessuna operazione Drive possibile
+  if(!DRIVE_STATE.enabled){
+    if(typeof toast === 'function') toast('Sincronizzazione Drive disattivata', 'warn', 3000);
     return;
   }
   if(DRIVE_STATE.syncing){
