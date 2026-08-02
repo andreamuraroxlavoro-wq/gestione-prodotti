@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.516 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.517 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11032,7 +11032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.516</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.517</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11735,7 +11735,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.516 mobile");
+console.info("[bootstrap] script avvio — SV2.10.517 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13231,7 +13231,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.516';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.517';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -52416,7 +52416,10 @@ function _refreshQuote_buildDiff(){
     }
 
     // Calcolo i nuovi valori (stessa logica di addToQuoteCart)
-    const newPvp = priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
+    // SV2.10.517: stessa regola dell'inserimento, altrimenti "Aggiorna preventivo"
+    // riporterebbe a zero il listino delle righe basate sul prezzo di vendita.
+    const _newSaleAsList = _qSalePriceAsList(p);
+    const newPvp = (_newSaleAsList != null) ? _newSaleAsList : priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
     const newNettoOrig = priceNum(getField(p, 'precio_neto_compra'));
     const _eff = getEffectiveProductPrices(p);
     const newNetto = (_eff && _eff.hasAdj) ? _eff.nettoEff : newNettoOrig;
@@ -55158,6 +55161,21 @@ function resolveDisplayCode(rawCode){
 
 /* ─── Operazioni sul carrello ─── */
 
+/* SV2.10.517 — PREZZO DI VENDITA IMPOSTO COME BASE DI RIGA.
+   Il carrello e' costruito sul prezzo di listino: un articolo personale con
+   PVP = 0 ma con `salePrice` valorizzato entrava con prezzo nullo, casella
+   prezzo DISABILITATA e nessun modo di inserire un importo. Per questi articoli
+   la base di riga diventa il prezzo di vendita, con sconto 0: prezzo, totale,
+   margine e ricarico tornano corretti e la casella diventa editabile.
+   Ritorna null quando l'articolo ha un listino vero (comportamento invariato). */
+function _qSalePriceAsList(p){
+  if(!p) return null;
+  const pv = priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
+  if(pv > 0) return null;
+  const sp = priceNum(getField(p, 'salePrice'));
+  return (sp > 0) ? sp : null;
+}
+
 function addToQuoteCart(productIdx, qty){
   if(!Array.isArray(DATA) || productIdx == null) return false;
   const p = DATA[productIdx];
@@ -55170,7 +55188,9 @@ function addToQuoteCart(productIdx, qty){
 
   // Cerco se già presente: in tal caso aggiorno quantità
   const existingIdx = window._QUOTE_STATE.items.findIndex(it => it.code === code);
-  const pvp = priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
+  // SV2.10.517: senza listino ma con prezzo di vendita imposto, quest'ultimo fa da base di riga
+  const _saleAsList = _qSalePriceAsList(p);
+  const pvp = (_saleAsList != null) ? _saleAsList : priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
   // V2.5.4: NETTO ricalcolato applicando gli sconti aggiuntivi a cascata
   // (se ci sono per Marca/Macrocategoria/Categoria di questo articolo).
   // Il PVP resta sempre quello originale (è il prezzo di listino verso il cliente).
@@ -55185,6 +55205,8 @@ function addToQuoteCart(productIdx, qty){
     window._QUOTE_STATE.items[existingIdx].qty += qty;
     // Aggiorno snapshot prezzi (potrebbero essere cambiati o avere nuovi sconti aggiuntivi)
     window._QUOTE_STATE.items[existingIdx].pvp = pvp;
+    // SV2.10.517: senza questo, ri-aggiungendo l'articolo la riga tornerebbe senza prezzo.
+    if(_saleAsList != null) window._QUOTE_STATE.items[existingIdx].nettoPrice = true;
     window._QUOTE_STATE.items[existingIdx].netto = netto;
     window._QUOTE_STATE.items[existingIdx].nettoOrig = nettoOrig;
     window._QUOTE_STATE.items[existingIdx].cascadeAdjArr = cascadeAdjArr;
@@ -55272,6 +55294,10 @@ function addToQuoteCart(productIdx, qty){
        il prezzo si scosterebbe di qualche centesimo. */
     if(_newItem){
       const _sale = priceNum(getField(p, 'salePrice'));
+      /* SV2.10.517: se il prezzo di vendita fa da base di riga, quel valore non
+         e' un listino ⇒ la riga nasce marcata "prezzo netto" (SV2.10.510), cosi'
+         in stampa il listino resta nascosto e compare la dicitura "Prezzo Netto". */
+      if(_saleAsList != null){ _newItem.nettoPrice = true; }
       if(_sale > 0 && pvp > 0){
         _newItem.discountPct = Math.round((1 - _sale / pvp) * 100 * 10000) / 10000;
         _newItem._salePriceApplied = true;
