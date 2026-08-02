@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.521 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.523 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11032,7 +11032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.521</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.523</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11735,7 +11735,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.521 mobile");
+console.info("[bootstrap] script avvio — SV2.10.523 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13231,7 +13231,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.521';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.523';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31182,6 +31182,18 @@ function renderGallery(main, list){
     }
     // SV2.10.402: in modalità ACQUISTO calcolo comunque lo sconto di vendita del listino
     // Cliente attivo — serve sia per la pillola sconto-vendita affiancata sia per il margine.
+    /* SV2.10.522 — PREZZO DI VENDITA IMPOSTO sull'articolo (campo salePrice).
+       Vale la stessa regola gia' applicata al carrello (497) e alla card senza
+       listino (516): il prezzo deciso sull'articolo PREVALE sul listino di
+       vendita attivo, perche' e' una scelta piu' specifica. Prima la card in
+       modalita' vendita ignorava salePrice quando l'articolo aveva un listino:
+       mostrava listino x (1 - sconto del listino attivo), es. 1228 -50% = 614,
+       mentre in preventivo lo stesso articolo entrava a 800.
+       `_impostoScVend` e' lo sconto EQUIVALENTE, usato anche dalla pillola. */
+    const _impostoVend = (priceNum(listino) > 0) ? priceNum(getField(p, 'salePrice')) : null;
+    const _impostoScVend = (_impostoVend > 0 && priceNum(listino) > 0)
+      ? (1 - _impostoVend / priceNum(listino)) * 100
+      : null;
     let _saleInfoAcq = null;
     if(!_isSaleMode){
       const _activeIdA = (typeof getActiveSplId === 'function') ? getActiveSplId() : null;
@@ -31198,7 +31210,11 @@ function renderGallery(main, list){
       // dall'occhio (showDiscount). Funziona sia in acquisto sia in vendita.
       let _badgeDiscVal = null;
       if(_isSaleMode){
-        if(_saleInfo) _badgeDiscVal = _saleInfo.scontoEff;
+        // SV2.10.522: se c'e' un prezzo imposto, la pillola mostra lo sconto che
+        // ne deriva, non quello del listino attivo (altrimenti direbbe -50%
+        // accanto a un prezzo che di sconto ne ha 34,9%).
+        if(_impostoScVend != null) _badgeDiscVal = _impostoScVend;
+        else if(_saleInfo) _badgeDiscVal = _saleInfo.scontoEff;
       } else {
         _badgeDiscVal = (_eff && _eff.hasAdj) ? effDisc : discountPct;
       }
@@ -31304,14 +31320,20 @@ function renderGallery(main, list){
             ${priceNum(netto) ? `<span class="card-price card-listino-neutral"><span class="card-price-label">Netto</span> € ${fmtPrice(netto)}</span>` : `<span class="card-price" style="visibility:hidden" aria-hidden="true"><span class="card-price-label">Netto</span> € 0,00</span>`}
             <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_impostoSale)}</span>
           </div>`;
-      } else if(showDisc && _isSaleMode && _saleInfo && priceNum(listino)){
+      } else if(showDisc && _isSaleMode && (_saleInfo || _impostoScVend != null) && priceNum(listino)){
         // ── Modalita' VENDITA ──
         // prezzo vendita = listino x (1 - scontoEff/100)
-        const _scVend = _saleInfo.scontoEff;
-        const _prezzoVend = priceNum(listino) * (1 - _scVend / 100);
+        // SV2.10.522: il prezzo imposto sull'articolo vince sul listino attivo
+        const _scVend = (_impostoScVend != null) ? _impostoScVend : _saleInfo.scontoEff;
+        const _prezzoVend = (_impostoVend > 0) ? _impostoVend : priceNum(listino) * (1 - _scVend / 100);
         // tooltip: dettaglio se il listino ha uno sconto specifico per questo nodo/articolo
         let _vTip = 'Sconto di vendita dal listino attivo';
-        if(_saleInfo.hasAdj){
+        if(_impostoScVend != null){
+          _vTip = 'Prezzo di vendita imposto sull\'articolo: ' + fmtPrice(_impostoVend) +
+                  ' \u20ac\nPrevale sul listino di vendita attivo' +
+                  (_saleInfo ? ' (che darebbe ' + fmtDiscount(_saleInfo.scontoEff) + ')' : '') +
+                  '\nSconto equivalente: ' + fmtDiscount(_impostoScVend);
+        } else if(_saleInfo.hasAdj){
           // V2.10.263: modello assoluto — niente più cascata di slot. Mostro
           // l'origine dello sconto (nodo/articolo) e il valore effettivo.
           const _origine = (_saleInfo.adjLevel === 'product') ? 'articolo'
@@ -31326,7 +31348,7 @@ function renderGallery(main, list){
           _vTip = 'Sconto di vendita base del listino: ' + fmtDiscount(_saleInfo.scontoBase);
         }
         priceBlock = `
-          <div class="card-prices card-prices-sale${_saleInfo.hasAdj ? ' has-cascade-adj' : ''}" title="${escapeAttr(_vTip)}">
+          <div class="card-prices card-prices-sale${(_saleInfo && _saleInfo.hasAdj) ? ' has-cascade-adj' : ''}" title="${escapeAttr(_vTip)}">
             ${priceNum(listino) ? `<span class="card-price card-netto-green"><span class="card-price-label">Listino</span> € ${fmtPrice(listino)}</span>` : ''}
             <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_prezzoVend)}</span>
           </div>`;
@@ -35177,13 +35199,18 @@ function ppBomRefreshCosts(){
   if(_tot.righe){
     _setPrezzo('ppPvp', _tot.listino);
     _setPrezzo('ppNetto', _tot.costo);
-    _setPrezzo('ppSalePrice', _tot.prezzo);
+    /* SV2.10.523 — il PREZZO DI VENDITA non viene toccato: e' una decisione
+       commerciale dell'utente, non un dato che discende dalla distinta. Listino e
+       costo si riallineano perche' vengono dal catalogo; il prezzo lo impone lui.
+       La riga di confronto sotto i totali continua a mostrare lo scostamento
+       rispetto al totale di vendita calcolato, cosi' la differenza resta visibile
+       senza essere imposta. */
     if(typeof ppPricesHint === 'function'){ try { ppPricesHint(); } catch(_){} }
   }
   renderPpBom();
   if(typeof toast === 'function'){
     toast(agg + ' costi e ' + aggL + ' listini aggiornati dal catalogo'
-      + (_scritti ? ' \u00b7 ' + _scritti + ' camp' + (_scritti === 1 ? 'o prezzo riallineato' : 'i prezzo riallineati') : '')
+      + (_scritti ? ' \u00b7 ' + _scritti + ' camp' + (_scritti === 1 ? 'o prezzo riallineato' : 'i prezzo riallineati') + ' (prezzo di vendita non toccato)' : '')
       + (mancanti ? ' \u00b7 ' + mancanti + ' articoli non trovati' : ''),
       mancanti ? 'err' : 'ok');
   }
