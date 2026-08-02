@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.499 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.500 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10808,7 +10808,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.499</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.500</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -10826,6 +10826,8 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="drive-status-dot drive-dot-gray"></span>
       <span class="drive-status-label">Drive non configurato</span>
     </span>
+    <!-- SV2.10.500: stato archivio locale live -->
+    <span class="sb-title-backup" id="app-alv-status" title="Archivio locale live"></span>
 
     <!-- Maniglia-freccia (drawer handle) centrata sul bordo inferiore del box -->
     <button type="button" class="sb-info-handle" id="sbInfoToggle" onclick="toggleSbInfo()" aria-expanded="true" aria-controls="sbInfoPanel" title="Mostra o nascondi le informazioni">
@@ -11509,7 +11511,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.499 mobile");
+console.info("[bootstrap] script avvio — SV2.10.500 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13005,7 +13007,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.499';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.500';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -23951,6 +23953,7 @@ async function alvLoadHandle(){
     if(!handle) return false;
     ALV_STATE.dirHandle = handle;
     ALV_STATE.dirName = handle.name || 'cartella';
+    try { ALV_STATE.lastSaveAt = (await idbGet('meta','alvLastSaveAt')) || null; } catch(_){}
     let status = 'prompt';
     try { status = await handle.queryPermission({ mode: 'readwrite' }); } catch(_){}
     if(status === 'granted'){
@@ -24238,18 +24241,57 @@ async function alvRestoreFromFolder(){
 
 /* ---------- badge / UI ---------- */
 
+/* Stato sintetico dell'archivio locale, condiviso da card impostazioni e
+   pillola in sidebar (stessa forma di "Ultimo Backup Locale" e "Drive: …"). */
+function _alvComputeStatus(){
+  if(!ALV_STATE.dirHandle)      return { dot:'gray',   short:'non attivo',      line:'Archivio Locale: non configurato', tip:'Nessuna cartella scelta per l\u2019archivio locale automatico', visible:false };
+  if(ALV_STATE.needsGesture)    return { dot:'yellow', short:'da riattivare',   line:'Archivio Locale: da riattivare',   tip:'Clicca un punto qualsiasi della pagina per riconfermare il permesso sulla cartella', visible:true };
+  if(!ALV_STATE.enabled)        return { dot:'red',    short:'permesso negato', line:'Archivio Locale: permesso negato', tip:'Permesso di scrittura non concesso sulla cartella', visible:true };
+  if(ALV_STATE.lastError)       return { dot:'red',    short:'errore',          line:'Archivio Locale: errore di scrittura', tip:'Ultimo errore: ' + ALV_STATE.lastError, visible:true };
+  if(ALV_STATE.dirty.size || ALV_STATE.saving){
+    const n = ALV_STATE.dirty.size || 1;
+    return { dot:'yellow', short:'salvataggio\u2026', line:'Archivio Locale: salvataggio in corso (' + n + (n===1?' file)':' file)'), tip:'Scrittura sul disco in corso nella cartella ' + (ALV_STATE.dirName||''), visible:true };
+  }
+  if(ALV_STATE.lastSaveAt){
+    let when = '';
+    try {
+      const d = new Date(ALV_STATE.lastSaveAt);
+      const pad = n => String(n).padStart(2,'0');
+      when = pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+    } catch(_){}
+    return { dot:'green', short:'aggiornato', line:'Archivio Locale salvato: ' + when,
+             tip:'Tutti i file sono aggiornati sul disco in ' + (ALV_STATE.dirName||'cartella') +
+                 (ALV_STATE.lastBytes ? ' \u2014 ultima scrittura ' + _alvFmtSize(ALV_STATE.lastBytes) + ' in ' + ALV_STATE.lastMs + ' ms' : ''),
+             visible:true };
+  }
+  return { dot:'green', short:'attivo', line:'Archivio Locale: attivo, nessuna modifica', tip:'Cartella ' + (ALV_STATE.dirName||'') + ' \u2014 in attesa della prima modifica', visible:true };
+}
+
 function _alvUpdateBadge(){
+  const st = _alvComputeStatus();
+  // a) badge dentro la card Impostazioni
   const el = document.getElementById('alvBadge');
-  if(!el) return;
-  let txt, col;
-  if(!ALV_STATE.enabled && ALV_STATE.needsGesture){ txt = 'da riattivare'; col = 'var(--warn, #f59e0b)'; }
-  else if(!ALV_STATE.enabled){ txt = 'non attivo'; col = 'var(--fg3)'; }
-  else if(ALV_STATE.lastError){ txt = 'errore'; col = 'var(--danger, #e5484d)'; }
-  else if(ALV_STATE.dirty.size || ALV_STATE.saving){ txt = 'salvataggio…'; col = 'var(--warn, #f59e0b)'; }
-  else if(ALV_STATE.lastSaveAt){ txt = 'aggiornato'; col = 'var(--ok, #30a46c)'; }
-  else { txt = 'attivo'; col = 'var(--ok, #30a46c)'; }
-  el.textContent = txt;
-  el.style.color = col;
+  if(el){
+    el.textContent = st.short;
+    el.style.color = st.dot === 'green' ? 'var(--ok, #30a46c)'
+                   : st.dot === 'yellow' ? 'var(--warn, #f59e0b)'
+                   : st.dot === 'red' ? 'var(--danger, #e5484d)' : 'var(--fg3)';
+  }
+  // b) pillola in sidebar, coerente con "Ultimo Backup Locale" e "Drive: …"
+  const pill = document.getElementById('app-alv-status');
+  if(pill){
+    if(!st.visible){
+      pill.classList.remove('has-value');
+      pill.innerHTML = '';
+      pill.title = '';
+    } else {
+      pill.innerHTML = '<span class="bk-status-dot bk-dot-' + st.dot + '" aria-hidden="true"></span>' + escapeHtml(st.line);
+      pill.title = st.tip;
+      pill.classList.add('has-value');
+      pill.style.cursor = 'pointer';
+      pill.onclick = () => { if(typeof openBackupDialog === 'function') openBackupDialog(); };
+    }
+  }
 }
 
 /* Card iniettata in cima al pannello Backup delle Impostazioni, senza toccare
