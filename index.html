@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.504 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.506 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -3046,6 +3046,49 @@ body.theme-light .prm-value-count{ color:#7c3aed !important; }
   filter:grayscale(1);
 }
 .icon-btn.is-drive-off .tb-drive-push-badge{ display:none !important; }
+/* SV2.10.505: Drive NON configurato (nessun URL Apps Script). Le due frecce
+   restano al loro posto ma grigie e con un divieto rosso sovrapposto, per dire
+   che l'azione esiste ma non e' disponibile finche' non si configura il servizio.
+   Il divieto e' disegnato con i due pseudo-elementi: ::after il cerchio,
+   ::before la barra diagonale. */
+.icon-btn.is-drive-unset{
+  color:#6b7280 !important;
+  cursor:not-allowed !important;
+  pointer-events:none;
+  position:relative;
+}
+/* ATTENZIONE: opacity e filter NON vanno sul pulsante, altrimenti si applicano
+   anche ai suoi pseudo-elementi e il divieto rosso viene grigiato e sbiadito.
+   Vanno sul solo contenuto (l'icona SVG). */
+.icon-btn.is-drive-unset > svg,
+.icon-btn.is-drive-unset > span:not(.tb-drive-push-badge){
+  opacity:0.45;
+  filter:grayscale(1);
+}
+.icon-btn.is-drive-unset::after{
+  content:'';
+  position:absolute;
+  left:50%; top:50%;
+  width:18px; height:18px;
+  margin:-9px 0 0 -9px;
+  border:2px solid #ef4444;
+  border-radius:50%;
+  box-sizing:border-box;
+  pointer-events:none;
+  z-index:2;
+}
+.icon-btn.is-drive-unset::before{
+  content:'';
+  position:absolute;
+  left:50%; top:50%;
+  width:18px; height:2px;
+  margin:-1px 0 0 -9px;
+  background:#ef4444;
+  transform:rotate(-45deg);
+  pointer-events:none;
+  z-index:2;
+}
+.icon-btn.is-drive-unset .tb-drive-push-badge{ display:none !important; }
 @keyframes tb-drive-spin{
   from{ transform:rotate(0deg) }
   to  { transform:rotate(360deg) }
@@ -10749,6 +10792,60 @@ body.theme-light .dlg-input{background:var(--bg3)}
   body.mtools-open #mobileDrawerOverlay{ opacity:1; pointer-events:auto; }
 }
 
+/* ==========================================================================
+   SV2.10.506 — TOOLBAR AZIONI DEL CARRELLO PREVENTIVO (desktop, >=1100px)
+   ==========================================================================
+   Prima i 10 pulsanti stavano in linea nell'header insieme a titolo e switch
+   di modalita': lo spazio residuo li comprimeva, le etichette lunghe andavano
+   a capo e ogni pulsante finiva con un'altezza diversa (una o due righe).
+   Ora la barra azioni occupa una RIGA PROPRIA a piena larghezza, allineata a
+   destra, con altezza fissa e etichette su riga singola. Se non ci stanno,
+   vanno a capo in modo ordinato mantenendo l'allineamento. */
+@media (min-width: 1100px){
+  #quoteCartModal .modal-head{
+    flex-wrap:wrap;
+    row-gap:10px;
+    padding-bottom:12px;
+  }
+  .qcart-actions{
+    display:flex !important;
+    flex:1 0 100%;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:flex-end;
+    gap:7px;
+    margin:0;
+  }
+  /* Altezza fissa + nowrap = tutti i pulsanti perfettamente allineati.
+     Il font-size e' !important perche' i pulsanti hanno uno style inline a 13px. */
+  .qcart-actions .btn{
+    height:31px;
+    min-height:31px;
+    padding:0 11px;
+    font-size:11px !important;
+    font-weight:700;
+    letter-spacing:0.3px;
+    line-height:1;
+    white-space:nowrap;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    border-radius:7px;
+    border-width:1px;
+    box-shadow:none;
+    flex:0 0 auto;
+  }
+  .qcart-actions .btn:hover{
+    filter:brightness(1.12);
+    transform:translateY(-1px);
+  }
+  .qcart-actions .btn:active{ transform:none; }
+  /* I due pulsanti "Impostazioni" sono di contorno: restano neutri ma con lo
+     stesso peso geometrico degli altri, separati da un filo di respiro. */
+  #quoteCartSettingsBtn{ margin-left:10px; }
+}
+
 /* SV2.10.338: il menu ☰ Azioni del carrello si attiva fino a 1099px così su
    TABLET (769–1023px: layout desktop ma stretto) gli 8 pulsanti azione non
    sforano più a destra. Da 1024px in su ci stanno in linea (misurato). */
@@ -10820,7 +10917,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.504</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.506</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11523,7 +11620,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.504 mobile");
+console.info("[bootstrap] script avvio — SV2.10.506 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13019,7 +13116,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.504';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.506';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -21227,6 +21324,28 @@ function _driveUpdateLocalModeUI(){
   var btnPull = document.getElementById('btnDriveManualPull');
   // SV2.10.501: master switch OFF (Drive configurato ma sincronizzazione spenta).
   // Entrambe le icone restano visibili ma disattivate, senza badge numerico.
+  // SV2.10.505: Drive NON configurato. Le icone restano visibili ma grigie e con
+  // il divieto rosso: prima sparivano del tutto e non si capiva che l'azione
+  // esistesse ma richiedesse una configurazione.
+  if(!DRIVE_STATE.url){
+    var _unsetTitle = 'Google Drive non configurato \u2014 imposta l\u2019URL del servizio in Backup & Sincronizzazione';
+    [btnPush, btnPull].forEach(function(b){
+      if(!b) return;
+      b.style.display = '';
+      b.classList.add('is-drive-unset');
+      b.classList.remove('is-drive-off', 'has-pending');
+      b.setAttribute('aria-disabled', 'true');
+      b.title = _unsetTitle;
+      b.setAttribute('aria-label', _unsetTitle);
+    });
+    var _unsetBadge = document.getElementById('btnDriveManualPushBadge');
+    if(_unsetBadge) _unsetBadge.style.display = 'none';
+    var _unsetRefresh = document.getElementById('btnDriveRefresh');
+    if(_unsetRefresh) _unsetRefresh.style.display = 'none';
+    return;
+  }
+  [btnPush, btnPull].forEach(function(b){ if(b) b.classList.remove('is-drive-unset'); });
+
   var drvOff = !!(DRIVE_STATE.url && !DRIVE_STATE.enabled);
   if(drvOff){
     var _offTitle = 'Sincronizzazione Drive disattivata \u2014 riattivala da Backup & Sincronizzazione';
