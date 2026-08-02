@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.519 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.520 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11032,7 +11032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.519</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.520</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11735,7 +11735,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.519 mobile");
+console.info("[bootstrap] script avvio — SV2.10.520 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13231,7 +13231,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.519';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.520';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58673,6 +58673,10 @@ function renderQuoteCartContent(){
       // V2.10.185: qty=0 → riga "parcheggiata". Resta visibile ma con celle
       // numeriche vuote ed esclusa dai calcoli (skip in computeQuoteTotals).
       const isZeroQty = (it.qty === 0);
+      // SV2.10.520: stesso trattamento della Modalita' Analisi (518) — per queste
+      // righe il "listino" e' in realta' il prezzo di vendita, quindi la colonna
+      // Listino e lo Sconto non hanno significato.
+      const _noList = (it._noListino === true);
       const dPct = _normDiscountPct(it.discountPct);
       const sellUnit = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - dPct/100) : null;
       const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
@@ -58736,14 +58740,14 @@ function renderQuoteCartContent(){
               '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
             '</div>' +
           '</td>' +
-          '<td class="num">' + ((it.isFreeField || isZeroQty) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
+          '<td class="num">' + ((it.isFreeField || isZeroQty || _noList) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
           '<td>' +
             // V2.6.4: UI compatta identica a quella della colonna "Sc. Cliente"
             // in Modalità Analisi (V2.6.2). Solo casella + simbolo % allineati a destra.
             // Rimosso l'importo in euro sotto (era ridondante: il prezzo finale è
             // già visibile nelle colonne "Vendita unit." e "Tot. Vendita" accanto).
             // SV2.10.358: le voci campo libero non hanno listino né sconto → trattino.
-            ((it.isFreeField || isZeroQty) ? _dash :
+            ((it.isFreeField || isZeroQty || _noList) ? _dash :
             '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
               '<input type="number" class="qcart-discount-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + _fmtDiscountForInput(dPct) + '" min="0" max="100" step="0.01" ' +
                 'style="width:54px;padding:3px 6px;font-size:12px" ' +
@@ -59201,9 +59205,11 @@ function renderQuoteCartContent(){
       const item = window._QUOTE_STATE.items.find(it => it.code === code);
       if(!item) return;
       const newPrice = _parsePriceInput(inp.value);
-      // SV2.10.358: voce libera → il prezzo digitato È il prezzo di vendita (pvp),
-      // senza sconto. Aggiorno direttamente pvp e mantengo discountPct = 0.
-      if(item.isFreeField){
+      /* SV2.10.520 — righe SENZA LISTINO (`_noListino`, articolo personale il cui
+         prezzo di vendita fa da base, vedi 517): il prezzo digitato E' il prezzo,
+         come per le voci libere. Prima veniva convertito in uno sconto sul
+         "listino" 240 e clampato a [0,100]: sopra 240 tornava a 240. */
+      if(item.isFreeField || item._noListino === true){
         if(newPrice != null){
           item.pvp = newPrice;
           item.discountPct = 0;
@@ -59229,7 +59235,7 @@ function renderQuoteCartContent(){
       const item = window._QUOTE_STATE.items.find(it => it.code === code);
       // SV2.10.358: per le voci libere il prezzo digitato è il pvp; nessuno sconto
       // da ricalcolare. Aggiorno pvp live; il re-render avviene al blur (change).
-      if(item && item.isFreeField){
+      if(item && (item.isFreeField || item._noListino === true)){
         const np = _parsePriceInput(inp.value);
         if(np != null){ item.pvp = np; item.discountPct = 0; }
         return;
