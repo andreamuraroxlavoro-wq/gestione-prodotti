@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.498 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.499 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10808,7 +10808,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.498</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.499</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11509,7 +11509,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.498 mobile");
+console.info("[bootstrap] script avvio — SV2.10.499 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13005,7 +13005,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.498';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.499';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -20492,6 +20492,9 @@ function _driveNotifyAppSettingsChange(){
 }
 
 function driveNotifyChange(kind, key, record){
+  // SV2.10.499: archivio locale live — aggancio PRIMA del guard su DRIVE_STATE.url,
+  // cosi' funziona anche con Drive Sync spento.
+  try { if(typeof _alvHookNotify === 'function') _alvHookNotify(kind, key); } catch(_){}
   if(!DRIVE_STATE.url) return;
   // kind: 'data' | 'edits' | 'settings'
   // key:  per 'data' = codice prodotto, per 'edits' = _idx (numero), per 'settings' = nome chiave
@@ -23823,6 +23826,510 @@ function bkNotifyEdit(){
     bkAutoBackupIfNeeded('edits').catch(e => console.warn('[backup] auto-edits failed', e));
   }
 }
+
+
+/* ==========================================================================
+   SV2.10.499 — ARCHIVIO LOCALE LIVE (ALV)
+   ==========================================================================
+   Terzo livello di persistenza, INDIPENDENTE da backup locale e Drive Sync:
+
+     IndexedDB   → memoria calda runtime (invariata, resta la piu' veloce)
+     ALV         → cartella FISSA su disco, aggiornata AUTOMATICAMENTE ad ogni
+                   modifica con debounce. E' la fonte autorevole su disco.
+     Backup      → snapshot manuali datati (invariato)
+     Drive       → salvataggio/ripristino completo al bisogno
+
+   PERCHE' PIU' FILE E NON UN FILE UNICO
+   Il DB completo pesa ~85 MB non compresso: riscriverlo ad ogni modifica
+   bloccherebbe il thread principale per 1-2 s. Il catalogo importato pero'
+   cambia solo su import/merge listino, mentre EDITS / personali / preventivi /
+   clienti / servizi / impostazioni pesano pochi MB. Quindi:
+
+     catalogo.json      ~80 MB  scritto SOLO su import/merge o "Salva tutto"
+     personali.json     piccolo debounce
+     edits.json         piccolo debounce
+     clienti.json       piccolo debounce
+     preventivi.json    piccolo debounce
+     servizi.json       piccolo debounce
+     impostazioni.json  minimo  debounce
+     _manifest.json     minimo  scritto ad ogni flush
+
+   I file caldi stanno sotto i pochi MB: la scrittura e' nell'ordine dei
+   10-50 ms, impercettibile.
+
+   ATOMICITA': createWritable() del browser scrive su uno swap file e commuta
+   il file solo alla close(). Un'interruzione a meta' scrittura non lascia il
+   file troncato.
+   ========================================================================== */
+
+const ALV_DEBOUNCE_MS = 1200;      // attesa dopo l'ultima modifica prima di scrivere
+const ALV_FILES = {
+  catalogo:     'catalogo.json',
+  personali:    'personali.json',
+  edits:        'edits.json',
+  clienti:      'clienti.json',
+  preventivi:   'preventivi.json',
+  servizi:      'servizi.json',
+  impostazioni: 'impostazioni.json',
+};
+const ALV_MANIFEST = '_manifest.json';
+const ALV_HOT = ['personali','edits','clienti','preventivi','servizi','impostazioni'];
+
+const ALV_STATE = {
+  dirHandle: null,
+  dirName: null,
+  enabled: false,          // true solo se handle presente E permesso concesso
+  needsGesture: false,     // handle presente ma permesso da riconfermare con un click
+  dirty: new Set(),
+  timer: null,
+  saving: false,
+  again: false,
+  lastSaveAt: null,
+  lastError: null,
+  lastMs: 0,
+  lastBytes: 0,
+  apiSupported: typeof window.showDirectoryPicker === 'function',
+};
+window.ALV_STATE = ALV_STATE;
+
+function _alvFmtSize(b){
+  if(b == null) return '—';
+  if(b < 1024) return b + ' B';
+  if(b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+/* ---------- cartella ---------- */
+
+async function alvPickDirectory(){
+  if(!ALV_STATE.apiSupported){
+    toast('Questo browser non supporta l\u2019archivio locale automatico (serve Chrome o Edge su PC).', 'warn', 5000);
+    return false;
+  }
+  try {
+    const handle = await window.showDirectoryPicker({
+      id: 'gestione-prodotti-live',
+      mode: 'readwrite',
+      startIn: 'documents',
+    });
+    if(!handle) return false;
+    const ok = await _bkEnsurePermission(handle, 'readwrite');
+    if(!ok){ toast('Permesso di scrittura negato sulla cartella', 'err'); return false; }
+    ALV_STATE.dirHandle = handle;
+    ALV_STATE.dirName = handle.name || 'cartella';
+    ALV_STATE.enabled = true;
+    ALV_STATE.needsGesture = false;
+    ALV_STATE.lastError = null;
+    await idbSet('meta', 'liveDirHandle', handle);
+    toast('Archivio locale attivo su: ' + ALV_STATE.dirName, 'ok', 3000);
+    _alvUpdateBadge();
+    return true;
+  } catch(e){
+    if(e && e.name === 'AbortError') return false;
+    console.error('[alv] pickDirectory failed', e);
+    toast('Errore selezione cartella: ' + (e.message || e), 'err', 4000);
+    return false;
+  }
+}
+
+async function alvDisable(){
+  ALV_STATE.dirHandle = null;
+  ALV_STATE.dirName = null;
+  ALV_STATE.enabled = false;
+  ALV_STATE.needsGesture = false;
+  ALV_STATE.dirty.clear();
+  try { await idbSet('meta', 'liveDirHandle', null); } catch(_){}
+  _alvUpdateBadge();
+}
+
+/* All'avvio: NON si puo' chiamare requestPermission fuori da un gesto utente.
+   Si interroga soltanto lo stato; se e' 'prompt' si arma un listener one-shot
+   che al primo click dell'utente richiede il permesso e riattiva l'archivio. */
+async function alvLoadHandle(){
+  try {
+    const handle = await idbGet('meta', 'liveDirHandle');
+    if(!handle) return false;
+    ALV_STATE.dirHandle = handle;
+    ALV_STATE.dirName = handle.name || 'cartella';
+    let status = 'prompt';
+    try { status = await handle.queryPermission({ mode: 'readwrite' }); } catch(_){}
+    if(status === 'granted'){
+      ALV_STATE.enabled = true;
+      ALV_STATE.needsGesture = false;
+    } else if(status === 'denied'){
+      ALV_STATE.enabled = false;
+      ALV_STATE.lastError = 'permesso negato sulla cartella';
+    } else {
+      ALV_STATE.enabled = false;
+      ALV_STATE.needsGesture = true;
+      _alvArmGestureRetry();
+    }
+    _alvUpdateBadge();
+    return ALV_STATE.enabled;
+  } catch(e){
+    console.warn('[alv] load handle failed', e);
+    return false;
+  }
+}
+
+function _alvArmGestureRetry(){
+  const once = async () => {
+    document.removeEventListener('pointerdown', once, true);
+    if(!ALV_STATE.dirHandle || ALV_STATE.enabled) return;
+    try {
+      const req = await ALV_STATE.dirHandle.requestPermission({ mode: 'readwrite' });
+      if(req === 'granted'){
+        ALV_STATE.enabled = true;
+        ALV_STATE.needsGesture = false;
+        ALV_STATE.lastError = null;
+        console.info('[alv] permesso riconcesso, archivio attivo');
+        _alvUpdateBadge();
+      }
+    } catch(e){ console.warn('[alv] gesture retry failed', e); }
+  };
+  document.addEventListener('pointerdown', once, true);
+}
+
+/* ---------- I/O ---------- */
+
+async function _alvWriteFile(name, text){
+  const fh = await ALV_STATE.dirHandle.getFileHandle(name, { create: true });
+  const w = await fh.createWritable();
+  await w.write(text);
+  await w.close();
+  return text.length;
+}
+
+async function _alvReadFile(name){
+  try {
+    const fh = await ALV_STATE.dirHandle.getFileHandle(name);
+    const f = await fh.getFile();
+    const t = await f.text();
+    return JSON.parse(t);
+  } catch(e){
+    return null;
+  }
+}
+
+/* ---------- costruzione payload per singolo file ---------- */
+
+function _alvBuild(kind){
+  const at = new Date().toISOString();
+  switch(kind){
+    case 'catalogo':
+      // solo prodotti importati: i personali stanno nel loro file
+      return { v:1, at, appVersion: APP_VERSION, data: DATA.filter(p => p && p.isPersonal !== true) };
+    case 'personali': {
+      // si salva anche la POSIZIONE nell'array DATA: personalProductUpdate lavora
+      // per posizione, quindi al ripristino va ricostruito l'ordine esatto.
+      const items = [];
+      DATA.forEach((p,i) => { if(p && p.isPersonal === true) items.push({ pos:i, p }); });
+      return { v:1, at, items };
+    }
+    case 'edits':
+      return { v:1, at, edits: EDITS };
+    case 'clienti':
+      return { v:1, at, clients: (window._CLIENTS_STATE && Array.isArray(window._CLIENTS_STATE.clients)) ? window._CLIENTS_STATE.clients : [] };
+    case 'preventivi':
+      return { v:1, at,
+        quotes:   (window._QUOTES_ARCHIVE && Array.isArray(window._QUOTES_ARCHIVE.quotes)) ? window._QUOTES_ARCHIVE.quotes : [],
+        stati:    (window._QUOTES_ARCHIVE && Array.isArray(window._QUOTES_ARCHIVE.stati)) ? window._QUOTES_ARCHIVE.stati : [],
+        counters: (window._QUOTES_ARCHIVE && window._QUOTES_ARCHIVE.counters && typeof window._QUOTES_ARCHIVE.counters === 'object') ? window._QUOTES_ARCHIVE.counters : {},
+      };
+    case 'servizi':
+      return { v:1, at, services: (window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services)) ? window._SERVICES_STATE.services : [] };
+    case 'impostazioni':
+      return { v:1, at,
+        settings: _bkBuildSettingsPayload(),
+        cascadeDiscounts:     localStorage.getItem('discountTreeAdjustments_v1') || null,
+        salesPriceLists:      localStorage.getItem('salesPriceLists_v1') || null,
+        activeSalesPriceList: localStorage.getItem('activeSalesPriceList_v1') || null,
+      };
+    default:
+      return null;
+  }
+}
+
+async function _alvWriteManifest(){
+  const m = {
+    v: 1,
+    at: new Date().toISOString(),
+    appVersion: APP_VERSION,
+    stats: {
+      prodotti: DATA.length,
+      importati: DATA.filter(p => p && p.isPersonal !== true).length,
+      personali: DATA.filter(p => p && p.isPersonal === true).length,
+      edits: Object.keys(EDITS || {}).length,
+      preventivi: (window._QUOTES_ARCHIVE && window._QUOTES_ARCHIVE.quotes) ? window._QUOTES_ARCHIVE.quotes.length : 0,
+      clienti: (window._CLIENTS_STATE && window._CLIENTS_STATE.clients) ? window._CLIENTS_STATE.clients.length : 0,
+      servizi: (window._SERVICES_STATE && window._SERVICES_STATE.services) ? window._SERVICES_STATE.services.length : 0,
+    },
+  };
+  await _alvWriteFile(ALV_MANIFEST, JSON.stringify(m));
+  return m;
+}
+
+/* ---------- marcatura + debounce ---------- */
+
+function alvMark(kind){
+  if(!ALV_STATE.enabled) return;
+  if(!ALV_FILES[kind]) return;
+  ALV_STATE.dirty.add(kind);
+  clearTimeout(ALV_STATE.timer);
+  ALV_STATE.timer = setTimeout(() => { alvFlush().catch(e => console.warn('[alv] flush', e)); }, ALV_DEBOUNCE_MS);
+  _alvUpdateBadge();
+}
+
+/* Aggancio centrale: chiamato in testa a driveNotifyChange(), quindi copre
+   TUTTI i punti di modifica gia' esistenti senza toccarli uno per uno.
+   Funziona anche se il Drive Sync e' spento (driveNotifyChange esce subito
+   quando manca DRIVE_STATE.url, ma l'hook e' prima di quel return). */
+function _alvHookNotify(kind, key){
+  if(!ALV_STATE.enabled) return;
+  if(kind === 'edits'){ alvMark('edits'); return; }
+  if(kind === 'data'){ alvMark('personali'); return; }
+  if(kind === 'settings'){
+    if(key === '__clients__')        { alvMark('clienti');    return; }
+    if(key === '__quotes_archive__') { alvMark('preventivi'); return; }
+    if(key === '__services__')       { alvMark('servizi');    return; }
+    alvMark('impostazioni');
+    return;
+  }
+}
+
+/* ---------- scrittura ---------- */
+
+async function alvFlush(){
+  if(!ALV_STATE.enabled || !ALV_STATE.dirHandle) return false;
+  if(ALV_STATE.saving){ ALV_STATE.again = true; return false; }
+  const kinds = Array.from(ALV_STATE.dirty);
+  if(!kinds.length) return false;
+  ALV_STATE.dirty.clear();
+  ALV_STATE.saving = true;
+  const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  let bytes = 0;
+  try {
+    for(const k of kinds){
+      const obj = _alvBuild(k);
+      if(obj === null) continue;
+      bytes += await _alvWriteFile(ALV_FILES[k], JSON.stringify(obj));
+    }
+    await _alvWriteManifest();
+    ALV_STATE.lastSaveAt = new Date().toISOString();
+    ALV_STATE.lastError = null;
+    ALV_STATE.lastBytes = bytes;
+    const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    ALV_STATE.lastMs = Math.round(t1 - t0);
+    try { await idbSet('meta', 'alvLastSaveAt', ALV_STATE.lastSaveAt); } catch(_){}
+    console.info('[alv] scritti ' + kinds.join(', ') + ' — ' + _alvFmtSize(bytes) + ' in ' + ALV_STATE.lastMs + ' ms');
+  } catch(e){
+    kinds.forEach(k => ALV_STATE.dirty.add(k));   // si riprova al prossimo giro
+    ALV_STATE.lastError = (e && e.message) || String(e);
+    console.warn('[alv] scrittura fallita', e);
+  } finally {
+    ALV_STATE.saving = false;
+    if(ALV_STATE.again){ ALV_STATE.again = false; alvMark(kinds[0] || 'edits'); }
+    _alvUpdateBadge();
+  }
+  return true;
+}
+
+/* Salvataggio completo, catalogo incluso. Usato dopo import/merge listino e dal
+   pulsante "Salva tutto ora". Puo' impiegare qualche secondo per gli ~80 MB. */
+async function alvSaveAll(showToast){
+  if(!ALV_STATE.enabled){
+    if(showToast) toast('Archivio locale non attivo', 'warn');
+    return false;
+  }
+  Object.keys(ALV_FILES).forEach(k => ALV_STATE.dirty.add(k));
+  clearTimeout(ALV_STATE.timer);
+  if(showToast) toast('Salvataggio archivio locale in corso…', 'info', 2000);
+  const ok = await alvFlush();
+  if(showToast){
+    if(ALV_STATE.lastError) toast('Errore archivio: ' + ALV_STATE.lastError, 'err', 5000);
+    else toast('Archivio locale aggiornato (' + _alvFmtSize(ALV_STATE.lastBytes) + ' in ' + ALV_STATE.lastMs + ' ms)', 'ok', 3500);
+  }
+  return ok;
+}
+
+/* ---------- ripristino dalla cartella ---------- */
+
+async function alvReadManifest(){
+  if(!ALV_STATE.dirHandle) return null;
+  return await _alvReadFile(ALV_MANIFEST);
+}
+
+async function alvRestoreFromFolder(){
+  if(!ALV_STATE.enabled){ toast('Archivio locale non attivo', 'warn'); return false; }
+  const man = await alvReadManifest();
+  if(!man){ toast('Nessun archivio trovato nella cartella', 'err'); return false; }
+  const msg = 'RIPRISTINO DA ARCHIVIO LOCALE\n\n' +
+    'Cartella: ' + ALV_STATE.dirName + '\n' +
+    'Ultimo salvataggio: ' + fmtDate(man.at) + '\n' +
+    'Prodotti: ' + (man.stats ? man.stats.prodotti : '?') +
+    '  (personali: ' + (man.stats ? man.stats.personali : '?') + ')\n' +
+    'Modifiche: ' + (man.stats ? man.stats.edits : '?') + '\n' +
+    'Preventivi: ' + (man.stats ? man.stats.preventivi : '?') + '\n\n' +
+    'Tutti i dati attuali dell\u2019app verranno SOSTITUITI. Procedere?';
+  if(!confirm(msg)) return false;
+
+  try {
+    const [cat, pers, ed, cli, prev, srv, imp] = await Promise.all([
+      _alvReadFile(ALV_FILES.catalogo),
+      _alvReadFile(ALV_FILES.personali),
+      _alvReadFile(ALV_FILES.edits),
+      _alvReadFile(ALV_FILES.clienti),
+      _alvReadFile(ALV_FILES.preventivi),
+      _alvReadFile(ALV_FILES.servizi),
+      _alvReadFile(ALV_FILES.impostazioni),
+    ]);
+    if(!cat || !Array.isArray(cat.data)){ toast('File catalogo.json mancante o illeggibile', 'err', 5000); return false; }
+
+    // ricostruzione DATA con le posizioni originali dei personali
+    const arr = cat.data.slice();
+    if(pers && Array.isArray(pers.items)){
+      pers.items.slice().sort((a,b) => a.pos - b.pos).forEach(it => {
+        const at = Math.min(Math.max(0, it.pos|0), arr.length);
+        arr.splice(at, 0, it.p);
+      });
+    }
+    DATA = arr;
+    EDITS = (ed && ed.edits && typeof ed.edits === 'object') ? ed.edits : {};
+
+    await idbSet('data', 'main', DATA);
+    await idbSet('edits', 'main', EDITS);
+
+    if(cli && Array.isArray(cli.clients)){
+      if(window._CLIENTS_STATE) window._CLIENTS_STATE.clients = cli.clients;
+      try { await idbSet('meta', CLIENTS_KEY, { clients: cli.clients, version: 1 }); } catch(_){}
+    }
+    if(prev && Array.isArray(prev.quotes)){
+      if(window._QUOTES_ARCHIVE){
+        window._QUOTES_ARCHIVE.quotes   = prev.quotes;
+        window._QUOTES_ARCHIVE.stati    = prev.stati || [];
+        window._QUOTES_ARCHIVE.counters = prev.counters || {};
+      }
+      try { await idbSet('meta', QUOTES_KEY, { quotes: prev.quotes, stati: prev.stati || [], counters: prev.counters || {}, version: 1 }); } catch(_){}
+    }
+    if(srv && Array.isArray(srv.services)){
+      if(window._SERVICES_STATE) window._SERVICES_STATE.services = srv.services;
+      try { await idbSet('meta', SERVICES_KEY, { services: srv.services, version: 1 }); } catch(_){}
+    }
+    if(imp){
+      if(imp.settings && typeof imp.settings === 'object'){
+        Object.keys(imp.settings).forEach(k => { try { localStorage.setItem(k, imp.settings[k]); } catch(_){} });
+      }
+      try {
+        if(imp.cascadeDiscounts)     localStorage.setItem('discountTreeAdjustments_v1', imp.cascadeDiscounts);
+        if(imp.salesPriceLists)      localStorage.setItem('salesPriceLists_v1', imp.salesPriceLists);
+        if(imp.activeSalesPriceList) localStorage.setItem('activeSalesPriceList_v1', imp.activeSalesPriceList);
+      } catch(_){}
+    }
+
+    toast('Ripristino completato. Ricarico l\u2019app…', 'ok', 2500);
+    setTimeout(() => location.reload(), 1200);
+    return true;
+  } catch(e){
+    console.error('[alv] restore failed', e);
+    toast('Errore ripristino: ' + (e.message || e), 'err', 6000);
+    return false;
+  }
+}
+
+/* ---------- badge / UI ---------- */
+
+function _alvUpdateBadge(){
+  const el = document.getElementById('alvBadge');
+  if(!el) return;
+  let txt, col;
+  if(!ALV_STATE.enabled && ALV_STATE.needsGesture){ txt = 'da riattivare'; col = 'var(--warn, #f59e0b)'; }
+  else if(!ALV_STATE.enabled){ txt = 'non attivo'; col = 'var(--fg3)'; }
+  else if(ALV_STATE.lastError){ txt = 'errore'; col = 'var(--danger, #e5484d)'; }
+  else if(ALV_STATE.dirty.size || ALV_STATE.saving){ txt = 'salvataggio…'; col = 'var(--warn, #f59e0b)'; }
+  else if(ALV_STATE.lastSaveAt){ txt = 'aggiornato'; col = 'var(--ok, #30a46c)'; }
+  else { txt = 'attivo'; col = 'var(--ok, #30a46c)'; }
+  el.textContent = txt;
+  el.style.color = col;
+}
+
+/* Card iniettata in cima al pannello Backup delle Impostazioni, senza toccare
+   il renderer esistente (wrapping di bkRenderSettingsPanel piu' sotto). */
+async function _alvInjectCard(){
+  const body = document.getElementById('bkSettingsBody');
+  if(!body || document.getElementById('alvCard')) return;
+
+  let manLine = '';
+  if(ALV_STATE.dirHandle){
+    try {
+      const m = await alvReadManifest();
+      if(m) manLine = 'Ultimo salvataggio su disco: <b>' + escapeHtml(fmtDate(m.at)) + '</b> — ' +
+        (m.stats ? (m.stats.prodotti + ' prodotti, ' + m.stats.edits + ' modifiche') : '');
+    } catch(_){}
+  }
+
+  const on = ALV_STATE.enabled;
+  const html =
+    '<div class="bks-card" id="alvCard" style="border:1px solid ' + (on ? 'var(--ok,#30a46c)' : 'var(--bd,#333)') + '">' +
+      '<div class="bks-card-head">' +
+        '<div class="bks-num" style="background:' + (on ? '#30a46c' : '#6b7280') + '">\u25cf</div>' +
+        '<div class="bks-card-title">Archivio locale live' +
+          '<div style="font-size:11px;color:var(--fg3);font-weight:400;margin-top:2px">' +
+            'Cartella fissa aggiornata automaticamente ad ogni modifica' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-left:auto;font-size:11px;font-weight:700" id="alvBadge">—</div>' +
+      '</div>' +
+      '<div class="bks-card-body" style="font-size:12px;color:var(--fg2);line-height:1.6">' +
+        (!ALV_STATE.apiSupported
+          ? '<div style="color:var(--warn,#f59e0b)">Il browser in uso non supporta questa funzione. Serve Chrome o Edge su PC.</div>'
+          : (
+            '<div>Cartella: <b>' + escapeHtml(ALV_STATE.dirName || 'non impostata') + '</b></div>' +
+            (ALV_STATE.needsGesture ? '<div style="color:var(--warn,#f59e0b)">Permesso da riconfermare: clicca un punto qualsiasi della pagina.</div>' : '') +
+            (ALV_STATE.lastError ? '<div style="color:var(--danger,#e5484d)">Ultimo errore: ' + escapeHtml(ALV_STATE.lastError) + '</div>' : '') +
+            (ALV_STATE.lastSaveAt ? '<div>Ultima scrittura in sessione: <b>' + escapeHtml(fmtDate(ALV_STATE.lastSaveAt)) + '</b> (' + _alvFmtSize(ALV_STATE.lastBytes) + ' in ' + ALV_STATE.lastMs + ' ms)</div>' : '') +
+            (manLine ? '<div>' + manLine + '</div>' : '') +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' +
+              '<button type="button" class="btn-pill" onclick="alvPickDirectory().then(()=>{const c=document.getElementById(\'alvCard\');if(c)c.remove();_alvInjectCard();})">' + (ALV_STATE.dirHandle ? 'Cambia cartella' : 'Scegli cartella') + '</button>' +
+              '<button type="button" class="btn-pill subtle" onclick="alvSaveAll(true).then(()=>{const c=document.getElementById(\'alvCard\');if(c)c.remove();_alvInjectCard();})"' + (on ? '' : ' disabled') + '>Salva tutto ora</button>' +
+              '<button type="button" class="btn-pill subtle" onclick="alvRestoreFromFolder()"' + (on ? '' : ' disabled') + '>Ripristina da archivio</button>' +
+              (ALV_STATE.dirHandle ? '<button type="button" class="btn-pill subtle" onclick="alvDisable().then(()=>{const c=document.getElementById(\'alvCard\');if(c)c.remove();_alvInjectCard();})">Disattiva</button>' : '') +
+            '</div>'
+          )
+        ) +
+      '</div>' +
+    '</div>';
+  body.insertAdjacentHTML('afterbegin', html);
+  _alvUpdateBadge();
+}
+window._alvInjectCard = _alvInjectCard;
+
+/* Wrapping non invasivo del renderer del pannello backup */
+(function(){
+  if(typeof bkRenderSettingsPanel !== 'function') return;
+  const _orig = bkRenderSettingsPanel;
+  bkRenderSettingsPanel = async function(){
+    const r = await _orig.apply(this, arguments);
+    try { await _alvInjectCard(); } catch(e){ console.warn('[alv] inject card', e); }
+    return r;
+  };
+})();
+
+/* Flush opportunistico quando la scheda passa in background o si chiude */
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden' && ALV_STATE.enabled && ALV_STATE.dirty.size){
+    clearTimeout(ALV_STATE.timer);
+    alvFlush().catch(() => {});
+  }
+});
+window.addEventListener('beforeunload', (e) => {
+  if(ALV_STATE.enabled && ALV_STATE.dirty.size){
+    clearTimeout(ALV_STATE.timer);
+    alvFlush().catch(() => {});
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
 
 // Apri picker per ripristino: mostra elenco backup nella cartella, oppure file picker
 async function bkPickRestoreFile(){
@@ -27354,6 +27861,7 @@ async function importFile(file){
     await idbSet('data','main',DATA);
     await idbSet('edits','main',EDITS);
     await idbSet('meta','lastImport',new Date().toISOString());
+    try { if(typeof alvSaveAll === 'function') alvSaveAll(false); } catch(_){}
     SETTINGS.lastImport = new Date().toISOString();
     saveSettings();
     // V2.2.35: post-import UI refresh è incapsulato in try/catch indipendenti.
@@ -27481,6 +27989,7 @@ async function importCsvViaWorker(file){
   await idbSet('data','main',DATA);
   await idbSet('edits','main',EDITS);
   await idbSet('meta','lastImport',new Date().toISOString());
+  try { if(typeof alvSaveAll === 'function') alvSaveAll(false); } catch(_){}
   SETTINGS.lastImport = new Date().toISOString();
   saveSettings();
 
@@ -65984,6 +66493,7 @@ async function mergeCatalogImport(newDataArr, diagnosis){
     }
   }
   await idbSet('meta', 'lastImport', now);
+  try { if(typeof alvSaveAll === 'function') alvSaveAll(false); } catch(_){}
   if(typeof SETTINGS !== 'undefined' && SETTINGS){ SETTINGS.lastImport = now; saveSettings(); }
 
   return { updatedCount, newCount, obsoleteCount, restoredCount, paramsSyncCount: paramsTouched.length };
@@ -66813,6 +67323,8 @@ async function init(){
     BACKUP_STATE.lastBackupError = await idbGet('meta', 'lastBackupError') || null;
     _bkUpdateLastBackupBadge();
     const handleLoaded = await bkLoadHandle();
+    // SV2.10.499: archivio locale live
+    try { await alvLoadHandle(); } catch(e){ console.warn('[alv] init failed', e); }
     if(handleLoaded){
       // Auto-backup all'avvio se ultimo > 2 ore (silenzioso, asincrono)
       bkAutoBackupIfNeeded('startup').catch(e => console.warn('[backup] startup auto-backup failed', e));
