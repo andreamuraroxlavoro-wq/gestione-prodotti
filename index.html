@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.515 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.516 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11032,7 +11032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.515</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.516</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11735,7 +11735,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.515 mobile");
+console.info("[bootstrap] script avvio — SV2.10.516 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13231,7 +13231,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.515';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.516';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31156,6 +31156,17 @@ function renderGallery(main, list){
     // affianca lo sconto per indicare la presenza degli sconti aggiuntivi.
     const showDisc = SETTINGS.showDiscount;
     const hasPrice = priceNum(netto) !== null || priceNum(listino) !== null;
+    /* SV2.10.516 — PRODOTTO PERSONALE SENZA LISTINO ma con prezzo di vendita
+       imposto (campo salePrice, vedi 497). Senza listino il ramo "vendita" piu'
+       sotto non scattava (richiede priceNum(listino)) e la card cadeva nel ramo
+       acquisto, mostrando il COSTO D'ACQUISTO anche in modalita' vendita.
+       Regola: in vendita si mostra SOLO il prezzo di vendita imposto; in acquisto
+       il netto d'acquisto E il prezzo di vendita imposto. Il prezzo imposto vince
+       sempre sul listino di vendita attivo, perche' e' una decisione presa
+       sull'articolo. */
+    const _impostoSale = (p.isPersonal === true && !priceNum(listino))
+      ? priceNum(getField(p, 'salePrice'))
+      : null;
     const _showEff = _eff && _eff.hasAdj;
     // V2.10.263: modalita' VENDITA. Se il toggle e' su 'vendita' e c'e' un
     // listino attivo, la card mostra il PREZZO DI VENDITA al cliente
@@ -31277,8 +31288,23 @@ function renderGallery(main, list){
     }
 
     let priceBlock = '';
-    if(hasPrice){
-      if(showDisc && _isSaleMode && _saleInfo && priceNum(listino)){
+    if(hasPrice || _impostoSale){
+      if(_impostoSale){
+        // SV2.10.516: ramo dedicato (vedi commento sopra). La riga segnaposto
+        // invisibile mantiene l'altezza della card identica alle altre, cosi' la
+        // griglia non si sfalsa.
+        priceBlock = _isSaleMode
+          ? `
+          <div class="card-prices card-prices-sale" title="Prezzo di vendita imposto sull'articolo: prevale sul listino di vendita attivo">
+            <span class="card-price" style="visibility:hidden" aria-hidden="true"><span class="card-price-label">Listino</span> € 0,00</span>
+            <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_impostoSale)}</span>
+          </div>`
+          : `
+          <div class="card-prices" title="Costo d'acquisto e prezzo di vendita imposto sull'articolo (prevale sul listino di vendita attivo)">
+            ${priceNum(netto) ? `<span class="card-price card-listino-neutral"><span class="card-price-label">Netto</span> € ${fmtPrice(netto)}</span>` : `<span class="card-price" style="visibility:hidden" aria-hidden="true"><span class="card-price-label">Netto</span> € 0,00</span>`}
+            <span class="card-price card-prezzo-vendita"><span class="card-price-label">Prezzo</span> € ${fmtPrice(_impostoSale)}</span>
+          </div>`;
+      } else if(showDisc && _isSaleMode && _saleInfo && priceNum(listino)){
         // ── Modalita' VENDITA ──
         // prezzo vendita = listino x (1 - scontoEff/100)
         const _scVend = _saleInfo.scontoEff;
