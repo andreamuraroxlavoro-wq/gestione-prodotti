@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.523 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.524 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11032,7 +11032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.523</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.524</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11735,7 +11735,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.523 mobile");
+console.info("[bootstrap] script avvio — SV2.10.524 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13231,7 +13231,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.523';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.524';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -44725,6 +44725,26 @@ function doExportListinoCliente(){
 // Helper: dato un item del carrello, calcola lo sconto vendita dal listino
 // attivo (lookup gerarchica). Ritorna {scontoEff, hasAdj, ...} o null se
 // non c'e' modalita' Vendita / listino / corrispondenza nel catalogo.
+/* SV2.10.524 — sconto EQUIVALENTE al prezzo di vendita imposto sull'articolo
+   (campo `salePrice`). Il prezzo deciso sull'articolo prevale sul listino di
+   vendita attivo: e' la stessa regola gia' applicata all'inserimento in
+   carrello (497) e alla card (516/522). Ritorna null se l'articolo non ha un
+   prezzo imposto o non ha listino. Il carrello ragiona per sconti, quindi il
+   prezzo si esprime cosi'; 4 decimali per non scostare i centesimi. */
+function _qImposedDiscountForItem(item){
+  if(!item || item.isFreeField) return null;
+  let p = null;
+  if(typeof DATA !== 'undefined' && Array.isArray(DATA)){
+    if(typeof item.idx === 'number' && DATA[item.idx]) p = DATA[item.idx];
+    if(!p && item.code) p = DATA.find(d => d && String(getField(d, 'name')) === String(item.code));
+  }
+  if(!p) return null;
+  const sale = priceNum(getField(p, 'salePrice'));
+  const list = priceNum(getField(p, 'PVP') || getField(p, 'precio_venta_cliente_final'));
+  if(!(sale > 0) || !(list > 0)) return null;
+  return Math.round((1 - sale / list) * 100 * 10000) / 10000;
+}
+
 function _applySplToCartItem(item){
   if(!item) return null;
   // Modalita' Vendita richiesta
@@ -44760,7 +44780,11 @@ function _splApplyToAllCartItems(){
       // V2.10.263: sovrascrivo lo sconto cliente con quello del listino.
       // Salvo anche il flag _splApplied per distinguere "sconto da listino"
       // da "sconto manuale" in vista futura (statistiche, badge).
-      const newPct = info.scontoEff;
+      // SV2.10.524: se l'articolo ha un PREZZO DI VENDITA IMPOSTO, vince quello:
+      // applicare il listino generale lo cancellerebbe (es. 800 imposto che
+      // diventa 1228 -50% = 614).
+      const _imp = _qImposedDiscountForItem(it);
+      const newPct = (_imp != null) ? _imp : info.scontoEff;
       if(it.discountPct !== newPct){
         it.discountPct = newPct;
         it._splApplied = true;
@@ -52509,6 +52533,16 @@ function _refreshQuote_buildDiff(){
       return Math.abs(na - nb) < 0.005;
     };
     if(!_eqNum(item.pvp, newPvp))         diffs.push({ field: 'pvp',      label: 'Prezzo listino (PVP)', old: item.pvp,       neww: newPvp, kind: 'eur' });
+    /* SV2.10.524 — se l'articolo ha un prezzo di vendita imposto, "Aggiorna
+       preventivo" riallinea anche lo sconto della riga a quel prezzo. Senza,
+       una riga a cui era stato applicato il listino generale (o modificata a
+       mano) restava disallineata dall'articolo e il pulsante non la sistemava. */
+    const _impDisc = _qImposedDiscountForItem(item);
+    if(_impDisc != null && !_eqNum(item.discountPct, _impDisc)){
+      diffs.push({ field: 'discountPct', label: 'Prezzo di vendita imposto', kind: 'eur',
+        old: (item.pvp != null ? item.pvp * (1 - (item.discountPct || 0) / 100) : null),
+        neww: (newPvp != null ? newPvp * (1 - _impDisc / 100) : null) });
+    }
     // V2.10.263: se la riga ha un NETTO modificato a mano (_nettoOverride),
     // l'override deve sopravvivere all'Aggiorna preventivo: NON segnalo la
     // differenza di netto come modifica da applicare. Tutti gli altri campi
@@ -52538,6 +52572,8 @@ function _refreshQuote_buildDiff(){
       // L'idx puo' essere cambiato dopo reimport del catalogo
       idx: p._idx != null ? p._idx : item.idx,
     };
+    // SV2.10.524: ripristino dello sconto derivato dal prezzo imposto
+    if(_impDisc != null) updates.discountPct = _impDisc;
     // V2.10.263: il NETTO (e gli sconti a cascata che lo determinano) viene
     // riallineato al catalogo SOLO se la riga non ha un override manuale.
     // Con _nettoOverride attivo, il netto modificato a mano resta intatto
