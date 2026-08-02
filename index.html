@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.508 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.509 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10792,6 +10792,52 @@ body.theme-light .dlg-input{background:var(--bg3)}
   body.mtools-open #mobileDrawerOverlay{ opacity:1; pointer-events:auto; }
 }
 
+/* SV2.10.509 — controlli di finestra del carrello (Svuota / Chiudi) in alto a
+   destra, sulla stessa riga dello switch Analisi/Cliente. Stessa geometria dei
+   pulsanti della barra azioni sottostante, cosi' le due righe si leggono come
+   un blocco unico. */
+.qcart-head-right{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  flex-shrink:0;
+  margin-left:auto;
+}
+.qcart-head-right .btn{
+  height:31px;
+  min-height:31px;
+  padding:0 12px;
+  font-size:11px !important;
+  font-weight:700;
+  letter-spacing:0.3px;
+  line-height:1;
+  white-space:nowrap;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  border-radius:7px;
+}
+#quoteCartClearBtn{
+  background:transparent;
+  color:#ef4444;
+  border:1px solid rgba(239,68,68,0.45);
+}
+#quoteCartClearBtn:hover{
+  background:rgba(239,68,68,0.12);
+  border-color:#ef4444;
+}
+#quoteCartCloseBtn{
+  background:var(--bg3);
+  color:var(--fg2);
+  border:1px solid var(--border2);
+}
+#quoteCartCloseBtn:hover{
+  background:var(--bg4, var(--bg3));
+  color:var(--fg);
+  filter:brightness(1.12);
+}
+
 /* ==========================================================================
    SV2.10.506 — TOOLBAR AZIONI DEL CARRELLO PREVENTIVO (desktop, >=1100px)
    ==========================================================================
@@ -10917,7 +10963,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.508</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.509</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11620,7 +11666,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.508 mobile");
+console.info("[bootstrap] script avvio — SV2.10.509 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13116,7 +13162,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.508';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.509';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -57464,6 +57510,13 @@ function openQuoteCart(){
         // SV2.10.335: su mobile gli 8 pulsanti azione finiscono in un menu a comparsa
         // (☰ Azioni). Su desktop il wrapper è display:contents → pulsanti in linea, invariato.
         '<button type="button" class="qcart-actions-toggle" id="qcartActionsToggle" aria-label="Azioni preventivo" title="Azioni">☰ Azioni</button>' +
+        // SV2.10.509: controlli di finestra in alto a destra, sulla riga dello
+        // switch di modalita'. Gli ascoltatori sono agganciati per ID, quindi lo
+        // spostamento nel DOM non richiede altre modifiche al codice.
+        '<div class="qcart-head-right">' +
+          '<button class="btn small" id="quoteCartClearBtn" type="button" title="Rimuove tutte le righe dal carrello">🗑️ Svuota carrello</button>' +
+          '<button class="btn small" id="quoteCartCloseBtn" type="button" title="Chiude la finestra del carrello (il contenuto resta salvato)">✕ Chiudi finestra</button>' +
+        '</div>' +
         '<div class="qcart-actions" id="qcartActions">' +
         // V2.4.7: due pulsanti separati
         // - Impostazioni preventivo: configurazione semantica del preventivo
@@ -57503,8 +57556,8 @@ function openQuoteCart(){
         '<div id="quoteCartContent" style="flex:1;min-height:0;overflow-y:auto;overflow-x:auto;padding:0 24px 18px"></div>' +
       '</div>' +
       '<div class="modal-foot">' +
-        '<button class="btn ghost" id="quoteCartCloseBtn">Chiudi</button>' +
-        '<button class="btn ghost" id="quoteCartClearBtn" style="color:#ef4444">🗑️ Svuota carrello</button>' +
+        // SV2.10.509: "Chiudi finestra" e "Svuota carrello" spostati in alto a
+        // destra, sulla stessa riga dello switch Analisi/Cliente.
         '<span style="flex:1"></span>' +
         // V2.10.156: Pulsante Formula di Pagamento (calcolatore rate cliente)
         '<button class="btn small" id="quoteCartPaymentBtn" style="margin-right:8px">💳 Formula di pagamento</button>' +
