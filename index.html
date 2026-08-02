@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.510 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.511 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10991,7 +10991,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.510</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.511</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11694,7 +11694,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.510 mobile");
+console.info("[bootstrap] script avvio — SV2.10.511 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13190,7 +13190,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.510';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.511';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -55375,6 +55375,13 @@ function computeQuoteTotals(){
   let totalDiscountValue = 0;    // (totalPvp - totalSellPrice) — quanto ha "tolto" lo sconto
   let weightedDiscountSum = 0;   // per calcolare lo sconto medio pesato sul valore listino
   let weightedDiscountBase = 0;
+  // SV2.10.511: le righe marcate "prezzo netto" (it.nettoPrice) non espongono il
+  // listino in stampa, quindi non devono nemmeno finire in "Totale Listino" e
+  // "Importo Scontato": altrimenti il listino nascosto sarebbe ricavabile per
+  // differenza. Il loro valore confluisce in un totale dedicato.
+  let visibleListPrice = 0;      // listino delle sole righe NON marcate prezzo netto
+  let visibleSellPrice = 0;      // vendita delle stesse righe
+  let nettoRowsSellPrice = 0;    // vendita delle righe marcate prezzo netto
   // V2.10.170: scomposizione Prodotti/Servizi per le KPI card dell'analisi.
   // Regola classificazione: Servizio = isService=true (riconosciuto via _isServiceItem,
   // che usa servicesList() come fonte di verita' affidabile anche quando window.DATA
@@ -55408,6 +55415,13 @@ function computeQuoteTotals(){
       // Per lo sconto medio pesato: il "peso" è il valore listino della riga.
       weightedDiscountSum  += dPct * lineList;
       weightedDiscountBase += lineList;
+      // SV2.10.511: separazione righe a prezzo netto
+      if(it.nettoPrice === true){
+        nettoRowsSellPrice += lineSell;
+      } else {
+        visibleListPrice += lineList;
+        visibleSellPrice += lineSell;
+      }
     }
     if(nettoValid){
       totalNetto += it.netto * it.qty;
@@ -55448,6 +55462,10 @@ function computeQuoteTotals(){
   return {
     items, totalPvp, totalNetto, totalQty, marginPct, validRows,
     totalSellPrice, totalDiscountValue, avgDiscountPct,
+    // SV2.10.511: totali al netto delle righe marcate "prezzo netto"
+    visibleListPrice,
+    visibleDiscountValue: (visibleListPrice - visibleSellPrice),
+    nettoRowsSellPrice,
     // V2.10.170: scomposizione per KPI card analisi
     split,
   };
@@ -62066,7 +62084,11 @@ async function exportQuoteDocx(options){
     // =====================================================
     const totalRows = [];
     // Totale listino se la colonna è visibile
-    if(showListino){
+    // SV2.10.511: totali che ESCLUDONO le righe a prezzo netto
+    const _tList = (t.visibleListPrice != null) ? t.visibleListPrice : t.totalPvp;
+    const _tDisc = (t.visibleDiscountValue != null) ? t.visibleDiscountValue : t.totalDiscountValue;
+    const _tNetto = t.nettoRowsSellPrice || 0;
+    if(showListino && _tList > 0.005){
       totalRows.push(new TableRow({
         children: [
           new TableCell({
@@ -62080,7 +62102,7 @@ async function exportQuoteDocx(options){
             },
           }),
           new TableCell({
-            children: [para(mk(_qFmtEur(t.totalPvp), { bold: true, color: TEXT_DARK, size: 20 }), { alignment: AlignmentType.RIGHT })],
+            children: [para(mk(_qFmtEur(_tList), { bold: true, color: TEXT_DARK, size: 20 }), { alignment: AlignmentType.RIGHT })],
             margins: { top: 100, bottom: 100, left: 160, right: 240 },
             borders: {
               top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -62093,7 +62115,7 @@ async function exportQuoteDocx(options){
       }));
     }
     // V2.10.148: rinominato da "Sconto applicato" a "Importo Scontato" (label utente)
-    if((showListino || showSconto) && t.totalDiscountValue > 0.005){
+    if((showListino || showSconto) && _tDisc > 0.005){
       totalRows.push(new TableRow({
         children: [
           new TableCell({
@@ -62107,7 +62129,34 @@ async function exportQuoteDocx(options){
             },
           }),
           new TableCell({
-            children: [para(mk('−' + _qFmtEur(t.totalDiscountValue), { bold: true, color: 'DC2626', size: 20 }), { alignment: AlignmentType.RIGHT })],
+            children: [para(mk('−' + _qFmtEur(_tDisc), { bold: true, color: 'DC2626', size: 20 }), { alignment: AlignmentType.RIGHT })],
+            margins: { top: 100, bottom: 100, left: 160, right: 240 },
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              bottom: { style: BorderStyle.SINGLE, size: 4, color: BORDER_LT },
+              left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+            },
+          }),
+        ],
+      }));
+    }
+    // SV2.10.511: riga dedicata al totale delle voci a prezzo netto
+    if(_tNetto > 0.005){
+      totalRows.push(new TableRow({
+        children: [
+          new TableCell({
+            children: [para(mk('Totale Prezzi Netti', { color: TEXT_MUTED, bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],
+            margins: { top: 100, bottom: 100, left: 160, right: 240 },
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              bottom: { style: BorderStyle.SINGLE, size: 4, color: BORDER_LT },
+              left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+            },
+          }),
+          new TableCell({
+            children: [para(mk(_qFmtEur(_tNetto), { bold: true, color: '16A34A', size: 20 }), { alignment: AlignmentType.RIGHT })],
             margins: { top: 100, bottom: 100, left: 160, right: 240 },
             borders: {
               top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -62669,10 +62718,17 @@ async function exportQuoteWord(){
 
       totalsHtml =
         // V2.6.0: Totale Listino mostrato solo se la colonna Listino è visibile
-        (showListino ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.totalPvp) + '</td></tr>' : '') +
+        // SV2.10.511: i totali escludono le righe a prezzo netto, che hanno una
+        // riga dedicata piu' sotto (altrimenti il listino nascosto sarebbe
+        // ricavabile per differenza).
+        ((showListino && (t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) > 0.005) ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) + '</td></tr>' : '') +
         // V2.10.148: rinominato da "Sconto applicato" a "Importo Scontato"
-        ((showListino || showSconto) && t.totalDiscountValue > 0.005
-          ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.totalDiscountValue) + '</td></tr>'
+        ((showListino || showSconto) && (t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) > 0.005
+          ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
+          : '') +
+        // SV2.10.511: riga dedicata alle voci a prezzo netto
+        ((t.nettoRowsSellPrice || 0) > 0.005
+          ? '<tr><td class="label">Totale Prezzi Netti</td><td class="val" style="color:#16a34a">' + _qFmtEur(t.nettoRowsSellPrice) + '</td></tr>'
           : '') +
         // V2.10.150: "TOTALE" → "TOTALE IMPONIBILE" se IVA inclusa
         // V2.10.153: classe "grand-sm" (font ridotto -30%) quando IVA attiva
@@ -64034,18 +64090,22 @@ async function exportQuotePdfNative(options){
     const valueW = totalsBlockW * 0.45;
 
     // Verifica spazio rimanente per i totali, altrimenti new page
-    const neededH = (showListino ? 22 : 0) + (t.totalDiscountValue > 0.005 ? 22 : 0) + 36;
+    // SV2.10.511: totali che ESCLUDONO le righe a prezzo netto + riga dedicata
+    const _tList  = (t.visibleListPrice != null) ? t.visibleListPrice : t.totalPvp;
+    const _tDisc  = (t.visibleDiscountValue != null) ? t.visibleDiscountValue : t.totalDiscountValue;
+    const _tNetto = t.nettoRowsSellPrice || 0;
+    const neededH = ((showListino && _tList > 0.005) ? 22 : 0) + (_tDisc > 0.005 ? 22 : 0) + (_tNetto > 0.005 ? 22 : 0) + 36;
     if(cursorY + neededH > PAGE_H - FOOTER_RESERVE){
       doc.addPage();
       drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
       cursorY = MARGIN;
     }
 
-    if(showListino){
+    if(showListino && _tList > 0.005){
       setText(10, 'bold', COL.textMuted);
       doc.text('Totale Listino', totalsX + labelW - 5, cursorY + 12, { align: 'right' });
       setText(10, 'bold', COL.textDark);
-      doc.text(_qFmtEur(t.totalPvp), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
+      doc.text(_qFmtEur(_tList), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
       cursorY += 18;
       // Border bottom
       setDraw(COL.borderLt);
@@ -64053,11 +64113,23 @@ async function exportQuotePdfNative(options){
       doc.line(totalsX, cursorY, totalsX + totalsBlockW, cursorY);
       cursorY += 6;
     }
-    if((showListino || showSconto) && t.totalDiscountValue > 0.005){
+    if((showListino || showSconto) && _tDisc > 0.005){
       setText(10, 'bold', COL.textMuted);
       doc.text('Importo Scontato', totalsX + labelW - 5, cursorY + 12, { align: 'right' });
       setText(10, 'bold', COL.red);
-      doc.text('-' + _qFmtEur(t.totalDiscountValue), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
+      doc.text('-' + _qFmtEur(_tDisc), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
+      cursorY += 18;
+      setDraw(COL.borderLt);
+      doc.setLineWidth(0.5);
+      doc.line(totalsX, cursorY, totalsX + totalsBlockW, cursorY);
+      cursorY += 6;
+    }
+    // SV2.10.511: riga dedicata al totale delle voci a prezzo netto
+    if(_tNetto > 0.005){
+      setText(10, 'bold', COL.textMuted);
+      doc.text('Totale Prezzi Netti', totalsX + labelW - 5, cursorY + 12, { align: 'right' });
+      setText(10, 'bold', [22, 163, 74]);
+      doc.text(_qFmtEur(_tNetto), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
       cursorY += 18;
       setDraw(COL.borderLt);
       doc.setLineWidth(0.5);
@@ -64421,9 +64493,16 @@ async function exportQuotePdf(){
       }).join('') + '</tr>';
 
       totalsHtml =
-        (showListino ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.totalPvp) + '</td></tr>' : '') +
-        ((showListino || showSconto) && t.totalDiscountValue > 0.005
-          ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.totalDiscountValue) + '</td></tr>'
+        // SV2.10.511: i totali escludono le righe a prezzo netto, che hanno una
+        // riga dedicata piu' sotto (altrimenti il listino nascosto sarebbe
+        // ricavabile per differenza).
+        ((showListino && (t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) > 0.005) ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) + '</td></tr>' : '') +
+        ((showListino || showSconto) && (t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) > 0.005
+          ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
+          : '') +
+        // SV2.10.511: riga dedicata alle voci a prezzo netto
+        ((t.nettoRowsSellPrice || 0) > 0.005
+          ? '<tr><td class="label">Totale Prezzi Netti</td><td class="val" style="color:#16a34a">' + _qFmtEur(t.nettoRowsSellPrice) + '</td></tr>'
           : '') +
         // V2.10.150: "TOTALE" → "TOTALE IMPONIBILE" se IVA inclusa
         // V2.10.153: classe "grand-sm" (font ridotto -30%) quando IVA attiva
