@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.520 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.521 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11032,7 +11032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.520</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.521</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11735,7 +11735,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.520 mobile");
+console.info("[bootstrap] script avvio — SV2.10.521 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13231,7 +13231,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.520';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.521';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -34401,8 +34401,11 @@ function renderPpBom(){
   if(foot){
     const pvpEl = document.getElementById('ppPvp');
     const netEl = document.getElementById('ppNetto');
+    // SV2.10.521: confronto anche sul prezzo di vendita, che ora la distinta calcola
+    const sellEl = document.getElementById('ppSalePrice');
     const pvp = pvpEl ? priceNum(pvpEl.value) : null;
     const net = netEl ? priceNum(netEl.value) : null;
+    const sell = sellEl ? priceNum(sellEl.value) : null;
     const cmp = (etichetta, calcolato, scritto) => {
       if(!(scritto > 0) || calcolato == null) return '';
       const d = calcolato - scritto;
@@ -34430,7 +34433,11 @@ function renderPpBom(){
           '<span class="pp-bom-tot-num is-sell" title="Totale di vendita">' + _ppBomFmt(t.prezzo, 2) + ' \u20ac</span>' +
           '<span></span>' +
         '</div>' +
-        '<div class="pp-bom-cmp">' + cmp('Netto', t.costo, net) + cmp('Listino', t.prezzo, pvp) + '</div>'
+        /* SV2.10.521 — il confronto del LISTINO ora usa il totale a listino della
+           distinta (t.listino). Prima era confrontato con t.prezzo, cioe' col
+           totale di VENDITA: da qui la "differenza" priva di senso (es. listino
+           1228,00 contro 728,60 = -499,40). Aggiunta la riga per il prezzo di vendita. */
+        '<div class="pp-bom-cmp">' + cmp('Netto', t.costo, net) + cmp('Listino', t.listino, pvp) + cmp('Prezzo di vendita', t.prezzo, sell) + '</div>'
       : '';
   }
 
@@ -35153,9 +35160,30 @@ function ppBomRefreshCosts(){
     if(li != null && Math.abs(li - (l.listino || 0)) > 0.005){ l.listino = li; aggL++; }
     _ppBomSync(l);
   });
+  /* SV2.10.521 — i tre campi PREZZI del prodotto composto vengono ora riscritti
+     con i TOTALI della distinta: listino, costo d'acquisto E prezzo di vendita.
+     Cambia la decisione originale della 484 (distinta solo informativa): l'utente
+     ha chiesto che quei campi siano il risultato della distinta. Restano
+     editabili, quindi correggibili a mano subito dopo; le righe di confronto
+     sotto i totali continuano a segnalare eventuali scostamenti. */
+  const _tot = bomTotals(_PP_BOM);
+  let _scritti = 0;
+  const _setPrezzo = (id, val) => {
+    const el = document.getElementById(id);
+    if(!el || val == null || !isFinite(val)) return;
+    const nuovo = (Math.round(val * 100) / 100).toFixed(2);
+    if(el.value !== nuovo){ el.value = nuovo; _scritti++; }
+  };
+  if(_tot.righe){
+    _setPrezzo('ppPvp', _tot.listino);
+    _setPrezzo('ppNetto', _tot.costo);
+    _setPrezzo('ppSalePrice', _tot.prezzo);
+    if(typeof ppPricesHint === 'function'){ try { ppPricesHint(); } catch(_){} }
+  }
   renderPpBom();
   if(typeof toast === 'function'){
     toast(agg + ' costi e ' + aggL + ' listini aggiornati dal catalogo'
+      + (_scritti ? ' \u00b7 ' + _scritti + ' camp' + (_scritti === 1 ? 'o prezzo riallineato' : 'i prezzo riallineati') : '')
       + (mancanti ? ' \u00b7 ' + mancanti + ' articoli non trovati' : ''),
       mancanti ? 'err' : 'ok');
   }
