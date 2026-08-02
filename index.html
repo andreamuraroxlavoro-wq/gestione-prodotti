@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.511 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.513 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9018,6 +9018,47 @@ body.theme-light .qcart-mode-seg.qcart-mode-active.qcart-mode-client{
   opacity:.4;cursor:not-allowed;
 }
 
+/* SV2.10.512 — gemello compatto del selettore "prezzo netto" per la tabella
+   Modalita' ANALISI. Qui le colonne sono gia' fitte e l'impaginazione va bene
+   com'e': il pulsante e' quindi in POSITION:ABSOLUTE e non occupa spazio nel
+   flusso, percio' non altera larghezze di colonna ne' altezze di riga.
+   Alloggia nei 49px liberi a sinistra dell'input prezzo (misurati). */
+.quote-cart-tbl td.qcart-pvend-cell{ position:relative; }
+/* Il padding sinistro tiene le cifre lontane dalla spunta. box-sizing:border-box
+   e' globale, quindi la larghezza ESTERNA dell'input resta 96px: nessun effetto
+   sulla larghezza della colonna. */
+.quote-cart-tbl .qcart-pvend-input{ padding-left:22px; }
+.qcart-netto-mini{
+  /* Ancorato al BORDO DESTRO della cella e non a quello sinistro: l'input prezzo
+     e' allineato a destra e ha larghezza fissa 96px con padding cella 12px, quindi
+     right:89px lo colloca sempre 4px dentro il bordo sinistro dell'input, a
+     qualunque larghezza di finestra. Con left:2px invece si sovrapponeva
+     all'input non appena la colonna si stringeva (misurato a 1440 e 1280px). */
+  position:absolute;
+  right:89px; top:50%;
+  transform:translateY(-50%);
+  width:15px; height:15px;
+  z-index:1;
+  padding:0;
+  border-radius:4px;
+  border:1px solid var(--border2);
+  background:transparent;
+  color:transparent;                 /* la spunta si vede solo da acceso */
+  font-family:inherit;
+  font-size:10px; font-weight:900;
+  line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  user-select:none;
+  transition:all .15s;
+}
+.qcart-netto-mini:hover{ border-color:#16a34a; color:rgba(22,163,74,0.55); }
+.qcart-netto-mini.is-on{
+  border-color:#16a34a;
+  background:#16a34a;
+  color:#fff;
+}
+
 /* SV2.10.510 — casella "PREZZO NETTO" per riga, accanto al campo prezzo in
    Modalita' Cliente. Quando attiva, le esportazioni sostituiscono la percentuale
    di sconto con la dicitura verde "Prezzo Netto" e lasciano vuoto il listino. */
@@ -10991,7 +11032,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.511</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.513</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11694,7 +11735,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.511 mobile");
+console.info("[bootstrap] script avvio — SV2.10.513 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13190,7 +13231,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.511';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.513';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58850,6 +58891,10 @@ function renderQuoteCartContent(){
           // V2.10.144: trasformata in input editabile. Edit del prezzo →
           // ricalcolo automatico dello sconto cliente (sincronizzazione bidirezionale).
           // V2.10.145: type="text" + formattazione italiana con separatore migliaia.
+          // SV2.10.512: il selettore "prezzo netto" e' presente anche qui, ma come
+          // elemento in POSIZIONE ASSOLUTA dentro la cella: non partecipa al flusso,
+          // quindi non sposta di un pixel colonne, larghezze e altezze di riga.
+          // Sfrutta i 49px liberi a sinistra dell'input (misurati).
           '<td class="num qcart-pvend-cell" title="Prezzo unitario di vendita al cliente: PVP × (1 − sc.cliente/100). Editabile.">' +
             (isZeroQty
               ? _dash
@@ -58857,6 +58902,10 @@ function renderQuoteCartContent(){
                 ? '<input type="text" inputmode="decimal" class="qcart-price-input qcart-pvend-input" data-code="' + escapeAttr(it.code) + '" value="' + _qFmtNum(_roundCents(prezzoVendita), 2) + '" ' +
                     (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>'
                 : '<span style="color:var(--fg3)">—</span>')) +
+            ((it.isFreeField || isZeroQty) ? '' :
+              '<button type="button" class="qcart-netto-mini' + (it.nettoPrice === true ? ' is-on' : '') + '" ' +
+                'data-code="' + escapeAttr(it.code) + '" aria-pressed="' + (it.nettoPrice === true ? 'true' : 'false') + '" ' +
+                'title="Prezzo netto: in stampa questa riga non mostra il listino e nella colonna Sconto compare la dicitura verde &quot;Prezzo Netto&quot;">\u2713</button>') +
           '</td>' +
           // V2.5.9 / V2.6.2: cella Margine con classe specifica per fast-update
           // dopo modifica di Sc. Cliente. Il colore e il valore sono ricalcolati
@@ -59003,6 +59052,20 @@ function renderQuoteCartContent(){
   // removeFromQuoteCart() resta definita come API riutilizzabile.
   // V2.3.9: input sconto % (Modalità Cliente nella sua colonna dedicata,
   // V2.6.2: anche Modalità Analisi nella colonna "Sc. Cliente" editabile).
+  // SV2.10.512: gemello compatto in Modalita' Analisi (pulsante NET)
+  container.querySelectorAll('.qcart-netto-mini').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = window._QUOTE_STATE.items.find(it => it.code === btn.dataset.code);
+      const now = !(item && item.nettoPrice === true);
+      if(item){
+        item.nettoPrice = now;
+        if(typeof saveQuoteState === 'function'){ try { saveQuoteState(); } catch(_){} }
+      }
+      btn.classList.toggle('is-on', now);
+      btn.setAttribute('aria-pressed', now ? 'true' : 'false');
+      if(typeof _qcUpdateDirtyBadge === 'function'){ try { _qcUpdateDirtyBadge(); } catch(_){} }
+    });
+  });
   // SV2.10.510: casella "PREZZO NETTO" per riga. Non serve un re-render completo:
   // il flag incide solo sulle esportazioni. Aggiorno l'aspetto della pillola,
   // persisto e rinfresco l'indicatore di allineamento all'archivio.
@@ -62032,7 +62095,7 @@ async function exportQuoteDocx(options){
         discount: () => new TableCell({
           children: [para(
             _isNetto
-              ? mk('Prezzo Netto', { bold: true, color: '16A34A', size: 15 })
+              ? mk('Prezzo Netto', { bold: true, color: '16A34A', size: 20 })  // SV2.10.513: come le etichette dei totali
               : mk(dPctStr, { bold: true, color: 'DC2626', size: 19 }),
             { alignment: AlignmentType.RIGHT })],
           shading: cellShading,
@@ -62878,7 +62941,7 @@ async function exportQuoteWord(){
         'table.items td.col-discount{font-weight:600;color:#dc2626}' +
         // SV2.10.510: dicitura per le righe a prezzo netto. Font ridotto e
         // white-space normal per stare nella colonna stretta dello sconto.
-        'table.items td.col-discount .netto-tag{display:inline-block;color:#16a34a;font-weight:700;font-size:0.78em;line-height:1.15;letter-spacing:0.2px;white-space:normal;text-align:right}' +
+        'table.items td.col-discount .netto-tag{display:inline-block;color:#16a34a;font-weight:700;font-size:11pt;line-height:1.15;letter-spacing:0.2px;white-space:normal;text-align:right}' +
         'table.items td.col-tot{font-weight:700;color:#1f2937}' +
         '.totals{margin-top:18pt;display:table;width:100%}' +
         '.totals-table{margin-left:auto;width:55%;border-collapse:collapse;font-size:11pt}' +
@@ -63877,7 +63940,8 @@ async function exportQuotePdfNative(options){
             const _cellTxt = Array.isArray(data.cell.raw) ? String(data.cell.raw[0] || '') : String(data.cell.raw == null ? '' : data.cell.raw);
             if(_cellTxt === 'Prezzo Netto'){
               data.cell.styles.textColor = [22, 163, 74];
-              data.cell.styles.fontSize = Math.max(5.5, (data.cell.styles.fontSize || 9.5) * 0.72);
+              // SV2.10.513: stessa misura delle etichette dei totali (setText(10,…))
+              data.cell.styles.fontSize = 10;
             } else {
               data.cell.styles.textColor = COL.red;
             }
@@ -64643,7 +64707,7 @@ async function exportQuotePdf(){
         'table.items td.col-discount{font-weight:600;color:#dc2626}' +
         // SV2.10.510: dicitura per le righe a prezzo netto. Font ridotto e
         // white-space normal per stare nella colonna stretta dello sconto.
-        'table.items td.col-discount .netto-tag{display:inline-block;color:#16a34a;font-weight:700;font-size:0.78em;line-height:1.15;letter-spacing:0.2px;white-space:normal;text-align:right}' +
+        'table.items td.col-discount .netto-tag{display:inline-block;color:#16a34a;font-weight:700;font-size:10pt;line-height:1.15;letter-spacing:0.2px;white-space:normal;text-align:right}' +
         'table.items td.col-tot{font-weight:700;color:#1f2937}' +
         '.num{text-align:right;font-variant-numeric:tabular-nums}' +
         '.muted{color:#9ca3af;font-size:8.5pt}' +
