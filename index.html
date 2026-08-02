@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.524 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.525 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5916,6 +5916,11 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
 }
 /* VENDITA: la pillola sconto usa lo stesso colore del prezzo di vendita (blu). */
 .card-disc-badge.is-sale{ background:#3b82f6; }
+/* SV2.10.525: articolo con PREZZO DI VENDITA IMPOSTO. In modalita' vendita non
+   ha senso mostrare una percentuale di sconto: il prezzo non deriva da uno
+   sconto ma e' deciso sull'articolo. Al suo posto la dicitura NETTO, verde come
+   il flag omonimo del carrello e delle stampe. */
+.card-disc-badge.is-netto-price{ background:#16a34a; letter-spacing:0.6px; }
 body.theme-light .card-disc-badge.is-sale{ background:#2563eb; }
 /* SV2.10.467: sconto di vendita IMPOSTO DAL MARGINE MINIMO — il valore numerico
    passa al verde acido (la pillola resta blu, cosi' si legge subito che e' un
@@ -11032,7 +11037,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.524</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.525</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11735,7 +11740,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.524 mobile");
+console.info("[bootstrap] script avvio — SV2.10.525 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13231,7 +13236,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.524';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.525';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31218,7 +31223,13 @@ function renderGallery(main, list){
       } else {
         _badgeDiscVal = (_eff && _eff.hasAdj) ? effDisc : discountPct;
       }
-      if(_badgeDiscVal != null && _badgeDiscVal > 0){
+      // SV2.10.525: in VENDITA, con prezzo imposto, la pillola diventa "NETTO"
+      if(_isSaleMode && _impostoScVend != null){
+        const _nTip = 'Prezzo di vendita imposto sull\'articolo: \u20ac ' + fmtPrice(_impostoVend) +
+          '\nNon deriva da uno sconto: prevale sul listino di vendita attivo.';
+        discBadge = `<span class="card-disc-badge is-sale is-netto-price" title="${escapeAttr(_nTip)}">NETTO</span>`;
+        card.classList.add('has-disc-badge');
+      } else if(_badgeDiscVal != null && _badgeDiscVal > 0){
         const _dTip = _isSaleMode ? 'Sconto di vendita' : 'Sconto d\'acquisto';
         // SV2.10.467: sconto ricalcolato dal margine minimo → numero verde acido.
         const _capped = !!(_isSaleMode && _saleInfo && _saleInfo.marginCapped);
@@ -31233,7 +31244,17 @@ function renderGallery(main, list){
     // d'acquisto, SOLO in modalità acquisto e con un listino Cliente attivo. Segue lo
     // stesso toggle "%" (showDiscountBadge) della pillola sconto d'acquisto.
     let saleDiscBadge = '';
-    if(!_isSaleMode && SETTINGS.showDiscountBadge && _saleInfoAcq && _saleInfoAcq.scontoEff != null && _saleInfoAcq.scontoEff > 0){
+    /* SV2.10.525 — con prezzo di vendita imposto la pillola blu mostra lo sconto
+       REALE che ne deriva (es. 34,9%), non quello base del listino Cliente attivo
+       (50%): quel 50% non viene mai applicato a questo articolo. Vale anche senza
+       listino attivo, perche' lo sconto reale esiste comunque. */
+    if(!_isSaleMode && SETTINGS.showDiscountBadge && _impostoScVend != null && _impostoScVend > 0){
+      const _tipImp = 'Sconto di vendita reale: ' + fmtDiscount(_impostoScVend) +
+        '\nDeriva dal prezzo di vendita imposto sull\'articolo (\u20ac ' + fmtPrice(_impostoVend) + ')' +
+        (_saleInfoAcq && _saleInfoAcq.scontoEff != null ? '\nIl listino Cliente attivo darebbe ' + fmtDiscount(_saleInfoAcq.scontoEff) + ', ma il prezzo dell\'articolo prevale.' : '');
+      saleDiscBadge = `<span class="card-disc-badge is-sale" title="${escapeAttr(_tipImp)}">- ${fmtDiscount(_impostoScVend)}</span>`;
+      card.classList.add('has-disc-badge');
+    } else if(!_isSaleMode && SETTINGS.showDiscountBadge && _saleInfoAcq && _saleInfoAcq.scontoEff != null && _saleInfoAcq.scontoEff > 0){
       // SV2.10.467: stesso trattamento verde acido se il valore e' imposto dal margine minimo.
       const _cappedAcq = !!_saleInfoAcq.marginCapped;
       const _capTipAcq = _cappedAcq
@@ -31252,9 +31273,13 @@ function renderGallery(main, list){
     // solo "%" (showDiscountBadge): resta visibile anche con l'occhio (€ / showDiscount)
     // chiuso, e sparisce insieme alle pillole sconto quando "%" è disattivato.
     if(!_isSaleMode && SETTINGS.showDiscountBadge){
-      if(_saleInfoAcq && priceNum(listino)){
+      // SV2.10.525: il margine si calcola sul prezzo EFFETTIVO — quello imposto
+      // se c'e', altrimenti quello del listino Cliente attivo.
+      if((_saleInfoAcq || _impostoVend > 0) && priceNum(listino)){
         {
-          const _prezzoVendM = priceNum(listino) * (1 - _saleInfoAcq.scontoEff / 100);
+          const _prezzoVendM = (_impostoVend > 0)
+            ? _impostoVend
+            : priceNum(listino) * (1 - _saleInfoAcq.scontoEff / 100);
           const _acqNettoM = (_eff && _eff.hasAdj) ? effNetto : priceNum(netto);
           if(_prezzoVendM > 0 && _acqNettoM != null && _acqNettoM > 0){
             // SV2.10.470: la stessa pillola mostra MARGINE (default) oppure
@@ -31264,7 +31289,9 @@ function renderGallery(main, list){
             const _ricaricoPct = (_prezzoVendM - _acqNettoM) / _acqNettoM * 100;
             const _valPct = _isRicarico ? _ricaricoPct : _marginePct;
             const _segnoM = _valPct > 0 ? '+' : '';
-            const _mTip = (_isRicarico ? 'Ricarico sul listino Cliente attivo' : 'Margine sul listino Cliente attivo')
+            const _mTip = (_impostoVend > 0
+                ? (_isRicarico ? 'Ricarico sul prezzo di vendita imposto' : 'Margine sul prezzo di vendita imposto')
+                : (_isRicarico ? 'Ricarico sul listino Cliente attivo' : 'Margine sul listino Cliente attivo'))
               + '\nPrezzo di vendita: € ' + fmtPrice(_prezzoVendM)
               + '\nPrezzo di acquisto: € ' + fmtPrice(_acqNettoM)
               + '\nMargine (su vendita): ' + (_marginePct > 0 ? '+' : '') + fmtDiscount(_marginePct)
