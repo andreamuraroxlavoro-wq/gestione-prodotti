@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.506 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.507 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10917,7 +10917,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.506</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.507</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11620,7 +11620,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.506 mobile");
+console.info("[bootstrap] script avvio — SV2.10.507 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13116,7 +13116,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.506';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.507';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -51438,6 +51438,34 @@ function quoteGetBoundInfo(){
    - all'apertura del carrello
    - dopo ogni renderQuoteCartContent() (per riflettere lo stato dirty)
    - dopo bind / unbind / save */
+/* SV2.10.507 — INDICATORE DI ALLINEAMENTO ALL'ARCHIVIO (non bloccante).
+   Sostituisce il puntino blu da 8px, che passava inosservato, e prende il posto
+   della finestra di conferma che compariva su "Chiudi". Arancione quando il
+   carrello e' piu' avanti della versione in archivio, verde quando coincidono. */
+function _qcDirtyBadgeHtml(dirty){
+  const base = 'display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:700;'
+             + 'text-transform:uppercase;letter-spacing:0.4px;padding:2px 9px;border-radius:9px;margin-left:6px;white-space:nowrap;';
+  if(dirty){
+    return '<span id="qcDirtyBadge" title="Il carrello contiene modifiche non ancora salvate in archivio. Usa \u201c\ud83d\udcbe Salva preventivo\u201d per creare una nuova versione." '
+      + 'style="' + base + 'background:rgba(245,158,11,0.16);color:#f59e0b;border:1px solid rgba(245,158,11,0.45)">'
+      + '<span style="width:7px;height:7px;border-radius:50%;background:#f59e0b;animation:bbDirtyPulse 1.6s ease-in-out infinite"></span>'
+      + 'Non salvato in archivio</span>';
+  }
+  return '<span id="qcDirtyBadge" title="Il carrello coincide con la versione salvata in archivio." '
+    + 'style="' + base + 'background:rgba(48,164,108,0.14);color:#30a46c;border:1px solid rgba(48,164,108,0.40)">'
+    + '<span style="width:7px;height:7px;border-radius:50%;background:#30a46c"></span>'
+    + 'Allineato all\u2019archivio</span>';
+}
+
+/* Aggiorna il solo badge senza ridisegnare tutta la barra: viene richiamato a
+   ogni render del contenuto del carrello, cioe' a ogni modifica. */
+function _qcUpdateDirtyBadge(){
+  const el = document.getElementById('qcDirtyBadge');
+  if(!el) return;
+  const dirty = (typeof quoteIsCartDirty === 'function') ? quoteIsCartDirty() : false;
+  el.outerHTML = _qcDirtyBadgeHtml(dirty);
+}
+
 function renderQuoteCartBoundInfo(){
   const bar = document.getElementById('quoteCartBoundBar');
   if(!bar) return;
@@ -51463,9 +51491,7 @@ function renderQuoteCartBoundInfo(){
   }
 
   const dirty = info.isDirty;
-  const dirtyDot = dirty
-    ? '<span title=\"Modifiche non salvate\" style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#0178d4;margin-left:6px;box-shadow:0 0 0 2px rgba(1,120,212,0.25);animation:bbDirtyPulse 1.6s ease-in-out infinite\"></span>'
-    : '';
+  const dirtyDot = _qcDirtyBadgeHtml(dirty);
 
   // Warning se la versione originale e\u0027 stata eliminata: ora siamo sull'ultima
   const versionFallbackWarn = info.versionWasDeleted
@@ -57469,23 +57495,20 @@ function openQuoteCart(){
 
   document.body.appendChild(bg);
 
+  // SV2.10.507: attiva l'aggiornamento automatico dell'indicatore di allineamento
+  try { _qcWrapRenderForDirtyBadge(); } catch(_){}
   // V2.10.11: render iniziale barra info preventivo (se carrello e\u0027 bound)
   if(typeof renderQuoteCartBoundInfo === 'function'){
     try { renderQuoteCartBoundInfo(); } catch(_){}
   }
 
   document.getElementById('quoteCartCloseBtn').addEventListener('click', () => {
-    // V2.10.11: protezione contro perdita modifiche su preventivo bound
-    if(typeof quoteIsCartDirty === 'function' && quoteIsCartDirty()){
-      const info = quoteGetBoundInfo();
-      if(info){
-        const ok = confirm('Hai modifiche non salvate nel preventivo collegato:\n\n' +
-          info.quoteId + ' v' + info.versionNumber + (info.nome ? ' \u2014 ' + info.nome : '') + '\n\n' +
-          'Vuoi chiudere il carrello senza salvare?\n\n' +
-          'Le modifiche rimarranno nel carrello (non perdute) ma non saranno salvate nell\u0027archivio finche\u0027 non userai \u201c\ud83d\udcbe Salva preventivo\u201d.');
-        if(!ok) return;
-      }
-    }
+    // SV2.10.507: RIMOSSA la conferma su "Chiudi". Il carrello e' persistito in
+    // IndexedDB (QUOTE_KEY_CART / SETTINGS / BOUND): chiudere il modale non scarta
+    // nulla, quindi era una conferma per un'azione senza conseguenze. Lo stato
+    // "non salvato in archivio" e' ora sempre visibile, non bloccante, nella barra
+    // del preventivo collegato (vedi _qcDirtyBadgeHtml). Le conferme restano dove
+    // servono davvero: Svuota carrello e Scollega.
     bg.remove();
   });
   // SV2.10.335: menu "Azioni" a comparsa su mobile. Il toggle apre/chiude il
@@ -58190,6 +58213,20 @@ function _qcartApplyDescVisibility(){
     btn.style.borderColor   = nascosta ? '#f59e0b' : '';
     btn.classList.toggle('ghost', !nascosta);
   }
+}
+
+/* SV2.10.507: dopo ogni ridisegno del carrello aggiorno l'indicatore di
+   allineamento all'archivio. Wrapping in coda al file per non toccare il corpo
+   della funzione (vedi definizione poco sotto). */
+function _qcWrapRenderForDirtyBadge(){
+  if(window.__qcDirtyWrapped) return;
+  window.__qcDirtyWrapped = true;
+  const _orig = renderQuoteCartContent;
+  renderQuoteCartContent = function(){
+    const r = _orig.apply(this, arguments);
+    try { _qcUpdateDirtyBadge(); } catch(_){}
+    return r;
+  };
 }
 
 function renderQuoteCartContent(){
