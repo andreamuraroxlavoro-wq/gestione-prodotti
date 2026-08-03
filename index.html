@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.545 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.546 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6234,6 +6234,11 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
 .pp-bom-del:hover{background:rgba(239,68,68,0.14);border-color:#ef4444}
 .pp-bom-head{display:grid;grid-template-columns:minmax(0,1fr) 44px 74px 56px 74px 56px 74px 54px 54px 82px 26px;gap:5px;padding:0 6px 5px;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--fg3);text-align:right}
 .pp-bom-head span:first-child{text-align:left}
+/* SV2.10.546 — voce libera nella distinta */
+.pp-bom-freetag{display:inline-block;padding:2px 6px;margin-right:6px;border-radius:4px;background:rgba(230,126,34,0.16);border:1px solid rgba(230,126,34,0.5);color:#b45309;font-size:8.5px;font-weight:800;letter-spacing:.4px;flex-shrink:0}
+.pp-bom-freelabel{flex:1;min-width:0;font-family:inherit;font-size:12px;font-weight:600;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:var(--fg)}
+.pp-bom-freelabel:focus{outline:none;border-color:#e67e22}
+
 /* SV2.10.545 — spunte di selezione dei componenti della distinta */
 .pp-bom-sel,.pp-bom-selall{width:14px;height:14px;margin:0 6px 0 0;cursor:pointer;accent-color:#0178d4;flex-shrink:0;vertical-align:middle}
 #ppBomApplyBtn:disabled,#ppBomRefreshBtn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(1)}
@@ -11063,7 +11068,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.545</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.546</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11766,7 +11771,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.545 mobile");
+console.info("[bootstrap] script avvio — SV2.10.546 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13262,7 +13267,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.545';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.546';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13905,6 +13910,8 @@ function openPersonalProductEditor(opts){
             // per parametri, anteprime: tutto quello che l'utente usa gia').
             '<button type="button" class="btn success" onclick="ppBomFromCatalog()" style="white-space:nowrap;font-size:13px" title="Salva l\u0027articolo e torna alla galleria: su ogni scheda comparira\u0027 un pulsante verde per aggiungere il prodotto a questa distinta">\uD83E\uDDE9 Scegli dalla galleria\u2026</button>' +
             '<button type="button" class="btn ghost" onclick="openBomPicker()" style="white-space:nowrap;font-size:13px" title="Pannello rapido a schede, senza uscire dall\u0027editor">Pannello rapido</button>' +
+            // SV2.10.546: riga scritta a mano, svincolata dal catalogo
+            '<button type="button" class="btn ghost" onclick="ppBomAddFree()" style="white-space:nowrap;font-size:13px" title="Aggiunge una riga scritta a mano: descrizione e importi liberi, senza collegamento al catalogo">\u270e Aggiungi voce libera</button>' +
             '<div style="position:relative;flex:1">' +
             '<input type="text" id="ppBomSearch" placeholder="\u2026oppure aggiungi al volo per codice o descrizione" ' +
               'oninput="renderPpBomSearch()" autocomplete="off" ' +
@@ -34345,6 +34352,12 @@ function bomNormalize(raw){
         // mantenuto allineato al prezzo: lo leggono le versioni precedenti e
         // resta comodo per ordinare/filtrare senza ricalcolare.
         marginPct: (prezzo > 0) ? ((prezzo - netto) / prezzo * 100) : 0,
+        /* SV2.10.546 — VOCE LIBERA: riga non agganciata al catalogo. `free`
+           la distingue, `label` porta la descrizione scritta a mano. Senza
+           conservarli qui, la voce tornerebbe una riga normale al primo salva
+           e comparirebbe come "articolo non presente nel catalogo". */
+        free: it.free === true,
+        label: (it.label != null) ? String(it.label) : '',
       });
     });
   }
@@ -34451,9 +34464,11 @@ function renderPpBom(){
       'Nessun componente. Cerca un articolo qui sopra per aggiungerlo.</div>';
   } else {
     box.innerHTML = b.items.map((l, i) => {
-      const prod = (Array.isArray(DATA) ? DATA.find(x => x && x.name === l.code) : null);
+      // SV2.10.546: la voce libera non ha corrispondenza a catalogo — e va bene cosi'
+      const isFree = (l.free === true);
+      const prod = (!isFree && Array.isArray(DATA)) ? DATA.find(x => x && x.name === l.code) : null;
       const desc = prod ? String(getField(prod, 'short_description') || '').slice(0, 70) : '';
-      const mancante = !prod;
+      const mancante = !isFree && !prod;
       const c = bomLineCalc(l);
       const costoCat = bomCostoCatalogo(l.code);
       const scostato = (costoCat != null && Math.abs(costoCat - l.netto) > 0.005);
@@ -34461,13 +34476,19 @@ function renderPpBom(){
       const listStale = (listCat != null && Math.abs(listCat - (l.listino || 0)) > 0.005);
       return '<div class="pp-bom-row" data-i="' + i + '">' +
         // SV2.10.487: miniatura del componente
-        '<div class="pp-bom-code" title="' + escapeAttr(l.code + (desc ? ' — ' + desc : '')) + '">' +
+        '<div class="pp-bom-code" title="' + escapeAttr(isFree ? (l.label || 'Voce libera') : (l.code + (desc ? ' — ' + desc : ''))) + '">' +
           // SV2.10.545: spunta dentro la prima cella, cosi' la griglia non cambia
           '<input type="checkbox" class="pp-bom-sel" data-i="' + i + '"' + (l._sel ? ' checked' : '') + '>' +
-          _ppBomThumb(prod) +
-          (mancante ? '<span title="Articolo non presente nel catalogo attuale" style="color:#dc2626">\u26a0\ufe0f </span>' : '') +
-          '<strong>' + escapeHtml(l.code) + '</strong>' +
-          (desc ? '<span class="pp-bom-desc">' + escapeHtml(desc) + '</span>' : '') +
+          (isFree
+            /* SV2.10.546: al posto di miniatura e codice, un campo di testo per la
+               descrizione scritta a mano, con un segno che la distingue a colpo
+               d'occhio dalle righe agganciate al catalogo. */
+            ? '<span class="pp-bom-freetag" title="Voce libera: non e\u0027 collegata al catalogo">LIBERA</span>' +
+              '<input type="text" class="pp-bom-freelabel" data-i="' + i + '" value="' + escapeAttr(l.label || '') + '" placeholder="Descrizione della voce…">'
+            : _ppBomThumb(prod) +
+              (mancante ? '<span title="Articolo non presente nel catalogo attuale" style="color:#dc2626">\u26a0\ufe0f </span>' : '') +
+              '<strong>' + escapeHtml(l.code) + '</strong>' +
+              (desc ? '<span class="pp-bom-desc">' + escapeHtml(desc) + '</span>' : '')) +
         '</div>' +
         // SV2.10.494 — ordine: Q.tà | Listino | Sc. acq. | Costo | Sc. vend. | Prezzo | Marg. | Ric. | Totale
         '<input class="pp-bom-inp pp-bom-qty" type="text" inputmode="decimal" value="' + escapeAttr(_ppBomFmt(l.qty, 0)) + '" title="Quantita\u0027">' +
@@ -34601,6 +34622,15 @@ function _ppBomBindRows(){
   const box = document.getElementById('ppBomList');
   if(!box) return;
   _ppBomBindSelection();
+  // SV2.10.546: descrizione delle voci libere
+  box.querySelectorAll('.pp-bom-freelabel').forEach(inp => {
+    const upd = () => {
+      const l = _PP_BOM.items[parseInt(inp.dataset.i, 10)];
+      if(l) l.label = inp.value;
+    };
+    inp.addEventListener('input', upd);
+    inp.addEventListener('change', upd);
+  });
   box.querySelectorAll('.pp-bom-row').forEach(row => {
     const i = parseInt(row.dataset.i, 10);
     const l = _PP_BOM.items[i];
@@ -35272,6 +35302,34 @@ function ppPricesHint(){
 }
 
 /* Applica il margine predefinito a TUTTE le righe. */
+/* SV2.10.546 — aggiunge alla distinta una VOCE LIBERA: descrizione e importi
+   scritti a mano, nessun aggancio al catalogo. Il `code` serve solo come
+   identificativo interno della riga (le funzioni della distinta lo usano come
+   chiave) ed e' reso univoco col timestamp. */
+function ppBomAddFree(){
+  if(!_PP_BOM || !Array.isArray(_PP_BOM.items)) return;
+  const n = _PP_BOM.items.filter(l => l && l.free).length + 1;
+  _PP_BOM.items.push({
+    code: 'LIBERA-' + Date.now().toString(36).slice(-5).toUpperCase(),
+    label: 'Voce libera ' + n,
+    free: true,
+    qty: 1,
+    listino: 0,
+    netto: 0,
+    prezzo: 0,
+    marginPct: 0,
+  });
+  renderPpBom();
+  // porta subito il cursore sulla descrizione appena creata
+  setTimeout(() => {
+    const box = document.getElementById('ppBomList');
+    if(!box) return;
+    const inputs = box.querySelectorAll('.pp-bom-freelabel');
+    const last = inputs[inputs.length - 1];
+    if(last){ last.focus(); last.select(); }
+  }, 30);
+}
+
 function ppBomApplyDefaultMargin(){
   const el = document.getElementById('ppBomDefMarg');
   if(!el) return;
@@ -35308,6 +35366,8 @@ function ppBomRefreshCosts(){
     return;
   }
   _sel.forEach(l => {
+    // SV2.10.546: le voci libere non hanno un catalogo da cui riallineare
+    if(l.free === true) return;
     const c = bomCostoCatalogo(l.code);
     // SV2.10.486: riallineo anche il LISTINO, che ora serve allo sconto: senza,
     // lo sconto mostrato sarebbe calcolato su un listino vecchio.
