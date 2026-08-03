@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.525 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.526 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11037,7 +11037,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.525</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.526</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11740,7 +11740,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.525 mobile");
+console.info("[bootstrap] script avvio — SV2.10.526 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13236,7 +13236,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.525';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.526';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -55562,8 +55562,33 @@ function clearQuoteCart(){
 
 /* ─── Calcoli totali carrello ─── */
 
-function computeQuoteTotals(){
-  const items = window._QUOTE_STATE.items;
+/* ==========================================================================
+   SV2.10.526 — SELEZIONE RIGHE COME FILTRO DI ANALISI E STAMPA
+   ==========================================================================
+   Le checkbox del carrello servivano solo a "Elimina righe". Ora, quando
+   almeno una riga e' spuntata, KPI, grafici, formula di pagamento e documenti
+   esportati considerano SOLO le righe selezionate. Con nessuna spunta il
+   comportamento resta quello di sempre: tutto il carrello.
+   Il filtro e' applicato in UN SOLO PUNTO, computeQuoteTotals(), perche' tutti
+   e quattro gli esportatori leggono le righe da `t.items`: cosi' i totali del
+   documento non possono divergere da quelli mostrati a schermo. */
+function _qcSelectionActive(){
+  return (typeof countSelectedQuoteRows === 'function') ? countSelectedQuoteRows() > 0 : false;
+}
+function _qcItemsForCalc(){
+  const all = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : [];
+  if(!_qcSelectionActive()) return all;
+  return all.filter(it => it && it._selectedForUpdate === true);
+}
+
+function computeQuoteTotals(opts){
+  /* SV2.10.526: se ci sono righe spuntate i conti considerano solo quelle.
+     `opts.all = true` disattiva il filtro: serve al render della TABELLA del
+     carrello, che deve continuare a mostrare TUTTE le righe (i suoi tbody sono
+     costruiti proprio da `t.items`) mentre le KPI sopra restano filtrate. */
+  const items = (opts && opts.all === true)
+    ? ((window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : [])
+    : _qcItemsForCalc();
   // V2.10.171: migrazione retroattiva al volo - per item gia' nel carrello prima della
   // V2.10.171, propago i flag isService/isPersonal sull'item se DATA li ha. Questo evita
   // di dipendere dal lookup di _isServiceItem (che puo' fallire se i codici sono cambiati
@@ -58601,8 +58626,11 @@ function renderQuoteCartContent(){
   }
 
   const t = computeQuoteTotals();
+  /* SV2.10.526: `t` (filtrato dalla selezione) alimenta le KPI; `tAll` alimenta
+     la TABELLA, che deve mostrare sempre tutte le righe del carrello. */
+  const tAll = computeQuoteTotals({ all: true });
 
-  if(t.items.length === 0){
+  if(tAll.items.length === 0){
     container.innerHTML =
       '<div style="text-align:center;padding:60px 20px;color:var(--fg3)">' +
         '<div style="font-size:64px;margin-bottom:14px;opacity:.4">🛒</div>' +
@@ -58787,7 +58815,7 @@ function renderQuoteCartContent(){
   if(qMode === 'client'){
     // ── Tabella Modalità CLIENTE ──
     // Colonne: # · Img · Codice · Marca · Descrizione · Q.tà · Listino unit · Sconto% · Vendita unit · Tot vendita · ✕
-    t.items.forEach((it, i) => {
+    tAll.items.forEach((it, i) => {
       // V2.10.185: qty=0 → riga "parcheggiata". Resta visibile ma con celle
       // numeriche vuote ed esclusa dai calcoli (skip in computeQuoteTotals).
       const isZeroQty = (it.qty === 0);
@@ -58926,7 +58954,7 @@ function renderQuoteCartContent(){
       '</table>';
   } else {
     // ── Tabella Modalità ANALISI (comportamento storico) ──
-    t.items.forEach((it, i) => {
+    tAll.items.forEach((it, i) => {
       // V2.10.185: qty=0 → riga "parcheggiata". Resta visibile ma con celle
       // numeriche vuote ed esclusa dai calcoli.
       const isZeroQty = (it.qty === 0);
@@ -59163,7 +59191,22 @@ function renderQuoteCartContent(){
       '</table>';
   }
 
-  container.innerHTML = summaryCards + tableHtml;
+  /* SV2.10.526 — avviso quando la selezione filtra i conti. Senza, i totali in
+     cima non corrisponderebbero alle righe visibili e sembrerebbero sbagliati. */
+  let _selNotice = '';
+  if(typeof _qcSelectionActive === 'function' && _qcSelectionActive()){
+    const _nSel = countSelectedQuoteRows();
+    const _nTot = (window._QUOTE_STATE.items || []).length;
+    _selNotice =
+      '<div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:8px 12px;' +
+        'border:1px solid rgba(1,120,212,0.45);background:rgba(1,120,212,0.10);border-radius:8px;' +
+        'font-size:12px;color:var(--fg2);line-height:1.4">' +
+        '<span style="font-weight:800;color:#0178d4;white-space:nowrap">' + _nSel + ' di ' + _nTot + ' righe selezionate</span>' +
+        '<span>Totali, grafici e documenti stampati considerano <b>solo le righe spuntate</b>. ' +
+        'Togli tutte le spunte per tornare al preventivo completo.</span>' +
+      '</div>';
+  }
+  container.innerHTML = _selNotice + summaryCards + tableHtml;
 
   /* SV2.10.479 — colonna DESCRIZIONE mostrata/nascosta.
      La classe va riapplicata a ogni render perche' il contenitore viene
@@ -59213,6 +59256,16 @@ function renderQuoteCartContent(){
   // Lo stato e' salvato su it._selectedForUpdate e persiste nel _QUOTE_STATE.
   // Non serve re-render: la checkbox aggiorna solo il flag.
   const _qcartUpdateChecks = () => Array.from(container.querySelectorAll('.qcart-update-check'));
+  /* SV2.10.526 — dopo un cambio di selezione i conti cambiano, quindi va
+     ridisegnato il blocco KPI. Ridisegno tutto il contenuto (unica via per
+     aggiornare insieme le quattro card e l'avviso) ma RIPRISTINO lo scroll,
+     altrimenti con molte righe la lista salterebbe in cima a ogni spunta. */
+  const _qcRefreshAfterSelection = () => {
+    const _scrollers = [container, container.parentElement, document.querySelector('#quoteCartModal .modal-body')];
+    const _pos = _scrollers.map(el => el ? { el, top: el.scrollTop, left: el.scrollLeft } : null);
+    try { renderQuoteCartContent(); } catch(e){ console.warn('[qcart] refresh selezione', e); return; }
+    _pos.forEach(p => { if(p && p.el){ p.el.scrollTop = p.top; p.el.scrollLeft = p.left; } });
+  };
   // Allinea lo stato della checkbox "select-all" dell'header (checked / indeterminate)
   const _syncQcartCheckAll = () => {
     const all = _qcartUpdateChecks();
@@ -59233,6 +59286,7 @@ function renderQuoteCartContent(){
         }
       }
       _syncQcartCheckAll();
+      _qcRefreshAfterSelection();
     });
   });
   // Checkbox "seleziona tutti" nell'header
@@ -59248,6 +59302,7 @@ function renderQuoteCartContent(){
       if(typeof saveQuoteState === 'function'){
         try { saveQuoteState(); } catch(_){}
       }
+      _qcRefreshAfterSelection();
     });
     _syncQcartCheckAll();  // stato iniziale
   }
