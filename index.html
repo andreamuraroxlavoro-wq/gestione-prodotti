@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.546 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.548 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8812,6 +8812,33 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   transition:transform 0.18s ease, box-shadow 0.18s ease;
   font-family:inherit;
 }
+/* SV2.10.548 — gemello blu del pulsante carrello, mostrato mentre il carrello
+   e' aperto per tornare alla galleria. Stessa geometria e stessa posizione. */
+#catalog-float-btn{
+  position:fixed;
+  bottom:24px;
+  right:24px;
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  background:linear-gradient(135deg, #3b82f6 0%, #0178d4 100%);
+  border:0;
+  color:#fff;
+  cursor:pointer;
+  box-shadow:0 6px 18px rgba(1,120,212,0.42), 0 2px 4px rgba(0,0,0,0.1);
+  z-index:20;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:transform 0.18s ease, box-shadow 0.18s ease;
+  font-family:inherit;
+}
+#catalog-float-btn:hover{
+  transform:scale(1.07);
+  box-shadow:0 10px 26px rgba(1,120,212,0.5), 0 3px 6px rgba(0,0,0,0.14);
+}
+#catalog-float-btn:active{transform:scale(0.96)}
+
 #quote-float-btn:hover{
   transform:scale(1.08) translateY(-2px);
   box-shadow:0 10px 24px rgba(234,88,12,0.5), 0 3px 6px rgba(0,0,0,0.15);
@@ -11068,7 +11095,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.546</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.548</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11771,7 +11798,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.546 mobile");
+console.info("[bootstrap] script avvio — SV2.10.548 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13267,7 +13294,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.546';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.548';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58243,6 +58270,31 @@ function openQuoteCart(){
 
   document.body.appendChild(bg);
 
+  /* SV2.10.548 — PULSANTE FLUTTUANTE "TORNA AL CATALOGO". Stessa forma e stessa
+     posizione del pulsante carrello della galleria, ma blu e con l'icona del
+     catalogo: quando il carrello e' aperto quello arancione non e' raggiungibile,
+     e questo prende il suo posto per fare il percorso inverso.
+     E' figlio di `bg`, quindi sparisce da solo insieme al modale — comunque lo si
+     chiuda (pulsante, click sullo sfondo, Esc). */
+  const _catBtn = document.createElement('button');
+  _catBtn.id = 'catalog-float-btn';
+  _catBtn.type = 'button';
+  _catBtn.title = 'Chiudi il preventivo e torna alla galleria del catalogo';
+  _catBtn.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">' +
+      '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>' +
+      '<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>' +
+      '<path d="M9 7h7"/><path d="M9 11h7"/>' +
+    '</svg>';
+  _catBtn.addEventListener('click', () => {
+    bg.remove();
+    // il pulsante arancione del carrello torna visibile da solo: e' sul body
+    if(typeof renderQuoteFloatingButton === 'function'){
+      try { renderQuoteFloatingButton(); } catch(_){}
+    }
+  });
+  bg.appendChild(_catBtn);
+
   // SV2.10.507: attiva l'aggiornamento automatico dell'indicatore di allineamento
   try { _qcWrapRenderForDirtyBadge(); } catch(_){}
   // V2.10.11: render iniziale barra info preventivo (se carrello e\u0027 bound)
@@ -59754,6 +59806,12 @@ function renderQuoteCartContent(){
       btn.classList.toggle('is-on', now);
       btn.setAttribute('aria-pressed', now ? 'true' : 'false');
       if(typeof _qcUpdateDirtyBadge === 'function'){ try { _qcUpdateDirtyBadge(); } catch(_){} }
+      /* SV2.10.547 — il flag "prezzo netto" cambia i totali (la riga esce da
+         Totale Listino / Importo Scontato ed entra in Totale Prezzi Netti),
+         quindi le KPI vanno ridisegnate subito: prima si aggiornavano solo
+         riaprendo il carrello. Riuso il refresh della selezione, che ridisegna
+         il contenuto conservando la posizione di scorrimento. */
+      if(typeof _qcRefreshAfterSelection === 'function'){ try { _qcRefreshAfterSelection(); } catch(_){} }
     });
   });
   // SV2.10.510: casella "PREZZO NETTO" per riga. Non serve un re-render completo:
@@ -59769,6 +59827,12 @@ function renderQuoteCartContent(){
       const wrap = chk.closest('.qcart-netto-flag-wrap');
       if(wrap) wrap.classList.toggle('is-on', chk.checked);
       if(typeof _qcUpdateDirtyBadge === 'function'){ try { _qcUpdateDirtyBadge(); } catch(_){} }
+      /* SV2.10.547 — il flag "prezzo netto" cambia i totali (la riga esce da
+         Totale Listino / Importo Scontato ed entra in Totale Prezzi Netti),
+         quindi le KPI vanno ridisegnate subito: prima si aggiornavano solo
+         riaprendo il carrello. Riuso il refresh della selezione, che ridisegna
+         il contenuto conservando la posizione di scorrimento. */
+      if(typeof _qcRefreshAfterSelection === 'function'){ try { _qcRefreshAfterSelection(); } catch(_){} }
     });
   });
   container.querySelectorAll('.qcart-discount-input').forEach(inp => {
