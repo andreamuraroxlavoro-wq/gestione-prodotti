@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.538 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.540 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11058,7 +11058,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.538</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.540</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11761,7 +11761,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.538 mobile");
+console.info("[bootstrap] script avvio — SV2.10.540 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13257,7 +13257,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.538';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.540';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -55707,15 +55707,25 @@ function _qcIsCanoneItem(it){
    informazioni sono state escluse dalle impostazioni di stampa: senza, del canone
    non resterebbe traccia nel documento. */
 function _qcCanoneInlineNeeded(printS){
-  const ps = printS || {};
-  return (ps.showQty === false) || (ps.showPrezzo === false) ||
-         (ps.showTotRiga === false) || (ps.showSconto === false);
+  /* SV2.10.539 — SEMPRE. Nella 538 la riga compariva solo se una delle colonne
+     era stata esclusa, e per il resto il testo occupava la colonna Q.ta',
+     spezzandosi su piu' righe in uno spazio largo pochi millimetri. La forma
+     corretta e' un'altra: in stampa la riga a canone NON usa le colonne
+     numeriche (che restano vuote) e porta unita' di misura e prezzo in
+     grassetto sotto la descrizione. */
+  return true;
 }
-function _qcCanoneInlineText(it){
+function _qcCanoneInlineText(it, printS){
   if(!_qcIsCanoneItem(it)) return '';
   const dPct = (typeof _normDiscountPct === 'function') ? _normDiscountPct(it.discountPct) : (it.discountPct || 0);
   const unit = (it.pvp != null) ? it.pvp * (1 - dPct / 100) : null;
-  return _qcCanoneLabel(it) + (unit != null ? ' \u00b7 ' + _qFmtEur(unit) : '');
+  /* SV2.10.540 — la precisazione ha senso SOLO se il documento stampa un totale
+     complessivo: senza riepilogo finale non esiste alcun "Totale dell'Offerta" a
+     cui riferirsi e la frase confonderebbe invece di chiarire. */
+  const _conTotale = !printS || printS.showTotali !== false;
+  return _qcCanoneLabel(it) +
+         (unit != null ? ' \u00b7 ' + _qFmtEur(unit) : '') +
+         (_conTotale ? ' (importo non incluso nel Totale dell\u2019Offerta)' : '');
 }
 
 function _qcCanoneLabel(it){
@@ -62642,7 +62652,7 @@ async function exportQuoteDocx(options){
           });
           // SV2.10.538: canone in coda alla descrizione, in grassetto
           if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
-            descParas.push(para(mk(_qcCanoneInlineText(it), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.LEFT }));
+            descParas.push(para(mk(_qcCanoneInlineText(it, printS), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.LEFT }));
           }
           if(showBrand && it.brand){
             descParas.push(para(mk(String(it.brand).toUpperCase(), { color: TEXT_MUTED, size: 17 }), { spacing: { before: 60 } }));
@@ -62656,8 +62666,8 @@ async function exportQuoteDocx(options){
           });
         },
         qty: () => new TableCell({
-          // SV2.10.538: riga a canone → testo dell'unita' al posto della quantita'
-          children: [para(mk(_qcIsCanoneItem(it) ? _qcCanoneLabel(it) : (isZeroQty ? '' : String(it.qty)), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.CENTER })],
+          // SV2.10.539: riga a canone → colonna vuota (il testo va sotto la descrizione)
+          children: [para(mk((_qcIsCanoneItem(it) || isZeroQty) ? '' : String(it.qty), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.CENTER })],
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 60 },
           borders: cellBorders,
@@ -62706,7 +62716,22 @@ async function exportQuoteDocx(options){
         }),
       };
       return new TableRow({
-        children: cols.map(c => cellMap[c.key]()),
+        /* SV2.10.539: sulla riga a canone le colonne numeriche restano vuote —
+           unita' di misura e prezzo compaiono sotto la descrizione. Le celle
+           qui sono factory, quindi le sostituisco con una cella vuota che
+           conserva sfondo, margini e bordi delle altre. */
+        children: cols.map(c => {
+          if(_qcIsCanoneItem(it) && ['list','discount','price','rtotal'].indexOf(c.key) >= 0){
+            return new TableCell({
+              children: [para(mk(''))],
+              shading: cellShading,
+              margins: { top: 140, bottom: 140, left: 60, right: 80 },
+              borders: cellBorders,
+              verticalAlign: VerticalAlign.CENTER,
+            });
+          }
+          return cellMap[c.key]();
+        }),
       });
     });
 
@@ -63354,7 +63379,7 @@ async function exportQuoteWord(){
         });
         // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
         if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
-          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it)) + '</div>');
+          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
         }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
@@ -63363,7 +63388,7 @@ async function exportQuoteWord(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? escapeHtml(_qcCanoneLabel(it)) : (isZeroQty ? '' : it.qty)) + '</td>',   // SV2.10.538
+          qty:      '<td class="col-qty">' + ((_qcIsCanoneItem(it) || isZeroQty) ? '' : it.qty) + '</td>',   // SV2.10.539
           // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
           // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
           // Mai in entrambe.
@@ -63372,6 +63397,14 @@ async function exportQuoteWord(){
           price:    '<td class="col-money">' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',
           rtotal:   '<td class="col-money col-tot"><b>' + ((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',   // SV2.10.538
         };
+        /* SV2.10.539: sulla riga a canone le colonne numeriche restano VUOTE —
+           unita' di misura e prezzo compaiono sotto la descrizione. */
+        if(_qcIsCanoneItem(it)){
+          cellMap.list     = '<td class="col-money"></td>';
+          cellMap.discount = '<td class="col-discount"></td>';
+          cellMap.price    = '<td class="col-money"></td>';
+          cellMap.rtotal   = '<td class="col-money col-tot"></td>';
+        }
         rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
       theadHtml = '<tr>' + cols.map(c => {
@@ -63452,7 +63485,7 @@ async function exportQuoteWord(){
         });
         // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
         if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
-          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it)) + '</div>');
+          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
         }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
@@ -63460,7 +63493,7 @@ async function exportQuoteWord(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? escapeHtml(_qcCanoneLabel(it)) : it.qty) + '</td>',   // SV2.10.538
+          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : it.qty) + '</td>',   // SV2.10.539
           list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
           scAcq:    '<td class="col-money">' + (scAcqPct != null ? _qFmtPct(scAcqPct, 1) : '—') + '</td>',
           netto:    '<td class="col-money">' + fmt(it.netto) + '</td>',
@@ -63469,6 +63502,14 @@ async function exportQuoteWord(){
           totpvp:   '<td class="col-money">' + (subPvp ? _qFmtEur(subPvp) : '—') + '</td>',
           totnetto: '<td class="col-money col-tot"><b>' + (subNet ? _qFmtEur(subNet) : '—') + '</b></td>',
         };
+        /* SV2.10.539: sulla riga a canone le colonne numeriche restano VUOTE —
+           unita' di misura e prezzo compaiono sotto la descrizione. */
+        if(_qcIsCanoneItem(it)){
+          cellMap.list     = '<td class="col-money"></td>';
+          cellMap.discount = '<td class="col-discount"></td>';
+          cellMap.price    = '<td class="col-money"></td>';
+          cellMap.rtotal   = '<td class="col-money col-tot"></td>';
+        }
         rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
       theadHtml = '<tr>' + cols.map(c => {
@@ -64484,7 +64525,7 @@ async function exportQuotePdfNative(options){
       descLines.push(_qPrintDescription(it, printS));   // SV2.10.532
       // SV2.10.538: canone in coda alla descrizione (il grassetto lo applica
       // didParseCell, che riconosce la riga tramite l'array parallelo canoneLines)
-      const _canoneLine = (_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)) ? _qcCanoneInlineText(it) : '';
+      const _canoneLine = (_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)) ? _qcCanoneInlineText(it, printS) : '';
       if(_canoneLine) descLines.push(_canoneLine);
       canoneLines[idx] = _canoneLine;
       if(showBrand && it.brand) descLines.push(String(it.brand).toUpperCase());
@@ -64495,7 +64536,7 @@ async function exportQuotePdfNative(options){
       const cellMap = {
         img: '',  // immagine renderizzata in didDrawCell
         desc: descText,
-        qty: _qcIsCanoneItem(it) ? _qcCanoneLabel(it) : (isZeroQty ? '' : String(it.qty)),   // SV2.10.538
+        qty: (_qcIsCanoneItem(it) || isZeroQty) ? '' : String(it.qty),   // SV2.10.539
         // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
         // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
         // Mai in entrambe.
@@ -64504,6 +64545,10 @@ async function exportQuotePdfNative(options){
         price: isZeroQty ? '' : (sellUnit != null ? _qFmtEur(sellUnit) : '—'),
         rtotal: (isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—'),   // SV2.10.538
       };
+      // SV2.10.539: colonne numeriche vuote sulle righe a canone
+      if(_qcIsCanoneItem(it)){
+        cellMap.list = ''; cellMap.discount = ''; cellMap.price = ''; cellMap.rtotal = '';
+      }
       return cols.map(c => cellMap[c.key]);
     });
 
@@ -65218,7 +65263,7 @@ async function exportQuotePdf(){
         });
         // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
         if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
-          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it)) + '</div>');
+          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
         }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
@@ -65226,7 +65271,7 @@ async function exportQuotePdf(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? escapeHtml(_qcCanoneLabel(it)) : (isZeroQty ? '' : it.qty)) + '</td>',   // SV2.10.538
+          qty:      '<td class="col-qty">' + ((_qcIsCanoneItem(it) || isZeroQty) ? '' : it.qty) + '</td>',   // SV2.10.539
           // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
           // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
           // Mai in entrambe.
@@ -65235,6 +65280,14 @@ async function exportQuotePdf(){
           price:    '<td class="col-money">' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',
           rtotal:   '<td class="col-money col-tot"><b>' + ((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',   // SV2.10.538
         };
+        /* SV2.10.539: sulla riga a canone le colonne numeriche restano VUOTE —
+           unita' di misura e prezzo compaiono sotto la descrizione. */
+        if(_qcIsCanoneItem(it)){
+          cellMap.list     = '<td class="col-money"></td>';
+          cellMap.discount = '<td class="col-discount"></td>';
+          cellMap.price    = '<td class="col-money"></td>';
+          cellMap.rtotal   = '<td class="col-money col-tot"></td>';
+        }
         rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
       theadHtml = '<tr>' + cols.map(c => {
@@ -65308,7 +65361,7 @@ async function exportQuotePdf(){
         });
         // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
         if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
-          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it)) + '</div>');
+          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
         }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
@@ -65316,7 +65369,7 @@ async function exportQuotePdf(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? escapeHtml(_qcCanoneLabel(it)) : it.qty) + '</td>',   // SV2.10.538
+          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : it.qty) + '</td>',   // SV2.10.539
           list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
           scAcq:    '<td class="col-money">' + (scAcqPct != null ? _qFmtPct(scAcqPct, 1) : '—') + '</td>',
           netto:    '<td class="col-money">' + fmt(it.netto) + '</td>',
@@ -65325,6 +65378,14 @@ async function exportQuotePdf(){
           totpvp:   '<td class="col-money">' + (subPvp ? _qFmtEur(subPvp) : '—') + '</td>',
           totnetto: '<td class="col-money col-tot"><b>' + (subNet ? _qFmtEur(subNet) : '—') + '</b></td>',
         };
+        /* SV2.10.539: sulla riga a canone le colonne numeriche restano VUOTE —
+           unita' di misura e prezzo compaiono sotto la descrizione. */
+        if(_qcIsCanoneItem(it)){
+          cellMap.list     = '<td class="col-money"></td>';
+          cellMap.discount = '<td class="col-discount"></td>';
+          cellMap.price    = '<td class="col-money"></td>';
+          cellMap.rtotal   = '<td class="col-money col-tot"></td>';
+        }
         rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
       theadHtml = '<tr>' + cols.map(c => {
