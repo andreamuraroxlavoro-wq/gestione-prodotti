@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.530 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.532 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11037,7 +11037,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.530</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.532</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11740,7 +11740,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.530 mobile");
+console.info("[bootstrap] script avvio — SV2.10.532 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13236,7 +13236,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.530';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.532';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -47931,6 +47931,9 @@ const QUOTE_PRINT_DEFAULT_ANALYSIS = Object.freeze({
   // SV2.10.530: quantita' e riepilogo finale opzionali anche in Analisi
   showQty:      true,
   showTotali:   true,
+  // SV2.10.532
+  showDescBreve:  true,
+  showDescEstesa: false,
 });
 
 // Default Modalità CLIENTE — 7 colonne configurabili
@@ -47945,16 +47948,30 @@ const QUOTE_PRINT_DEFAULT_CLIENT = Object.freeze({
   // SV2.10.530: quantita' e riepilogo finale diventano opzionali.
   showQty:      true,   // Colonna Q.tà
   showTotali:   true,   // Blocco riepilogo in fondo (totali generali + IVA)
+  // SV2.10.532: le due descrizioni sono indipendenti; con entrambe attive esce
+  // prima la breve e poi la estesa.
+  showDescBreve:  true,
+  showDescEstesa: false,
 });
 
 // Helper: ritorna il set effettivo per la modalità corrente, con merge sui default.
 // Garantisce sempre un oggetto valido anche con state IDB legacy (pre-V2.6.0).
 function getPrintSettings(mode){
   const s = window._QUOTE_STATE.settings || {};
-  if(mode === 'client'){
-    return Object.assign({}, QUOTE_PRINT_DEFAULT_CLIENT, s.printClient || {});
+  const saved = (mode === 'client') ? s.printClient : s.printAnalysis;
+  const out = (mode === 'client')
+    ? Object.assign({}, QUOTE_PRINT_DEFAULT_CLIENT, saved || {})
+    : Object.assign({}, QUOTE_PRINT_DEFAULT_ANALYSIS, saved || {});
+  /* SV2.10.532 — retrocompatibilita': per chi non ha mai toccato le due nuove
+     caselle, la scelta breve/estesa continua a derivare da `descMode`, cosi'
+     nessun preventivo esistente cambia aspetto. Appena l'utente salva il dialogo,
+     i valori espliciti prendono il sopravvento. */
+  if(!saved || saved.showDescBreve === undefined){
+    const dm = (s.descMode === 'full') ? 'full' : 'short';
+    out.showDescBreve  = (dm === 'short');
+    out.showDescEstesa = (dm === 'full');
   }
-  return Object.assign({}, QUOTE_PRINT_DEFAULT_ANALYSIS, s.printAnalysis || {});
+  return out;
 }
 
 // Default delle settings — usato come fallback se IDB non ha valori salvati
@@ -55244,6 +55261,40 @@ function getCleanItemName(item){
   return _maybeNorm(_stripIfHtml(String(item.name || '')));
 }
 
+/* ─── SV2.10.532: DESCRIZIONE BREVE / ESTESA IN STAMPA ───
+   Le due descrizioni sono ora selezionabili in modo indipendente dalle
+   impostazioni di stampa. Se sono attive entrambe, in stampa esce prima la
+   BREVE e poi la ESTESA, separate da una riga vuota.
+   `_qDescParts` riusa `getCleanItemName` commutando temporaneamente descMode:
+   cosi' eredita tutte le catene di fallback gia' collaudate (item moderni,
+   legacy, prodotti personali) senza duplicarle. Nota: quella funzione ripiega
+   sull'altra descrizione quando la richiesta e' vuota, percio' i due valori
+   possono coincidere: in quel caso il testo va stampato una volta sola. */
+function _qDescParts(item){
+  const st = (window._QUOTE_STATE && window._QUOTE_STATE.settings) ? window._QUOTE_STATE.settings : null;
+  if(!st) return { breve: '', estesa: '' };
+  const keep = st.descMode;
+  let breve = '', estesa = '';
+  try { st.descMode = 'short'; breve  = getCleanItemName(item); } catch(_){}
+  try { st.descMode = 'full';  estesa = getCleanItemName(item); } catch(_){}
+  st.descMode = keep;
+  return { breve: breve || '', estesa: estesa || '' };
+}
+
+function _qPrintDescription(item, printS){
+  const ps = printS || {};
+  const wantB = ps.showDescBreve  !== false;
+  const wantE = ps.showDescEstesa === true;
+  const d = _qDescParts(item);
+  if(wantB && wantE){
+    if(d.breve && d.estesa && d.breve !== d.estesa) return d.breve + '\n\n' + d.estesa;
+    return d.breve || d.estesa;
+  }
+  if(wantB) return d.breve || '';
+  if(wantE) return d.estesa || '';
+  return '';
+}
+
 function _stripIfHtml(s){
   if(!s) return '';
   if(s.indexOf('<') === -1 && s.indexOf('&') === -1) return s;
@@ -58317,6 +58368,8 @@ function openQuotePrintSettingsDialog(forcedMode){
     { flag: 'showScCliente', label: 'Sc. Cliente',         hint: 'Sconto applicato al cliente (impostato in Modalità Cliente per riga).' },
     { flag: 'showMargine',   label: 'Margine',             hint: 'Margine commerciale %: (prezzo_vendita − netto) / prezzo_vendita × 100.' },
     { flag: 'showTotPvp',    label: 'Totale per articolo', hint: 'Totale PVP per riga (PVP × quantità).' },
+    { flag: 'showDescBreve',  label: 'Descrizione breve',  hint: 'Testo sintetico dell\'articolo.' },
+    { flag: 'showDescEstesa', label: 'Descrizione estesa', hint: 'Testo completo dell\'articolo. Se attive entrambe, in stampa esce prima la breve e poi la estesa.' },
     { flag: 'showQty',       label: 'Quantità',            hint: 'Colonna Q.tà con il numero di pezzi per riga.' },
     { flag: 'showTotNetto',  label: 'Totale per riga',     hint: 'Totale netto per riga (Netto × quantità).' },
     // V2.9.31: visibilita' dei totali finali (riepilogo in basso a destra del preventivo)
@@ -58334,6 +58387,8 @@ function openQuotePrintSettingsDialog(forcedMode){
     { flag: 'showListino',  label: 'Listino',            hint: 'Prezzo di listino unitario.' },
     { flag: 'showSconto',   label: 'Sconto',             hint: 'Sconto applicato per riga (%).' },
     { flag: 'showPrezzo',   label: 'Prezzo di vendita',  hint: 'Prezzo unitario di vendita (Listino × (1 − sconto)).' },
+    { flag: 'showDescBreve',  label: 'Descrizione breve',  hint: 'Testo sintetico dell\'articolo.' },
+    { flag: 'showDescEstesa', label: 'Descrizione estesa', hint: 'Testo completo dell\'articolo. Se attive entrambe, in stampa esce prima la breve e poi la estesa.' },
     { flag: 'showQty',      label: 'Quantità',           hint: 'Colonna Q.tà con il numero di pezzi per riga.' },
     { flag: 'showTotRiga',  label: 'Totale per riga',    hint: 'Totale per riga (Prezzo × quantità).' },
     { flag: 'showTotali',   label: 'Totali generali',    hint: 'Riepilogo finale del preventivo (Totale listino, Importo scontato, TOTALE e IVA). Disattivandolo il documento diventa un semplice elenco, senza alcun importo complessivo.' },
@@ -58403,7 +58458,7 @@ function openQuotePrintSettingsDialog(forcedMode){
             rowsHtml +
           '</div>' +
           '<div style="margin-top:10px;padding:7px 10px;background:rgba(59,130,246,0.06);border-radius:6px;font-size:11px;color:var(--fg2);line-height:1.45">' +
-            '<b>Sempre presente:</b> Descrizione articolo.' +
+            '<b>Nota:</b> se spegni entrambe le descrizioni, nella colonna resta solo il codice articolo (se attivo).' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -62418,7 +62473,11 @@ async function exportQuoteDocx(options){
           if(showCode && it.code && !it.isFreeField){
             descParas.push(para(mk(getDisplayCode(it), { bold: true, color: TEXT_DARK, size: 21 }), { spacing: { after: 40 } }));
           }
-          descParas.push(para(mk(getCleanItemName(it), { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.JUSTIFIED }));
+          // SV2.10.532: breve ed estesa separate da riga vuota → paragrafi distinti
+          String(_qPrintDescription(it, printS) || '').split(/\n\s*\n/).forEach(_blk => {
+            if(!_blk) return;
+            descParas.push(para(mk(_blk, { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.JUSTIFIED }));
+          });
           if(showBrand && it.brand){
             descParas.push(para(mk(String(it.brand).toUpperCase(), { color: TEXT_MUTED, size: 17 }), { spacing: { before: 60 } }));
           }
@@ -63121,7 +63180,10 @@ async function exportQuoteWord(){
         // Cella descrizione strutturata: codice (opt) + desc + marca (opt)
         const descParts = [];
         if(showCode && it.code && !it.isFreeField) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
-        descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
+        // SV2.10.532: un blocco per descrizione (breve e/o estesa)
+        String(_qPrintDescription(it, printS) || '').split(/\n\s*\n/).forEach(_blk => {
+          if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
+        });
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
@@ -63212,7 +63274,10 @@ async function exportQuoteWord(){
           : '';
         const descParts = [];
         if(showCode && it.code && !it.isFreeField) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
-        descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
+        // SV2.10.532: un blocco per descrizione (breve e/o estesa)
+        String(_qPrintDescription(it, printS) || '').split(/\n\s*\n/).forEach(_blk => {
+          if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
+        });
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
@@ -63308,6 +63373,11 @@ async function exportQuoteWord(){
         'table.items th.col-money,table.items td.col-money{text-align:right !important;padding:8pt 6pt 8pt 4pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
         'table.items th.col-discount,table.items td.col-discount{text-align:right !important;padding:8pt 6pt 8pt 3pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
         'table.items td.col-discount{font-weight:600;color:#dc2626}' +
+        // SV2.10.531: titolo e intestazione tabella restano attaccati alle righe
+        'h2.sez-dettaglio{page-break-after:avoid;break-after:avoid}' +
+        'table.items thead{display:table-header-group}' +
+        'table.items thead tr{page-break-after:avoid;break-after:avoid}' +
+        'table.items tr{page-break-inside:avoid;break-inside:avoid}' +
         // SV2.10.510: dicitura per le righe a prezzo netto. Font ridotto e
         // white-space normal per stare nella colonna stretta dello sconto.
         'table.items td .netto-tag{display:inline-block;color:#16a34a;font-weight:700;font-size:11pt;line-height:1.15;letter-spacing:0.2px;white-space:normal;text-align:right}' +
@@ -63425,7 +63495,8 @@ async function exportQuoteWord(){
         '</div>'
       ) : '') +
       '<div class="content">' +
-        '<h2>Dettaglio della Soluzione proposta</h2>' +
+        // SV2.10.531: il titolo non resta mai staccato dalla tabella
+        '<h2 class="sez-dettaglio">Dettaglio della Soluzione proposta</h2>' +
         '<table class="items">' +
           '<thead>' + theadHtml + '</thead>' +
           '<tbody>' + rowsHtml + '</tbody>' +
@@ -64187,7 +64258,20 @@ async function exportQuotePdfNative(options){
       }
     }
 
-    // === TITOLO "Dettaglio della Soluzione proposta" ===
+    /* === TITOLO "Dettaglio della Soluzione proposta" ===
+       SV2.10.531 — con un testo libero lungo il titolo e l'intestazione della
+       tabella finivano a fondo pagina e gli articoli slittavano alla successiva,
+       lasciando una testata vuota sotto un titolo orfano. Se lo spazio residuo
+       non basta per titolo + riga di intestazione + almeno una riga articolo,
+       si passa direttamente alla pagina nuova. La soglia e' volutamente generosa
+       (~140pt) perche' una riga articolo con immagine e descrizione su piu' righe
+       e' alta parecchio: meglio anticipare il salto che stampare un moncone. */
+    const _needTitolo = 16 + 10 + 24 + 90;
+    if(cursorY + _needTitolo > PAGE_H - FOOTER_RESERVE){
+      doc.addPage();
+      drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
+      cursorY = MARGIN;
+    }
     setText(13, 'bold', COL.textDark);
     doc.text('Dettaglio della Soluzione proposta', MARGIN, cursorY + 13);
     cursorY += 16;
@@ -64241,7 +64325,7 @@ async function exportQuotePdfNative(options){
       const descLines = [];
       const itCode = (showCode && it.code && !it.isFreeField) ? String(getDisplayCode(it)) : '';
       if(itCode) descLines.push(itCode);
-      descLines.push(getCleanItemName(it));
+      descLines.push(_qPrintDescription(it, printS));   // SV2.10.532
       if(showBrand && it.brand) descLines.push(String(it.brand).toUpperCase());
       const descText = descLines.join('\n');
       // V2.10.84: salvo il codice per il rendering bold
@@ -64927,7 +65011,10 @@ async function exportQuotePdf(){
         const imgCell = imgUrlAbs ? '<img src="' + escapeAttr(imgUrlAbs) + '" alt="">' : '';
         const descParts = [];
         if(showCode && it.code && !it.isFreeField) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
-        descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
+        // SV2.10.532: un blocco per descrizione (breve e/o estesa)
+        String(_qPrintDescription(it, printS) || '').split(/\n\s*\n/).forEach(_blk => {
+          if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
+        });
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
@@ -65010,7 +65097,10 @@ async function exportQuotePdf(){
         const imgCell = imgUrlAbs ? '<img src="' + escapeAttr(imgUrlAbs) + '" alt="">' : '';
         const descParts = [];
         if(showCode && it.code && !it.isFreeField) descParts.push('<div class="desc-code">' + escapeHtml(getDisplayCode(it)) + '</div>');
-        descParts.push('<div class="desc-body">' + escapeHtml(getCleanItemName(it)) + '</div>');
+        // SV2.10.532: un blocco per descrizione (breve e/o estesa)
+        String(_qPrintDescription(it, printS) || '').split(/\n\s*\n/).forEach(_blk => {
+          if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
+        });
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
@@ -65102,6 +65192,11 @@ async function exportQuotePdf(){
         'table.items th.col-money,table.items td.col-money{text-align:right !important;padding:7pt 5pt 7pt 3pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
         'table.items th.col-discount,table.items td.col-discount{text-align:right !important;padding:7pt 5pt 7pt 2pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
         'table.items td.col-discount{font-weight:600;color:#dc2626}' +
+        // SV2.10.531: titolo e intestazione tabella restano attaccati alle righe
+        'h2.sez-dettaglio{page-break-after:avoid;break-after:avoid}' +
+        'table.items thead{display:table-header-group}' +
+        'table.items thead tr{page-break-after:avoid;break-after:avoid}' +
+        'table.items tr{page-break-inside:avoid;break-inside:avoid}' +
         // SV2.10.510: dicitura per le righe a prezzo netto. Font ridotto e
         // white-space normal per stare nella colonna stretta dello sconto.
         'table.items td .netto-tag{display:inline-block;color:#16a34a;font-weight:700;font-size:10pt;line-height:1.15;letter-spacing:0.2px;white-space:normal;text-align:right}' +
@@ -65265,7 +65360,8 @@ async function exportQuotePdf(){
         '</div>'
       ) : '') +
       '<div class="content">' +
-        '<h2>Dettaglio della Soluzione proposta</h2>' +
+        // SV2.10.531: il titolo non resta mai staccato dalla tabella
+        '<h2 class="sez-dettaglio">Dettaglio della Soluzione proposta</h2>' +
         '<table class="items">' +
           '<thead>' + theadHtml + '</thead>' +
           '<tbody>' + rowsHtml + '</tbody>' +
