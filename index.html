@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.537 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.538 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8907,6 +8907,23 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   font-size:18px;font-weight:700;line-height:1;
   border-radius:6px;flex-shrink:0;
 }
+/* SV2.10.538 — pillola dell'unita' di misura mostrata al posto del selettore di
+   quantita' sulle righe a canone. */
+.qcart-uom-chip{
+  display:inline-flex; align-items:center; justify-content:center;
+  max-width:150px; padding:5px 10px;
+  border:1px solid rgba(245,158,11,0.55);
+  background:rgba(245,158,11,0.12);
+  color:#b45309;
+  border-radius:7px;
+  font-family:inherit; font-size:11px; font-weight:800;
+  letter-spacing:.2px; line-height:1.2;
+  cursor:pointer;
+  white-space:normal; text-align:center;
+}
+body.theme-light .qcart-uom-chip{ color:#92400e; }
+.qcart-uom-chip:hover{ border-color:#f59e0b; background:rgba(245,158,11,0.22); }
+
 .qcart-qty-input-css{
   width:64px;text-align:center;padding:5px 6px;
   border:1px solid var(--border);border-radius:5px;
@@ -11041,7 +11058,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.537</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.538</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11744,7 +11761,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.537 mobile");
+console.info("[bootstrap] script avvio — SV2.10.538 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13240,7 +13257,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.537';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.538';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -55316,6 +55333,26 @@ function _qPrintDescription(item, printS){
   return '';
 }
 
+/* SV2.10.538 — elenco delle unita' di misura gia' usate, per riproporle nel
+   menu a tendina. Vive in SETTINGS (quindi in vt_settings: sopravvive al
+   riavvio ed entra in backup, archivio locale e Drive Sync con le altre
+   impostazioni, senza chiavi nuove da sincronizzare). */
+function uomPresetsList(){
+  const v = (typeof SETTINGS !== 'undefined') ? SETTINGS.uomPresets : null;
+  return Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : [];
+}
+function uomPresetRemember(txt){
+  const t = String(txt || '').trim();
+  if(!t) return;
+  const list = uomPresetsList();
+  // confronto case-insensitive per non riempire la lista di varianti
+  if(list.some(x => x.toLowerCase() === t.toLowerCase())) return;
+  list.push(t);
+  list.sort((a, b) => a.localeCompare(b, 'it'));
+  SETTINGS.uomPresets = list.slice(0, 60);
+  try { saveSettings(); } catch(_){}
+}
+
 function _stripIfHtml(s){
   if(!s) return '';
   if(s.indexOf('<') === -1 && s.indexOf('&') === -1) return s;
@@ -55659,6 +55696,32 @@ function _qcItemsForCalc(){
   return all.filter(it => it && it._selectedForUpdate === true);
 }
 
+/* SV2.10.538 — una riga e' "a canone" quando ha un testo di unita' di misura al
+   posto della quantita'. Unico punto di verita', usato da carrello, totali e da
+   tutti e quattro gli esportatori. */
+function _qcIsCanoneItem(it){
+  return !!(it && typeof it.uomText === 'string' && it.uomText.trim() !== '');
+}
+/* SV2.10.538 — riga informativa "<unita'> · € <prezzo>" da accodare in GRASSETTO
+   alla descrizione in stampa. Serve quando le colonne che porterebbero quelle due
+   informazioni sono state escluse dalle impostazioni di stampa: senza, del canone
+   non resterebbe traccia nel documento. */
+function _qcCanoneInlineNeeded(printS){
+  const ps = printS || {};
+  return (ps.showQty === false) || (ps.showPrezzo === false) ||
+         (ps.showTotRiga === false) || (ps.showSconto === false);
+}
+function _qcCanoneInlineText(it){
+  if(!_qcIsCanoneItem(it)) return '';
+  const dPct = (typeof _normDiscountPct === 'function') ? _normDiscountPct(it.discountPct) : (it.discountPct || 0);
+  const unit = (it.pvp != null) ? it.pvp * (1 - dPct / 100) : null;
+  return _qcCanoneLabel(it) + (unit != null ? ' \u00b7 ' + _qFmtEur(unit) : '');
+}
+
+function _qcCanoneLabel(it){
+  return _qcIsCanoneItem(it) ? String(it.uomText).trim() : '';
+}
+
 function computeQuoteTotals(opts){
   /* SV2.10.526: se ci sono righe spuntate i conti considerano solo quelle.
      `opts.all = true` disattiva il filtro: serve al render della TABELLA del
@@ -55717,6 +55780,12 @@ function computeQuoteTotals(opts){
     // V2.10.185: qty=0 → riga "parcheggiata" (visibile ma esclusa dai calcoli).
     // Non incremento contatori, non sommo prezzi, non considero per bucket.
     if(!it || it.qty == null || it.qty <= 0) continue;
+    /* SV2.10.538 — RIGA A CANONE (`uomText` valorizzato, es. "Canone Mensile").
+       Resta nell'elenco (e quindi in tabella e in stampa) ma NON entra in nessun
+       totale: e' un costo ricorrente di durata ignota, che non fa parte
+       dell'importo del preventivo. Per lo stesso motivo non produce un totale
+       di riga. */
+    if(_qcIsCanoneItem(it)) continue;
     totalQty += it.qty;
     const pvpValid = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0));
     const nettoValid = (it.netto != null && (it.isFreeField ? it.netto !== 0 : it.netto > 0));
@@ -57783,13 +57852,28 @@ function openQuoteAddDialog(productIdx){
             'style="flex:1;text-align:center;font-size:18px;font-weight:700;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-family:inherit">' +
           '<button class="btn small" id="qaQtyPlus" type="button" style="width:36px;font-size:18px;font-weight:700">+</button>' +
         '</div>' +
-        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">' +
           '<button class="btn small ghost qa-quick-qty" data-qty="1" type="button" style="flex:1">1</button>' +
           '<button class="btn small ghost qa-quick-qty" data-qty="5" type="button" style="flex:1">5</button>' +
           '<button class="btn small ghost qa-quick-qty" data-qty="10" type="button" style="flex:1">10</button>' +
           '<button class="btn small ghost qa-quick-qty" data-qty="20" type="button" style="flex:1">20</button>' +
           '<button class="btn small ghost qa-quick-qty" data-qty="50" type="button" style="flex:1">50</button>' +
           '<button class="btn small ghost qa-quick-qty" data-qty="100" type="button" style="flex:1">100</button>' +
+        '</div>' +
+        /* SV2.10.538 — UNITA' DI MISURA (riga a canone). Testo libero con menu a
+           tendina delle voci gia' usate: <input list> da entrambe le cose con un
+           solo controllo, e sui tablet apre la tendina nativa. Se compilata, la
+           riga mostra questo testo al posto della quantita', non ha totale di
+           riga e non entra nel totale del preventivo. */
+        '<label style="display:block;font-size:11px;font-weight:600;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Unit\u00e0 di misura <span style="text-transform:none;font-weight:500">(facoltativa \u2014 es. Canone Mensile)</span></label>' +
+        '<input type="text" id="qaUomInput" list="qaUomList" autocomplete="off" placeholder="Lascia vuoto per una riga normale a quantit\u00e0" ' +
+          'style="width:100%;font-size:13px;padding:9px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-family:inherit">' +
+        '<datalist id="qaUomList">' +
+          uomPresetsList().map(x => '<option value="' + escapeAttr(x) + '"></option>').join('') +
+        '</datalist>' +
+        '<div id="qaUomHint" style="display:none;margin-top:8px;padding:8px 10px;border-radius:6px;border:1px solid rgba(245,158,11,0.45);background:rgba(245,158,11,0.10);font-size:11px;line-height:1.5;color:var(--fg2)">' +
+          'La riga uscir\u00e0 con questo testo <b>al posto della quantit\u00e0</b> e col solo prezzo unitario: ' +
+          '<b>nessun totale di riga</b> e <b>nessun effetto sul totale del preventivo</b>.' +
         '</div>' +
       '</div>' +
       '<div class="modal-foot">' +
@@ -57825,17 +57909,37 @@ function openQuoteAddDialog(productIdx){
     });
   });
 
+  // SV2.10.538: l'avviso compare solo quando l'unita' di misura e' valorizzata
+  const uomInp = document.getElementById('qaUomInput');
+  const uomHint = document.getElementById('qaUomHint');
+  const _syncUomHint = () => {
+    const on = !!(uomInp && uomInp.value.trim());
+    if(uomHint) uomHint.style.display = on ? 'block' : 'none';
+  };
+  if(uomInp){ uomInp.addEventListener('input', _syncUomHint); uomInp.addEventListener('change', _syncUomHint); }
+
   const doAdd = () => {
     const q = parseInt(inp.value, 10);
     if(isNaN(q) || q <= 0){
       toast('Inserisci una quantità valida', 'warn', 3000);
       return;
     }
+    const _uom = uomInp ? uomInp.value.trim() : '';
     if(addToQuoteCart(productIdx, q)){
+      /* SV2.10.538: il flag si applica dopo l'inserimento — addToQuoteCart ha gia'
+         la sua logica di merge e non va complicata. Se l'unita' e' vuota il campo
+         viene RIMOSSO, cosi' ri-aggiungendo un articolo senza testo la riga torna
+         una normale riga a quantita'. */
+      const _added = window._QUOTE_STATE.items.find(x => x.code === code);
+      if(_added){
+        if(_uom){ _added.uomText = _uom; uomPresetRemember(_uom); }
+        else { delete _added.uomText; }
+        try { saveQuoteState(); } catch(_){}
+      }
       toast({
         type: 'ok',
         title: 'Aggiunto al carrello',
-        message: q + ' × ' + code,
+        message: (_uom ? _uom + ' · ' : q + ' × ') + code,
         duration: 2500,
       });
       close();
@@ -58971,13 +59075,22 @@ function renderQuoteCartContent(){
             const truncated = cleanName.slice(0, 175);
             return '<td class="qcart-desc-cell" style="font-size:14px;color:var(--fg2);max-width:400px;line-height:1.4;text-align:justify;text-align-last:left;hyphens:auto" title="' + escapeAttr(cleanName) + '">' + escapeHtml(truncated) + (cleanName.length > 175 ? '…' : '') + '</td>';
           })() +
-          '<td>' +
-            '<div style="display:flex;align-items:center;gap:6px;justify-content:center">' +
-              '<button class="btn small ghost qcart-qty-minus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">−</button>' +
-              '<input type="number" class="qcart-qty-input qcart-qty-input-css" data-code="' + escapeAttr(it.code) + '" value="' + it.qty + '" min="0" max="9999">' +
-              '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
-            '</div>' +
-          '</td>' +
+          /* SV2.10.538: riga a canone → al posto del selettore di quantita' esce il
+             testo dell'unita' di misura. Cliccandolo si puo' cambiare. */
+          (_qcIsCanoneItem(it)
+            ? '<td style="text-align:center">' +
+                '<button type="button" class="qcart-uom-chip" data-code="' + escapeAttr(it.code) + '" ' +
+                  'title="Unit\u00e0 di misura: clicca per modificarla o svuotarla e tornare a una riga a quantit\u00e0">' +
+                  escapeHtml(_qcCanoneLabel(it)) +
+                '</button>' +
+              '</td>'
+            : '<td>' +
+              '<div style="display:flex;align-items:center;gap:6px;justify-content:center">' +
+                '<button class="btn small ghost qcart-qty-minus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">−</button>' +
+                '<input type="number" class="qcart-qty-input qcart-qty-input-css" data-code="' + escapeAttr(it.code) + '" value="' + it.qty + '" min="0" max="9999">' +
+                '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
+              '</div>' +
+            '</td>') +
           '<td class="num">' + ((it.isFreeField || isZeroQty || _noList) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
           '<td>' +
             // V2.6.4: UI compatta identica a quella della colonna "Sc. Cliente"
@@ -59017,7 +59130,8 @@ function renderQuoteCartContent(){
                 '</label>') +
             '</div>' +
           '</td>' +
-          '<td class="num qcart-cli-totprezzo" style="font-weight:700;color:#16a34a">' + (isZeroQty ? _dash : (subSell != null ? _qFmtEur(subSell) : '—')) + '</td>' +
+          // SV2.10.538: la riga a canone non ha totale di riga
+          '<td class="num qcart-cli-totprezzo" style="font-weight:700;color:#16a34a">' + ((isZeroQty || _qcIsCanoneItem(it)) ? _dash : (subSell != null ? _qFmtEur(subSell) : '—')) + '</td>' +
         '</tr>';
     });
     tableHtml =
@@ -59146,13 +59260,22 @@ function renderQuoteCartContent(){
             const truncated = cleanName.slice(0, 175);
             return '<td class="qcart-desc-cell" style="font-size:14px;color:var(--fg2);max-width:400px;line-height:1.4;text-align:justify;text-align-last:left;hyphens:auto" title="' + escapeAttr(cleanName) + '">' + escapeHtml(truncated) + (cleanName.length > 175 ? '…' : '') + '</td>';
           })() +
-          '<td>' +
-            '<div style="display:flex;align-items:center;gap:6px;justify-content:center">' +
-              '<button class="btn small ghost qcart-qty-minus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">−</button>' +
-              '<input type="number" class="qcart-qty-input qcart-qty-input-css" data-code="' + escapeAttr(it.code) + '" value="' + it.qty + '" min="0" max="9999">' +
-              '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
-            '</div>' +
-          '</td>' +
+          /* SV2.10.538: riga a canone → al posto del selettore di quantita' esce il
+             testo dell'unita' di misura. Cliccandolo si puo' cambiare. */
+          (_qcIsCanoneItem(it)
+            ? '<td style="text-align:center">' +
+                '<button type="button" class="qcart-uom-chip" data-code="' + escapeAttr(it.code) + '" ' +
+                  'title="Unit\u00e0 di misura: clicca per modificarla o svuotarla e tornare a una riga a quantit\u00e0">' +
+                  escapeHtml(_qcCanoneLabel(it)) +
+                '</button>' +
+              '</td>'
+            : '<td>' +
+              '<div style="display:flex;align-items:center;gap:6px;justify-content:center">' +
+                '<button class="btn small ghost qcart-qty-minus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">−</button>' +
+                '<input type="number" class="qcart-qty-input qcart-qty-input-css" data-code="' + escapeAttr(it.code) + '" value="' + it.qty + '" min="0" max="9999">' +
+                '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
+              '</div>' +
+            '</td>') +
           '<td class="num">' + ((it.isFreeField || isZeroQty || _noList) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
           // V2.5.7: nuova colonna "Sconto" tra PVP e Netto. Viola con ★ se cascata.
           // V2.10.263: cella "Sconto ACQ" EDITABILE. Lo sconto e' derivato dal
@@ -59338,6 +59461,24 @@ function renderQuoteCartContent(){
       renderQuoteCartContent();
     });
   });
+  /* SV2.10.538 — click sulla pillola dell'unita' di misura: la si puo' cambiare o
+     svuotare (svuotandola la riga torna una normale riga a quantita', con la sua
+     quantita' precedente ancora intatta). */
+  container.querySelectorAll('.qcart-uom-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const item = window._QUOTE_STATE.items.find(x => x.code === chip.dataset.code);
+      if(!item) return;
+      const cur = _qcCanoneLabel(item);
+      const val = prompt('Unit\u00e0 di misura per questa riga\n(lascia vuoto per tornare a una riga a quantit\u00e0):', cur);
+      if(val === null) return;
+      const t = String(val).trim();
+      if(t){ item.uomText = t; uomPresetRemember(t); }
+      else { delete item.uomText; }
+      try { saveQuoteState(); } catch(_){}
+      try { renderQuoteCartContent(); } catch(_){}
+    });
+  });
+
   container.querySelectorAll('.qcart-qty-input').forEach(inp => {
     inp.addEventListener('change', () => {
       updateCartItemQty(inp.dataset.code, inp.value);
@@ -62499,6 +62640,10 @@ async function exportQuoteDocx(options){
             if(!_blk) return;
             descParas.push(para(mk(_blk, { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.JUSTIFIED }));
           });
+          // SV2.10.538: canone in coda alla descrizione, in grassetto
+          if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
+            descParas.push(para(mk(_qcCanoneInlineText(it), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.LEFT }));
+          }
           if(showBrand && it.brand){
             descParas.push(para(mk(String(it.brand).toUpperCase(), { color: TEXT_MUTED, size: 17 }), { spacing: { before: 60 } }));
           }
@@ -62511,7 +62656,8 @@ async function exportQuoteDocx(options){
           });
         },
         qty: () => new TableCell({
-          children: [para(mk(isZeroQty ? '' : String(it.qty), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.CENTER })],
+          // SV2.10.538: riga a canone → testo dell'unita' al posto della quantita'
+          children: [para(mk(_qcIsCanoneItem(it) ? _qcCanoneLabel(it) : (isZeroQty ? '' : String(it.qty)), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.CENTER })],
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 60 },
           borders: cellBorders,
@@ -62551,7 +62697,8 @@ async function exportQuoteDocx(options){
           verticalAlign: VerticalAlign.CENTER,
         }),
         rtotal: () => new TableCell({
-          children: [para(mk(isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—'), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.RIGHT })],
+          // SV2.10.538: la riga a canone non ha totale di riga
+          children: [para(mk((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—'), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.RIGHT })],
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 80 },
           borders: cellBorders,
@@ -63205,6 +63352,10 @@ async function exportQuoteWord(){
         String(_qPrintDescription(it, printS) || '').split(/\n\s*\n/).forEach(_blk => {
           if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
         });
+        // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
+        if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
+          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it)) + '</div>');
+        }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
@@ -63212,14 +63363,14 @@ async function exportQuoteWord(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (isZeroQty ? '' : it.qty) + '</td>',
+          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? escapeHtml(_qcCanoneLabel(it)) : (isZeroQty ? '' : it.qty)) + '</td>',   // SV2.10.538
           // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
           // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
           // Mai in entrambe.
           list:     '<td class="col-money">' + (isZeroQty ? '' : (_isNetto ? (showSconto ? '' : '<span class="netto-tag">Prezzo Netto</span>') : fmt(it.pvp))) + '</td>',
           discount: '<td class="col-discount">' + (_isNetto ? '<span class="netto-tag">Prezzo Netto</span>' : dPctStr) + '</td>',
           price:    '<td class="col-money">' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',
-          rtotal:   '<td class="col-money col-tot"><b>' + (isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',
+          rtotal:   '<td class="col-money col-tot"><b>' + ((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',   // SV2.10.538
         };
         rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
@@ -63299,13 +63450,17 @@ async function exportQuoteWord(){
         String(_qPrintDescription(it, printS) || '').split(/\n\s*\n/).forEach(_blk => {
           if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
         });
+        // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
+        if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
+          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it)) + '</div>');
+        }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + it.qty + '</td>',
+          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? escapeHtml(_qcCanoneLabel(it)) : it.qty) + '</td>',   // SV2.10.538
           list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
           scAcq:    '<td class="col-money">' + (scAcqPct != null ? _qFmtPct(scAcqPct, 1) : '—') + '</td>',
           netto:    '<td class="col-money">' + fmt(it.netto) + '</td>',
@@ -64310,6 +64465,8 @@ async function exportQuotePdfNative(options){
     // V2.10.84: array paralleli al body per metadata di riga - usati da didDrawCell
     // per applicare bold al codice prodotto.
     const itemCodes = [];
+    // SV2.10.538: riga del canone per ciascun articolo (stringa vuota se assente)
+    const canoneLines = [];
 
     // Body: ogni riga è un array di stringhe nella stessa lunghezza di cols
     const body = t.items.map((it, idx) => {
@@ -64325,6 +64482,11 @@ async function exportQuotePdfNative(options){
       const itCode = (showCode && it.code && !it.isFreeField) ? String(getDisplayCode(it)) : '';
       if(itCode) descLines.push(itCode);
       descLines.push(_qPrintDescription(it, printS));   // SV2.10.532
+      // SV2.10.538: canone in coda alla descrizione (il grassetto lo applica
+      // didParseCell, che riconosce la riga tramite l'array parallelo canoneLines)
+      const _canoneLine = (_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)) ? _qcCanoneInlineText(it) : '';
+      if(_canoneLine) descLines.push(_canoneLine);
+      canoneLines[idx] = _canoneLine;
       if(showBrand && it.brand) descLines.push(String(it.brand).toUpperCase());
       const descText = descLines.join('\n');
       // V2.10.84: salvo il codice per il rendering bold
@@ -64333,14 +64495,14 @@ async function exportQuotePdfNative(options){
       const cellMap = {
         img: '',  // immagine renderizzata in didDrawCell
         desc: descText,
-        qty: isZeroQty ? '' : String(it.qty),
+        qty: _qcIsCanoneItem(it) ? _qcCanoneLabel(it) : (isZeroQty ? '' : String(it.qty)),   // SV2.10.538
         // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
         // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
         // Mai in entrambe.
         list: isZeroQty ? '' : (_isNetto ? (showSconto ? '' : 'Prezzo Netto') : (it.pvp != null ? _qFmtEur(it.pvp) : '—')),
         discount: _isNetto ? 'Prezzo Netto' : dPctStr,
         price: isZeroQty ? '' : (sellUnit != null ? _qFmtEur(sellUnit) : '—'),
-        rtotal: isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—'),
+        rtotal: (isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—'),   // SV2.10.538
       };
       return cols.map(c => cellMap[c.key]);
     });
@@ -64578,7 +64740,9 @@ async function exportQuotePdfNative(options){
               const para = paragraphs[p];
               if(!para || para.length === 0){ cy += lineH; continue; }
               // V2.10.83: bold solo se il paragrafo corrisponde al codice prodotto
-              const isCode = (thisCode && para === thisCode);
+              // SV2.10.538: in grassetto anche la riga del canone
+              const _thisCanone = canoneLines[data.row.index] || '';
+              const isCode = (thisCode && para === thisCode) || (_thisCanone && para === _thisCanone);
               try {
                 doc.setFont('helvetica', isCode ? 'bold' : (fontStyle || 'normal'));
               } catch(_){}
@@ -65052,20 +65216,24 @@ async function exportQuotePdf(){
         String(_qPrintDescription(it, printS) || '').split(/\n\s*\n/).forEach(_blk => {
           if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
         });
+        // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
+        if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
+          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it)) + '</div>');
+        }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (isZeroQty ? '' : it.qty) + '</td>',
+          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? escapeHtml(_qcCanoneLabel(it)) : (isZeroQty ? '' : it.qty)) + '</td>',   // SV2.10.538
           // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
           // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
           // Mai in entrambe.
           list:     '<td class="col-money">' + (isZeroQty ? '' : (_isNetto ? (showSconto ? '' : '<span class="netto-tag">Prezzo Netto</span>') : fmt(it.pvp))) + '</td>',
           discount: '<td class="col-discount">' + (_isNetto ? '<span class="netto-tag">Prezzo Netto</span>' : dPctStr) + '</td>',
           price:    '<td class="col-money">' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',
-          rtotal:   '<td class="col-money col-tot"><b>' + (isZeroQty ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',
+          rtotal:   '<td class="col-money col-tot"><b>' + ((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',   // SV2.10.538
         };
         rowsHtml += '<tr>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
@@ -65138,13 +65306,17 @@ async function exportQuotePdf(){
         String(_qPrintDescription(it, printS) || '').split(/\n\s*\n/).forEach(_blk => {
           if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
         });
+        // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
+        if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
+          descParts.push('<div class="desc-body" style="font-weight:700">' + escapeHtml(_qcCanoneInlineText(it)) + '</div>');
+        }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + it.qty + '</td>',
+          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? escapeHtml(_qcCanoneLabel(it)) : it.qty) + '</td>',   // SV2.10.538
           list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
           scAcq:    '<td class="col-money">' + (scAcqPct != null ? _qFmtPct(scAcqPct, 1) : '—') + '</td>',
           netto:    '<td class="col-money">' + fmt(it.netto) + '</td>',
