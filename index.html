@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.543 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.545 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -6234,6 +6234,11 @@ body.theme-light .card.is-new .card-body{ background:color-mix(in srgb, var(--bg
 .pp-bom-del:hover{background:rgba(239,68,68,0.14);border-color:#ef4444}
 .pp-bom-head{display:grid;grid-template-columns:minmax(0,1fr) 44px 74px 56px 74px 56px 74px 54px 54px 82px 26px;gap:5px;padding:0 6px 5px;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--fg3);text-align:right}
 .pp-bom-head span:first-child{text-align:left}
+/* SV2.10.545 — spunte di selezione dei componenti della distinta */
+.pp-bom-sel,.pp-bom-selall{width:14px;height:14px;margin:0 6px 0 0;cursor:pointer;accent-color:#0178d4;flex-shrink:0;vertical-align:middle}
+#ppBomApplyBtn:disabled,#ppBomRefreshBtn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(1)}
+#ppBomApplyBtn:not(:disabled){border-color:#0178d4;color:#0178d4;background:rgba(1,120,212,0.10)}
+#ppBomRefreshBtn:not(:disabled){border-color:#e67e22;color:#e67e22;background:rgba(230,126,34,0.10)}
 .pp-bom-res{display:flex;align-items:center;gap:8px;padding:6px 9px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border)}
 .pp-bom-res:hover{background:var(--bg3)}
 .pp-bom-tot-line{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--fg2);padding:8px 6px 0}
@@ -11058,7 +11063,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.543</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.545</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11761,7 +11766,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.543 mobile");
+console.info("[bootstrap] script avvio — SV2.10.545 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13257,7 +13262,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.543';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.545';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13884,8 +13889,11 @@ function openPersonalProductEditor(opts){
             // cosa detta in due modi: si scrive in uno e l'altro si aggiorna).
             '<span style="font-size:11px;font-weight:700;color:var(--fg2);margin-left:6px">Ricarico predef.</span>' +
             '<input type="text" inputmode="decimal" id="ppBomDefRic" value="' + escapeAttr((function(){ const r = bomRicFromMarg(f.bom.defaultMarginPct); return (f.bom.defaultMarginPct != null && r != null) ? (Math.round(r * 10) / 10).toString().replace('.', ',') : ''; })()) + '" placeholder="—" oninput="ppBomSyncDefault(\'ric\')" style="width:60px;padding:5px 7px;text-align:right;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:12px"> %' +
-            '<button type="button" class="btn ghost small" onclick="ppBomApplyDefaultMargin()" style="font-size:12px">Applica a tutti</button>' +
-            '<button type="button" class="btn ghost small" onclick="ppBomRefreshCosts()" style="font-size:12px" title="Riporta i costi ai valori attuali del catalogo">\u21bb Riallinea costi</button>' +
+            /* SV2.10.545 — le due operazioni agiscono sui soli componenti SELEZIONATI
+               e restano spente finche' non se ne spunta almeno uno: prima
+               riscrivevano l'intera distinta al primo click, senza ritorno. */
+            '<button type="button" class="btn ghost small" id="ppBomApplyBtn" onclick="ppBomApplyDefaultMargin()" style="font-size:12px" disabled>Applica ai selezionati</button>' +
+            '<button type="button" class="btn ghost small" id="ppBomRefreshBtn" onclick="ppBomRefreshCosts()" style="font-size:12px" title="Riporta i costi dei componenti selezionati ai valori attuali del catalogo" disabled>\u21bb Riallinea costi</button>' +
             '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-left:auto">' +
               '<input type="checkbox" id="ppBomExplode"' + (f.bom.explode ? ' checked' : '') + '> Permetti di esploderla nel preventivo' +
             '</label>' +
@@ -13904,7 +13912,7 @@ function openPersonalProductEditor(opts){
             '<div id="ppBomResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--bg2);border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.25);max-height:240px;overflow:auto"></div>' +
             '</div>' +
           '</div>' +
-          '<div class="pp-bom-head"><span>Componente</span><span>Q.t\u00e0</span><span>Listino \u20ac</span><span>Sc. acq. %</span><span>Costo \u20ac</span><span>Sc. vend. %</span><span>Prezzo \u20ac</span><span>Marg. %</span><span>Ric. %</span><span>Totale \u20ac</span><span></span></div>' +
+          '<div class="pp-bom-head"><span><input type="checkbox" id="ppBomSelAll" class="pp-bom-selall" title="Seleziona / deseleziona tutti i componenti"> Componente</span><span>Q.t\u00e0</span><span>Listino \u20ac</span><span>Sc. acq. %</span><span>Costo \u20ac</span><span>Sc. vend. %</span><span>Prezzo \u20ac</span><span>Marg. %</span><span>Ric. %</span><span>Totale \u20ac</span><span></span></div>' +
           '<div id="ppBomList" style="border:1px solid var(--border);border-radius:8px;background:var(--bg3)"></div>' +
           '<div id="ppBomTotals"></div>' +
         '</div>' +
@@ -34454,6 +34462,8 @@ function renderPpBom(){
       return '<div class="pp-bom-row" data-i="' + i + '">' +
         // SV2.10.487: miniatura del componente
         '<div class="pp-bom-code" title="' + escapeAttr(l.code + (desc ? ' — ' + desc : '')) + '">' +
+          // SV2.10.545: spunta dentro la prima cella, cosi' la griglia non cambia
+          '<input type="checkbox" class="pp-bom-sel" data-i="' + i + '"' + (l._sel ? ' checked' : '') + '>' +
           _ppBomThumb(prod) +
           (mancante ? '<span title="Articolo non presente nel catalogo attuale" style="color:#dc2626">\u26a0\ufe0f </span>' : '') +
           '<strong>' + escapeHtml(l.code) + '</strong>' +
@@ -34540,9 +34550,57 @@ function _ppBomSync(l){
 
 /* Legge gli input di una riga. Prezzo, sconto, margine e ricarico sono quattro
    modi di dire la stessa cosa: si scrive in uno e gli altri si riallineano. */
+/* SV2.10.545 — selezione dei componenti della distinta. `_sel` vive sulla riga
+   della distinta ed e' volatile: non viene salvato con l'articolo, serve solo a
+   dire su quali componenti agiscono "Applica ai selezionati" e "Riallinea costi". */
+function _ppBomSelected(){
+  return (_PP_BOM && Array.isArray(_PP_BOM.items)) ? _PP_BOM.items.filter(l => l && l._sel) : [];
+}
+function _ppBomSyncActionButtons(){
+  const n = _ppBomSelected().length;
+  const bApply = document.getElementById('ppBomApplyBtn');
+  const bRefr  = document.getElementById('ppBomRefreshBtn');
+  if(bApply){
+    bApply.disabled = (n === 0);
+    bApply.textContent = n ? ('Applica a ' + n + (n === 1 ? ' componente' : ' componenti')) : 'Applica ai selezionati';
+  }
+  if(bRefr){
+    bRefr.disabled = (n === 0);
+    bRefr.textContent = '\u21bb Riallinea costi' + (n ? ' (' + n + ')' : '');
+  }
+  const all = document.getElementById('ppBomSelAll');
+  if(all){
+    const tot = (_PP_BOM && _PP_BOM.items) ? _PP_BOM.items.length : 0;
+    all.checked = (tot > 0 && n === tot);
+    all.indeterminate = (n > 0 && n < tot);
+  }
+}
+function _ppBomBindSelection(){
+  const box = document.getElementById('ppBomList');
+  if(box){
+    box.querySelectorAll('.pp-bom-sel').forEach(chk => {
+      chk.addEventListener('change', () => {
+        const l = _PP_BOM.items[parseInt(chk.dataset.i, 10)];
+        if(l) l._sel = chk.checked;
+        _ppBomSyncActionButtons();
+      });
+    });
+  }
+  const all = document.getElementById('ppBomSelAll');
+  if(all && !all.dataset.bound){
+    all.dataset.bound = '1';
+    all.addEventListener('change', () => {
+      _PP_BOM.items.forEach(l => { l._sel = all.checked; });
+      renderPpBom();
+    });
+  }
+  _ppBomSyncActionButtons();
+}
+
 function _ppBomBindRows(){
   const box = document.getElementById('ppBomList');
   if(!box) return;
+  _ppBomBindSelection();
   box.querySelectorAll('.pp-bom-row').forEach(row => {
     const i = parseInt(row.dataset.i, 10);
     const l = _PP_BOM.items[i];
@@ -35222,14 +35280,20 @@ function ppBomApplyDefaultMargin(){
     if(typeof toast === 'function') toast('Margine non valido (dev\u0027essere sotto 100)', 'err');
     return;
   }
+  // SV2.10.545: solo i componenti selezionati
+  const _sel = _ppBomSelected();
+  if(!_sel.length){
+    if(typeof toast === 'function') toast('Seleziona prima i componenti da modificare', 'warn');
+    return;
+  }
   _PP_BOM.defaultMarginPct = v;
-  _PP_BOM.items.forEach(l => {
+  _sel.forEach(l => {
     // SV2.10.486: il margine si applica ricalcolando il PREZZO dal costo.
     if(l.netto > 0) l.prezzo = l.netto / (1 - v / 100);
     _ppBomSync(l);
   });
   renderPpBom();
-  if(typeof toast === 'function') toast('Margine ' + _ppBomFmt(v, 1) + '% applicato a ' + _PP_BOM.items.length + ' componenti', 'ok');
+  if(typeof toast === 'function') toast('Margine ' + _ppBomFmt(v, 1) + '% applicato a ' + _sel.length + (_sel.length === 1 ? ' componente' : ' componenti'), 'ok');
 }
 
 /* Riporta i costi ai valori attuali del catalogo. Serve perche' la distinta
@@ -35237,7 +35301,13 @@ function ppBomApplyDefaultMargin(){
    un aggiornamento listino i margini calcolati sarebbero falsi. */
 function ppBomRefreshCosts(){
   let agg = 0, aggL = 0, mancanti = 0;
-  _PP_BOM.items.forEach(l => {
+  // SV2.10.545: solo i componenti selezionati
+  const _sel = _ppBomSelected();
+  if(!_sel.length){
+    if(typeof toast === 'function') toast('Seleziona prima i componenti da riallineare', 'warn');
+    return;
+  }
+  _sel.forEach(l => {
     const c = bomCostoCatalogo(l.code);
     // SV2.10.486: riallineo anche il LISTINO, che ora serve allo sconto: senza,
     // lo sconto mostrato sarebbe calcolato su un listino vecchio.
@@ -55995,8 +56065,12 @@ function _normDiscountPct(v){
    margine e sconto. Non modifica nulla, sola lettura.
    ============================================================================ */
 function computeQuoteAnalytics(){
-  const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items))
-    ? window._QUOTE_STATE.items : [];
+  /* SV2.10.544 — anche l'ANALISI GRAFICA rispetta la selezione delle righe
+     (526): con almeno una spunta considera solo quelle, senza spunte o con tutte
+     spuntate analizza l'intero preventivo. Questa funzione leggeva `items`
+     direttamente e restava l'ultimo pezzo fuori dal filtro, mostrando "18 righe
+     analizzate" mentre KPI e stampa ne consideravano 2. */
+  const items = _qcItemsForCalc();
 
   const rows = [];          // una entry per riga valida (qty>0, pvp>0)
   let parked = 0;           // righe parcheggiate (qty=0)
@@ -56005,6 +56079,9 @@ function computeQuoteAnalytics(){
   for(const it of items){
     if(!it) continue;
     if(it.qty == null || it.qty <= 0){ parked++; continue; }
+    // SV2.10.544: le righe a canone non concorrono ai totali (538), quindi
+    // non devono nemmeno falsare margini, quote per marca e per categoria.
+    if(_qcIsCanoneItem(it)) continue;
     const pvp = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp : 0;
     if(pvp <= 0){ noPrice++; continue; }
     const qty = it.qty;
