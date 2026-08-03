@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.541 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.542 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11058,7 +11058,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.541</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.542</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11761,7 +11761,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.541 mobile");
+console.info("[bootstrap] script avvio — SV2.10.542 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13257,7 +13257,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.541';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.542';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -47972,6 +47972,8 @@ const QUOTE_PRINT_DEFAULT_ANALYSIS = Object.freeze({
   // SV2.10.532
   showDescBreve:  true,
   showDescEstesa: false,
+  // SV2.10.542
+  showCanoniBox:  true,
 });
 
 // Default Modalità CLIENTE — 7 colonne configurabili
@@ -47990,6 +47992,8 @@ const QUOTE_PRINT_DEFAULT_CLIENT = Object.freeze({
   // prima la breve e poi la estesa.
   showDescBreve:  true,
   showDescEstesa: false,
+  // SV2.10.542: riquadro di riepilogo dei canoni dopo il TOTALE
+  showCanoniBox:  true,
 });
 
 // Helper: ritorna il set effettivo per la modalità corrente, con merge sui default.
@@ -55706,6 +55710,40 @@ function _qcIsCanoneItem(it){
    alla descrizione in stampa. Serve quando le colonne che porterebbero quelle due
    informazioni sono state escluse dalle impostazioni di stampa: senza, del canone
    non resterebbe traccia nel documento. */
+/* SV2.10.542 — RIQUADRO DI RIEPILOGO DEI CANONI (dopo il TOTALE).
+   Ritorna { righe:[{label, nome, unit, tot}], gruppi:[{label, tot}] } oppure null
+   se non ci sono righe a canone. `tot` = prezzo unitario x quantita': la quantita'
+   di quelle righe non compare in tabella ma resta nel dato, e per un canone
+   moltiplicato (es. 3 SIM) il totale ricorrente e' quello che interessa. */
+function _qcCanoneSummary(items){
+  const list = Array.isArray(items) ? items.filter(_qcIsCanoneItem) : [];
+  if(!list.length) return null;
+  const righe = list.map(it => {
+    const dPct = (typeof _normDiscountPct === 'function') ? _normDiscountPct(it.discountPct) : (it.discountPct || 0);
+    const unit = (it.pvp != null) ? it.pvp * (1 - dPct / 100) : 0;
+    const qty  = (it.qty != null && it.qty > 0) ? it.qty : 1;
+    return {
+      label: _qcCanoneLabel(it),
+      nome: (typeof getCleanItemName === 'function') ? getCleanItemName(it) : (it.code || ''),
+      code: it.code || '',
+      qty, unit, tot: unit * qty,
+    };
+  });
+  /* Il totale per unita' si aggiunge SOLO se quella unita' ha piu' di una riga:
+     con una riga sola ripeterebbe pari pari l'importo appena letto. */
+  const map = new Map();
+  righe.forEach(r => {
+    const g = map.get(r.label) || { label: r.label, tot: 0, n: 0 };
+    g.tot += r.tot; g.n++;
+    map.set(r.label, g);
+  });
+  const gruppi = Array.from(map.values()).filter(g => g.n > 1).map(g => ({ label: g.label, tot: g.tot }));
+  return { righe, gruppi };
+}
+function _qcCanoneBoxTitolo(){
+  return 'Canoni ricorrenti \u2014 non inclusi nell\u2019importo dell\u2019offerta';
+}
+
 function _qcCanoneInlineNeeded(printS){
   /* SV2.10.539 — SEMPRE. Nella 538 la riga compariva solo se una delle colonne
      era stata esclusa, e per il resto il testo occupava la colonna Q.ta',
@@ -58514,6 +58552,7 @@ function openQuotePrintSettingsDialog(forcedMode){
     { flag: 'showTotRicarico', label: 'Ricarico (riepilogo)',             hint: 'Riepilogo in basso: RICARICO = (vendita − costo) / costo × 100.' },
     { flag: 'showTotMargine',  label: 'Margine % (riepilogo)',            hint: 'Riepilogo in basso: MARGINE = (vendita − costo) / vendita × 100.' },
     { flag: 'showTotali',      label: 'Totali generali',                  hint: 'Interruttore generale del riepilogo finale: se spento, nel documento non compare alcun importo complessivo e resta il solo elenco articoli.' },
+    { flag: 'showCanoniBox',   label: 'Riquadro canoni',                  hint: 'Riepilogo dei canoni ricorrenti in fondo al preventivo, dopo il TOTALE. Compare solo se il preventivo contiene righe a canone.' },
   ];
   const schemaClient = [
     { flag: 'showImage',    label: 'Immagine',           hint: 'Mostra la foto del prodotto.' },
@@ -58527,6 +58566,7 @@ function openQuotePrintSettingsDialog(forcedMode){
     { flag: 'showQty',      label: 'Quantità',           hint: 'Colonna Q.tà con il numero di pezzi per riga.' },
     { flag: 'showTotRiga',  label: 'Totale per riga',    hint: 'Totale per riga (Prezzo × quantità).' },
     { flag: 'showTotali',   label: 'Totali generali',    hint: 'Riepilogo finale del preventivo (Totale listino, Importo scontato, TOTALE e IVA). Disattivandolo il documento diventa un semplice elenco, senza alcun importo complessivo.' },
+    { flag: 'showCanoniBox', label: 'Riquadro canoni',      hint: 'Riepilogo dei canoni ricorrenti in fondo al preventivo, dopo il TOTALE. Compare solo se il preventivo contiene righe a canone.' },
   ];
   const schema = qMode === 'client' ? schemaClient : schemaAnalysis;
 
@@ -63060,6 +63100,55 @@ async function exportQuoteDocx(options){
     // SV2.10.530: con i totali generali disattivati il documento resta un elenco
     if(showTotali) docChildren.push(totalsTable);
 
+    /* SV2.10.542 — RIQUADRO CANONI RICORRENTI (docx): una tabella a una cella con
+       sfondo avorio e bordo sinistro ambra, che contiene le righe del riepilogo. */
+    if(printS.showCanoniBox !== false){
+      const _cs = _qcCanoneSummary(t.items);
+      if(_cs){
+        const _boxShading = { type: ShadingType.CLEAR, color: 'auto', fill: 'FBF8F1' };
+        const _rows = [];
+        _rows.push(new Paragraph({
+          children: [mk(_qcCanoneBoxTitolo().toUpperCase(), { bold: true, color: '8A6A12', size: 18 })],
+          spacing: { after: 80 },
+        }));
+        _cs.righe.forEach(r => {
+          _rows.push(new Paragraph({
+            children: [
+              mk(r.label + '   ', { bold: true, color: TEXT_DARK, size: 17 }),
+              mk(String(r.nome || '').slice(0, 90) + '   ', { color: TEXT_MUTED, size: 17 }),
+              mk((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + _qFmtEur(r.tot), { bold: true, color: TEXT_DARK, size: 17 }),
+            ],
+            spacing: { after: 40 },
+          }));
+        });
+        _cs.gruppi.forEach(g => {
+          _rows.push(new Paragraph({
+            children: [mk('Totale ' + g.label + '   ' + _qFmtEur(g.tot), { bold: true, color: '8A6A12', size: 17 })],
+            spacing: { before: 60, after: 40 },
+          }));
+        });
+        _rows.push(new Paragraph({
+          children: [mk('Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.', { italics: true, color: TEXT_MUTED, size: 15 })],
+        }));
+        docChildren.push(new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [new TableRow({
+            children: [new TableCell({
+              children: _rows,
+              shading: _boxShading,
+              margins: { top: 160, bottom: 160, left: 200, right: 200 },
+              borders: {
+                top:    { style: BorderStyle.SINGLE, size: 4, color: 'C99A2E' },
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: 'C99A2E' },
+                left:   { style: BorderStyle.SINGLE, size: 18, color: 'C99A2E' },
+                right:  { style: BorderStyle.SINGLE, size: 4, color: 'C99A2E' },
+              },
+            })],
+          })],
+        }));
+      }
+    }
+
     // V2.10.156: blocco FORMULA DI PAGAMENTO (Word). Mostrato solo se attivata
     // e printInQuote=true. Tabella con sfondo azzurro chiaro a piena larghezza.
     if(_shouldPrintPaymentFormula()){
@@ -63620,6 +63709,17 @@ async function exportQuoteWord(){
            di grigi resta una banda leggermente piu' scura) e barra ambra sul
            bordo sinistro. Il corsivo sulla riga del canone e' il terzo segnale,
            l'unico che sopravvive a qualunque fotocopia. */
+        /* SV2.10.542 — riquadro dei canoni ricorrenti */
+        '.canoni-box{margin-top:16pt;border:1pt solid #C99A2E;border-left:3pt solid #C99A2E;background:#FBF8F1;border-radius:3pt;padding:9pt 12pt}' +
+        '.canoni-title{font-weight:bold;font-size:10pt;color:#8A6A12;margin-bottom:6pt;text-transform:uppercase;letter-spacing:.4pt}' +
+        'table.canoni-table{width:100%;border-collapse:collapse;font-size:9.5pt}' +
+        'table.canoni-table td{padding:3pt 4pt;vertical-align:top;border-bottom:0.5pt solid #E8DFC7}' +
+        'table.canoni-table td.cn-lab{font-weight:bold;white-space:nowrap;color:#374151}' +
+        'table.canoni-table td.cn-desc{color:#6b7280}' +
+        'table.canoni-table td.cn-qty{text-align:right;white-space:nowrap;color:#6b7280}' +
+        'table.canoni-table td.cn-val{text-align:right;white-space:nowrap;font-weight:bold;color:#1f2937}' +
+        'table.canoni-table tr.cn-tot td{border-bottom:0;border-top:1pt solid #C99A2E;font-weight:bold;color:#8A6A12;padding-top:5pt}' +
+        '.canoni-note{margin-top:5pt;font-size:8.5pt;font-style:italic;color:#6b7280}' +
         'table.items tr.canone-row td{background:#FBF8F1 !important}' +
         'table.items tr.canone-row td:first-child{border-left:3pt solid #C99A2E}' +
         'table.items tr.canone-row .desc-canone{display:block;font-weight:700;font-style:italic;color:#8A6A12;margin-top:3pt}' +
@@ -63750,6 +63850,30 @@ async function exportQuoteWord(){
               '<table class="totals-table">' + totalsHtml + '</table>' +
             '</div>'
           : '') +
+        // SV2.10.542: riquadro dei canoni ricorrenti, dopo il TOTALE
+        (function(){
+          if(printS.showCanoniBox === false) return '';
+          const _cs = _qcCanoneSummary(t.items);
+          if(!_cs) return '';
+          return '<div class="canoni-box">' +
+            '<div class="canoni-title">' + escapeHtml(_qcCanoneBoxTitolo()) + '</div>' +
+            '<table class="canoni-table">' +
+              _cs.righe.map(r =>
+                '<tr>' +
+                  '<td class="cn-lab">' + escapeHtml(r.label) + '</td>' +
+                  '<td class="cn-desc">' + escapeHtml(r.nome).slice(0, 160) + '</td>' +
+                  '<td class="cn-qty">' + (r.qty > 1 ? ('\u00d7 ' + r.qty) : '') + '</td>' +
+                  '<td class="cn-val">' + _qFmtEur(r.tot) + '</td>' +
+                '</tr>').join('') +
+              _cs.gruppi.map(g =>
+                '<tr class="cn-tot">' +
+                  '<td class="cn-lab" colspan="3">Totale ' + escapeHtml(g.label) + '</td>' +
+                  '<td class="cn-val">' + _qFmtEur(g.tot) + '</td>' +
+                '</tr>').join('') +
+            '</table>' +
+            '<div class="canoni-note">Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.</div>' +
+          '</div>';
+        })() +
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
@@ -65007,6 +65131,54 @@ async function exportQuotePdfNative(options){
     }
     }   // SV2.10.530: fine blocco riepilogo finale
 
+    /* SV2.10.542 — RIQUADRO CANONI RICORRENTI, dopo il TOTALE. Box a piena
+       larghezza con fondo avorio e barra ambra a sinistra, coerente con
+       l'evidenza delle righe a canone nella tabella (541). */
+    if(printS.showCanoniBox !== false){
+      const _cs = _qcCanoneSummary(t.items);
+      if(_cs){
+        const _padX = 10, _padY = 9, _lh = 13;
+        const _nRighe = _cs.righe.length + _cs.gruppi.length;
+        const _boxH = _padY * 2 + 15 + _nRighe * _lh + 14;
+        if(cursorY + _boxH > PAGE_H - FOOTER_RESERVE){
+          doc.addPage();
+          drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
+          cursorY = MARGIN;
+        }
+        cursorY += 10;
+        doc.setFillColor(251, 248, 241);
+        doc.rect(MARGIN, cursorY, CONTENT_W, _boxH, 'F');
+        doc.setFillColor(201, 154, 46);
+        doc.rect(MARGIN, cursorY, 3, _boxH, 'F');
+        let _y = cursorY + _padY + 9;
+        setText(9, 'bold', [138, 106, 18]);
+        doc.text(_qcCanoneBoxTitolo().toUpperCase(), MARGIN + _padX, _y);
+        _y += 14;
+        _cs.righe.forEach(r => {
+          setText(8.5, 'bold', COL.textDark);
+          doc.text(String(r.label), MARGIN + _padX, _y);
+          setText(8.5, 'normal', COL.textMuted);
+          const _nome = doc.splitTextToSize(String(r.nome || ''), CONTENT_W * 0.45)[0] || '';
+          doc.text(_nome, MARGIN + _padX + 110, _y);
+          setText(8.5, 'bold', COL.textDark);
+          doc.text((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + _qFmtEur(r.tot), MARGIN + CONTENT_W - _padX, _y, { align: 'right' });
+          _y += _lh;
+        });
+        _cs.gruppi.forEach(g => {
+          setDraw([201, 154, 46]);
+          doc.setLineWidth(0.7);
+          doc.line(MARGIN + _padX, _y - 9, MARGIN + CONTENT_W - _padX, _y - 9);
+          setText(8.5, 'bold', [138, 106, 18]);
+          doc.text('Totale ' + g.label, MARGIN + _padX, _y);
+          doc.text(_qFmtEur(g.tot), MARGIN + CONTENT_W - _padX, _y, { align: 'right' });
+          _y += _lh;
+        });
+        setText(7.5, 'italic', COL.textMuted);
+        doc.text('Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.', MARGIN + _padX, _y + 1);
+        cursorY += _boxH + 8;
+      }
+    }
+
     // V2.10.156: blocco FORMULA DI PAGAMENTO (PDF). Mostrato solo se attivata
     // e printInQuote=true. Box compatto con sfondo azzurro chiaro a piena larghezza.
     if(_shouldPrintPaymentFormula()){
@@ -65520,6 +65692,17 @@ async function exportQuotePdf(){
            di grigi resta una banda leggermente piu' scura) e barra ambra sul
            bordo sinistro. Il corsivo sulla riga del canone e' il terzo segnale,
            l'unico che sopravvive a qualunque fotocopia. */
+        /* SV2.10.542 — riquadro dei canoni ricorrenti */
+        '.canoni-box{margin-top:16pt;border:1pt solid #C99A2E;border-left:3pt solid #C99A2E;background:#FBF8F1;border-radius:3pt;padding:9pt 12pt}' +
+        '.canoni-title{font-weight:bold;font-size:10pt;color:#8A6A12;margin-bottom:6pt;text-transform:uppercase;letter-spacing:.4pt}' +
+        'table.canoni-table{width:100%;border-collapse:collapse;font-size:9.5pt}' +
+        'table.canoni-table td{padding:3pt 4pt;vertical-align:top;border-bottom:0.5pt solid #E8DFC7}' +
+        'table.canoni-table td.cn-lab{font-weight:bold;white-space:nowrap;color:#374151}' +
+        'table.canoni-table td.cn-desc{color:#6b7280}' +
+        'table.canoni-table td.cn-qty{text-align:right;white-space:nowrap;color:#6b7280}' +
+        'table.canoni-table td.cn-val{text-align:right;white-space:nowrap;font-weight:bold;color:#1f2937}' +
+        'table.canoni-table tr.cn-tot td{border-bottom:0;border-top:1pt solid #C99A2E;font-weight:bold;color:#8A6A12;padding-top:5pt}' +
+        '.canoni-note{margin-top:5pt;font-size:8.5pt;font-style:italic;color:#6b7280}' +
         'table.items tr.canone-row td{background:#FBF8F1 !important}' +
         'table.items tr.canone-row td:first-child{border-left:3pt solid #C99A2E}' +
         'table.items tr.canone-row .desc-canone{display:block;font-weight:700;font-style:italic;color:#8A6A12;margin-top:3pt}' +
@@ -65696,6 +65879,30 @@ async function exportQuotePdf(){
               '<table class="totals-table">' + totalsHtml + '</table>' +
             '</div>'
           : '') +
+        // SV2.10.542: riquadro dei canoni ricorrenti, dopo il TOTALE
+        (function(){
+          if(printS.showCanoniBox === false) return '';
+          const _cs = _qcCanoneSummary(t.items);
+          if(!_cs) return '';
+          return '<div class="canoni-box">' +
+            '<div class="canoni-title">' + escapeHtml(_qcCanoneBoxTitolo()) + '</div>' +
+            '<table class="canoni-table">' +
+              _cs.righe.map(r =>
+                '<tr>' +
+                  '<td class="cn-lab">' + escapeHtml(r.label) + '</td>' +
+                  '<td class="cn-desc">' + escapeHtml(r.nome).slice(0, 160) + '</td>' +
+                  '<td class="cn-qty">' + (r.qty > 1 ? ('\u00d7 ' + r.qty) : '') + '</td>' +
+                  '<td class="cn-val">' + _qFmtEur(r.tot) + '</td>' +
+                '</tr>').join('') +
+              _cs.gruppi.map(g =>
+                '<tr class="cn-tot">' +
+                  '<td class="cn-lab" colspan="3">Totale ' + escapeHtml(g.label) + '</td>' +
+                  '<td class="cn-val">' + _qFmtEur(g.tot) + '</td>' +
+                '</tr>').join('') +
+            '</table>' +
+            '<div class="canoni-note">Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.</div>' +
+          '</div>';
+        })() +
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
         // V2.10.24: testo libero footer (note finali al cliente). V2.10.26: rimossa banda colorata, layout pulito + giustificato
