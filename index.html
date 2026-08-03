@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.542 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.543 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11058,7 +11058,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.542</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.543</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11761,7 +11761,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.542 mobile");
+console.info("[bootstrap] script avvio — SV2.10.543 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13257,7 +13257,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.542';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.543';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -55740,6 +55740,16 @@ function _qcCanoneSummary(items){
   const gruppi = Array.from(map.values()).filter(g => g.n > 1).map(g => ({ label: g.label, tot: g.tot }));
   return { righe, gruppi };
 }
+/* SV2.10.543 — descrizione del riquadro troncata A PAROLE, non a caratteri ne'
+   alla larghezza della colonna: cosi' il taglio cade sempre fra due parole e i
+   quattro formati mostrano lo stesso testo. Chiusura con i puntini lunghi. */
+function _qcCanoneDescTxt(nome, nParole){
+  const n = nParole || 11;
+  const parole = String(nome || '').trim().split(/\s+/).filter(Boolean);
+  if(parole.length <= n) return parole.join(' ');
+  return parole.slice(0, n).join(' ') + ' ............';
+}
+
 function _qcCanoneBoxTitolo(){
   return 'Canoni ricorrenti \u2014 non inclusi nell\u2019importo dell\u2019offerta';
 }
@@ -63115,7 +63125,7 @@ async function exportQuoteDocx(options){
           _rows.push(new Paragraph({
             children: [
               mk(r.label + '   ', { bold: true, color: TEXT_DARK, size: 17 }),
-              mk(String(r.nome || '').slice(0, 90) + '   ', { color: TEXT_MUTED, size: 17 }),
+              mk(_qcCanoneDescTxt(r.nome) + '   ', { color: TEXT_MUTED, size: 17 }),
               mk((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + _qFmtEur(r.tot), { bold: true, color: TEXT_DARK, size: 17 }),
             ],
             spacing: { after: 40 },
@@ -63861,7 +63871,7 @@ async function exportQuoteWord(){
               _cs.righe.map(r =>
                 '<tr>' +
                   '<td class="cn-lab">' + escapeHtml(r.label) + '</td>' +
-                  '<td class="cn-desc">' + escapeHtml(r.nome).slice(0, 160) + '</td>' +
+                  '<td class="cn-desc">' + escapeHtml(_qcCanoneDescTxt(r.nome)) + '</td>' +
                   '<td class="cn-qty">' + (r.qty > 1 ? ('\u00d7 ' + r.qty) : '') + '</td>' +
                   '<td class="cn-val">' + _qFmtEur(r.tot) + '</td>' +
                 '</tr>').join('') +
@@ -65157,9 +65167,22 @@ async function exportQuotePdfNative(options){
         _cs.righe.forEach(r => {
           setText(8.5, 'bold', COL.textDark);
           doc.text(String(r.label), MARGIN + _padX, _y);
-          setText(8.5, 'normal', COL.textMuted);
-          const _nome = doc.splitTextToSize(String(r.nome || ''), CONTENT_W * 0.45)[0] || '';
-          doc.text(_nome, MARGIN + _padX + 110, _y);
+          /* SV2.10.543: la descrizione parte dopo l'etichetta e si ferma prima
+             dell'importo; corpo 8pt per far entrare le parole previste. */
+          setText(8, 'normal', COL.textMuted);
+          const _descX = MARGIN + _padX + 104;
+          const _descW = Math.max(60, (MARGIN + CONTENT_W - _padX - 96) - _descX);
+          /* SV2.10.543 — nel PDF la larghezza puo' tagliare prima del troncamento a
+             parole, facendo sparire i puntini. Quindi si tolgono parole finche' il
+             testo (puntini compresi) non entra: i puntini ci sono SEMPRE quando il
+             testo e' stato accorciato. */
+          let _nome = _qcCanoneDescTxt(r.nome);
+          if(doc.getTextWidth(_nome) > _descW){
+            let _pw = String(r.nome || '').trim().split(/\s+/).filter(Boolean);
+            while(_pw.length > 1 && doc.getTextWidth(_pw.join(' ') + ' ............') > _descW) _pw.pop();
+            _nome = _pw.join(' ') + ' ............';
+          }
+          doc.text(_nome, _descX, _y);
           setText(8.5, 'bold', COL.textDark);
           doc.text((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + _qFmtEur(r.tot), MARGIN + CONTENT_W - _padX, _y, { align: 'right' });
           _y += _lh;
@@ -65890,7 +65913,7 @@ async function exportQuotePdf(){
               _cs.righe.map(r =>
                 '<tr>' +
                   '<td class="cn-lab">' + escapeHtml(r.label) + '</td>' +
-                  '<td class="cn-desc">' + escapeHtml(r.nome).slice(0, 160) + '</td>' +
+                  '<td class="cn-desc">' + escapeHtml(_qcCanoneDescTxt(r.nome)) + '</td>' +
                   '<td class="cn-qty">' + (r.qty > 1 ? ('\u00d7 ' + r.qty) : '') + '</td>' +
                   '<td class="cn-val">' + _qFmtEur(r.tot) + '</td>' +
                 '</tr>').join('') +
