@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.536 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.537 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5922,6 +5922,10 @@ tr{transition: background 0.4s, box-shadow 0.4s;}
    il flag omonimo del carrello e delle stampe. */
 .card-disc-badge.is-netto-price{ background:#16a34a; letter-spacing:0.6px; }
 body.theme-light .card-disc-badge.is-sale{ background:#2563eb; }
+/* SV2.10.537: la regola del tema chiaro per .is-sale ha specificita' maggiore
+   (body.theme-light) ed e' dichiarata DOPO, quindi ridipingeva di blu anche la
+   pillola NETTO. Serve la gemella per il tema chiaro. */
+body.theme-light .card-disc-badge.is-netto-price{ background:#16a34a; }
 /* SV2.10.467: sconto di vendita IMPOSTO DAL MARGINE MINIMO — il valore numerico
    passa al verde acido (la pillola resta blu, cosi' si legge subito che e' un
    valore ricalcolato e non quello configurato sul listino). */
@@ -11037,7 +11041,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.536</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.537</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11740,7 +11744,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.536 mobile");
+console.info("[bootstrap] script avvio — SV2.10.537 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13236,7 +13240,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.536';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.537';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31239,7 +31243,7 @@ function renderGallery(main, list){
       if(_isSaleMode && _impostoVendAbs > 0){
         const _nTip = 'Prezzo di vendita imposto sull\'articolo: \u20ac ' + fmtPrice(_impostoVendAbs) +
           '\nNon deriva da uno sconto: prevale sul listino di vendita attivo.';
-        discBadge = `<span class="card-disc-badge is-sale is-netto-price" title="${escapeAttr(_nTip)}">NETTO</span>`;
+        discBadge = `<span class="card-disc-badge is-netto-price" title="${escapeAttr(_nTip)}">NETTO</span>`;
         card.classList.add('has-disc-badge');
       } else if(_badgeDiscVal != null && _badgeDiscVal > 0){
         const _dTip = _isSaleMode ? 'Sconto di vendita' : 'Sconto d\'acquisto';
