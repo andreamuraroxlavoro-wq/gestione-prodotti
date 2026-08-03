@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.528 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.529 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11037,7 +11037,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.528</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.529</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11740,7 +11740,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.528 mobile");
+console.info("[bootstrap] script avvio — SV2.10.529 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13236,7 +13236,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.528';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.529';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58275,7 +58275,11 @@ function openQuoteSettingsDialog(){
    - showPriceTotal → coppia logica Prezzo+Totale (solo Cliente)
    - showRowTotal → colonna Totale per riga
 */
-function openQuotePrintSettingsDialog(){
+/* SV2.10.529 — `forcedMode` permette di configurare le impostazioni di stampa di
+   una modalita' DIVERSA da quella del carrello. Serve al pulsante "Modifica" del
+   dialogo Genera preventivo: da li' vanno modificate le impostazioni della
+   modalita' scelta nello switch, non quella in cui e' rimasto il carrello. */
+function openQuotePrintSettingsDialog(forcedMode){
   const ex = document.getElementById('quotePrintSettingsModal');
   if(ex) ex.remove();
 
@@ -58285,7 +58289,9 @@ function openQuotePrintSettingsDialog(){
   }
   // V2.6.0: il dialog mostra SOLO le colonne della modalità attualmente attiva.
   // Il set salvato per l'altra modalità viene preservato intatto (non toccato).
-  const qMode = (window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  const qMode = (forcedMode === 'client' || forcedMode === 'analysis')
+    ? forcedMode
+    : ((window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis');
   const init = getPrintSettings(qMode);
 
   const modeBadge = qMode === 'client'
@@ -60756,7 +60762,8 @@ function openQuoteExportDialog(forcedMode){
   // Genera preventivo refreshato (chiudo e riapro).
   document.getElementById('qexpOpenPrintSettings').addEventListener('click', () => {
     bg.remove();
-    openQuotePrintSettingsDialog();
+    // SV2.10.529: apro le impostazioni della modalita' SCELTA nello switch
+    openQuotePrintSettingsDialog(qMode);
     // Listener one-shot: quando il dialog Impostazioni di stampa viene chiuso,
     // riapro Genera preventivo se il modal carrello è ancora aperto.
     const reopenObserver = new MutationObserver(() => {
@@ -60765,7 +60772,7 @@ function openQuoteExportDialog(forcedMode){
         if(document.getElementById('quoteCartModal')){
           // Riapro Genera preventivo dopo un breve delay per dare tempo
           // al toast eventuale di mostrarsi
-          setTimeout(() => openQuoteExportDialog(), 80);
+          setTimeout(() => openQuoteExportDialog(qMode), 80);
         }
       }
     });
