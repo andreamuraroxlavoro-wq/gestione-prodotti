@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.535 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.536 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11037,7 +11037,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.535</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.536</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11740,7 +11740,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.535 mobile");
+console.info("[bootstrap] script avvio — SV2.10.536 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13236,7 +13236,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.535';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.536';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -31195,7 +31195,18 @@ function renderGallery(main, list){
        mostrava listino x (1 - sconto del listino attivo), es. 1228 -50% = 614,
        mentre in preventivo lo stesso articolo entrava a 800.
        `_impostoScVend` e' lo sconto EQUIVALENTE, usato anche dalla pillola. */
-    const _impostoVend = (priceNum(listino) > 0) ? priceNum(getField(p, 'salePrice')) : null;
+    /* SV2.10.536 — il prezzo imposto va letto SEMPRE, anche quando l'articolo non
+       ha un prezzo di listino (es. una SIM venduta a prezzo fisso). Fino alla 535
+       `_impostoVend` era subordinato a `listino > 0`: su quegli articoli restava
+       null, la pillola cadeva sullo sconto base del listino Cliente attivo (il
+       "-50%" segnalato) e il margine non veniva nemmeno calcolato, perche' il suo
+       ramo richiedeva un listino. Ora:
+         _impostoVendAbs  = il prezzo imposto, indipendente dal listino
+         _impostoScVend   = lo sconto EQUIVALENTE, che esiste solo col listino
+       Chi ha bisogno di una percentuale usa il secondo; chi ha bisogno del prezzo
+       (dicitura NETTO, margine, ricarico) usa il primo. */
+    const _impostoVendAbs = priceNum(getField(p, 'salePrice'));
+    const _impostoVend = (priceNum(listino) > 0 && _impostoVendAbs > 0) ? _impostoVendAbs : null;
     const _impostoScVend = (_impostoVend > 0 && priceNum(listino) > 0)
       ? (1 - _impostoVend / priceNum(listino)) * 100
       : null;
@@ -31224,8 +31235,9 @@ function renderGallery(main, list){
         _badgeDiscVal = (_eff && _eff.hasAdj) ? effDisc : discountPct;
       }
       // SV2.10.525: in VENDITA, con prezzo imposto, la pillola diventa "NETTO"
-      if(_isSaleMode && _impostoScVend != null){
-        const _nTip = 'Prezzo di vendita imposto sull\'articolo: \u20ac ' + fmtPrice(_impostoVend) +
+      // SV2.10.536: vale anche per gli articoli senza prezzo di listino.
+      if(_isSaleMode && _impostoVendAbs > 0){
+        const _nTip = 'Prezzo di vendita imposto sull\'articolo: \u20ac ' + fmtPrice(_impostoVendAbs) +
           '\nNon deriva da uno sconto: prevale sul listino di vendita attivo.';
         discBadge = `<span class="card-disc-badge is-sale is-netto-price" title="${escapeAttr(_nTip)}">NETTO</span>`;
         card.classList.add('has-disc-badge');
@@ -31254,7 +31266,11 @@ function renderGallery(main, list){
         (_saleInfoAcq && _saleInfoAcq.scontoEff != null ? '\nIl listino Cliente attivo darebbe ' + fmtDiscount(_saleInfoAcq.scontoEff) + ', ma il prezzo dell\'articolo prevale.' : '');
       saleDiscBadge = `<span class="card-disc-badge is-sale" title="${escapeAttr(_tipImp)}">- ${fmtDiscount(_impostoScVend)}</span>`;
       card.classList.add('has-disc-badge');
-    } else if(!_isSaleMode && SETTINGS.showDiscountBadge && _saleInfoAcq && _saleInfoAcq.scontoEff != null && _saleInfoAcq.scontoEff > 0){
+    } else if(!_isSaleMode && SETTINGS.showDiscountBadge && !(_impostoVendAbs > 0) && _saleInfoAcq && _saleInfoAcq.scontoEff != null && _saleInfoAcq.scontoEff > 0){
+      /* SV2.10.536: `!(_impostoVendAbs > 0)` — su un articolo a prezzo imposto SENZA
+         listino non esiste uno sconto di vendita da mostrare: prima usciva comunque
+         la pillola blu con lo sconto base del listino Cliente attivo (il "-50%"),
+         che su quell'articolo non viene mai applicato. */
       // SV2.10.467: stesso trattamento verde acido se il valore e' imposto dal margine minimo.
       const _cappedAcq = !!_saleInfoAcq.marginCapped;
       const _capTipAcq = _cappedAcq
@@ -31275,10 +31291,11 @@ function renderGallery(main, list){
     if(!_isSaleMode && SETTINGS.showDiscountBadge){
       // SV2.10.525: il margine si calcola sul prezzo EFFETTIVO — quello imposto
       // se c'e', altrimenti quello del listino Cliente attivo.
-      if((_saleInfoAcq || _impostoVend > 0) && priceNum(listino)){
+      // SV2.10.536: col prezzo imposto il margine si calcola anche senza listino
+      if(_impostoVendAbs > 0 || (_saleInfoAcq && priceNum(listino))){
         {
-          const _prezzoVendM = (_impostoVend > 0)
-            ? _impostoVend
+          const _prezzoVendM = (_impostoVendAbs > 0)
+            ? _impostoVendAbs
             : priceNum(listino) * (1 - _saleInfoAcq.scontoEff / 100);
           const _acqNettoM = (_eff && _eff.hasAdj) ? effNetto : priceNum(netto);
           if(_prezzoVendM > 0 && _acqNettoM != null && _acqNettoM > 0){
@@ -31289,7 +31306,7 @@ function renderGallery(main, list){
             const _ricaricoPct = (_prezzoVendM - _acqNettoM) / _acqNettoM * 100;
             const _valPct = _isRicarico ? _ricaricoPct : _marginePct;
             const _segnoM = _valPct > 0 ? '+' : '';
-            const _mTip = (_impostoVend > 0
+            const _mTip = (_impostoVendAbs > 0
                 ? (_isRicarico ? 'Ricarico sul prezzo di vendita imposto' : 'Margine sul prezzo di vendita imposto')
                 : (_isRicarico ? 'Ricarico sul listino Cliente attivo' : 'Margine sul listino Cliente attivo'))
               + '\nPrezzo di vendita: € ' + fmtPrice(_prezzoVendM)
