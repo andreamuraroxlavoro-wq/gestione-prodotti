@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.532 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.535 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11037,7 +11037,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.532</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.535</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11740,7 +11740,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.532 mobile");
+console.info("[bootstrap] script avvio — SV2.10.535 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13236,7 +13236,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.532';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.535';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -64258,28 +64258,6 @@ async function exportQuotePdfNative(options){
       }
     }
 
-    /* === TITOLO "Dettaglio della Soluzione proposta" ===
-       SV2.10.531 — con un testo libero lungo il titolo e l'intestazione della
-       tabella finivano a fondo pagina e gli articoli slittavano alla successiva,
-       lasciando una testata vuota sotto un titolo orfano. Se lo spazio residuo
-       non basta per titolo + riga di intestazione + almeno una riga articolo,
-       si passa direttamente alla pagina nuova. La soglia e' volutamente generosa
-       (~140pt) perche' una riga articolo con immagine e descrizione su piu' righe
-       e' alta parecchio: meglio anticipare il salto che stampare un moncone. */
-    const _needTitolo = 16 + 10 + 24 + 90;
-    if(cursorY + _needTitolo > PAGE_H - FOOTER_RESERVE){
-      doc.addPage();
-      drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
-      cursorY = MARGIN;
-    }
-    setText(13, 'bold', COL.textDark);
-    doc.text('Dettaglio della Soluzione proposta', MARGIN, cursorY + 13);
-    cursorY += 16;
-    // Bordo sotto blu
-    setDraw(COL.blue);
-    doc.setLineWidth(2);
-    doc.line(MARGIN, cursorY, MARGIN + CONTENT_W, cursorY);
-    cursorY += 10;
 
     // === TABELLA ARTICOLI con autoTable ===
     // Costruisco colonne dinamiche
@@ -64352,6 +64330,44 @@ async function exportQuotePdfNative(options){
     const idxDiscount = cols.findIndex(c => c.key === 'discount');
     const idxRtotal = cols.findIndex(c => c.key === 'rtotal');
     const idxQty = cols.findIndex(c => c.key === 'qty');
+
+    /* === TITOLO "Dettaglio della Soluzione proposta" + eventuale salto pagina ===
+       SV2.10.535 — blocco SPOSTATO QUI, dopo la costruzione di `cols` e `body`.
+       Prima stava molto piu' su e l'altezza della prima riga si poteva solo
+       stimare: 90pt fissi nella 531, poi "42% del contenuto" e interlinea a
+       occhio nella 533/534. Ogni taratura sbagliava per difetto (titolo orfano)
+       o per eccesso (pagina sprecata). Qui i dati veri ci sono e il calcolo e'
+       esatto: larghezza reale della colonna Descrizione da columnStyles, testo
+       reale della cella dal body, interlinea = fontSize x 1.15 (fattore jsPDF),
+       padding verticale 7+7 come negli styles della tabella.
+       Si salta pagina SOLO SE la riga ci starebbe davvero in una pagina vuota. */
+    let _firstRowH = 90;
+    try {
+      const _iDesc = cols.findIndex(c => c.key === 'desc');
+      const _descW = (_iDesc >= 0 && columnStyles[_iDesc] && columnStyles[_iDesc].cellWidth)
+        ? (columnStyles[_iDesc].cellWidth - 14)
+        : (CONTENT_W * 0.42 - 14);
+      const _cellTxt = (body[0] && _iDesc >= 0) ? String(body[0][_iDesc] || '') : '';
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      const _wrapped = doc.splitTextToSize(_cellTxt, Math.max(60, _descW));
+      const _nLines = Array.isArray(_wrapped) ? _wrapped.length : 1;
+      _firstRowH = Math.max(showImage ? 64 : 0, _nLines * (9.5 * 1.15)) + 14;
+    } catch(_){}
+    const _usable = PAGE_H - FOOTER_RESERVE - MARGIN;
+    const _needTitolo = 16 + 10 + 24 + _firstRowH;
+    if(_firstRowH <= _usable && cursorY + _needTitolo > PAGE_H - FOOTER_RESERVE){
+      doc.addPage();
+      drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
+      cursorY = MARGIN;
+    }
+    setText(13, 'bold', COL.textDark);
+    doc.text('Dettaglio della Soluzione proposta', MARGIN, cursorY + 13);
+    cursorY += 16;
+    setDraw(COL.blue);
+    doc.setLineWidth(2);
+    doc.line(MARGIN, cursorY, MARGIN + CONTENT_W, cursorY);
+    cursorY += 10;
 
     doc.autoTable({
       head: head,
