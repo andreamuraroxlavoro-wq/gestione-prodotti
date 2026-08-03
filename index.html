@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.526 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.527 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11037,7 +11037,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.526</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.527</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11740,7 +11740,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.526 mobile");
+console.info("[bootstrap] script avvio — SV2.10.527 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13236,7 +13236,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.526';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.527';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -60441,7 +60441,24 @@ function openStampaMagazzino(){
   });
 }
 
-function openQuoteExportDialog(){
+/* SV2.10.527 — MODALITA' DI STAMPA SCELTA NEL DIALOGO.
+   Prima i documenti seguivano rigidamente la modalita' del carrello: da Analisi
+   non si poteva produrre il preventivo Cliente senza cambiare vista. Ora il
+   dialogo "Genera preventivo" ha uno switch Analisi/Cliente che decide come
+   generare il documento; le impostazioni di stampa usate sono quelle della
+   modalita' SCELTA (getPrintSettings(qMode) le legge gia' per modalita').
+   `window._QUOTE_EXPORT_MODE` vive solo mentre il dialogo e' aperto: viene
+   reimpostato a ogni apertura sulla modalita' del carrello. */
+function _qExportMode(){
+  const ov = window._QUOTE_EXPORT_MODE;
+  if(ov === 'client' || ov === 'analysis') return ov;
+  return (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+}
+
+function openQuoteExportDialog(forcedMode){
+  window._QUOTE_EXPORT_MODE = (forcedMode === 'client' || forcedMode === 'analysis')
+    ? forcedMode
+    : ((window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis');
   if(window._QUOTE_STATE.items.length === 0){
     toast('Aggiungi articoli al carrello prima di generare il preventivo', 'warn', 4000);
     return;
@@ -60455,7 +60472,7 @@ function openQuoteExportDialog(){
   const t = computeQuoteTotals();
 
   // V2.3.9: badge + totale coerenti con la modalità preventivo attiva
-  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  const qMode = _qExportMode();
   const modeBadge = qMode === 'client'
     ? '<span style="display:inline-block;font-size:10px;font-weight:700;color:#2563eb;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;margin-left:8px;vertical-align:middle">Cliente</span>'
     : '<span style="display:inline-block;font-size:10px;font-weight:700;color:#a855f7;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3);padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;margin-left:8px;vertical-align:middle">Analisi</span>';
@@ -60489,7 +60506,26 @@ function openQuoteExportDialog(){
   bg.innerHTML =
     '<div class="modal" style="max-width:560px">' +
       '<div class="modal-head">' +
-        '<h3>📥 Genera preventivo' + modeBadge + '</h3>' +
+        /* SV2.10.527: al posto del badge statico, uno SWITCH che sceglie con quale
+           modalita' generare il documento. Stessa forma dello switch del carrello,
+           cosi' e' immediatamente riconoscibile. Il cambio riapre il dialogo:
+           badge, colonne incluse, totale mostrato, pulsanti abilitati e prefetch
+           del PDF si ricostruiscono tutti coerenti, senza logica duplicata. */
+        '<h3 style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+          '<span>📥 Genera preventivo</span>' +
+          '<span style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11px;font-weight:800;letter-spacing:.4px">' +
+            '<button type="button" class="qexp-mode" data-mode="analysis" title="Genera il documento con le colonne e i dati della Modalita\' Analisi" ' +
+              'style="padding:5px 12px;border:0;cursor:pointer;font:inherit;' +
+              (qMode === 'analysis' ? 'background:rgba(168,85,247,0.16);color:#a855f7' : 'background:transparent;color:var(--fg3)') + '">ANALISI</button>' +
+            '<button type="button" class="qexp-mode" data-mode="client" title="Genera il documento come preventivo Cliente, con le sue impostazioni di stampa" ' +
+              'style="padding:5px 12px;border:0;border-left:1px solid var(--border);cursor:pointer;font:inherit;' +
+              (qMode === 'client' ? 'background:rgba(59,130,246,0.16);color:#2563eb' : 'background:transparent;color:var(--fg3)') + '">CLIENTE</button>' +
+          '</span>' +
+          (qMode !== ((window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis')
+            ? '<span style="font-size:10.5px;font-weight:600;color:var(--fg3);letter-spacing:0">il carrello resta in modalit\u00e0 ' +
+              ((window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'Cliente' : 'Analisi') + '</span>'
+            : '') +
+        '</h3>' +
       '</div>' +
       '<div class="modal-body" style="display:block;padding:18px 22px">' +
         '<p style="font-size:13px;color:var(--fg2);line-height:1.6;margin:0 0 12px 0">' +
@@ -60729,6 +60765,16 @@ function openQuoteExportDialog(){
   // accessibile a invalidatePdfCache() chiamata dai listener IVA.
   const previewBtn = document.getElementById('qexpPreview');
   const previewStatus = document.getElementById('qexpPreviewStatus');
+  // SV2.10.527: switch di modalita' del documento
+  bg.querySelectorAll('.qexp-mode').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const m = btn.dataset.mode;
+      if(m === qMode) return;
+      bg.remove();
+      openQuoteExportDialog(m);
+    });
+  });
+
   const pdfSupported = (qMode === 'client');
 
   const startPdfPrefetch = () => {
@@ -60828,7 +60874,13 @@ function openQuoteExportDialog(){
       const fmt = b.dataset.format;
       if(fmt === 'xlsx'){
         bg.remove();
-        exportQuoteExcel();
+        // SV2.10.527: Excel resta sulla modalita' del carrello: azzero l'override
+        // prima di lanciarlo e lo ripristino subito dopo per gli altri formati.
+        (function(){
+          const _keep = window._QUOTE_EXPORT_MODE;
+          window._QUOTE_EXPORT_MODE = null;
+          try { exportQuoteExcel(); } finally { window._QUOTE_EXPORT_MODE = _keep; }
+        })();
         return;
       }
       if(fmt === 'pdf'){
@@ -60920,6 +60972,8 @@ async function exportQuoteExcel(){
   if(typeof showLoaderAdvanced === 'function') showLoaderAdvanced('Generazione preventivo Excel', '', 'export');
 
   // V2.3.9: scelgo struttura colonne in base alla modalità
+  // SV2.10.527: Excel NON segue lo switch del dialogo: resta legato alla modalita'
+  // del carrello (in Analisi serve proprio per i dati interni).
   const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
 
   try {
@@ -61858,7 +61912,9 @@ async function exportQuoteDocx(options){
   const CARD_BG    = 'FAFAF9';
 
   // Modalità
-  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  // SV2.10.527: la modalita' del DOCUMENTO e' quella scelta nel dialogo "Genera
+  // preventivo", non necessariamente quella del carrello. Excel resta escluso.
+  const qMode = _qExportMode();
 
   // V2.10.37 MVP: per ora supporto solo modalità CLIENTE.
   // La modalità ANALISI (con sconti, margini, costi acquisto) è più complessa e verrà
@@ -62939,7 +62995,9 @@ async function exportQuoteWord(){
 
 
   // V2.3.9: scelgo struttura colonne in base alla modalità
-  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  // SV2.10.527: la modalita' del DOCUMENTO e' quella scelta nel dialogo "Genera
+  // preventivo", non necessariamente quella del carrello. Excel resta escluso.
+  const qMode = _qExportMode();
   // V2.6.0: leggo il set di flag della modalità corrente (analisi/cliente).
   // I flag sono distinti per modalità: vedi schemaAnalysis / schemaClient in openQuotePrintSettingsDialog.
   const printS = getPrintSettings(qMode);
@@ -63422,7 +63480,9 @@ async function exportQuotePdfNative(options){
     green:     [22, 163, 74],
   };
 
-  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  // SV2.10.527: la modalita' del DOCUMENTO e' quella scelta nel dialogo "Genera
+  // preventivo", non necessariamente quella del carrello. Excel resta escluso.
+  const qMode = _qExportMode();
 
   if(qMode !== 'client'){
     if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
@@ -64746,7 +64806,9 @@ async function exportQuotePdf(){
 
 
   // V2.3.9: scelgo struttura colonne in base alla modalità
-  const qMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  // SV2.10.527: la modalita' del DOCUMENTO e' quella scelta nel dialogo "Genera
+  // preventivo", non necessariamente quella del carrello. Excel resta escluso.
+  const qMode = _qExportMode();
   // V2.6.0: flag granulari per modalità (vedi exportQuoteWord)
   const printS = getPrintSettings(qMode);
   const showImage = printS.showImage !== false;
