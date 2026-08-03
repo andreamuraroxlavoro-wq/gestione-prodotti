@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.527 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.528 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11037,7 +11037,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.527</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.528</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11740,7 +11740,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.527 mobile");
+console.info("[bootstrap] script avvio — SV2.10.528 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13236,7 +13236,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.527';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.528';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -60456,9 +60456,22 @@ function _qExportMode(){
 }
 
 function openQuoteExportDialog(forcedMode){
+  /* SV2.10.528 — la modalita' di stampa scelta viene RICORDATA in
+     SETTINGS.quoteExportMode (quindi persiste fra sessioni e finisce nei backup
+     e nel Drive Sync insieme alle altre impostazioni). Ordine di precedenza:
+     1) la modalita' passata dallo switch, 2) l'ultima usata, 3) la modalita' del
+     carrello. Cosi' chi lavora in Analisi ma stampa sempre Cliente non deve piu'
+     cambiare interruttore a ogni preventivo. */
+  const _cartMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  const _lastMode = (SETTINGS.quoteExportMode === 'client' || SETTINGS.quoteExportMode === 'analysis')
+    ? SETTINGS.quoteExportMode : null;
   window._QUOTE_EXPORT_MODE = (forcedMode === 'client' || forcedMode === 'analysis')
     ? forcedMode
-    : ((window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis');
+    : (_lastMode || _cartMode);
+  if(SETTINGS.quoteExportMode !== window._QUOTE_EXPORT_MODE){
+    SETTINGS.quoteExportMode = window._QUOTE_EXPORT_MODE;
+    try { saveSettings(); } catch(_){}
+  }
   if(window._QUOTE_STATE.items.length === 0){
     toast('Aggiungi articoli al carrello prima di generare il preventivo', 'warn', 4000);
     return;
@@ -60522,7 +60535,8 @@ function openQuoteExportDialog(forcedMode){
               (qMode === 'client' ? 'background:rgba(59,130,246,0.16);color:#2563eb' : 'background:transparent;color:var(--fg3)') + '">CLIENTE</button>' +
           '</span>' +
           (qMode !== ((window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis')
-            ? '<span style="font-size:10.5px;font-weight:600;color:var(--fg3);letter-spacing:0">il carrello resta in modalit\u00e0 ' +
+            ? '<span style="font-size:10.5px;font-weight:600;color:var(--fg3);letter-spacing:0" ' +
+              'title="La scelta viene ricordata e riproposta alla prossima apertura">il carrello resta in modalit\u00e0 ' +
               ((window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'Cliente' : 'Analisi') + '</span>'
             : '') +
         '</h3>' +
