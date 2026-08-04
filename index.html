@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.559 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.560 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11190,7 +11190,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.559</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.560</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11893,7 +11893,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.559 mobile");
+console.info("[bootstrap] script avvio — SV2.10.560 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13389,7 +13389,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.559';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.560';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58382,14 +58382,23 @@ function _qDiscountRowsTotal(){
   return items.reduce((s, it) => s + ((it && it.isDiscountRow && it.pvp != null) ? it.pvp * (it.qty || 1) : 0), 0);
 }
 
-function openAddDiscountDialog(){
+function openAddDiscountDialog(editCode){
   const ex = document.getElementById('quoteDiscountModal');
   if(ex) ex.remove();
 
   // SV2.10.553: la modalita' del carrello decide quali KPI ha senso mostrare
   const _isClientMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client');
   const t0 = computeQuoteTotals();
-  const venditaPre = t0.totalSellPrice || 0;
+  /* SV2.10.560 — MODIFICA di una voce esistente: la riga va scorporata dal
+     totale di partenza, altrimenti il "prima" conterrebbe gia' lo sconto che si
+     sta ricalcolando e ogni riapertura lo comprimerebbe. */
+  const _edit = editCode
+    ? window._QUOTE_STATE.items.find(x => x && x.code === editCode && x.isDiscountRow)
+    : null;
+  const _editImporto = _edit ? (_edit.pvp || 0) * (_edit.qty || 1) : 0;
+  const _editMode = _edit ? (_edit.discountKind === 'eur' ? 'eur' : 'pct') : 'pct';
+  const _editValore = _edit ? _qFmtNum(Math.abs(_edit.discountInput || Math.abs(_editImporto)), 2) : '';
+  const venditaPre = (t0.totalSellPrice || 0) - _editImporto;
   const costo      = t0.totalNetto || 0;
 
   const bg = document.createElement('div');
@@ -58410,7 +58419,7 @@ function openAddDiscountDialog(){
 
   bg.innerHTML =
     '<div class="modal qdisc-modal">' +
-      '<div class="modal-head"><h3>\u2796 Aggiungi una voce di sconto</h3></div>' +
+      '<div class="modal-head"><h3>\u2796 ' + (_edit ? 'Modifica la voce di sconto' : 'Aggiungi una voce di sconto') + '</h3></div>' +
       '<div class="modal-body qdisc-body">' +
 
         // 1. COMANDI
@@ -58418,20 +58427,20 @@ function openAddDiscountDialog(){
           '<div class="qdisc-field">' +
             '<label class="qdisc-flab">Tipo di sconto</label>' +
             '<div class="qdisc-seg">' +
-              '<button type="button" class="qdisc-mode is-on" data-mode="pct">% Percentuale</button>' +
-              '<button type="button" class="qdisc-mode" data-mode="eur">\u20ac Importo fisso</button>' +
+              '<button type="button" class="qdisc-mode' + (_editMode === 'pct' ? ' is-on' : '') + '" data-mode="pct">% Percentuale</button>' +
+              '<button type="button" class="qdisc-mode' + (_editMode === 'eur' ? ' is-on' : '') + '" data-mode="eur">\u20ac Importo fisso</button>' +
             '</div>' +
           '</div>' +
           '<div class="qdisc-field qdisc-field-val">' +
             '<label class="qdisc-flab" for="qdiscVal">Valore</label>' +
             '<div class="qdisc-inwrap">' +
-              '<input type="text" inputmode="decimal" id="qdiscVal" class="qdisc-input qdisc-input-big" placeholder="0" autocomplete="off">' +
-              '<span class="qdisc-suffix" id="qdiscSuffix">%</span>' +
+              '<input type="text" inputmode="decimal" id="qdiscVal" class="qdisc-input qdisc-input-big" placeholder="0" autocomplete="off" value="' + escapeAttr(_editValore) + '">' +
+              '<span class="qdisc-suffix" id="qdiscSuffix">' + (_editMode === 'pct' ? '%' : '\u20ac') + '</span>' +
             '</div>' +
           '</div>' +
           '<div class="qdisc-field qdisc-field-desc">' +
             '<label class="qdisc-flab" for="qdiscDesc">Descrizione che comparir\u00e0 nel preventivo</label>' +
-            '<input type="text" id="qdiscDesc" class="qdisc-input" value="Sconto commerciale" autocomplete="off">' +
+            '<input type="text" id="qdiscDesc" class="qdisc-input" value="' + escapeAttr(_edit ? (_edit.nameShort || _edit.name || '') : 'Sconto commerciale') + '" autocomplete="off">' +
           '</div>' +
         '</div>' +
 
@@ -58488,13 +58497,14 @@ function openAddDiscountDialog(){
         '<div class="qdisc-warn" id="qdiscWarn"></div>' +
       '</div>' +
       '<div class="modal-foot">' +
+        (_edit ? '<button class="btn" id="qdiscDel" type="button" style="border-color:#dc2626;color:#dc2626;background:rgba(220,38,38,0.10);margin-right:auto">\U0001f5d1\ufe0f Rimuovi lo sconto</button>' : '') +
         '<button class="btn ghost" id="qdiscCancel" type="button">Annulla</button>' +
-        '<button class="btn primary" id="qdiscOk" type="button" disabled>\u2713 Aggiungi al preventivo</button>' +
+        '<button class="btn primary" id="qdiscOk" type="button" disabled>\u2713 ' + (_edit ? 'Salva modifiche' : 'Aggiungi al preventivo') + '</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(bg);
 
-  let mode = 'pct';
+  let mode = _editMode;   // SV2.10.560
   const $ = id => document.getElementById(id);
   const fmtE = v => _qFmtEur(v);
   const fmtP = v => _qFmtPct(v, 1);
@@ -58577,11 +58587,37 @@ function openAddDiscountDialog(){
   });
   $('qdiscVal').addEventListener('input', refresh);
   $('qdiscCancel').addEventListener('click', () => bg.remove());
+  // SV2.10.560: rimozione della voce direttamente da qui
+  const _btnDel = $('qdiscDel');
+  if(_btnDel) _btnDel.addEventListener('click', () => {
+    if(!_edit) return;
+    if(!confirm('Rimuovere la voce di sconto \u00ab' + (_edit.nameShort || _edit.name) + '\u00bb dal preventivo?')) return;
+    window._QUOTE_STATE.items = window._QUOTE_STATE.items.filter(x => x !== _edit);
+    try { saveQuoteState(); } catch(_){}
+    bg.remove();
+    try { renderQuoteCartContent(); } catch(_){}
+    if(typeof toast === 'function') toast('Voce di sconto rimossa', 'ok', 2500);
+  });
   $('qdiscOk').addEventListener('click', () => {
     const sc = importoSconto();
     if(!(sc > 0)) return;
     const desc = ($('qdiscDesc').value || '').trim() || 'Sconto';
     const raw = Math.abs(_parsePriceInput($('qdiscVal').value) || 0);   // SV2.10.559
+    /* SV2.10.560: in modifica si aggiorna la riga esistente — mantenendo il suo
+       posto nell'elenco — invece di rimuoverla e riaccodarla in fondo. */
+    if(_edit){
+      _edit.name = desc; _edit.nameShort = desc; _edit.nameFull = desc;
+      _edit.discountKind = mode;
+      _edit.discountInput = raw;
+      _edit.pvp = -Math.round(sc * 100) / 100;
+      _edit.qty = 1;
+      _edit.updatedAt = Date.now();
+      try { saveQuoteState(); } catch(_){}
+      bg.remove();
+      try { renderQuoteCartContent(); } catch(_){}
+      if(typeof toast === 'function') toast('Sconto aggiornato: ' + fmtE(sc), 'ok', 2500);
+      return;
+    }
     window._QUOTE_STATE.items.push({
       code: 'SCONTO-' + Date.now().toString(36).slice(-5).toUpperCase(),
       isFreeField: true,
@@ -60186,7 +60222,16 @@ function renderQuoteCartContent(){
     btn.addEventListener('click', () => {
       const code = btn.dataset.code;
       const item = window._QUOTE_STATE.items.find(it => it.code === code && it.isFreeField);
-      if(item && typeof openFreeFieldDialog === 'function') openFreeFieldDialog(item);
+      if(!item) return;
+      /* SV2.10.560: le voci di SCONTO si modificano nella LORO finestra — quella
+         con tipo, valore e riepilogo prima/dopo. Il form della voce libera
+         chiedeva tipo voce e costo (che su uno sconto non significano nulla) e
+         non permetteva di cambiare la percentuale. */
+      if(item.isDiscountRow && typeof openAddDiscountDialog === 'function'){
+        openAddDiscountDialog(item.code);
+        return;
+      }
+      if(typeof openFreeFieldDialog === 'function') openFreeFieldDialog(item);
     });
   });
   container.querySelectorAll('.qcart-qty-plus').forEach(btn => {
