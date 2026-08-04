@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.558 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.559 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11190,7 +11190,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.558</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.559</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11893,7 +11893,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.558 mobile");
+console.info("[bootstrap] script avvio — SV2.10.559 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13389,7 +13389,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.558';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.559';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -56075,6 +56075,11 @@ function _qcCanoneLabel(it){
 }
 
 function computeQuoteTotals(opts){
+  /* SV2.10.559: prima di qualunque conteggio, gli sconti a percentuale vengono
+     riallineati al carrello attuale. Farlo QUI — e non nei singoli handler —
+     garantisce che nessun percorso (tabella, KPI, grafici, stampa) possa vedere
+     un importo vecchio. */
+  try { if(typeof _qSyncPercentDiscounts === 'function') _qSyncPercentDiscounts(); } catch(_){}
   /* SV2.10.526: se ci sono righe spuntate i conti considerano solo quelle.
      `opts.all = true` disattiva il filtro: serve al render della TABELLA del
      carrello, che deve continuare a mostrare TUTTE le righe (i suoi tbody sono
@@ -58329,6 +58334,44 @@ function openQuoteAddDialog(productIdx){
    Il dialogo mostra il preventivo PRIMA e DOPO lo sconto mentre si digita, cosi'
    l'importo si decide guardando margine e guadagno che ne risultano. */
 /* SV2.10.552: 8 → "8%", 7,5 → "7,5%" — niente decimali inutili. */
+/* ─── SV2.10.559: SCONTI A PERCENTUALE RICALCOLATI ───────────────────────────
+   Fino alla 558 la percentuale veniva convertita in un importo UNA VOLTA, al
+   momento dell'inserimento: cambiando le quantita' o aggiungendo righe il
+   preventivo cambiava ma lo sconto restava fermo, e la percentuale dichiarata in
+   stampa non corrispondeva piu' all'importo. Ora l'importo si ricalcola.
+   BASE DI CALCOLO = totale di vendita dei soli ARTICOLI (le altre voci di sconto
+   sono escluse): cosi' il risultato non dipende dall'ordine in cui gli sconti
+   sono stati inseriti e due sconti del 5% valgono lo stesso importo. */
+function _qBaseImponibileSconti(){
+  const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : [];
+  let tot = 0;
+  items.forEach(it => {
+    if(!it || it.isDiscountRow) return;
+    if(it.qty == null || it.qty <= 0) return;
+    if(_qcIsCanoneItem && _qcIsCanoneItem(it)) return;   // i canoni non fanno parte dell'offerta
+    if(it.pvp == null) return;
+    const dPct = (typeof _normDiscountPct === 'function') ? _normDiscountPct(it.discountPct) : (it.discountPct || 0);
+    tot += it.pvp * (1 - dPct / 100) * it.qty;
+  });
+  return Math.round(tot * 100) / 100;
+}
+
+/* Riallinea l'importo di tutte le voci di sconto a percentuale. Va chiamata
+   ogni volta che il carrello cambia: quantita', sconti di riga, righe aggiunte
+   o rimosse. Ritorna il numero di righe modificate. */
+function _qSyncPercentDiscounts(){
+  const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : [];
+  const base = _qBaseImponibileSconti();
+  let n = 0;
+  items.forEach(it => {
+    if(!it || !it.isDiscountRow) return;
+    if(it.discountKind !== 'pct' || !(it.discountInput > 0)) return;
+    const nuovo = -Math.round(base * it.discountInput) / 100;
+    if(Math.abs((it.pvp || 0) - nuovo) > 0.004){ it.pvp = nuovo; n++; }
+  });
+  return n;
+}
+
 function _pctDecimals(v){
   return (Math.abs(v - Math.round(v)) < 0.005) ? 0 : 1;
 }
@@ -58457,7 +58500,9 @@ function openAddDiscountDialog(){
   const fmtP = v => _qFmtPct(v, 1);
 
   function importoSconto(){
-    const raw = _parsePriceInput($('qdiscVal').value);
+    let raw = _parsePriceInput($('qdiscVal').value);
+    // SV2.10.559: "-5" e "5" sono lo stesso sconto; il segno lo mette l'app
+    if(raw != null && isFinite(raw)) raw = Math.abs(raw);
     if(raw == null || !isFinite(raw) || raw <= 0) return 0;
     return (mode === 'pct') ? (venditaPre * raw / 100) : raw;
   }
@@ -58536,7 +58581,7 @@ function openAddDiscountDialog(){
     const sc = importoSconto();
     if(!(sc > 0)) return;
     const desc = ($('qdiscDesc').value || '').trim() || 'Sconto';
-    const raw = _parsePriceInput($('qdiscVal').value);
+    const raw = Math.abs(_parsePriceInput($('qdiscVal').value) || 0);   // SV2.10.559
     window._QUOTE_STATE.items.push({
       code: 'SCONTO-' + Date.now().toString(36).slice(-5).toUpperCase(),
       isFreeField: true,
@@ -59667,6 +59712,7 @@ function renderQuoteCartContent(){
          e il campo dell'importo: listino, sconti, netto d'acquisto, margine e
          ricarico non hanno significato e confondono. */
       const _isSconto = (it.isDiscountRow === true);
+      const _isScontoPct = _isSconto && it.discountKind === 'pct';   // SV2.10.559
       const _noList2 = _noList || _isSconto;
       const dPct = _normDiscountPct(it.discountPct);
       const sellUnit = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - dPct/100) : null;
@@ -59723,7 +59769,7 @@ function renderQuoteCartContent(){
           '</td>' +
           '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ /* SV2.10.552: le voci di sconto sono tecnicamente voci libere, ma per chi legge
                  il carrello sono un'altra cosa: etichetta SCONTO e colore verde. */
-              if(it.isDiscountRow){ return ' <button type="button" class="qcart-free-edit qcart-sconto-badge" data-code="'+escapeAttr(it.code)+'" title="Voce di sconto sul preventivo">➖ SCONTO</button>'; }
+              if(it.isDiscountRow){ /* SV2.10.559: si distingue a colpo d'occhio uno sconto a percentuale da uno a valore */ const _sk = (it.discountKind === 'pct') ? 'SCONTO %' : 'SCONTO \u20ac'; return ' <button type="button" class="qcart-free-edit qcart-sconto-badge" data-code="'+escapeAttr(it.code)+'" title="'+(it.discountKind === 'pct' ? 'Sconto a percentuale: l\u0027importo si ricalcola da solo quando cambia il preventivo' : 'Sconto a valore fisso')+'">➖ '+_sk+'</button>'; }
               const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = (Array.isArray(DATA) ? (DATA.find(x => x && x.name === it.code) || DATA[it.idx]) : null); if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true){ /* SV2.10.484: se il prodotto personale ha una distinta ESPLODIBILE offro il pulsante che sostituisce la riga coi suoi componenti */ const _b = (typeof bomNormalize === 'function') ? bomNormalize(_p.bom) : null; const _exp = (_b && _b.explode && _b.items.length) ? ' <button type="button" class="qcart-bom-explode" data-code="' + escapeAttr(it.code) + '" title="Sostituisci questa riga con i ' + _b.items.length + ' componenti della distinta base" style="border:none;background:rgba(1,120,212,0.15);color:#0178d4;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">\u2935 ESPLODI (' + _b.items.length + ')</button>' : ''; return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>' + _exp; } return ''; })()) + '</td>' +
           '<td class="qcart-marca-cell" style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
@@ -59786,6 +59832,8 @@ function renderQuoteCartContent(){
                 ? _dash
                 : (sellUnit != null
                   ? '<input type="text" inputmode="decimal" class="qcart-price-input qcart-cli-prezzo-input" data-code="' + escapeAttr(it.code) + '" value="' + _qFmtNum(_roundCents(sellUnit), 2) + '" ' +
+                      // SV2.10.559: l'importo di uno sconto a percentuale e' derivato: sola lettura
+                      (_isScontoPct ? 'readonly title="Importo calcolato dalla percentuale sul totale degli articoli: si aggiorna da solo se cambia il preventivo" ' : '') +
                       (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>'
                   : '<span style="color:var(--fg3)">—</span>')) +
               (it.isFreeField ? '' :
@@ -59841,6 +59889,7 @@ function renderQuoteCartContent(){
          e il campo dell'importo: listino, sconti, netto d'acquisto, margine e
          ricarico non hanno significato e confondono. */
       const _isSconto = (it.isDiscountRow === true);
+      const _isScontoPct = _isSconto && it.discountKind === 'pct';   // SV2.10.559
       const _noList2 = _noList || _isSconto;
       const _dash = '<span style="color:var(--fg3)">—</span>';
       const subPvp = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * it.qty : null;
@@ -59929,7 +59978,7 @@ function renderQuoteCartContent(){
           '</td>' +
           '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ /* SV2.10.552: le voci di sconto sono tecnicamente voci libere, ma per chi legge
                  il carrello sono un'altra cosa: etichetta SCONTO e colore verde. */
-              if(it.isDiscountRow){ return ' <button type="button" class="qcart-free-edit qcart-sconto-badge" data-code="'+escapeAttr(it.code)+'" title="Voce di sconto sul preventivo">➖ SCONTO</button>'; }
+              if(it.isDiscountRow){ /* SV2.10.559: si distingue a colpo d'occhio uno sconto a percentuale da uno a valore */ const _sk = (it.discountKind === 'pct') ? 'SCONTO %' : 'SCONTO \u20ac'; return ' <button type="button" class="qcart-free-edit qcart-sconto-badge" data-code="'+escapeAttr(it.code)+'" title="'+(it.discountKind === 'pct' ? 'Sconto a percentuale: l\u0027importo si ricalcola da solo quando cambia il preventivo' : 'Sconto a valore fisso')+'">➖ '+_sk+'</button>'; }
               const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = (Array.isArray(DATA) ? (DATA.find(x => x && x.name === it.code) || DATA[it.idx]) : null); if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true){ /* SV2.10.484: se il prodotto personale ha una distinta ESPLODIBILE offro il pulsante che sostituisce la riga coi suoi componenti */ const _b = (typeof bomNormalize === 'function') ? bomNormalize(_p.bom) : null; const _exp = (_b && _b.explode && _b.items.length) ? ' <button type="button" class="qcart-bom-explode" data-code="' + escapeAttr(it.code) + '" title="Sostituisci questa riga con i ' + _b.items.length + ' componenti della distinta base" style="border:none;background:rgba(1,120,212,0.15);color:#0178d4;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">\u2935 ESPLODI (' + _b.items.length + ')</button>' : ''; return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>' + _exp; } return ''; })()) + '</td>' +
           '<td class="qcart-marca-cell" style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
@@ -60034,6 +60083,8 @@ function renderQuoteCartContent(){
               ? _dash
               : (prezzoVendita != null
                 ? '<input type="text" inputmode="decimal" class="qcart-price-input qcart-pvend-input" data-code="' + escapeAttr(it.code) + '" value="' + _qFmtNum(_roundCents(prezzoVendita), 2) + '" ' +
+                    // SV2.10.559: l'importo di uno sconto a percentuale e' derivato: sola lettura
+                    (_isScontoPct ? 'readonly title="Importo calcolato dalla percentuale sul totale degli articoli: si aggiorna da solo se cambia il preventivo" ' : '') +
                     (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>'
                 : '<span style="color:var(--fg3)">—</span>')) +
             ((it.isFreeField || isZeroQty) ? '' :
@@ -60315,7 +60366,8 @@ function renderQuoteCartContent(){
          "listino" 240 e clampato a [0,100]: sopra 240 tornava a 240. */
       if(item.isFreeField || item._noListino === true){
         if(newPrice != null){
-          item.pvp = newPrice;
+          // SV2.10.559: su una voce di sconto l'importo e' sempre in detrazione
+          item.pvp = item.isDiscountRow ? -Math.abs(newPrice) : newPrice;
           item.discountPct = 0;
           if(typeof saveQuoteState === 'function'){ try { saveQuoteState(); } catch(_){} }
         }
@@ -60341,7 +60393,12 @@ function renderQuoteCartContent(){
       // da ricalcolare. Aggiorno pvp live; il re-render avviene al blur (change).
       if(item && (item.isFreeField || item._noListino === true)){
         const np = _parsePriceInput(inp.value);
-        if(np != null){ item.pvp = np; item.discountPct = 0; }
+        /* SV2.10.559: su una voce di SCONTO il segno non e' una scelta — l'importo
+           e' per definizione in detrazione. Scrivere "700" o "-700" deve dare lo
+           stesso risultato: senza questa normalizzazione un numero positivo
+           trasformava lo sconto in un ricarico, e nel preventivo la voce
+           "Sconto ..." avrebbe AUMENTATO il totale. */
+        if(np != null){ item.pvp = item.isDiscountRow ? -Math.abs(np) : np; item.discountPct = 0; }
         return;
       }
       if(!item || item.pvp == null || item.pvp <= 0) return;
