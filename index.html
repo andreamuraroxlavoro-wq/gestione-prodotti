@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.563 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.564 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8962,7 +8962,11 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   transition:background .12s ease, border-color .12s ease, opacity .12s ease;
 }
 .qcart-colpill.is-on{ background:rgba(1,120,212,0.14); border-color:rgba(1,120,212,0.45); color:#0178d4; }
-.qcart-colpill:not(.is-on){ opacity:.45; text-decoration:line-through; border-color:var(--border); }
+/* SV2.10.564: la colonna esclusa non e' barrata — semplicemente non ha la
+   pillola. Il contrasto fra "con pillola" e "senza" basta a distinguerle e
+   l'intestazione resta pulita. */
+.qcart-colpill:not(.is-on){ background:transparent; border-color:transparent; color:inherit; }
+.qcart-colpill:not(.is-on):hover{ border-color:var(--border2); }
 .qcart-colpill:hover{ border-color:#0178d4; }
 
 /* SV2.10.552 — colorazione delle righe speciali del carrello */
@@ -9154,7 +9158,16 @@ body.theme-light .qcart-mode-seg.qcart-mode-active.qcart-mode-client{
    di sconto con la dicitura verde "Prezzo Netto" e lasciano vuoto il listino. */
 .qcart-prezzo-wrap{
   display:flex; align-items:center; justify-content:flex-end; gap:7px;
+  /* SV2.10.564: riferimento per la spunta NETTO, che ora sta DENTRO il campo
+     prezzo come in Modalita' Analisi. L'input e' largo 96px e allineato a
+     destra, quindi right:89px la mette 4px dentro il suo bordo sinistro — la
+     stessa geometria gia' collaudata sull'altra tabella. */
+  position:relative;
 }
+/* Qui il contenitore coincide col bordo destro dell'input (nessun padding di
+   cella in mezzo, a differenza della tabella Analisi): 96 − 15 − 4 = 77. */
+.qcart-prezzo-wrap .qcart-netto-mini{ right:77px; }
+.qcart-prezzo-wrap .qcart-cli-prezzo-input{ padding-left:22px; }
 .qcart-netto-flag-wrap{
   display:inline-flex; align-items:center; gap:4px;
   padding:2px 6px; border-radius:6px;
@@ -11203,7 +11216,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.563</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.564</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11906,7 +11919,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.563 mobile");
+console.info("[bootstrap] script avvio — SV2.10.564 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13402,7 +13415,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.563';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.564';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -59961,11 +59974,13 @@ function renderQuoteCartContent(){
                       (_isScontoPct ? 'readonly title="Importo calcolato dalla percentuale sul totale degli articoli: si aggiorna da solo se cambia il preventivo" ' : '') +
                       (it.pvp == null ? 'disabled title="Articolo senza prezzo di listino"' : '') + '>'
                   : '<span style="color:var(--fg3)">—</span>')) +
+              /* SV2.10.564: la spunta NETTO passa DENTRO il campo prezzo, come in
+                 Modalita' Analisi: l'etichetta esterna occupava una colonna intera
+                 e in Cliente lo spazio in larghezza serve alle descrizioni. */
               (it.isFreeField ? '' :
-                '<label class="qcart-netto-flag-wrap' + (it.nettoPrice === true ? ' is-on' : '') + '" title="Prezzo netto: in stampa questa riga non mostra il listino e nella colonna Sconto compare la dicitura verde &quot;Prezzo Netto&quot;">' +
-                  '<input type="checkbox" class="qcart-netto-flag" data-code="' + escapeAttr(it.code) + '"' + (it.nettoPrice === true ? ' checked' : '') + '>' +
-                  '<span>NETTO</span>' +
-                '</label>') +
+                '<button type="button" class="qcart-netto-mini' + (it.nettoPrice === true ? ' is-on' : '') + '" ' +
+                  'data-code="' + escapeAttr(it.code) + '" aria-pressed="' + (it.nettoPrice === true ? 'true' : 'false') + '" ' +
+                  'title="Prezzo netto: in stampa questa riga non mostra il listino e nella colonna Sconto compare la dicitura verde &quot;Prezzo Netto&quot;">\u2713</button>') +
             '</div>' +
           '</td>' +
           // SV2.10.538: la riga a canone non ha totale di riga
