@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.560 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.561 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11190,7 +11190,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.560</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.561</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11893,7 +11893,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.560 mobile");
+console.info("[bootstrap] script avvio — SV2.10.561 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13389,7 +13389,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.560';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.561';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58343,7 +58343,14 @@ function openQuoteAddDialog(productIdx){
    sono escluse): cosi' il risultato non dipende dall'ordine in cui gli sconti
    sono stati inseriti e due sconti del 5% valgono lo stesso importo. */
 function _qBaseImponibileSconti(){
-  const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : [];
+  /* SV2.10.561 — la base deve rispettare la SELEZIONE DELLE RIGHE (526): con
+     alcune righe spuntate il preventivo stampato contiene solo quelle, ma la
+     base era calcolata su TUTTO il carrello, quindi la percentuale veniva
+     applicata a un imponibile che nel documento non compare. Nel caso segnalato
+     dall'utente: base 11.475 invece di 4.725, sconto −918 invece di −378. */
+  const items = (typeof _qcItemsForCalc === 'function')
+    ? _qcItemsForCalc()
+    : ((window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : []);
   let tot = 0;
   items.forEach(it => {
     if(!it || it.isDiscountRow) return;
