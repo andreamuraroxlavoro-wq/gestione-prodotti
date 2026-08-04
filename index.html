@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.550 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.551 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -10956,27 +10956,71 @@ body.theme-light .dlg-input{background:var(--bg3)}
   gap:6px;
   border-radius:7px;
 }
-/* SV2.10.550 — dialogo "Aggiungi sconto": a tutto schermo, con il riepilogo
-   del preventivo prima/dopo che si aggiorna mentre si digita. */
-.qdisc-modal{ max-width:1100px; width:96vw; }
-.qdisc-form{ display:grid; grid-template-columns:auto 200px 1fr; gap:16px; align-items:end; margin-bottom:14px; }
-@media (max-width:820px){ .qdisc-form{ grid-template-columns:1fr; } }
-.qdisc-flab{ display:block; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--fg3); margin-bottom:6px; }
-.qdisc-seg{ display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-.qdisc-mode{ padding:9px 16px; border:0; cursor:pointer; font:inherit; font-size:12px; font-weight:700; background:transparent; color:var(--fg3); }
+/* ==========================================================================
+   SV2.10.551 — DIALOGO "AGGIUNGI SCONTO"
+   ==========================================================================
+   Rifatto: la prima versione impilava i controlli in una griglia a tre colonne
+   che su schermi larghi lasciava le etichette sovrapposte al riquadro
+   dell'importo. Ora tre fasce ben separate — comandi, flusso, KPI — e le card
+   riprendono la grafica di quelle del carrello (barra colorata a sinistra,
+   etichetta minuta, valore grande) cosi' i numeri si leggono con lo stesso
+   colpo d'occhio. */
+.qdisc-modal{ max-width:1280px; width:97vw; }
+.qdisc-body{ display:flex; flex-direction:column; gap:16px; }
+
+/* ── comandi ── */
+.qdisc-panel{
+  display:grid;
+  grid-template-columns:auto 190px minmax(240px,1fr);
+  gap:18px; align-items:end;
+  padding:14px 16px;
+  border:1px solid var(--border2);
+  border-radius:10px;
+  background:var(--bg2);
+}
+@media (max-width:900px){ .qdisc-panel{ grid-template-columns:1fr; } }
+.qdisc-field{ min-width:0; }
+.qdisc-flab{ display:block; font-size:10.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--fg3); margin-bottom:7px; white-space:nowrap; }
+.qdisc-field-desc .qdisc-flab{ white-space:normal; }
+.qdisc-seg{ display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--bg); }
+.qdisc-mode{ padding:10px 16px; border:0; cursor:pointer; font:inherit; font-size:12.5px; font-weight:700; background:transparent; color:var(--fg3); white-space:nowrap; }
 .qdisc-mode + .qdisc-mode{ border-left:1px solid var(--border); }
-.qdisc-mode.is-on{ background:rgba(22,163,74,0.16); color:#16a34a; }
-.qdisc-input{ width:100%; font-family:inherit; font-size:14px; font-weight:600; padding:9px 11px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--fg); }
-.qdisc-input:focus{ outline:none; border-color:#16a34a; }
-.qdisc-amount{ padding:10px 14px; border-radius:8px; border:1px dashed var(--border2); color:var(--fg3); font-size:13px; margin-bottom:14px; }
-.qdisc-amount.is-on{ border-style:solid; border-color:rgba(22,163,74,0.5); background:rgba(22,163,74,0.10); color:var(--fg2); }
-.qdisc-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
-.qdisc-cell{ border:1px solid var(--border2); border-radius:9px; padding:10px 12px; background:var(--bg2); }
-.qdisc-lab{ font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--fg3); }
-.qdisc-val{ font-size:19px; font-weight:800; color:var(--fg); margin-top:4px; font-variant-numeric:tabular-nums; }
-.qdisc-val.is-neg{ color:#dc2626; }
-.qdisc-sub{ font-size:11px; color:var(--fg3); margin-top:2px; font-variant-numeric:tabular-nums; }
-.qdisc-warn{ display:none; margin-top:14px; padding:10px 13px; border-radius:8px; border:1px solid rgba(220,38,38,0.45); background:rgba(220,38,38,0.10); color:var(--fg2); font-size:12.5px; line-height:1.5; }
+.qdisc-mode.is-on{ background:#16a34a; color:#fff; }
+.qdisc-inwrap{ position:relative; }
+.qdisc-input{ width:100%; font-family:inherit; font-size:14px; font-weight:600; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--fg); }
+.qdisc-input:focus{ outline:none; border-color:#16a34a; box-shadow:0 0 0 3px rgba(22,163,74,0.15); }
+.qdisc-input-big{ font-size:22px; font-weight:800; padding-right:38px; text-align:right; font-variant-numeric:tabular-nums; }
+.qdisc-suffix{ position:absolute; right:13px; top:50%; transform:translateY(-50%); font-size:16px; font-weight:800; color:var(--fg3); pointer-events:none; }
+
+/* ── flusso ── */
+.qdisc-flow{ display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:10px; align-items:stretch; }
+@media (max-width:900px){ .qdisc-flow{ grid-template-columns:1fr; } .qdisc-arrow{ transform:rotate(90deg); } }
+.qdisc-step{ border:1px solid var(--border2); border-radius:12px; padding:14px 16px; background:var(--bg2); text-align:center; }
+.qdisc-step-lab{ font-size:10.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--fg3); }
+.qdisc-step-val{ font-size:27px; font-weight:800; margin-top:6px; font-variant-numeric:tabular-nums; color:var(--fg); line-height:1.1; }
+.qdisc-step-sub{ font-size:11px; color:var(--fg3); margin-top:5px; }
+.qdisc-arrow{ display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; color:var(--border2); }
+.qdisc-flow.is-on .qdisc-arrow{ color:#16a34a; }
+.qdisc-step-from{ border-color:var(--border2); }
+.qdisc-step-disc{ border-color:rgba(220,38,38,0.45); background:rgba(220,38,38,0.07); }
+.qdisc-step-disc .qdisc-step-val{ color:#dc2626; }
+.qdisc-step-to{ border-color:rgba(22,163,74,0.5); background:rgba(22,163,74,0.09); }
+.qdisc-step-to .qdisc-step-val{ color:#16a34a; }
+.qdisc-step-to .qdisc-step-val.is-neg{ color:#dc2626; }
+
+/* ── KPI, stessa impostazione delle card del carrello ── */
+.qdisc-kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; }
+.qdisc-kpi{ border:1px solid var(--border2); border-left:4px solid var(--border2); border-radius:10px; padding:11px 13px; background:var(--bg2); }
+.qdisc-kpi-lab{ font-size:10px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--fg3); }
+.qdisc-kpi-val{ font-size:21px; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums; color:var(--fg); }
+.qdisc-kpi-val.is-neg{ color:#dc2626; }
+.qdisc-kpi-sub{ font-size:11px; color:var(--fg3); margin-top:3px; font-variant-numeric:tabular-nums; }
+.qdisc-blue{   border-left-color:#0178d4; }
+.qdisc-orange{ border-left-color:#e67e22; }
+.qdisc-green{  border-left-color:#16a34a; }
+.qdisc-purple{ border-left-color:#a855f7; }
+.qdisc-cyan{   border-left-color:#0ea5e9; }
+.qdisc-warn{ display:none; padding:11px 14px; border-radius:9px; border:1px solid rgba(220,38,38,0.45); background:rgba(220,38,38,0.10); color:var(--fg2); font-size:12.5px; line-height:1.5; }
 
 /* SV2.10.550 — pulsante della voce di sconto: verde, per distinguerlo dal
    rosso distruttivo di "Svuota carrello" che gli sta accanto. */
@@ -11132,7 +11176,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.550</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.551</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11835,7 +11879,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.550 mobile");
+console.info("[bootstrap] script avvio — SV2.10.551 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13331,7 +13375,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.550';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.551';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58243,43 +58287,73 @@ function openAddDiscountDialog(){
   bg.style.zIndex = '520';
   bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
 
-  const _row = (lab, id, sub) =>
-    '<div class="qdisc-cell">' +
-      '<div class="qdisc-lab">' + lab + '</div>' +
-      '<div class="qdisc-val" id="' + id + '">\u2014</div>' +
-      (sub ? '<div class="qdisc-sub" id="' + id + 'Sub">' + sub + '</div>' : '') +
+  /* Card KPI con la stessa grafica di quelle del carrello: barra colorata a
+     sinistra, etichetta piccola, valore grande e sotto il valore PRIMA dello
+     sconto, cosi' il confronto e' immediato senza dover ricordare i numeri. */
+  const _kpi = (lab, id, color, sub) =>
+    '<div class="qdisc-kpi qdisc-' + color + '">' +
+      '<div class="qdisc-kpi-lab">' + lab + '</div>' +
+      '<div class="qdisc-kpi-val" id="' + id + '">\u2014</div>' +
+      '<div class="qdisc-kpi-sub" id="' + id + 'Sub">' + (sub || '') + '</div>' +
     '</div>';
 
   bg.innerHTML =
     '<div class="modal qdisc-modal">' +
       '<div class="modal-head"><h3>\u2796 Aggiungi una voce di sconto</h3></div>' +
-      '<div class="modal-body">' +
-        '<div class="qdisc-form">' +
-          '<div>' +
+      '<div class="modal-body qdisc-body">' +
+
+        // 1. COMANDI
+        '<div class="qdisc-panel">' +
+          '<div class="qdisc-field">' +
             '<label class="qdisc-flab">Tipo di sconto</label>' +
             '<div class="qdisc-seg">' +
-              '<button type="button" class="qdisc-mode is-on" data-mode="pct">Percentuale</button>' +
-              '<button type="button" class="qdisc-mode" data-mode="eur">Importo fisso</button>' +
+              '<button type="button" class="qdisc-mode is-on" data-mode="pct">% Percentuale</button>' +
+              '<button type="button" class="qdisc-mode" data-mode="eur">\u20ac Importo fisso</button>' +
             '</div>' +
           '</div>' +
-          '<div>' +
-            '<label class="qdisc-flab" id="qdiscValLab">Valore dello sconto (%)</label>' +
-            '<input type="text" inputmode="decimal" id="qdiscVal" class="qdisc-input" placeholder="0" autocomplete="off">' +
+          '<div class="qdisc-field qdisc-field-val">' +
+            '<label class="qdisc-flab" for="qdiscVal">Valore</label>' +
+            '<div class="qdisc-inwrap">' +
+              '<input type="text" inputmode="decimal" id="qdiscVal" class="qdisc-input qdisc-input-big" placeholder="0" autocomplete="off">' +
+              '<span class="qdisc-suffix" id="qdiscSuffix">%</span>' +
+            '</div>' +
           '</div>' +
-          '<div>' +
-            '<label class="qdisc-flab">Descrizione che comparira\u0027 nel preventivo</label>' +
+          '<div class="qdisc-field qdisc-field-desc">' +
+            '<label class="qdisc-flab" for="qdiscDesc">Descrizione che comparir\u00e0 nel preventivo</label>' +
             '<input type="text" id="qdiscDesc" class="qdisc-input" value="Sconto commerciale" autocomplete="off">' +
           '</div>' +
         '</div>' +
-        '<div class="qdisc-amount" id="qdiscAmount">Nessuno sconto impostato</div>' +
-        '<div class="qdisc-grid">' +
-          _row('Totale vendita', 'qdVendita', 'prima: \u2014') +
-          _row('Costo d\u0027acquisto', 'qdCosto', '') +
-          _row('Guadagno', 'qdGuadagno', 'prima: \u2014') +
-          _row('Margine', 'qdMargine', 'prima: \u2014') +
-          _row('Ricarico', 'qdRicarico', 'prima: \u2014') +
-          _row('Totale listino', 'qdListino', '') +
+
+        // 2. FLUSSO: totale attuale -> sconto -> nuovo totale
+        '<div class="qdisc-flow">' +
+          '<div class="qdisc-step qdisc-step-from">' +
+            '<div class="qdisc-step-lab">Totale attuale</div>' +
+            '<div class="qdisc-step-val" id="qdFlowPre">\u2014</div>' +
+            '<div class="qdisc-step-sub">prezzo al cliente prima dello sconto</div>' +
+          '</div>' +
+          '<div class="qdisc-arrow">\u2192</div>' +
+          '<div class="qdisc-step qdisc-step-disc">' +
+            '<div class="qdisc-step-lab">Sconto applicato</div>' +
+            '<div class="qdisc-step-val" id="qdFlowSc">\u2014</div>' +
+            '<div class="qdisc-step-sub" id="qdFlowScSub">imposta un valore qui sopra</div>' +
+          '</div>' +
+          '<div class="qdisc-arrow">\u2192</div>' +
+          '<div class="qdisc-step qdisc-step-to">' +
+            '<div class="qdisc-step-lab">Nuovo totale</div>' +
+            '<div class="qdisc-step-val" id="qdFlowPost">\u2014</div>' +
+            '<div class="qdisc-step-sub">prezzo finale al cliente</div>' +
+          '</div>' +
         '</div>' +
+
+        // 3. KPI con la stessa grafica delle card del carrello
+        '<div class="qdisc-kpis">' +
+          _kpi('Totale listino',      'qdListino',  'blue',   'prezzo di listino') +
+          _kpi('Costo d\'acquisto',   'qdCosto',    'orange', 'non cambia con lo sconto') +
+          _kpi('Guadagno',            'qdGuadagno', 'green',  '') +
+          _kpi('Margine',             'qdMargine',  'purple', '% sulla vendita') +
+          _kpi('Ricarico',            'qdRicarico', 'cyan',   '% sul costo') +
+        '</div>' +
+
         '<div class="qdisc-warn" id="qdiscWarn"></div>' +
       '</div>' +
       '<div class="modal-foot">' +
@@ -58309,30 +58383,37 @@ function openAddDiscountDialog(){
     const margPost = venditaPost > 0 ? (guadPost / venditaPost * 100) : null;
     const ricPre = costo > 0 ? (guadPre / costo * 100) : null;
     const ricPost = costo > 0 ? (guadPost / costo * 100) : null;
+    const pctEquiv = (venditaPre > 0) ? (sc / venditaPre * 100) : 0;
 
-    $('qdiscAmount').innerHTML = sc > 0
-      ? 'Sconto applicato: <b>\u2212' + fmtE(sc) + '</b>' +
-        (mode === 'pct' ? '' : ' \u00b7 pari al <b>' + fmtP(venditaPre > 0 ? sc / venditaPre * 100 : 0) + '</b> del totale')
-      : 'Nessuno sconto impostato';
-    $('qdiscAmount').classList.toggle('is-on', sc > 0);
+    // ── flusso
+    $('qdFlowPre').textContent  = fmtE(venditaPre);
+    $('qdFlowSc').textContent   = sc > 0 ? ('\u2212' + fmtE(sc)) : '\u2014';
+    $('qdFlowScSub').textContent = sc > 0
+      ? (mode === 'pct' ? ('pari a ' + fmtE(sc)) : ('pari al ' + fmtP(pctEquiv) + ' del totale'))
+      : 'imposta un valore qui sopra';
+    $('qdFlowPost').textContent = fmtE(venditaPost);
+    bg.querySelector('.qdisc-flow').classList.toggle('is-on', sc > 0);
 
-    $('qdVendita').textContent = fmtE(venditaPost);
-    $('qdVenditaSub').textContent = 'prima: ' + fmtE(venditaPre);
-    $('qdCosto').textContent = fmtE(costo);
+    // ── KPI: valore dopo lo sconto, sotto il valore prima
+    $('qdListino').textContent  = fmtE(t0.totalPvp || 0);
+    $('qdCosto').textContent    = fmtE(costo);
     $('qdGuadagno').textContent = fmtE(guadPost);
-    $('qdGuadagnoSub').textContent = 'prima: ' + fmtE(guadPre);
-    $('qdMargine').textContent = (margPost != null) ? fmtP(margPost) : '\u2014';
-    $('qdMargineSub').textContent = 'prima: ' + ((margPre != null) ? fmtP(margPre) : '\u2014');
+    $('qdGuadagnoSub').textContent = 'prima ' + fmtE(guadPre);
+    $('qdMargine').textContent  = (margPost != null) ? fmtP(margPost) : '\u2014';
+    $('qdMargineSub').textContent  = 'prima ' + ((margPre != null) ? fmtP(margPre) : '\u2014');
     $('qdRicarico').textContent = (ricPost != null) ? fmtP(ricPost) : '\u2014';
-    $('qdRicaricoSub').textContent = 'prima: ' + ((ricPre != null) ? fmtP(ricPre) : '\u2014');
-    $('qdListino').textContent = fmtE(t0.totalPvp || 0);
+    $('qdRicaricoSub').textContent = 'prima ' + ((ricPre != null) ? fmtP(ricPre) : '\u2014');
 
-    // il guadagno che diventa negativo e' l'informazione piu' importante qui
+    /* Il guadagno che passa in negativo e' l'informazione piu' importante di
+       questa finestra: si evidenzia sul valore e con un avviso esplicito. */
     const sottoCosto = (guadPost < 0);
-    [$('qdGuadagno'), $('qdMargine'), $('qdRicarico')].forEach(el => el.classList.toggle('is-neg', sottoCosto));
-    $('qdiscWarn').innerHTML = sottoCosto
-      ? '\u26a0\ufe0f Con questo sconto il preventivo scende <b>sotto il costo d\u0027acquisto</b>: perdita di ' + fmtE(Math.abs(guadPost)) + '.'
-      : (sc > venditaPre ? '\u26a0\ufe0f Lo sconto supera il totale di vendita: il preventivo risulterebbe negativo.' : '');
+    ['qdGuadagno', 'qdMargine', 'qdRicarico'].forEach(id => $(id).classList.toggle('is-neg', sottoCosto));
+    $('qdFlowPost').classList.toggle('is-neg', venditaPost < 0 || sottoCosto);
+    $('qdiscWarn').innerHTML = (sc > venditaPre)
+      ? '\u26a0\ufe0f Lo sconto supera il totale di vendita: il preventivo risulterebbe <b>negativo</b>.'
+      : (sottoCosto
+        ? '\u26a0\ufe0f Con questo sconto il preventivo scende <b>sotto il costo d\'acquisto</b>: perdita di ' + fmtE(Math.abs(guadPost)) + '.'
+        : '');
     $('qdiscWarn').style.display = $('qdiscWarn').innerHTML ? 'block' : 'none';
     $('qdiscOk').disabled = !(sc > 0);
   }
@@ -58341,7 +58422,7 @@ function openAddDiscountDialog(){
     btn.addEventListener('click', () => {
       mode = btn.dataset.mode;
       bg.querySelectorAll('.qdisc-mode').forEach(b => b.classList.toggle('is-on', b === btn));
-      $('qdiscValLab').textContent = (mode === 'pct') ? 'Valore dello sconto (%)' : 'Importo dello sconto (\u20ac)';
+      $('qdiscSuffix').textContent = (mode === 'pct') ? '%' : '\u20ac';
       refresh();
       $('qdiscVal').focus();
     });
