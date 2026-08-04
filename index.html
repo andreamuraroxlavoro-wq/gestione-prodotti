@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.556 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.557 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11184,7 +11184,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.556</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.557</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11887,7 +11887,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.556 mobile");
+console.info("[bootstrap] script avvio — SV2.10.557 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13383,7 +13383,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.556';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.557';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -63771,27 +63771,27 @@ async function exportQuoteDocx(options){
         const _boxShading = { type: ShadingType.CLEAR, color: 'auto', fill: 'FBF8F1' };
         const _rows = [];
         _rows.push(new Paragraph({
-          children: [mk(_qcCanoneBoxTitolo().toUpperCase(), { bold: true, color: '8A6A12', size: 18 })],
+          children: [mk(_qcCanoneBoxTitolo().toUpperCase(), { bold: true, color: '8A6A12', size: 22 })],   // SV2.10.557
           spacing: { after: 80 },
         }));
         _cs.righe.forEach(r => {
           _rows.push(new Paragraph({
             children: [
-              mk(r.label + '   ', { bold: true, color: TEXT_DARK, size: 17 }),
-              mk(_qcCanoneDescTxt(r.nome) + '   ', { color: TEXT_MUTED, size: 17 }),
-              mk((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + _qFmtEur(r.tot), { bold: true, color: TEXT_DARK, size: 17 }),
+              mk(r.label + '   ', { bold: true, color: TEXT_DARK, size: 20 }),
+              mk(_qcCanoneDescTxt(r.nome) + '   ', { color: TEXT_MUTED, size: 19 }),
+              mk((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + _qFmtEur(r.tot), { bold: true, color: TEXT_DARK, size: 21 }),
             ],
             spacing: { after: 40 },
           }));
         });
         _cs.gruppi.forEach(g => {
           _rows.push(new Paragraph({
-            children: [mk('Totale ' + g.label + '   ' + _qFmtEur(g.tot), { bold: true, color: '8A6A12', size: 17 })],
+            children: [mk('Totale ' + g.label + '   ' + _qFmtEur(g.tot), { bold: true, color: '8A6A12', size: 21 })],
             spacing: { before: 60, after: 40 },
           }));
         });
         _rows.push(new Paragraph({
-          children: [mk('Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.', { italics: true, color: TEXT_MUTED, size: 15 })],
+          children: [mk('Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.', { italics: true, color: TEXT_MUTED, size: 17 })],
         }));
         docChildren.push(new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
@@ -64406,15 +64406,18 @@ async function exportQuoteWord(){
            l'unico che sopravvive a qualunque fotocopia. */
         /* SV2.10.542 — riquadro dei canoni ricorrenti */
         '.canoni-box{margin-top:16pt;border:1pt solid #C99A2E;border-left:3pt solid #C99A2E;background:#FBF8F1;border-radius:3pt;padding:9pt 12pt}' +
-        '.canoni-title{font-weight:bold;font-size:10pt;color:#8A6A12;margin-bottom:6pt;text-transform:uppercase;letter-spacing:.4pt}' +
-        'table.canoni-table{width:100%;border-collapse:collapse;font-size:9.5pt}' +
-        'table.canoni-table td{padding:3pt 4pt;vertical-align:top;border-bottom:0.5pt solid #E8DFC7}' +
+        /* SV2.10.557: corpo allineato a quello delle voci del preventivo (10pt) e
+           importi piu' marcati; passo verticale leggermente aumentato perche' il
+           testo piu' grande non stia stretto, senza cambiare la struttura. */
+        '.canoni-title{font-weight:bold;font-size:11pt;color:#8A6A12;margin-bottom:8pt;text-transform:uppercase;letter-spacing:.4pt}' +
+        'table.canoni-table{width:100%;border-collapse:collapse;font-size:10pt}' +
+        'table.canoni-table td{padding:5pt 5pt;vertical-align:top;border-bottom:0.5pt solid #E8DFC7}' +
         'table.canoni-table td.cn-lab{font-weight:bold;white-space:nowrap;color:#374151}' +
         'table.canoni-table td.cn-desc{color:#6b7280}' +
         'table.canoni-table td.cn-qty{text-align:right;white-space:nowrap;color:#6b7280}' +
-        'table.canoni-table td.cn-val{text-align:right;white-space:nowrap;font-weight:bold;color:#1f2937}' +
-        'table.canoni-table tr.cn-tot td{border-bottom:0;border-top:1pt solid #C99A2E;font-weight:bold;color:#8A6A12;padding-top:5pt}' +
-        '.canoni-note{margin-top:5pt;font-size:8.5pt;font-style:italic;color:#6b7280}' +
+        'table.canoni-table td.cn-val{text-align:right;white-space:nowrap;font-weight:bold;font-size:11pt;color:#1f2937}' +
+        'table.canoni-table tr.cn-tot td{border-bottom:0;border-top:1pt solid #C99A2E;font-weight:bold;font-size:11pt;color:#8A6A12;padding-top:7pt}' +
+        '.canoni-note{margin-top:7pt;font-size:9pt;font-style:italic;color:#6b7280}' +
         /* SV2.10.552 — voce di sconto: verde tenue, barra verde e percentuale in
            coda alla descrizione (stessa tecnica del canone, colore diverso). */
         'table.items tr.sconto-row td{background:#F2FAF4 !important}' +
@@ -65891,9 +65894,10 @@ async function exportQuotePdfNative(options){
     if(printS.showCanoniBox !== false){
       const _cs = _qcCanoneSummary(t.items);
       if(_cs){
-        const _padX = 10, _padY = 9, _lh = 13;
+        // SV2.10.557: corpo allineato alle voci del preventivo; interlinea adeguata
+        const _padX = 12, _padY = 11, _lh = 16;
         const _nRighe = _cs.righe.length + _cs.gruppi.length;
-        const _boxH = _padY * 2 + 15 + _nRighe * _lh + 14;
+        const _boxH = _padY * 2 + 18 + _nRighe * _lh + 17;
         if(cursorY + _boxH > PAGE_H - FOOTER_RESERVE){
           doc.addPage();
           drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
@@ -65905,15 +65909,15 @@ async function exportQuotePdfNative(options){
         doc.setFillColor(201, 154, 46);
         doc.rect(MARGIN, cursorY, 3, _boxH, 'F');
         let _y = cursorY + _padY + 9;
-        setText(9, 'bold', [138, 106, 18]);
+        setText(10, 'bold', [138, 106, 18]);
         doc.text(_qcCanoneBoxTitolo().toUpperCase(), MARGIN + _padX, _y);
-        _y += 14;
+        _y += 17;
         _cs.righe.forEach(r => {
-          setText(8.5, 'bold', COL.textDark);
+          setText(9.5, 'bold', COL.textDark);
           doc.text(String(r.label), MARGIN + _padX, _y);
           /* SV2.10.543: la descrizione parte dopo l'etichetta e si ferma prima
              dell'importo; corpo 8pt per far entrare le parole previste. */
-          setText(8, 'normal', COL.textMuted);
+          setText(9, 'normal', COL.textMuted);
           const _descX = MARGIN + _padX + 104;
           const _descW = Math.max(60, (MARGIN + CONTENT_W - _padX - 96) - _descX);
           /* SV2.10.543 — nel PDF la larghezza puo' tagliare prima del troncamento a
@@ -65927,7 +65931,7 @@ async function exportQuotePdfNative(options){
             _nome = _pw.join(' ') + ' ............';
           }
           doc.text(_nome, _descX, _y);
-          setText(8.5, 'bold', COL.textDark);
+          setText(10, 'bold', COL.textDark);
           doc.text((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + _qFmtEur(r.tot), MARGIN + CONTENT_W - _padX, _y, { align: 'right' });
           _y += _lh;
         });
@@ -65935,12 +65939,12 @@ async function exportQuotePdfNative(options){
           setDraw([201, 154, 46]);
           doc.setLineWidth(0.7);
           doc.line(MARGIN + _padX, _y - 9, MARGIN + CONTENT_W - _padX, _y - 9);
-          setText(8.5, 'bold', [138, 106, 18]);
+          setText(10, 'bold', [138, 106, 18]);
           doc.text('Totale ' + g.label, MARGIN + _padX, _y);
           doc.text(_qFmtEur(g.tot), MARGIN + CONTENT_W - _padX, _y, { align: 'right' });
           _y += _lh;
         });
-        setText(7.5, 'italic', COL.textMuted);
+        setText(8.5, 'italic', COL.textMuted);
         doc.text('Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.', MARGIN + _padX, _y + 1);
         cursorY += _boxH + 8;
       }
@@ -66036,7 +66040,7 @@ async function exportQuotePdfNative(options){
           doc.text(r.value, MARGIN + CONTENT_W - 12 - _vatSuffixW, pY, { align: 'right' });
           pY += 14;
           if(r.sub){
-            setText(7.5, 'italic', COL.textMuted);
+            setText(8.5, 'italic', COL.textMuted);
             doc.text(r.sub, MARGIN + 12, pY);
             pY += subH;
           }
@@ -66493,15 +66497,18 @@ async function exportQuotePdf(){
            l'unico che sopravvive a qualunque fotocopia. */
         /* SV2.10.542 — riquadro dei canoni ricorrenti */
         '.canoni-box{margin-top:16pt;border:1pt solid #C99A2E;border-left:3pt solid #C99A2E;background:#FBF8F1;border-radius:3pt;padding:9pt 12pt}' +
-        '.canoni-title{font-weight:bold;font-size:10pt;color:#8A6A12;margin-bottom:6pt;text-transform:uppercase;letter-spacing:.4pt}' +
-        'table.canoni-table{width:100%;border-collapse:collapse;font-size:9.5pt}' +
-        'table.canoni-table td{padding:3pt 4pt;vertical-align:top;border-bottom:0.5pt solid #E8DFC7}' +
+        /* SV2.10.557: corpo allineato a quello delle voci del preventivo (10pt) e
+           importi piu' marcati; passo verticale leggermente aumentato perche' il
+           testo piu' grande non stia stretto, senza cambiare la struttura. */
+        '.canoni-title{font-weight:bold;font-size:11pt;color:#8A6A12;margin-bottom:8pt;text-transform:uppercase;letter-spacing:.4pt}' +
+        'table.canoni-table{width:100%;border-collapse:collapse;font-size:10pt}' +
+        'table.canoni-table td{padding:5pt 5pt;vertical-align:top;border-bottom:0.5pt solid #E8DFC7}' +
         'table.canoni-table td.cn-lab{font-weight:bold;white-space:nowrap;color:#374151}' +
         'table.canoni-table td.cn-desc{color:#6b7280}' +
         'table.canoni-table td.cn-qty{text-align:right;white-space:nowrap;color:#6b7280}' +
-        'table.canoni-table td.cn-val{text-align:right;white-space:nowrap;font-weight:bold;color:#1f2937}' +
-        'table.canoni-table tr.cn-tot td{border-bottom:0;border-top:1pt solid #C99A2E;font-weight:bold;color:#8A6A12;padding-top:5pt}' +
-        '.canoni-note{margin-top:5pt;font-size:8.5pt;font-style:italic;color:#6b7280}' +
+        'table.canoni-table td.cn-val{text-align:right;white-space:nowrap;font-weight:bold;font-size:11pt;color:#1f2937}' +
+        'table.canoni-table tr.cn-tot td{border-bottom:0;border-top:1pt solid #C99A2E;font-weight:bold;font-size:11pt;color:#8A6A12;padding-top:7pt}' +
+        '.canoni-note{margin-top:7pt;font-size:9pt;font-style:italic;color:#6b7280}' +
         /* SV2.10.552 — voce di sconto: verde tenue, barra verde e percentuale in
            coda alla descrizione (stessa tecnica del canone, colore diverso). */
         'table.items tr.sconto-row td{background:#F2FAF4 !important}' +
