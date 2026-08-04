@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.573 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.574 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -4496,14 +4496,15 @@ body.theme-light .tb-dropdown.export-dropdown .tb-dropdown-menu .tb-dropdown-ite
 .pricemode-wrap.pm-wrap-sell{ background:#16a34a; border-color:#16a34a; color:#fff; }
 .pricemode-wrap.pm-wrap-buy{ background:#dc2626; border-color:#dc2626; color:#fff; }
 .spl-menu{ min-width:300px; max-height:min(60vh,420px); overflow-y:auto; }
-.spl-row{ display:flex; align-items:center; gap:10px; padding:9px 12px; cursor:pointer; border-radius:7px; }
+.spl-row{ display:flex; align-items:center; gap:10px; padding:11px 14px; cursor:pointer; border-radius:7px; }
 .spl-row:hover{ background:var(--bg3); }
 .spl-row.is-active{ background:rgba(22,163,74,0.14); }
-.spl-row-check{ width:16px; flex-shrink:0; color:#16a34a; font-weight:800; }
+.spl-row-check{ width:18px; flex-shrink:0; color:#16a34a; font-weight:800; font-size:16px; }
 .spl-row-body{ min-width:0; flex:1; }
-.spl-row-name{ font-size:13px; font-weight:700; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* SV2.10.574: corpo aumentato per leggerlo a colpo d'occhio */
+.spl-row-name{ font-size:15px; font-weight:700; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .spl-row.is-active .spl-row-name{ color:#16a34a; }
-.spl-row-meta{ font-size:11px; color:var(--fg3); margin-top:2px; }
+.spl-row-meta{ font-size:12px; color:var(--fg3); margin-top:2px; }
 .disc-badge-wrap .btn.icon-btn{
   height:auto; align-self:stretch; width:38px;
   background:transparent !important;
@@ -11266,7 +11267,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.573</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.574</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11978,7 +11979,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.573 mobile");
+console.info("[bootstrap] script avvio — SV2.10.574 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13474,7 +13475,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.573';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.574';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -39330,17 +39331,14 @@ function _splMenuRowsHtml(){
   const attivo = (typeof getActiveSplId === 'function') ? getActiveSplId() : null;
   const rows = listini.map(l => {
     const on = (l.id === attivo);
-    const nNodi = (typeof _splCountNodes === 'function') ? _splCountNodes(l) : 0;
-    const meta = [
-      (l.scontoBase != null && l.scontoBase !== '') ? ('base ' + _qFmtPct(Number(l.scontoBase), 1)) : null,
-      nNodi ? (nNodi + (nNodi === 1 ? ' regola' : ' regole')) : null,
-    ].filter(Boolean).join(' \u00b7 ');
+    /* SV2.10.574: nell'elenco resta il solo NOME. Il numero di regole e lo
+       sconto base non servono a scegliere e allungavano le voci; chi vuole quei
+       dati li trova nel pannello "Gestisci listini...". */
     return '<div class="spl-row' + (on ? ' is-active' : '') + '" role="menuitemradio" ' +
         'onclick="splQuickApply(' + JSON.stringify(l.id).replace(/"/g, '&quot;') + ')">' +
         '<span class="spl-row-check">' + (on ? '\u2713' : '') + '</span>' +
         '<span class="spl-row-body">' +
           '<span class="spl-row-name">' + escapeHtml(l.name || 'Senza nome') + '</span>' +
-          (meta ? '<span class="spl-row-meta">' + meta + '</span>' : '') +
         '</span>' +
       '</div>';
   }).join('');
