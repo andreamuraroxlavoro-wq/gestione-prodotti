@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.565 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.570 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8952,16 +8952,42 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 }
 /* SV2.10.538 — pillola dell'unita' di misura mostrata al posto del selettore di
    quantita' sulle righe a canone. */
+/* SV2.10.570 — avviso della selezione nel piede del carrello */
+.qcart-sel-notice{
+  display:flex; align-items:center; gap:8px;
+  min-width:0; max-width:56%;
+  font-size:12px; line-height:1.35; color:var(--fg2);
+}
+.qcart-sel-notice:empty{ display:none; }
+.qcart-sel-badge{
+  flex-shrink:0; padding:4px 10px; border-radius:999px;
+  background:rgba(1,120,212,0.12); border:1px solid rgba(1,120,212,0.45);
+  color:#0178d4; font-weight:800; white-space:nowrap;
+}
+.qcart-sel-txt{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+@media (max-width:1100px){ .qcart-sel-txt{ display:none; } }
+
 /* SV2.10.565 — cestino di eliminazione della singola riga */
 .qcart-row-del{
-  display:inline-block; margin-left:6px; padding:1px 3px;
-  border:0; background:transparent; cursor:pointer;
-  font-size:13px; line-height:1;
-  filter:grayscale(1) opacity(.45);
-  transition:filter .15s ease, transform .12s ease;
-  vertical-align:middle;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:19px; height:19px; margin-left:7px; padding:0;
+  border:1px solid rgba(220,38,38,0.45);
+  border-radius:5px;
+  background:rgba(220,38,38,0.08);
+  color:#dc2626;
+  font-family:inherit; font-size:14px; font-weight:800; line-height:1;
+  cursor:pointer; user-select:none; vertical-align:middle;
+  transition:background .12s ease, border-color .12s ease, transform .12s ease;
 }
-.qcart-row-del:hover{ filter:none; transform:scale(1.18); }
+.qcart-row-del:hover{ background:#dc2626; border-color:#dc2626; color:#fff; transform:scale(1.12); }
+/* SV2.10.568: riga marcata per l'eliminazione — rosso pieno, ben visibile */
+.qcart-row-del.is-marked{
+  background:#dc2626; border-color:#dc2626; color:#fff;
+  box-shadow:0 0 0 3px rgba(220,38,38,0.20);
+}
+/* stesso margine della × di riga, cosi' le due cadono incolonnate */
+.qcart-del-all{ margin-left:7px; }
+.qcart-row-del:active{ transform:scale(0.94); }
 
 /* SV2.10.563 — pillole di intestazione: accese = colonna stampata */
 .qcart-colpill{
@@ -11227,7 +11253,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.565</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.570</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11930,7 +11956,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.565 mobile");
+console.info("[bootstrap] script avvio — SV2.10.570 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13426,7 +13452,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.565';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.570';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -55867,6 +55893,39 @@ function removeFromQuoteCart(code){
    _selectedForUpdate === true (l'utente l'ha spuntata esplicitamente).
    Restituisce il numero di righe rimosse. Non chiede conferma: la conferma
    e' gestita dal chiamante (handler del pulsante "Elimina righe"). */
+/* ==========================================================================
+   SV2.10.568 — MARCATURA PER L'ELIMINAZIONE
+   ==========================================================================
+   Fino alla 567 le checkbox del carrello servivano a DUE cose incompatibili:
+   filtrare analisi e stampa (526) e scegliere cosa cancellare. Ora i due gesti
+   hanno comandi distinti: la checkbox filtra, la × rossa marca per
+   l'eliminazione. `_markedForDelete` e' volatile — non viene salvato col
+   preventivo, e' solo lo stato di una scelta in corso. */
+function _qcMarkedForDelete(){
+  const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : [];
+  return items.filter(x => x && x._markedForDelete === true);
+}
+function _qcSyncDeleteButton(){
+  const btn = document.getElementById('quoteCartDeleteRowsBtn');
+  if(!btn) return;
+  const n = _qcMarkedForDelete().length;
+  btn.textContent = n
+    ? ('\ud83d\uddd1\ufe0f Elimina ' + n + (n === 1 ? ' riga' : ' righe'))
+    : '\ud83d\uddd1\ufe0f Elimina righe';
+  btn.disabled = (n === 0);
+  btn.style.opacity = n ? '1' : '.45';
+  btn.style.cursor = n ? 'pointer' : 'not-allowed';
+  btn.title = n
+    ? ('Elimina le ' + n + ' righe marcate con la × rossa')
+    : 'Marca prima le righe da eliminare con la × rossa a sinistra di ogni riga';
+  // × dell'intestazione: acceso quando tutte le righe sono marcate
+  const all = document.getElementById('qcartDelAll');
+  if(all){
+    const tot = (window._QUOTE_STATE.items || []).length;
+    all.classList.toggle('is-on', tot > 0 && n === tot);
+  }
+}
+
 function deleteSelectedQuoteRows(){
   if(!window._QUOTE_STATE || !Array.isArray(window._QUOTE_STATE.items)) return 0;
   const before = window._QUOTE_STATE.items.length;
@@ -58578,7 +58637,7 @@ function openAddDiscountDialog(editCode){
         '<div class="qdisc-warn" id="qdiscWarn"></div>' +
       '</div>' +
       '<div class="modal-foot">' +
-        (_edit ? '<button class="btn" id="qdiscDel" type="button" style="border-color:#dc2626;color:#dc2626;background:rgba(220,38,38,0.10);margin-right:auto">\U0001f5d1\ufe0f Rimuovi lo sconto</button>' : '') +
+        (_edit ? '<button class="btn" id="qdiscDel" type="button" style="border-color:#dc2626;color:#dc2626;background:rgba(220,38,38,0.10);margin-right:auto">\ud83d\uddd1\ufe0f Rimuovi lo sconto</button>' : '') +
         '<button class="btn ghost" id="qdiscCancel" type="button">Annulla</button>' +
         '<button class="btn primary" id="qdiscOk" type="button" disabled>\u2713 ' + (_edit ? 'Salva modifiche' : 'Aggiungi al preventivo') + '</button>' +
       '</div>' +
@@ -58814,6 +58873,11 @@ function openQuoteCart(){
       '<div class="modal-foot">' +
         // SV2.10.509: "Chiudi finestra" e "Svuota carrello" spostati in alto a
         // destra, sulla stessa riga dello switch Analisi/Cliente.
+        /* SV2.10.570: l'avviso della selezione vive QUI, nel piede, a sinistra dei
+           pulsanti. Sopra le KPI faceva traslare tutta la lista verso il basso
+           ogni volta che compariva o spariva, e le righe si spostavano sotto il
+           dito mentre si spuntava. */
+        '<div id="qcartSelNotice" class="qcart-sel-notice"></div>' +
         '<span style="flex:1"></span>' +
         // V2.10.156: Pulsante Formula di Pagamento (calcolatore rate cliente)
         '<button class="btn small" id="quoteCartPaymentBtn" style="margin-right:8px">💳 Formula di pagamento</button>' +
@@ -58908,21 +58972,31 @@ function openQuoteCart(){
     const delBtn = document.getElementById('quoteCartDeleteRowsBtn');
     if(!delBtn) return;
     delBtn.addEventListener('click', () => {
-      const n = (typeof countSelectedQuoteRows === 'function') ? countSelectedQuoteRows() : 0;
+      // SV2.10.568: agisce sulle righe MARCATE con la ×, non sulle spuntate
+      const marcate = _qcMarkedForDelete();
+      const n = marcate.length;
       const tot = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items))
         ? window._QUOTE_STATE.items.length : 0;
       if(n === 0){
-        toast('Nessuna riga selezionata. Spunta le righe da eliminare con le checkbox.', 'err');
+        toast('Nessuna riga marcata. Clicca la × rossa sulle righe da eliminare.', 'err');
         return;
       }
       // Sicurezza: avviso se l'utente sta per svuotare tutto il carrello
       const svuotaTutto = (n === tot);
       const msg = svuotaTutto
         ? 'Stai per eliminare TUTTE le ' + n + ' righe del preventivo.\n\nIl carrello restera\' vuoto. Procedere?'
-        : 'Eliminare le ' + n + ' righe selezionate dal preventivo?\n\nL\'azione non puo\' essere annullata.';
+        : 'Eliminare dal preventivo le ' + n + ' righe marcate?\n\n' +
+          marcate.slice(0, 8).map(x => '\u2022 ' + String(x.nameShort || x.name || x.code || '').slice(0, 50)).join('\n') +
+          (n > 8 ? '\n\u2026 e altre ' + (n - 8) : '') +
+          '\n\nL\'azione non puo\' essere annullata.';
       if(!confirm(msg)) return;
-      const removed = (typeof deleteSelectedQuoteRows === 'function') ? deleteSelectedQuoteRows() : 0;
-      toast(removed + ' rig' + (removed === 1 ? 'a eliminata' : 'he eliminate') + ' dal preventivo', 'ok');
+      // SV2.10.568
+      window._QUOTE_STATE.items = window._QUOTE_STATE.items.filter(x => !(x && x._markedForDelete === true));
+      try { saveQuoteState(); } catch(_){}
+      if(typeof _qcRefreshAfterSelection === 'function') _qcRefreshAfterSelection();
+      else renderQuoteCartContent();
+      if(typeof renderQuoteFloatingButton === 'function'){ try { renderQuoteFloatingButton(); } catch(_){} }
+      toast(n + ' rig' + (n === 1 ? 'a eliminata' : 'he eliminate') + ' dal preventivo', 'ok');
     });
   })();
   // V2.4.7: handler per il nuovo pulsante Impostazioni di stampa
@@ -59883,22 +59957,29 @@ function renderQuoteCartContent(){
             ? ' title="Riga con netto d\'acquisto modificato a mano"'
             : '') + '>' +
           // V2.9.28: cell numero + maniglia drag-and-drop per riordinare le righe
-          '<td class="qcart-row-num" style="text-align:center;color:var(--fg3);font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;user-select:none">' +
+          '<td class="qcart-row-num" style="text-align:right;color:var(--fg3);font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;user-select:none">' +
             '<span class="qcart-drag-handle" title="Trascina per riordinare" style="display:inline-block;cursor:grab;color:var(--fg3);font-size:14px;padding:0 4px;margin-right:4px;line-height:1">⋮⋮</span>' +
             (i + 1) +
             /* SV2.10.565: cestino di riga, fra il numero e la casella di selezione.
                Sta DENTRO la cella del numero e non in una colonna propria: una
                colonna in piu' avrebbe tolto larghezza alle descrizioni, che e' la
                risorsa scarsa di questa tabella. */
-            '<button type="button" class="qcart-row-del" data-code="' + escapeAttr(it.code) + '" ' +
-              'title="Elimina questa riga dal preventivo">\U0001f5d1\ufe0f</button>' +
+            /* SV2.10.567: riquadro rosso con la ×, lo stesso segno gia' usato per
+               togliere un componente dalla distinta base: il gesto si riconosce
+               senza doverlo imparare due volte. */
+            '<button type="button" class="qcart-row-del' + (it._markedForDelete === true ? ' is-marked' : '') + '" ' +
+              'data-code="' + escapeAttr(it.code) + '" aria-pressed="' + (it._markedForDelete === true ? 'true' : 'false') + '" ' +
+              'aria-label="Marca questa riga per l\u0027eliminazione" ' +
+              'title="' + (it._markedForDelete === true
+                ? 'Riga marcata per l\u0027eliminazione \u2014 clicca per togliere la marcatura'
+                : 'Marca questa riga per l\u0027eliminazione, poi premi \u00ab Elimina righe \u00bb') + '">\u00d7</button>' +
           '</td>' +
           // V2.10.263: checkbox di selezione per "Aggiorna preventivo".
           // V2.10.263: checkbox spuntata SOLO se _selectedForUpdate===true (default: vuote).
           '<td style="text-align:center">' +
             '<input type="checkbox" class="qcart-update-check" data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" ' +
               (it._selectedForUpdate === true ? 'checked' : '') + ' ' +
-              'title="Seleziona questa riga per Aggiorna preventivo o Elimina righe" ' +
+              'title="Seleziona questa riga per Aggiorna preventivo, analisi e stampa" ' +
               'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0">' +
           '</td>' +
           '<td>' +
@@ -60008,12 +60089,24 @@ function renderQuoteCartContent(){
       '<table class="quote-cart-tbl">' +
         '<thead>' +
           '<tr>' +
-            '<th>Riga</th>' +  // V2.7.9: rinominato (era #)
+            /* SV2.10.569: × di intestazione nella stessa colonna delle × di riga */
+            /* SV2.10.569: entrambe le celle allineate a DESTRA, cosi' la ×
+               dell'intestazione e quelle delle righe cadono sulla stessa
+               verticale qualunque sia la larghezza del testo che le precede. */
+            '<th style="white-space:nowrap;text-align:right">Riga' +
+              '<button type="button" class="qcart-row-del qcart-del-all" id="qcartDelAll" ' +
+                'aria-label="Marca o smarca tutte le righe per l\u0027eliminazione" ' +
+                'title="Marca / smarca TUTTE le righe per l\u0027eliminazione">\u00d7</button>' +
+            '</th>' +
             // V2.10.263: colonna checkbox "Aggiorna" con select-all nell'header
-            '<th style="text-align:center" title="Seleziona / deseleziona tutte le righe (per Aggiorna o Elimina)">' +
+            /* SV2.10.569: la checkbox resta SOLA nella sua colonna. La × di
+               intestazione e' stata spostata nella colonna "Riga", dove si trova
+               anche quella delle righe: cosi' i due comandi sono incolonnati e la
+               colonna della checkbox torna larga quanto la checkbox. */
+            '<th style="text-align:center">' +
               '<input type="checkbox" id="qcartUpdateCheckAll" ' +
-                'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0" ' +
-                'title="Seleziona / deseleziona tutte le righe">' +
+                'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0;vertical-align:middle" ' +
+                'title="Seleziona / deseleziona tutte le righe (filtro di analisi e stampa)">' +
             '</th>' +
             '<th>' + _qcColPill('Foto', 'showImage') + '</th>' +   // SV2.10.563
             '<th>' + _qcColPill('Codice', 'showCode') + '</th>' +   // SV2.10.563
@@ -60101,21 +60194,28 @@ function renderQuoteCartContent(){
             ? ' title="Riga con netto d\'acquisto modificato a mano"'
             : '') + '>' +
           // V2.9.28: cell numero + maniglia drag-and-drop per riordinare le righe
-          '<td class="qcart-row-num" style="text-align:center;color:var(--fg3);font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;user-select:none">' +
+          '<td class="qcart-row-num" style="text-align:right;color:var(--fg3);font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;user-select:none">' +
             '<span class="qcart-drag-handle" title="Trascina per riordinare" style="display:inline-block;cursor:grab;color:var(--fg3);font-size:14px;padding:0 4px;margin-right:4px;line-height:1">⋮⋮</span>' +
             (i + 1) +
             /* SV2.10.565: cestino di riga, fra il numero e la casella di selezione.
                Sta DENTRO la cella del numero e non in una colonna propria: una
                colonna in piu' avrebbe tolto larghezza alle descrizioni, che e' la
                risorsa scarsa di questa tabella. */
-            '<button type="button" class="qcart-row-del" data-code="' + escapeAttr(it.code) + '" ' +
-              'title="Elimina questa riga dal preventivo">\U0001f5d1\ufe0f</button>' +
+            /* SV2.10.567: riquadro rosso con la ×, lo stesso segno gia' usato per
+               togliere un componente dalla distinta base: il gesto si riconosce
+               senza doverlo imparare due volte. */
+            '<button type="button" class="qcart-row-del' + (it._markedForDelete === true ? ' is-marked' : '') + '" ' +
+              'data-code="' + escapeAttr(it.code) + '" aria-pressed="' + (it._markedForDelete === true ? 'true' : 'false') + '" ' +
+              'aria-label="Marca questa riga per l\u0027eliminazione" ' +
+              'title="' + (it._markedForDelete === true
+                ? 'Riga marcata per l\u0027eliminazione \u2014 clicca per togliere la marcatura'
+                : 'Marca questa riga per l\u0027eliminazione, poi premi \u00ab Elimina righe \u00bb') + '">\u00d7</button>' +
           '</td>' +
           // V2.10.263: checkbox di selezione per "Aggiorna preventivo".
           '<td style="text-align:center">' +
             '<input type="checkbox" class="qcart-update-check" data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" ' +
               (it._selectedForUpdate === true ? 'checked' : '') + ' ' +
-              'title="Seleziona questa riga per Aggiorna preventivo o Elimina righe" ' +
+              'title="Seleziona questa riga per Aggiorna preventivo, analisi e stampa" ' +
               'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0">' +
           '</td>' +
           '<td>' +
@@ -60281,12 +60381,24 @@ function renderQuoteCartContent(){
       '<table class="quote-cart-tbl">' +
         '<thead>' +
           '<tr>' +
-            '<th>Riga</th>' +  // V2.7.8: rinominato (era #)
+            /* SV2.10.569: × di intestazione nella stessa colonna delle × di riga */
+            /* SV2.10.569: entrambe le celle allineate a DESTRA, cosi' la ×
+               dell'intestazione e quelle delle righe cadono sulla stessa
+               verticale qualunque sia la larghezza del testo che le precede. */
+            '<th style="white-space:nowrap;text-align:right">Riga' +
+              '<button type="button" class="qcart-row-del qcart-del-all" id="qcartDelAll" ' +
+                'aria-label="Marca o smarca tutte le righe per l\u0027eliminazione" ' +
+                'title="Marca / smarca TUTTE le righe per l\u0027eliminazione">\u00d7</button>' +
+            '</th>' +
             // V2.10.263: colonna checkbox "Aggiorna" con select-all nell'header
-            '<th style="text-align:center" title="Seleziona / deseleziona tutte le righe (per Aggiorna o Elimina)">' +
+            /* SV2.10.569: la checkbox resta SOLA nella sua colonna. La × di
+               intestazione e' stata spostata nella colonna "Riga", dove si trova
+               anche quella delle righe: cosi' i due comandi sono incolonnati e la
+               colonna della checkbox torna larga quanto la checkbox. */
+            '<th style="text-align:center">' +
               '<input type="checkbox" id="qcartUpdateCheckAll" ' +
-                'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0" ' +
-                'title="Seleziona / deseleziona tutte le righe">' +
+                'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0;vertical-align:middle" ' +
+                'title="Seleziona / deseleziona tutte le righe (filtro di analisi e stampa)">' +
             '</th>' +
             '<th>' + _qcColPill('Img', 'showImage') + '</th>' +   // SV2.10.563
             '<th>' + _qcColPill('Codice', 'showCode') + '</th>' +   // SV2.10.563
@@ -60313,15 +60425,14 @@ function renderQuoteCartContent(){
     const _nSel = countSelectedQuoteRows();
     const _nTot = (window._QUOTE_STATE.items || []).length;
     _selNotice =
-      '<div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:8px 12px;' +
-        'border:1px solid rgba(1,120,212,0.45);background:rgba(1,120,212,0.10);border-radius:8px;' +
-        'font-size:12px;color:var(--fg2);line-height:1.4">' +
-        '<span style="font-weight:800;color:#0178d4;white-space:nowrap">' + _nSel + ' di ' + _nTot + ' righe selezionate</span>' +
-        '<span>Totali, grafici e documenti stampati considerano <b>solo le righe spuntate</b>. ' +
-        'Togli tutte le spunte per tornare al preventivo completo.</span>' +
-      '</div>';
+      '<span class="qcart-sel-badge">' + _nSel + ' di ' + _nTot + ' righe selezionate</span>' +
+      '<span class="qcart-sel-txt">Totali, grafici e stampa considerano <b>solo le righe spuntate</b>' +
+        ' \u2014 togli tutte le spunte per il preventivo completo.</span>';
   }
-  container.innerHTML = _selNotice + summaryCards + tableHtml;
+  container.innerHTML = summaryCards + tableHtml;
+  // SV2.10.570: l'avviso va nel piede, fuori dal contenitore che scorre
+  const _selBox = document.getElementById('qcartSelNotice');
+  if(_selBox) _selBox.innerHTML = _selNotice;
 
   /* SV2.10.479 — colonna DESCRIZIONE mostrata/nascosta.
      La classe va riapplicata a ogni render perche' il contenitore viene
@@ -60376,22 +60487,42 @@ function renderQuoteCartContent(){
   /* SV2.10.565 — eliminazione della singola riga. La conferma nomina l'articolo:
      il cestino sta accanto a quello della riga vicina e un click sbagliato e'
      facile. */
-  container.querySelectorAll('.qcart-row-del').forEach(btn => {
+  /* SV2.10.568 — la × MARCA la riga, non la elimina. Si possono marcare piu'
+     righe (e smarcarle) e poi confermare con "Elimina righe": nessuna
+     cancellazione parte da un solo click, e si vede sempre cosa si sta per
+     togliere prima di farlo. Il ridisegno non serve: basta accendere il
+     pulsante, cosi' la lista non si muove sotto le dita. */
+  container.querySelectorAll('.qcart-row-del:not(.qcart-del-all)').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const code = btn.dataset.code;
-      const item = window._QUOTE_STATE.items.find(x => x && x.code === code);
+      const item = window._QUOTE_STATE.items.find(x => x && x.code === btn.dataset.code);
       if(!item) return;
-      const etichetta = String(item.nameShort || item.name || item.code || 'questa riga').slice(0, 60);
-      if(!confirm('Eliminare dal preventivo:\n\n' + etichetta + '\n\nL\u0027operazione non si annulla.')) return;
-      window._QUOTE_STATE.items = window._QUOTE_STATE.items.filter(x => x !== item);
-      try { saveQuoteState(); } catch(_){}
-      if(typeof _qcRefreshAfterSelection === 'function') _qcRefreshAfterSelection();
-      else renderQuoteCartContent();
-      if(typeof renderQuoteFloatingButton === 'function'){ try { renderQuoteFloatingButton(); } catch(_){} }
-      if(typeof toast === 'function') toast('Riga eliminata', 'ok', 2200);
+      item._markedForDelete = !(item._markedForDelete === true);
+      btn.classList.toggle('is-marked', item._markedForDelete === true);
+      btn.setAttribute('aria-pressed', item._markedForDelete === true ? 'true' : 'false');
+      btn.title = item._markedForDelete
+        ? 'Riga marcata per l\u0027eliminazione \u2014 clicca per togliere la marcatura'
+        : 'Marca questa riga per l\u0027eliminazione, poi premi \u00ab Elimina righe \u00bb';
+      _qcSyncDeleteButton();
     });
   });
+
+  // SV2.10.568: × dell'intestazione — marca o smarca tutte le righe
+  const _delAll = document.getElementById('qcartDelAll');
+  if(_delAll){
+    _delAll.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const items = window._QUOTE_STATE.items || [];
+      const tutte = items.length > 0 && items.every(x => x && x._markedForDelete === true);
+      items.forEach(x => { if(x) x._markedForDelete = !tutte; });
+      container.querySelectorAll('.qcart-row-del:not(.qcart-del-all)').forEach(b => {
+        b.classList.toggle('is-marked', !tutte);
+        b.setAttribute('aria-pressed', (!tutte) ? 'true' : 'false');
+      });
+      _qcSyncDeleteButton();
+    });
+  }
+  _qcSyncDeleteButton();
 
   // SV2.10.563: pillole di colonna nell'intestazione
   container.querySelectorAll('.qcart-colpill').forEach(btn => {
