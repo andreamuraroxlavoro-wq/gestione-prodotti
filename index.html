@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.572 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.573 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11266,7 +11266,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.572</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.573</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11978,7 +11978,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.572 mobile");
+console.info("[bootstrap] script avvio — SV2.10.573 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13474,7 +13474,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.572';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.573';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -39351,7 +39351,7 @@ function _splMenuRowsHtml(){
       '<span class="spl-row-check">' + (!attivo ? '\u2713' : '') + '</span>' +
       '<span class="spl-row-body"><span class="spl-row-name">Nessun listino</span>' +
       '<span class="spl-row-meta">torna ai prezzi d\u0027acquisto</span></span></div>' +
-    '<div class="spl-row" role="menuitem" onclick="closeSplMenu(); openSplPickerDialog();">' +
+    '<div class="spl-row" role="menuitem" onclick="closeSplMenu(); openSplManagerDialog();">' +   /* SV2.10.573: pannello completo Listini di vendita */
       '<span class="spl-row-check">\u2699</span>' +
       '<span class="spl-row-body"><span class="spl-row-name">Gestisci listini\u2026</span></span></div>';
 }
@@ -39661,31 +39661,22 @@ function _splPickerConfirm(){
   }
 }
 
-/* V2.10.263: setup click/doppio-click sul toggle btnPriceMode.
-   Click singolo -> togglePriceMode() (cambia Acquisto/Vendita)
-   Doppio click  -> openSplManagerDialog() (apre il pannello Listini di vendita)
-   setTimeout 220ms per distinguere click singolo da doppio. */
+/* V2.10.263 / SV2.10.573: click sul toggle btnPriceMode.
+   Click -> togglePriceMode() (cambia Acquisto/Vendita), senza attese.
+   Il pannello "Listini di vendita" si apre dalla freccia accanto al pulsante
+   (menu → "Gestisci listini..."). */
 function _initPriceModeDualClick(){
   const btn = document.getElementById('btnPriceMode');
   if(!btn || btn.dataset.dualClickInit === '1') return;
   btn.dataset.dualClickInit = '1';
 
-  let clickTimer = null;
-  const DBLCLICK_DELAY = 220;
-
+  /* SV2.10.573 — il doppio clic non serve piu': il pannello "Listini di vendita"
+     si apre dalla voce "Gestisci listini..." del menu a tendina (572). Tolto
+     anche il ritardo di 220ms che serviva a distinguerlo: ora il cambio
+     Acquisto/Vendita e' immediato. */
   btn.addEventListener('click', (e) => {
     e.preventDefault();
-    if(clickTimer) return;   // doppio click in arrivo: ci pensa l'handler dblclick
-    clickTimer = setTimeout(() => {
-      clickTimer = null;
-      try { togglePriceMode(); } catch(_){}
-    }, DBLCLICK_DELAY);
-  });
-
-  btn.addEventListener('dblclick', (e) => {
-    e.preventDefault();
-    if(clickTimer){ clearTimeout(clickTimer); clickTimer = null; }
-    try { openSplManagerDialog(); } catch(_){}
+    try { togglePriceMode(); } catch(_){}
   });
 }
 
