@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.553 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.554 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11184,7 +11184,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.553</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.554</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11887,7 +11887,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.553 mobile");
+console.info("[bootstrap] script avvio — SV2.10.554 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13383,7 +13383,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.553';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.554';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -56029,11 +56029,17 @@ function _qcScontoSummary(items){
 
 function _qcScontoInlineText(it, plainMinus){
   if(!_qcIsScontoItem(it)) return '';
-  if(it.discountKind !== 'pct' || !it.discountInput) return '';
-  /* Il font standard del PDF (Helvetica WinAnsi) non ha il meno tipografico
+  /* SV2.10.554 — la riga sotto la descrizione dichiara SEMPRE come lo sconto e'
+     stato calcolato, non solo quando e' in percentuale: chi legge il preventivo
+     deve poter distinguere uno sconto a valore da uno a percentuale.
+     Il font standard del PDF (Helvetica WinAnsi) non ha il meno tipografico
      U+2212 e lo stampa come una virgoletta: nel PDF nativo serve il trattino. */
   const _m = plainMinus ? '-' : '\u2212';
-  return _m + _qFmtPct(it.discountInput, _pctDecimals(it.discountInput)) + ' sul totale';
+  const _tot = (it.pvp || 0) * (it.qty || 1);
+  if(it.discountKind === 'pct' && it.discountInput){
+    return 'Sconto a Percentuale (' + _m + _qFmtPct(it.discountInput, _pctDecimals(it.discountInput)) + ' sul Totale)';
+  }
+  return 'Sconto a Valore (' + _m + _qFmtEur(Math.abs(_tot)) + ' sul Totale)';
 }
 
 function _qcCanoneInlineText(it, printS){
@@ -63476,7 +63482,7 @@ async function exportQuoteDocx(options){
       totalRows.push(new TableRow({
         children: [
           new TableCell({
-            children: [para(mk('Importo Scontato', { color: TEXT_MUTED, bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],
+            children: [para(mk('Valore di Sconto da Listino', { color: TEXT_MUTED, bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],
             margins: { top: 100, bottom: 100, left: 160, right: 240 },
             borders: {
               top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -63512,7 +63518,7 @@ async function exportQuoteDocx(options){
               borders: { top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: BORDER_LT }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } },
             }),
             new TableCell({
-              children: [para(mk(_qFmtEur(r.tot), { bold: true, color: '16A34A', size: 20 }), { alignment: AlignmentType.RIGHT })],
+              children: [para(mk(_qFmtEur(r.tot), { bold: true, color: 'DC2626', size: 20 }), { alignment: AlignmentType.RIGHT })],
               margins: { top: 100, bottom: 100, left: 160, right: 240 },
               borders: { top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: BORDER_LT }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } },
             }),
@@ -64186,7 +64192,7 @@ async function exportQuoteWord(){
         ((showListino && (t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) > 0.005) ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) + '</td></tr>' : '') +
         // V2.10.148: rinominato da "Sconto applicato" a "Importo Scontato"
         ((showListino || showSconto) && (t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) > 0.005
-          ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
+          ? '<tr><td class="label">Valore di Sconto da Listino</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
           : '') +
         // SV2.10.511: riga dedicata alle voci a prezzo netto
         // SV2.10.552: ogni voce di sconto e' una riga distinta del riepilogo,
@@ -64197,7 +64203,7 @@ async function exportQuoteWord(){
           return _ss.map(r =>
             '<tr><td class="label">' + escapeHtml(r.label) +
               (r.pct ? ' <span style="font-weight:400">(\u2212' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')</span>' : '') +
-            '</td><td class="val" style="color:#16a34a">' + _qFmtEur(r.tot) + '</td></tr>').join('');
+            '</td><td class="val" style="color:#dc2626">' + _qFmtEur(r.tot) + '</td></tr>').join('');
         })() +
         // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
         ((showListino || showSconto) && (t.nettoRowsSellPrice || 0) > 0.005
@@ -65775,7 +65781,7 @@ async function exportQuotePdfNative(options){
     }
     if((showListino || showSconto) && _tDisc > 0.005){
       setText(10, 'bold', COL.textMuted);
-      doc.text('Importo Scontato', totalsX + labelW - 5, cursorY + 12, { align: 'right' });
+      doc.text('Valore di Sconto da Listino', totalsX + labelW - 5, cursorY + 12, { align: 'right' });
       setText(10, 'bold', COL.red);
       doc.text('-' + _qFmtEur(_tDisc), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
       cursorY += 18;
@@ -65792,7 +65798,7 @@ async function exportQuotePdfNative(options){
       _ss.forEach(r => {
         setText(10, 'bold', COL.textMuted);
         doc.text(r.label + (r.pct ? '  (-' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')' : ''), totalsX + labelW - 5, cursorY + 12, { align: 'right' });
-        setText(10, 'bold', [22, 163, 74]);
+        setText(10, 'bold', COL.red);
         doc.text(_qFmtEur(r.tot), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
         cursorY += 18;
         setDraw(COL.borderLt);
@@ -66270,7 +66276,7 @@ async function exportQuotePdf(){
         // ricavabile per differenza).
         ((showListino && (t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) > 0.005) ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) + '</td></tr>' : '') +
         ((showListino || showSconto) && (t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) > 0.005
-          ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
+          ? '<tr><td class="label">Valore di Sconto da Listino</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
           : '') +
         // SV2.10.511: riga dedicata alle voci a prezzo netto
         // SV2.10.552: ogni voce di sconto e' una riga distinta del riepilogo,
@@ -66281,7 +66287,7 @@ async function exportQuotePdf(){
           return _ss.map(r =>
             '<tr><td class="label">' + escapeHtml(r.label) +
               (r.pct ? ' <span style="font-weight:400">(\u2212' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')</span>' : '') +
-            '</td><td class="val" style="color:#16a34a">' + _qFmtEur(r.tot) + '</td></tr>').join('');
+            '</td><td class="val" style="color:#dc2626">' + _qFmtEur(r.tot) + '</td></tr>').join('');
         })() +
         // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
         ((showListino || showSconto) && (t.nettoRowsSellPrice || 0) > 0.005
