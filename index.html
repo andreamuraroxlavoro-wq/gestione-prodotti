@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.552 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.553 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11184,7 +11184,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.552</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.553</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11887,7 +11887,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.552 mobile");
+console.info("[bootstrap] script avvio — SV2.10.553 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13383,7 +13383,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.552';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.553';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58322,6 +58322,8 @@ function openAddDiscountDialog(){
   const ex = document.getElementById('quoteDiscountModal');
   if(ex) ex.remove();
 
+  // SV2.10.553: la modalita' del carrello decide quali KPI ha senso mostrare
+  const _isClientMode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client');
   const t0 = computeQuoteTotals();
   const venditaPre = t0.totalSellPrice || 0;
   const costo      = t0.totalNetto || 0;
@@ -58391,12 +58393,20 @@ function openAddDiscountDialog(){
         '</div>' +
 
         // 3. KPI con la stessa grafica delle card del carrello
+        /* SV2.10.553 — le KPI seguono la modalita' del carrello: costo d'acquisto,
+           guadagno, margine e ricarico sono dati di ANALISI e in Modalita'
+           Cliente non vanno mostrati. Li' si guardano invece listino, risparmio
+           per il cliente e sconto medio, come nelle card del carrello. */
         '<div class="qdisc-kpis">' +
-          _kpi('Totale listino',      'qdListino',  'blue',   'prezzo di listino') +
-          _kpi('Costo d\'acquisto',   'qdCosto',    'orange', 'non cambia con lo sconto') +
-          _kpi('Guadagno',            'qdGuadagno', 'green',  '') +
-          _kpi('Margine',             'qdMargine',  'purple', '% sulla vendita') +
-          _kpi('Ricarico',            'qdRicarico', 'cyan',   '% sul costo') +
+          (_isClientMode
+            ? _kpi('Totale listino',    'qdListino',  'blue',   'prezzo di listino') +
+              _kpi('Risparmio cliente', 'qdRisparmio','green',  'rispetto al listino') +
+              _kpi('Sconto medio',      'qdScMedio',  'purple', 'sul totale listino')
+            : _kpi('Totale listino',    'qdListino',  'blue',   'prezzo di listino') +
+              _kpi('Costo d\'acquisto', 'qdCosto',    'orange', 'non cambia con lo sconto') +
+              _kpi('Guadagno',          'qdGuadagno', 'green',  '') +
+              _kpi('Margine',           'qdMargine',  'purple', '% sulla vendita') +
+              _kpi('Ricarico',          'qdRicarico', 'cyan',   '% sul costo')) +
         '</div>' +
 
         '<div class="qdisc-warn" id="qdiscWarn"></div>' +
@@ -58433,26 +58443,40 @@ function openAddDiscountDialog(){
     // ── flusso
     $('qdFlowPre').textContent  = fmtE(venditaPre);
     $('qdFlowSc').textContent   = sc > 0 ? ('\u2212' + fmtE(sc)) : '\u2014';
+    /* SV2.10.553: si mostrano SEMPRE tutte e due le equivalenze — percentuale e
+       importo — qualunque sia il modo in cui lo sconto e' stato scritto. */
     $('qdFlowScSub').textContent = sc > 0
-      ? (mode === 'pct' ? ('pari a ' + fmtE(sc)) : ('pari al ' + fmtP(pctEquiv) + ' del totale'))
+      ? (fmtP(pctEquiv) + ' del totale \u00b7 pari a ' + fmtE(sc))
       : 'imposta un valore qui sopra';
     $('qdFlowPost').textContent = fmtE(venditaPost);
     bg.querySelector('.qdisc-flow').classList.toggle('is-on', sc > 0);
 
     // ── KPI: valore dopo lo sconto, sotto il valore prima
-    $('qdListino').textContent  = fmtE(t0.totalPvp || 0);
-    $('qdCosto').textContent    = fmtE(costo);
-    $('qdGuadagno').textContent = fmtE(guadPost);
-    $('qdGuadagnoSub').textContent = 'prima ' + fmtE(guadPre);
-    $('qdMargine').textContent  = (margPost != null) ? fmtP(margPost) : '\u2014';
-    $('qdMargineSub').textContent  = 'prima ' + ((margPre != null) ? fmtP(margPre) : '\u2014');
-    $('qdRicarico').textContent = (ricPost != null) ? fmtP(ricPost) : '\u2014';
-    $('qdRicaricoSub').textContent = 'prima ' + ((ricPre != null) ? fmtP(ricPre) : '\u2014');
+    const _listino = (t0.visibleListPrice != null ? t0.visibleListPrice : t0.totalPvp) || 0;
+    $('qdListino').textContent = fmtE(_listino);
+    if(_isClientMode){
+      // risparmio e sconto medio: il modo in cui il cliente legge lo sconto
+      const rispPre  = _listino - venditaPre;
+      const rispPost = _listino - venditaPost;
+      $('qdRisparmio').textContent    = fmtE(rispPost);
+      $('qdRisparmioSub').textContent = 'prima ' + fmtE(rispPre);
+      $('qdScMedio').textContent      = _listino > 0 ? fmtP(rispPost / _listino * 100) : '\u2014';
+      $('qdScMedioSub').textContent   = 'prima ' + (_listino > 0 ? fmtP(rispPre / _listino * 100) : '\u2014');
+    } else {
+      $('qdCosto').textContent    = fmtE(costo);
+      $('qdGuadagno').textContent = fmtE(guadPost);
+      $('qdGuadagnoSub').textContent = 'prima ' + fmtE(guadPre);
+      $('qdMargine').textContent  = (margPost != null) ? fmtP(margPost) : '\u2014';
+      $('qdMargineSub').textContent  = 'prima ' + ((margPre != null) ? fmtP(margPre) : '\u2014');
+      $('qdRicarico').textContent = (ricPost != null) ? fmtP(ricPost) : '\u2014';
+      $('qdRicaricoSub').textContent = 'prima ' + ((ricPre != null) ? fmtP(ricPre) : '\u2014');
+    }
 
     /* Il guadagno che passa in negativo e' l'informazione piu' importante di
        questa finestra: si evidenzia sul valore e con un avviso esplicito. */
     const sottoCosto = (guadPost < 0);
-    ['qdGuadagno', 'qdMargine', 'qdRicarico'].forEach(id => $(id).classList.toggle('is-neg', sottoCosto));
+    // in Modalita' Cliente quelle card non esistono: l'evidenza sta sul nuovo totale
+    ['qdGuadagno', 'qdMargine', 'qdRicarico'].forEach(id => { const el = $(id); if(el) el.classList.toggle('is-neg', sottoCosto); });
     $('qdFlowPost').classList.toggle('is-neg', venditaPost < 0 || sottoCosto);
     $('qdiscWarn').innerHTML = (sc > venditaPre)
       ? '\u26a0\ufe0f Lo sconto supera il totale di vendita: il preventivo risulterebbe <b>negativo</b>.'
