@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.571 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.572 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -4491,6 +4491,19 @@ body.theme-light .tb-dropdown.export-dropdown .tb-dropdown-menu .tb-dropdown-ite
   transition:background .12s, border-color .12s, color .12s;
 }
 .disc-badge-wrap.badge-on{ background:#3B82F6; border-color:#3B82F6; color:#fff; }
+/* SV2.10.572 — il gruppo del carrello si tinge come il pulsante che contiene:
+   verde in Vendita, rosso in Acquisto, cosi' la freccia non resta orfana. */
+.pricemode-wrap.pm-wrap-sell{ background:#16a34a; border-color:#16a34a; color:#fff; }
+.pricemode-wrap.pm-wrap-buy{ background:#dc2626; border-color:#dc2626; color:#fff; }
+.spl-menu{ min-width:300px; max-height:min(60vh,420px); overflow-y:auto; }
+.spl-row{ display:flex; align-items:center; gap:10px; padding:9px 12px; cursor:pointer; border-radius:7px; }
+.spl-row:hover{ background:var(--bg3); }
+.spl-row.is-active{ background:rgba(22,163,74,0.14); }
+.spl-row-check{ width:16px; flex-shrink:0; color:#16a34a; font-weight:800; }
+.spl-row-body{ min-width:0; flex:1; }
+.spl-row-name{ font-size:13px; font-weight:700; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.spl-row.is-active .spl-row-name{ color:#16a34a; }
+.spl-row-meta{ font-size:11px; color:var(--fg3); margin-top:2px; }
 .disc-badge-wrap .btn.icon-btn{
   height:auto; align-self:stretch; width:38px;
   background:transparent !important;
@@ -11253,7 +11266,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.571</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.572</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11707,7 +11720,16 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <!-- V2.10.263: toggle MODALITA' PREZZO Acquisto/Vendita. In "Vendita" le
            card mostrano prezzo e sconto di VENDITA (dal listino di vendita
            attivo) invece di quelli d'acquisto. Click apre/usa il listino. -->
-      <button class="btn icon-btn" id="btnPriceMode" title="Modalità prezzo" aria-label="Modalità prezzo Acquisto/Vendita"></button>
+      <!-- SV2.10.572: pulsante DIVISO come quello della pillola sconto: a sinistra
+           il carrello (Acquisto/Vendita), a destra la freccia che apre l'elenco
+           dei listini Cliente per applicarne uno al volo. -->
+      <div class="disc-badge-wrap pricemode-wrap" id="priceModeWrap">
+        <button class="btn icon-btn" id="btnPriceMode" title="Modalità prezzo" aria-label="Modalità prezzo Acquisto/Vendita"></button>
+        <button class="sort-caret" id="btnSplCaret" onclick="toggleSplMenu(event)" title="Scegli il listino Cliente da applicare" aria-label="Listini Cliente" aria-haspopup="true">
+          <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="sort-menu spl-menu" id="splMenu" role="menu" aria-hidden="true"></div>
+      </div>
       <!-- V2.10.96: bottone Refresh da Drive — scarica subito prodotti/preventivi/clienti/servizi
            dal Drive, utile quando lavori su più device e vuoi sincronizzare al volo. -->
       <button class="btn icon-btn tb-drive-refresh" id="btnDriveRefresh" onclick="driveForcePullAll(this)" title="Sincronizza ora con Google Drive (scarica prodotti, preventivi, clienti, servizi più aggiornati)" aria-label="Refresh da Drive" style="display:none">
@@ -11956,7 +11978,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.571 mobile");
+console.info("[bootstrap] script avvio — SV2.10.572 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13452,7 +13474,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.571';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.572';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -39296,6 +39318,156 @@ const SVG_PRICE_BUY  = '<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><
 const SVG_PRICE_SELL = '<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/><line x1="14" y1="8.5" x2="14" y2="0.8" stroke-width="3"/><polyline points="10.3 4.2 14 0.5 17.7 4.2" stroke-width="3"/></svg>';
 
 // Aggiorna l'aspetto del pulsante toggle in base alla modalita' corrente.
+/* ==========================================================================
+   SV2.10.572 — MENU RAPIDO DEI LISTINI CLIENTE
+   ==========================================================================
+   La freccia accanto al carrello apre l'elenco dei listini: uno clic e il
+   listino e' attivo. Prima bisognava passare dal dialogo di gestione.
+   Il cambio NON e' piu' silenzioso: si apre una finestra che spiega cosa
+   succede alle righe gia' in carrello e lascia scegliere. */
+function _splMenuRowsHtml(){
+  const listini = (typeof splList === 'function') ? splList() : [];
+  const attivo = (typeof getActiveSplId === 'function') ? getActiveSplId() : null;
+  const rows = listini.map(l => {
+    const on = (l.id === attivo);
+    const nNodi = (typeof _splCountNodes === 'function') ? _splCountNodes(l) : 0;
+    const meta = [
+      (l.scontoBase != null && l.scontoBase !== '') ? ('base ' + _qFmtPct(Number(l.scontoBase), 1)) : null,
+      nNodi ? (nNodi + (nNodi === 1 ? ' regola' : ' regole')) : null,
+    ].filter(Boolean).join(' \u00b7 ');
+    return '<div class="spl-row' + (on ? ' is-active' : '') + '" role="menuitemradio" ' +
+        'onclick="splQuickApply(' + JSON.stringify(l.id).replace(/"/g, '&quot;') + ')">' +
+        '<span class="spl-row-check">' + (on ? '\u2713' : '') + '</span>' +
+        '<span class="spl-row-body">' +
+          '<span class="spl-row-name">' + escapeHtml(l.name || 'Senza nome') + '</span>' +
+          (meta ? '<span class="spl-row-meta">' + meta + '</span>' : '') +
+        '</span>' +
+      '</div>';
+  }).join('');
+  return '<div class="sort-menu-title">Listini Cliente</div>' +
+    (rows || '<div class="spl-row-meta" style="padding:10px 12px">Nessun listino ancora creato</div>') +
+    '<div class="sort-menu-sep"></div>' +
+    '<div class="spl-row' + (!attivo ? ' is-active' : '') + '" role="menuitem" onclick="splQuickApply(null)">' +
+      '<span class="spl-row-check">' + (!attivo ? '\u2713' : '') + '</span>' +
+      '<span class="spl-row-body"><span class="spl-row-name">Nessun listino</span>' +
+      '<span class="spl-row-meta">torna ai prezzi d\u0027acquisto</span></span></div>' +
+    '<div class="spl-row" role="menuitem" onclick="closeSplMenu(); openSplPickerDialog();">' +
+      '<span class="spl-row-check">\u2699</span>' +
+      '<span class="spl-row-body"><span class="spl-row-name">Gestisci listini\u2026</span></span></div>';
+}
+
+/* SV2.10.572 — applicazione rapida di un listino, con conferma esplicita.
+   Prima l'attivazione riscriveva in silenzio lo sconto di tutte le righe gia'
+   in carrello: chi non se ne accorgeva si ritrovava il preventivo cambiato. */
+function splQuickApply(id){
+  closeSplMenu();
+  const attuale = (typeof getActiveSplId === 'function') ? getActiveSplId() : null;
+  if(id === attuale){ if(typeof toast === 'function') toast('Listino gia\u0027 attivo', 'ok', 1800); return; }
+
+  const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : [];
+  /* Righe che il ricalcolo NON tocchera' comunque: prezzo di vendita imposto
+     sull'articolo (524/536) e righe a prezzo netto forzato. Vanno dichiarate
+     nella finestra, altrimenti l'utente si aspetta che cambino e non capisce. */
+  const protette = items.filter(it => it && !it.isDiscountRow && (
+    it.nettoPrice === true ||
+    (typeof _qImposedDiscountForItem === 'function' && _qImposedDiscountForItem(it) != null)
+  ));
+  const normali = items.filter(it => it && !it.isDiscountRow && protette.indexOf(it) < 0);
+
+  const _applica = (ricalcola) => {
+    if(typeof setActiveSplId === 'function') setActiveSplId(id);
+    if(typeof splInvalidateCache === 'function'){ try { splInvalidateCache(); } catch(_){} }
+    if(id && typeof setPriceMode === 'function') setPriceMode('vendita');
+    let n = 0;
+    if(ricalcola && typeof _splApplyToAllCartItems === 'function'){
+      try { n = _splApplyToAllCartItems(); } catch(_){}
+    }
+    try { saveQuoteState(); } catch(_){}
+    if(typeof updatePriceModeButton === 'function') updatePriceModeButton();
+    if(typeof render === 'function') render();
+    if(typeof renderQuoteCartContent === 'function'){ try { renderQuoteCartContent(); } catch(_){} }
+    if(typeof toast === 'function'){
+      toast(ricalcola
+        ? ('Listino applicato \u00b7 ' + n + (n === 1 ? ' riga ricalcolata' : ' righe ricalcolate'))
+        : 'Listino attivato \u00b7 righe del carrello lasciate invariate', 'ok', 3200);
+    }
+  };
+
+  // Carrello vuoto: non c'e' nulla da decidere
+  if(!items.length){ _applica(false); return; }
+
+  const nome = id ? ((typeof splGet === 'function' && splGet(id)) ? splGet(id).name : 'listino') : 'Nessun listino';
+  const t0 = computeQuoteTotals();
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'splApplyModal';
+  bg.style.zIndex = '540';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+  bg.innerHTML =
+    '<div class="modal" style="max-width:720px;width:94vw">' +
+      '<div class="modal-head"><h3>\ud83c\udff7\ufe0f Applicare il listino \u00ab' + escapeHtml(nome) + '\u00bb?</h3></div>' +
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:14px">' +
+        '<div style="font-size:13px;line-height:1.6;color:var(--fg2)">' +
+          'Nel preventivo ci sono <b>' + items.length + '</b> righe. Scegli cosa fare delle scontistiche gi\u00e0 caricate.' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">' +
+          '<div class="qdisc-kpi qdisc-blue"><div class="qdisc-kpi-lab">Totale attuale</div>' +
+            '<div class="qdisc-kpi-val">' + _qFmtEur(t0.totalSellPrice || 0) + '</div>' +
+            '<div class="qdisc-kpi-sub">prezzo al cliente</div></div>' +
+          '<div class="qdisc-kpi qdisc-green"><div class="qdisc-kpi-lab">Righe ricalcolabili</div>' +
+            '<div class="qdisc-kpi-val">' + normali.length + '</div>' +
+            '<div class="qdisc-kpi-sub">prenderebbero il nuovo listino</div></div>' +
+          '<div class="qdisc-kpi qdisc-orange"><div class="qdisc-kpi-lab">Righe protette</div>' +
+            '<div class="qdisc-kpi-val">' + protette.length + '</div>' +
+            '<div class="qdisc-kpi-sub">non cambiano in nessun caso</div></div>' +
+        '</div>' +
+        (protette.length
+          ? '<div style="padding:11px 14px;border-radius:9px;border:1px solid rgba(201,154,46,0.5);' +
+              'background:rgba(201,154,46,0.10);font-size:12.5px;line-height:1.55;color:var(--fg2)">' +
+              '\u26a0\ufe0f <b>' + protette.length + (protette.length === 1 ? ' riga resta' : ' righe restano') + ' comunque invariat' + (protette.length === 1 ? 'a' : 'e') + '</b>: ' +
+              'sono articoli con un <b>prezzo di vendita imposto</b> o righe a <b>prezzo netto forzato</b>. ' +
+              'Sono decisioni prese sul singolo articolo e prevalgono sul listino generale, anche scegliendo di ricalcolare.' +
+            '</div>'
+          : '') +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="splApplyCancel" type="button">Annulla</button>' +
+        '<button class="btn" id="splApplyKeep" type="button">Mantieni prezzi attuali</button>' +
+        '<button class="btn primary" id="splApplyRecalc" type="button">\u21bb Ricalcola il carrello</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(bg);
+  document.getElementById('splApplyCancel').addEventListener('click', () => bg.remove());
+  document.getElementById('splApplyKeep').addEventListener('click', () => { bg.remove(); _applica(false); });
+  document.getElementById('splApplyRecalc').addEventListener('click', () => { bg.remove(); _applica(true); });
+}
+
+function closeSplMenu(){
+  const m = document.getElementById('splMenu');
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); }
+}
+
+function toggleSplMenu(e){
+  if(e){ e.preventDefault(); e.stopPropagation(); }
+  const m = document.getElementById('splMenu');
+  if(!m) return;
+  const apri = !m.classList.contains('open');
+  if(typeof closeSortMenu === 'function'){ try { closeSortMenu(); } catch(_){} }
+  if(apri){
+    m.innerHTML = _splMenuRowsHtml();
+    m.classList.add('open');
+    m.setAttribute('aria-hidden', 'false');
+    setTimeout(() => {
+      const off = (ev) => {
+        if(!m.contains(ev.target)){ closeSplMenu(); document.removeEventListener('click', off); }
+      };
+      document.addEventListener('click', off);
+    }, 0);
+  } else {
+    closeSplMenu();
+  }
+}
+
 function updatePriceModeButton(){
   const btn = document.getElementById('btnPriceMode');
   if(!btn) return;
@@ -39307,6 +39479,12 @@ function updatePriceModeButton(){
   // SV2.10.382: rosso=acquisto (carrello in ingresso) · verde=vendita (carrello in uscita)
   btn.classList.toggle('pm-sell', sell);
   btn.classList.toggle('pm-buy', !sell);
+  // SV2.10.572: il gruppo che contiene carrello + freccia segue lo stesso colore
+  const _wrap = document.getElementById('priceModeWrap');
+  if(_wrap){
+    _wrap.classList.toggle('pm-wrap-sell', sell);
+    _wrap.classList.toggle('pm-wrap-buy', !sell);
+  }
   if(sell){
     btn.innerHTML = SVG_PRICE_SELL;
     btn.classList.add('active');
