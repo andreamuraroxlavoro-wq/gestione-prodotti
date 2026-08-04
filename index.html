@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.557 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.558 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11012,6 +11012,12 @@ body.theme-light .dlg-input{background:var(--bg3)}
 .qdisc-step-from{ border-color:var(--border2); }
 .qdisc-step-disc{ border-color:rgba(220,38,38,0.45); background:rgba(220,38,38,0.07); }
 .qdisc-step-disc .qdisc-step-val{ color:#dc2626; }
+/* SV2.10.558 — le due meta' del riquadro sconto, separate da un filo verticale */
+.qdisc-split{ display:grid; grid-template-columns:1fr 1fr; align-items:center; margin-top:6px; }
+.qdisc-half{ padding:0 6px; }
+.qdisc-half + .qdisc-half{ border-left:1px solid rgba(220,38,38,0.30); }
+.qdisc-half-val{ font-size:25px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums; line-height:1.1; }
+.qdisc-half-lab{ font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--fg3); margin-top:3px; }
 .qdisc-step-to{ border-color:rgba(22,163,74,0.5); background:rgba(22,163,74,0.09); }
 .qdisc-step-to .qdisc-step-val{ color:#16a34a; }
 .qdisc-step-to .qdisc-step-val.is-neg{ color:#dc2626; }
@@ -11184,7 +11190,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.557</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.558</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11887,7 +11893,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.557 mobile");
+console.info("[bootstrap] script avvio — SV2.10.558 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13383,7 +13389,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.557';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.558';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58394,9 +58400,21 @@ function openAddDiscountDialog(){
             '<div class="qdisc-step-sub">prezzo al cliente prima dello sconto</div>' +
           '</div>' +
           '<div class="qdisc-arrow">\u2192</div>' +
+          /* SV2.10.558: il riquadro dello sconto e' diviso in due meta' — a sinistra
+             la percentuale, a destra l'importo — entrambe in corpo grande. Prima
+             una delle due finiva nel sottotitolo minuto e si leggeva male. */
           '<div class="qdisc-step qdisc-step-disc">' +
             '<div class="qdisc-step-lab">Sconto applicato</div>' +
-            '<div class="qdisc-step-val" id="qdFlowSc">\u2014</div>' +
+            '<div class="qdisc-split">' +
+              '<div class="qdisc-half">' +
+                '<div class="qdisc-half-val" id="qdFlowScPct">\u2014</div>' +
+                '<div class="qdisc-half-lab">in percentuale</div>' +
+              '</div>' +
+              '<div class="qdisc-half">' +
+                '<div class="qdisc-half-val" id="qdFlowSc">\u2014</div>' +
+                '<div class="qdisc-half-lab">in valore</div>' +
+              '</div>' +
+            '</div>' +
             '<div class="qdisc-step-sub" id="qdFlowScSub">imposta un valore qui sopra</div>' +
           '</div>' +
           '<div class="qdisc-arrow">\u2192</div>' +
@@ -58457,11 +58475,12 @@ function openAddDiscountDialog(){
 
     // ── flusso
     $('qdFlowPre').textContent  = fmtE(venditaPre);
-    $('qdFlowSc').textContent   = sc > 0 ? ('\u2212' + fmtE(sc)) : '\u2014';
-    /* SV2.10.553: si mostrano SEMPRE tutte e due le equivalenze — percentuale e
-       importo — qualunque sia il modo in cui lo sconto e' stato scritto. */
+    /* SV2.10.558: percentuale e importo hanno ora due riquadri propri, entrambi
+       in corpo grande; il sottotitolo dice solo su quale totale si applicano. */
+    $('qdFlowScPct').textContent = sc > 0 ? ('\u2212' + fmtP(pctEquiv)) : '\u2014';
+    $('qdFlowSc').textContent    = sc > 0 ? ('\u2212' + fmtE(sc)) : '\u2014';
     $('qdFlowScSub').textContent = sc > 0
-      ? (fmtP(pctEquiv) + ' del totale \u00b7 pari a ' + fmtE(sc))
+      ? ('sul totale di ' + fmtE(venditaPre))
       : 'imposta un valore qui sopra';
     $('qdFlowPost').textContent = fmtE(venditaPost);
     bg.querySelector('.qdisc-flow').classList.toggle('is-on', sc > 0);
