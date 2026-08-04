@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.551 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.552 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8952,6 +8952,14 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 }
 /* SV2.10.538 — pillola dell'unita' di misura mostrata al posto del selettore di
    quantita' sulle righe a canone. */
+/* SV2.10.552 — colorazione delle righe speciali del carrello */
+.quote-cart-tbl tbody tr.qcart-row-sconto > td{ background:rgba(22,163,74,0.09) !important; }
+.quote-cart-tbl tbody tr.qcart-row-sconto:hover > td{ background:rgba(22,163,74,0.16) !important; }
+.quote-cart-tbl tbody tr.qcart-row-netto > td{ background:rgba(201,154,46,0.10) !important; }
+.quote-cart-tbl tbody tr.qcart-row-netto:hover > td{ background:rgba(201,154,46,0.18) !important; }
+.qcart-sconto-badge{ background:rgba(22,163,74,0.16) !important; color:#16a34a !important; }
+.qcart-sconto-pct{ display:inline-block; padding:3px 9px; border-radius:7px; background:rgba(22,163,74,0.16); border:1px solid rgba(22,163,74,0.45); color:#16a34a; font-size:12px; font-weight:800; white-space:nowrap; }
+
 .qcart-uom-chip{
   display:inline-flex; align-items:center; justify-content:center;
   max-width:150px; padding:5px 10px;
@@ -11176,7 +11184,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.551</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.552</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11879,7 +11887,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.551 mobile");
+console.info("[bootstrap] script avvio — SV2.10.552 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13375,7 +13383,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.551';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.552';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -56001,6 +56009,33 @@ function _qcCanoneInlineNeeded(printS){
      grassetto sotto la descrizione. */
   return true;
 }
+/* SV2.10.552 — VOCE DI SCONTO in stampa: niente quantita' e niente listino, e
+   se lo sconto e' stato definito in percentuale la percentuale va in coda alla
+   descrizione, evidenziata come la dicitura "Prezzo Netto" ma in VERDE. */
+function _qcIsScontoItem(it){
+  return !!(it && it.isDiscountRow === true);
+}
+/* SV2.10.552 — elenco delle voci di sconto per il RIEPILOGO finale: ognuna
+   compare come riga a se', con la descrizione scelta dall'utente. */
+function _qcScontoSummary(items){
+  const list = Array.isArray(items) ? items.filter(_qcIsScontoItem) : [];
+  if(!list.length) return null;
+  return list.map(it => ({
+    label: String(it.nameShort || it.name || 'Sconto'),
+    pct: (it.discountKind === 'pct' && it.discountInput) ? it.discountInput : null,
+    tot: (it.pvp || 0) * (it.qty || 1),
+  }));
+}
+
+function _qcScontoInlineText(it, plainMinus){
+  if(!_qcIsScontoItem(it)) return '';
+  if(it.discountKind !== 'pct' || !it.discountInput) return '';
+  /* Il font standard del PDF (Helvetica WinAnsi) non ha il meno tipografico
+     U+2212 e lo stampa come una virgoletta: nel PDF nativo serve il trattino. */
+  const _m = plainMinus ? '-' : '\u2212';
+  return _m + _qFmtPct(it.discountInput, _pctDecimals(it.discountInput)) + ' sul totale';
+}
+
 function _qcCanoneInlineText(it, printS){
   if(!_qcIsCanoneItem(it)) return '';
   const dPct = (typeof _normDiscountPct === 'function') ? _normDiscountPct(it.discountPct) : (it.discountPct || 0);
@@ -56103,7 +56138,12 @@ function computeQuoteTotals(opts){
       weightedDiscountSum  += dPct * lineList;
       weightedDiscountBase += lineList;
       // SV2.10.511: separazione righe a prezzo netto
-      if(it.nettoPrice === true){
+      /* SV2.10.552: le voci di SCONTO non entrano in "Totale Listino" ne' in
+         "Importo Scontato": nel riepilogo compaiono come righe proprie, e
+         contarle anche nel totale listino le farebbe figurare due volte. */
+      if(it.isDiscountRow === true){
+        /* nulla: concorre solo a totalPvp/totalSellPrice */
+      } else if(it.nettoPrice === true){
         nettoRowsSellPrice += lineSell;
         bucket.nettoRowsSell = (bucket.nettoRowsSell || 0) + lineSell;
       } else {
@@ -58267,6 +58307,11 @@ function openQuoteAddDialog(productIdx){
    in tutti e quattro gli esportatori senza dover toccare nulla.
    Il dialogo mostra il preventivo PRIMA e DOPO lo sconto mentre si digita, cosi'
    l'importo si decide guardando margine e guadagno che ne risultano. */
+/* SV2.10.552: 8 → "8%", 7,5 → "7,5%" — niente decimali inutili. */
+function _pctDecimals(v){
+  return (Math.abs(v - Math.round(v)) < 0.005) ? 0 : 1;
+}
+
 function _qDiscountRowsTotal(){
   // somma delle voci di sconto gia' presenti (valori negativi)
   const items = (window._QUOTE_STATE && window._QUOTE_STATE.items) || [];
@@ -59560,6 +59605,11 @@ function renderQuoteCartContent(){
       // righe il "listino" e' in realta' il prezzo di vendita, quindi la colonna
       // Listino e lo Sconto non hanno significato.
       const _noList = (it._noListino === true);
+      /* SV2.10.552: sulle voci di SCONTO restano solo la percentuale (se c'e')
+         e il campo dell'importo: listino, sconti, netto d'acquisto, margine e
+         ricarico non hanno significato e confondono. */
+      const _isSconto = (it.isDiscountRow === true);
+      const _noList2 = _noList || _isSconto;
       const dPct = _normDiscountPct(it.discountPct);
       const sellUnit = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * (1 - dPct/100) : null;
       const subSell  = (sellUnit != null) ? sellUnit * it.qty : null;
@@ -59571,7 +59621,11 @@ function renderQuoteCartContent(){
         // uno sfondo verde tenue (classe qcart-row-override, regola CSS che
         // gestisce anche zebra e hover), al posto del vecchio pallino arancione.
         '<tr data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" ' +
-          'class="qcart-row-draggable' + (it._nettoOverride === true ? ' qcart-row-override' : '') + '"' +
+          /* SV2.10.552: colori di riga — verde tenue per le voci di sconto, avorio
+             per le righe a prezzo netto forzato (lo stesso avorio della stampa). */
+          'class="qcart-row-draggable' + (it._nettoOverride === true ? ' qcart-row-override' : '') +
+            (it.isDiscountRow ? ' qcart-row-sconto' : '') +
+            (it.nettoPrice === true ? ' qcart-row-netto' : '') + '"' +
           (it._nettoOverride === true
             ? ' title="Riga con netto d\'acquisto modificato a mano"'
             : '') + '>' +
@@ -59609,7 +59663,10 @@ function renderQuoteCartContent(){
               return (_img || _stk) ? '<span class="qcart-foto-wrap">' + _img + _stk + '</span>' : '';
             })() +
           '</td>' +
-          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = (Array.isArray(DATA) ? (DATA.find(x => x && x.name === it.code) || DATA[it.idx]) : null); if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true){ /* SV2.10.484: se il prodotto personale ha una distinta ESPLODIBILE offro il pulsante che sostituisce la riga coi suoi componenti */ const _b = (typeof bomNormalize === 'function') ? bomNormalize(_p.bom) : null; const _exp = (_b && _b.explode && _b.items.length) ? ' <button type="button" class="qcart-bom-explode" data-code="' + escapeAttr(it.code) + '" title="Sostituisci questa riga con i ' + _b.items.length + ' componenti della distinta base" style="border:none;background:rgba(1,120,212,0.15);color:#0178d4;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">\u2935 ESPLODI (' + _b.items.length + ')</button>' : ''; return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>' + _exp; } return ''; })()) + '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ /* SV2.10.552: le voci di sconto sono tecnicamente voci libere, ma per chi legge
+                 il carrello sono un'altra cosa: etichetta SCONTO e colore verde. */
+              if(it.isDiscountRow){ return ' <button type="button" class="qcart-free-edit qcart-sconto-badge" data-code="'+escapeAttr(it.code)+'" title="Voce di sconto sul preventivo">➖ SCONTO</button>'; }
+              const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = (Array.isArray(DATA) ? (DATA.find(x => x && x.name === it.code) || DATA[it.idx]) : null); if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true){ /* SV2.10.484: se il prodotto personale ha una distinta ESPLODIBILE offro il pulsante che sostituisce la riga coi suoi componenti */ const _b = (typeof bomNormalize === 'function') ? bomNormalize(_p.bom) : null; const _exp = (_b && _b.explode && _b.items.length) ? ' <button type="button" class="qcart-bom-explode" data-code="' + escapeAttr(it.code) + '" title="Sostituisci questa riga con i ' + _b.items.length + ' componenti della distinta base" style="border:none;background:rgba(1,120,212,0.15);color:#0178d4;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">\u2935 ESPLODI (' + _b.items.length + ')</button>' : ''; return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>' + _exp; } return ''; })()) + '</td>' +
           '<td class="qcart-marca-cell" style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
             const cleanName = getCleanItemName(it);
@@ -59618,7 +59675,16 @@ function renderQuoteCartContent(){
           })() +
           /* SV2.10.538: riga a canone → al posto del selettore di quantita' esce il
              testo dell'unita' di misura. Cliccandolo si puo' cambiare. */
-          (_qcIsCanoneItem(it)
+          /* SV2.10.552: la voce di sconto non ha quantita' — mostrarla non ha
+             significato e invita a modificarla. Al suo posto, se lo sconto e'
+             stato definito in percentuale, la percentuale col segno negativo. */
+          (it.isDiscountRow
+            ? '<td style="text-align:center">' +
+                (it.discountKind === 'pct' && it.discountInput
+                  ? '<span class="qcart-sconto-pct">\u2212' + _qFmtPct(it.discountInput, _pctDecimals(it.discountInput)) + '</span>'
+                  : _dash) +
+              '</td>'
+            : _qcIsCanoneItem(it)
             ? '<td style="text-align:center">' +
                 '<button type="button" class="qcart-uom-chip" data-code="' + escapeAttr(it.code) + '" ' +
                   'title="Unit\u00e0 di misura: clicca per modificarla o svuotarla e tornare a una riga a quantit\u00e0">' +
@@ -59632,14 +59698,14 @@ function renderQuoteCartContent(){
                 '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
               '</div>' +
             '</td>') +
-          '<td class="num">' + ((it.isFreeField || isZeroQty || _noList) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
+          '<td class="num">' + ((it.isFreeField || isZeroQty || _noList2) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
           '<td>' +
             // V2.6.4: UI compatta identica a quella della colonna "Sc. Cliente"
             // in Modalità Analisi (V2.6.2). Solo casella + simbolo % allineati a destra.
             // Rimosso l'importo in euro sotto (era ridondante: il prezzo finale è
             // già visibile nelle colonne "Vendita unit." e "Tot. Vendita" accanto).
             // SV2.10.358: le voci campo libero non hanno listino né sconto → trattino.
-            ((it.isFreeField || isZeroQty || _noList) ? _dash :
+            ((it.isFreeField || isZeroQty || _noList2) ? _dash :
             '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
               '<input type="number" class="qcart-discount-input qcart-discount-css" data-code="' + escapeAttr(it.code) + '" value="' + _fmtDiscountForInput(dPct) + '" min="0" max="100" step="0.01" ' +
                 'style="width:54px;padding:3px 6px;font-size:12px" ' +
@@ -59713,6 +59779,11 @@ function renderQuoteCartContent(){
          perche' non c'e' un listino da cui scontare, e resta editabile il prezzo
          di vendita. Margine e ricarico non usano il listino: restano corretti. */
       const _noList = (it._noListino === true);
+      /* SV2.10.552: sulle voci di SCONTO restano solo la percentuale (se c'e')
+         e il campo dell'importo: listino, sconti, netto d'acquisto, margine e
+         ricarico non hanno significato e confondono. */
+      const _isSconto = (it.isDiscountRow === true);
+      const _noList2 = _noList || _isSconto;
       const _dash = '<span style="color:var(--fg3)">—</span>';
       const subPvp = (!isZeroQty && it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)) ? it.pvp * it.qty : null;
       const subNetto = (!isZeroQty && it.netto != null && it.netto > 0) ? it.netto * it.qty : null;
@@ -59757,7 +59828,11 @@ function renderQuoteCartContent(){
         // V2.10.263: anche in Modalita' Cliente la riga con netto modificato a
         // mano ha lo sfondo verde tenue, per coerenza con la Modalita' Analisi.
         '<tr data-code="' + escapeAttr(it.code) + '" data-row-idx="' + i + '" ' +
-          'class="qcart-row-draggable' + (it._nettoOverride === true ? ' qcart-row-override' : '') + '"' +
+          /* SV2.10.552: colori di riga — verde tenue per le voci di sconto, avorio
+             per le righe a prezzo netto forzato (lo stesso avorio della stampa). */
+          'class="qcart-row-draggable' + (it._nettoOverride === true ? ' qcart-row-override' : '') +
+            (it.isDiscountRow ? ' qcart-row-sconto' : '') +
+            (it.nettoPrice === true ? ' qcart-row-netto' : '') + '"' +
           (it._nettoOverride === true
             ? ' title="Riga con netto d\'acquisto modificato a mano"'
             : '') + '>' +
@@ -59794,7 +59869,10 @@ function renderQuoteCartContent(){
               return (_img || _stk) ? '<span class="qcart-foto-wrap">' + _img + _stk + '</span>' : '';
             })() +
           '</td>' +
-          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = (Array.isArray(DATA) ? (DATA.find(x => x && x.name === it.code) || DATA[it.idx]) : null); if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true){ /* SV2.10.484: se il prodotto personale ha una distinta ESPLODIBILE offro il pulsante che sostituisce la riga coi suoi componenti */ const _b = (typeof bomNormalize === 'function') ? bomNormalize(_p.bom) : null; const _exp = (_b && _b.explode && _b.items.length) ? ' <button type="button" class="qcart-bom-explode" data-code="' + escapeAttr(it.code) + '" title="Sostituisci questa riga con i ' + _b.items.length + ' componenti della distinta base" style="border:none;background:rgba(1,120,212,0.15);color:#0178d4;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">\u2935 ESPLODI (' + _b.items.length + ')</button>' : ''; return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>' + _exp; } return ''; })()) + '</td>' +
+          '<td class="code" style="font-weight:700;text-transform:uppercase;font-size:14px">' + (it.isFreeField ? '' : escapeHtml(getDisplayCode(it))) + ((function(){ if(it.isFreeField){ /* SV2.10.552: le voci di sconto sono tecnicamente voci libere, ma per chi legge
+                 il carrello sono un'altra cosa: etichetta SCONTO e colore verde. */
+              if(it.isDiscountRow){ return ' <button type="button" class="qcart-free-edit qcart-sconto-badge" data-code="'+escapeAttr(it.code)+'" title="Voce di sconto sul preventivo">➖ SCONTO</button>'; }
+              const _tl = it.freeFieldType==='servizio'?'Servizio':(it.freeFieldType==='altro'?'Altro':'Materiale'); return ' <button type="button" class="qcart-free-edit" data-code="'+escapeAttr(it.code)+'" title="Modifica voce libera (testo, tipo, costo, prezzo)" style="border:none;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">✏️ LIBERA \u00b7 '+_tl+'</button>'; } const _p = (Array.isArray(DATA) ? (DATA.find(x => x && x.name === it.code) || DATA[it.idx]) : null); if(!_p) return ''; if(_p.isService === true) return ' <span class="qcart-service-badge" title="Servizio del catalogo">🔧 SERV</span>'; if(_p.isPersonal === true){ /* SV2.10.484: se il prodotto personale ha una distinta ESPLODIBILE offro il pulsante che sostituisce la riga coi suoi componenti */ const _b = (typeof bomNormalize === 'function') ? bomNormalize(_p.bom) : null; const _exp = (_b && _b.explode && _b.items.length) ? ' <button type="button" class="qcart-bom-explode" data-code="' + escapeAttr(it.code) + '" title="Sostituisci questa riga con i ' + _b.items.length + ' componenti della distinta base" style="border:none;background:rgba(1,120,212,0.15);color:#0178d4;border-radius:7px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;vertical-align:middle;font-family:inherit">\u2935 ESPLODI (' + _b.items.length + ')</button>' : ''; return ' <span class="qcart-personal-badge" title="Prodotto personale">★ PERS</span>' + _exp; } return ''; })()) + '</td>' +
           '<td class="qcart-marca-cell" style="font-size:14px;color:var(--fg2)">' + escapeHtml(it.brand) + '</td>' +
           (function(){
             const cleanName = getCleanItemName(it);
@@ -59803,7 +59881,16 @@ function renderQuoteCartContent(){
           })() +
           /* SV2.10.538: riga a canone → al posto del selettore di quantita' esce il
              testo dell'unita' di misura. Cliccandolo si puo' cambiare. */
-          (_qcIsCanoneItem(it)
+          /* SV2.10.552: la voce di sconto non ha quantita' — mostrarla non ha
+             significato e invita a modificarla. Al suo posto, se lo sconto e'
+             stato definito in percentuale, la percentuale col segno negativo. */
+          (it.isDiscountRow
+            ? '<td style="text-align:center">' +
+                (it.discountKind === 'pct' && it.discountInput
+                  ? '<span class="qcart-sconto-pct">\u2212' + _qFmtPct(it.discountInput, _pctDecimals(it.discountInput)) + '</span>'
+                  : _dash) +
+              '</td>'
+            : _qcIsCanoneItem(it)
             ? '<td style="text-align:center">' +
                 '<button type="button" class="qcart-uom-chip" data-code="' + escapeAttr(it.code) + '" ' +
                   'title="Unit\u00e0 di misura: clicca per modificarla o svuotarla e tornare a una riga a quantit\u00e0">' +
@@ -59817,7 +59904,7 @@ function renderQuoteCartContent(){
                 '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
               '</div>' +
             '</td>') +
-          '<td class="num">' + ((it.isFreeField || isZeroQty || _noList) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
+          '<td class="num">' + ((it.isFreeField || isZeroQty || _noList2) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
           // V2.5.7: nuova colonna "Sconto" tra PVP e Netto. Viola con ★ se cascata.
           // V2.10.263: cella "Sconto ACQ" EDITABILE. Lo sconto e' derivato dal
           // netto (sconto% = (1-netto/pvp)*100); modificandolo si ricalcola il
@@ -59825,7 +59912,7 @@ function renderQuoteCartContent(){
           // override e' evidenziata con sfondo verde tenue (vedi <tr>), non piu'
           // col pallino. Il badge ★ cascata resta informativo.
           '<td class="num"' + scTip + '>' +
-            ((it.isFreeField || isZeroQty || _noList) ? _dash :
+            ((it.isFreeField || isZeroQty || _noList2) ? _dash :
               (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)
                 ? '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
                     '<input type="text" inputmode="decimal" class="qcart-scacq-input" data-code="' + escapeAttr(it.code) + '" ' +
@@ -59844,7 +59931,7 @@ function renderQuoteCartContent(){
           // Modificandolo NON cambia il prezzo di vendita (cambiano solo
           // margine/totali). Rosso = costo d'acquisto; riga override = sfondo verde.
           '<td class="num">' +
-            (isZeroQty ? _dash :
+            (isZeroQty || _isSconto ? _dash :   // SV2.10.552: non ha senso su una voce di sconto
               (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0)
                 ? '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
                     '<input type="text" inputmode="decimal" class="qcart-nettoacq-input" data-code="' + escapeAttr(it.code) + '" ' +
@@ -59900,7 +59987,7 @@ function renderQuoteCartContent(){
           // dopo modifica di Sc. Cliente. Il colore e il valore sono ricalcolati
           // in tempo reale da updateRowMargineAfterDiscountChange().
           '<td class="num qcart-margin-cell" title="Margine commerciale: (prezzo_vendita_cliente − netto) / prezzo_vendita_cliente × 100. Verde ≥30% (ottimo) · 15-30% (buono) · 0-15% (marginale) · <0% (in perdita)">' +
-            (isZeroQty
+            (isZeroQty || _isSconto   // SV2.10.552: non ha senso su una voce di sconto
               ? _dash
               : (margine != null
                 ? '<span style="color:' + margineColor + ';font-weight:700">' + _qFmtPct(margine, 1) + '</span>'
@@ -59910,7 +59997,7 @@ function renderQuoteCartContent(){
           // Stesso colore del margine: descrivono la stessa redditivita', quindi
           // due semafori indipendenti darebbero letture discordanti sulla stessa riga.
           '<td class="num qcart-ricarico-cell" title="Ricarico sul costo: (prezzo_vendita_cliente − netto) / netto × 100. È la stessa redditività del margine vista sul prezzo di acquisto (margine 40% = ricarico 66,7%).">' +
-            (isZeroQty
+            (isZeroQty || _isSconto   // SV2.10.552: non ha senso su una voce di sconto
               ? _dash
               : (ricarico != null
                 ? '<span style="color:' + margineColor + ';font-weight:700">' + _qFmtPct(ricarico, 1) + '</span>'
@@ -63160,9 +63247,11 @@ async function exportQuoteDocx(options){
          verticale ambra sul bordo sinistro, che diventa una barra grigia,
          (3) corsivo sulla riga del canone, che sopravvive a qualunque copia. */
       const _isCanoneRow = _qcIsCanoneItem(it);
-      const cellShading = _isCanoneRow
-        ? { type: ShadingType.CLEAR, color: 'auto', fill: 'FBF8F1' }
-        : undefined;
+      // SV2.10.552: voce di sconto → fondo verde tenue e barra verde
+      const _isScontoRow = _qcIsScontoItem(it);
+      const cellShading = _isScontoRow
+        ? { type: ShadingType.CLEAR, color: 'auto', fill: 'F2FAF4' }
+        : (_isCanoneRow ? { type: ShadingType.CLEAR, color: 'auto', fill: 'FBF8F1' } : undefined);
       const cellBorders = {
         top:    { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
         bottom: { style: BorderStyle.SINGLE, size: 4, color: BORDER_LT },
@@ -63173,10 +63262,12 @@ async function exportQuoteDocx(options){
          messa su tutte disegnerebbe righe verticali fra le colonne. Le celle
          img e desc sono le uniche candidate a essere la prima. */
       const _primaKey = (cols && cols[0]) ? cols[0].key : null;
-      const cellBordersFirst = _isCanoneRow
-        ? Object.assign({}, cellBorders, { left: { style: BorderStyle.SINGLE, size: 18, color: 'C99A2E' } })
-        : cellBorders;
-      const _bordersPrimaCol = _isCanoneRow ? cellBordersFirst : cellBorders;
+      const cellBordersFirst = _isScontoRow
+        ? Object.assign({}, cellBorders, { left: { style: BorderStyle.SINGLE, size: 18, color: '16A34A' } })
+        : (_isCanoneRow
+          ? Object.assign({}, cellBorders, { left: { style: BorderStyle.SINGLE, size: 18, color: 'C99A2E' } })
+          : cellBorders);
+      const _bordersPrimaCol = (_isCanoneRow || _isScontoRow) ? cellBordersFirst : cellBorders;
 
       const cellMap = {
         img: () => {
@@ -63213,6 +63304,10 @@ async function exportQuoteDocx(options){
           // SV2.10.538: canone in coda alla descrizione, in grassetto
           if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
             descParas.push(para(mk(_qcCanoneInlineText(it, printS), { bold: true, italics: true, color: '8A6A12', size: 19 }), { alignment: AlignmentType.LEFT }));
+          }
+          // SV2.10.552: percentuale dello sconto in coda alla descrizione
+          if(_qcScontoInlineText(it)){
+            descParas.push(para(mk(_qcScontoInlineText(it), { bold: true, italics: true, color: '15803D', size: 19 }), { alignment: AlignmentType.LEFT }));
           }
           if(showBrand && it.brand){
             descParas.push(para(mk(String(it.brand).toUpperCase(), { color: TEXT_MUTED, size: 17 }), { spacing: { before: 60 } }));
@@ -63281,7 +63376,10 @@ async function exportQuoteDocx(options){
            qui sono factory, quindi le sostituisco con una cella vuota che
            conserva sfondo, margini e bordi delle altre. */
         children: cols.map((c, _ci) => {
-          if(_qcIsCanoneItem(it) && ['list','discount','price','rtotal'].indexOf(c.key) >= 0){
+          const _vuote = _qcIsCanoneItem(it)
+            ? ['list','discount','price','rtotal']
+            : (_isScontoRow ? ['qty','list','discount'] : []);   // SV2.10.552
+          if(_vuote.indexOf(c.key) >= 0){
             return new TableCell({
               children: [para(mk(''))],
               shading: cellShading,
@@ -63377,6 +63475,27 @@ async function exportQuoteDocx(options){
       }));
     }
     // SV2.10.511: riga dedicata al totale delle voci a prezzo netto
+    // SV2.10.552: ogni voce di sconto e' una riga distinta del riepilogo
+    (function(){
+      const _ss = _qcScontoSummary(t.items);
+      if(!_ss) return;
+      _ss.forEach(r => {
+        totalRows.push(new TableRow({
+          children: [
+            new TableCell({
+              children: [para(mk(r.label + (r.pct ? '  (\u2212' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')' : ''), { color: TEXT_MUTED, bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],
+              margins: { top: 100, bottom: 100, left: 160, right: 240 },
+              borders: { top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: BORDER_LT }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } },
+            }),
+            new TableCell({
+              children: [para(mk(_qFmtEur(r.tot), { bold: true, color: '16A34A', size: 20 }), { alignment: AlignmentType.RIGHT })],
+              margins: { top: 100, bottom: 100, left: 160, right: 240 },
+              borders: { top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: BORDER_LT }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } },
+            }),
+          ],
+        }));
+      });
+    })();
     // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
     if((showListino || showSconto) && _tNetto > 0.005){
       totalRows.push(new TableRow({
@@ -63990,6 +64109,10 @@ async function exportQuoteWord(){
         if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
           descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
         }
+        // SV2.10.552: percentuale dello sconto in coda alla descrizione
+        if(_qcIsScontoItem(it) && _qcScontoInlineText(it)){
+          descParts.push('<div class="desc-body desc-sconto">' + escapeHtml(_qcScontoInlineText(it)) + '</div>');
+        }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
@@ -64008,6 +64131,13 @@ async function exportQuoteWord(){
         };
         /* SV2.10.539: sulla riga a canone le colonne numeriche restano VUOTE —
            unita' di misura e prezzo compaiono sotto la descrizione. */
+        /* SV2.10.552: sulla voce di SCONTO restano solo Prezzo e Totale; quantita',
+           listino e sconto restano vuoti. */
+        if(_qcIsScontoItem(it)){
+          cellMap.qty      = '<td class="col-qty"></td>';
+          cellMap.list     = '<td class="col-money"></td>';
+          cellMap.discount = '<td class="col-discount"></td>';
+        }
         if(_qcIsCanoneItem(it)){
           cellMap.list     = '<td class="col-money"></td>';
           cellMap.discount = '<td class="col-discount"></td>';
@@ -64015,7 +64145,7 @@ async function exportQuoteWord(){
           cellMap.rtotal   = '<td class="col-money col-tot"></td>';
         }
         // SV2.10.541: la riga a canone si distingue visivamente (vedi CSS .canone-row)
-        rowsHtml += '<tr' + (_qcIsCanoneItem(it) ? ' class="canone-row"' : '') + '>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
+        rowsHtml += '<tr' + (_qcIsScontoItem(it) ? ' class="sconto-row"' : (_qcIsCanoneItem(it) ? ' class="canone-row"' : '')) + '>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
       theadHtml = '<tr>' + cols.map(c => {
         const cls = (c.key === 'discount') ? 'col-discount'
@@ -64035,6 +64165,16 @@ async function exportQuoteWord(){
           ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
           : '') +
         // SV2.10.511: riga dedicata alle voci a prezzo netto
+        // SV2.10.552: ogni voce di sconto e' una riga distinta del riepilogo,
+        // con la descrizione scelta dall'utente e la percentuale se indicata.
+        (function(){
+          const _ss = _qcScontoSummary(t.items);
+          if(!_ss) return '';
+          return _ss.map(r =>
+            '<tr><td class="label">' + escapeHtml(r.label) +
+              (r.pct ? ' <span style="font-weight:400">(\u2212' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')</span>' : '') +
+            '</td><td class="val" style="color:#16a34a">' + _qFmtEur(r.tot) + '</td></tr>').join('');
+        })() +
         // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
         ((showListino || showSconto) && (t.nettoRowsSellPrice || 0) > 0.005
           ? '<tr><td class="label">Totale Prezzi Netti</td><td class="val" style="color:#16a34a">' + _qFmtEur(t.nettoRowsSellPrice) + '</td></tr>'
@@ -64097,6 +64237,10 @@ async function exportQuoteWord(){
         if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
           descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
         }
+        // SV2.10.552: percentuale dello sconto in coda alla descrizione
+        if(_qcIsScontoItem(it) && _qcScontoInlineText(it)){
+          descParts.push('<div class="desc-body desc-sconto">' + escapeHtml(_qcScontoInlineText(it)) + '</div>');
+        }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
@@ -64114,6 +64258,13 @@ async function exportQuoteWord(){
         };
         /* SV2.10.539: sulla riga a canone le colonne numeriche restano VUOTE —
            unita' di misura e prezzo compaiono sotto la descrizione. */
+        /* SV2.10.552: sulla voce di SCONTO restano solo Prezzo e Totale; quantita',
+           listino e sconto restano vuoti. */
+        if(_qcIsScontoItem(it)){
+          cellMap.qty      = '<td class="col-qty"></td>';
+          cellMap.list     = '<td class="col-money"></td>';
+          cellMap.discount = '<td class="col-discount"></td>';
+        }
         if(_qcIsCanoneItem(it)){
           cellMap.list     = '<td class="col-money"></td>';
           cellMap.discount = '<td class="col-discount"></td>';
@@ -64121,7 +64272,7 @@ async function exportQuoteWord(){
           cellMap.rtotal   = '<td class="col-money col-tot"></td>';
         }
         // SV2.10.541: la riga a canone si distingue visivamente (vedi CSS .canone-row)
-        rowsHtml += '<tr' + (_qcIsCanoneItem(it) ? ' class="canone-row"' : '') + '>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
+        rowsHtml += '<tr' + (_qcIsScontoItem(it) ? ' class="sconto-row"' : (_qcIsCanoneItem(it) ? ' class="canone-row"' : '')) + '>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
       theadHtml = '<tr>' + cols.map(c => {
         const cls = (['list','netto','totpvp','totnetto','scAcq','scCli','margine'].indexOf(c.key) >= 0) ? 'col-money' : 'col-' + c.key;
@@ -64223,6 +64374,11 @@ async function exportQuoteWord(){
         'table.canoni-table td.cn-val{text-align:right;white-space:nowrap;font-weight:bold;color:#1f2937}' +
         'table.canoni-table tr.cn-tot td{border-bottom:0;border-top:1pt solid #C99A2E;font-weight:bold;color:#8A6A12;padding-top:5pt}' +
         '.canoni-note{margin-top:5pt;font-size:8.5pt;font-style:italic;color:#6b7280}' +
+        /* SV2.10.552 — voce di sconto: verde tenue, barra verde e percentuale in
+           coda alla descrizione (stessa tecnica del canone, colore diverso). */
+        'table.items tr.sconto-row td{background:#F2FAF4 !important}' +
+        'table.items tr.sconto-row td:first-child{border-left:3pt solid #16A34A}' +
+        'table.items tr.sconto-row .desc-sconto{display:block;font-weight:700;font-style:italic;color:#15803D;margin-top:3pt}' +
         'table.items tr.canone-row td{background:#FBF8F1 !important}' +
         'table.items tr.canone-row td:first-child{border-left:3pt solid #C99A2E}' +
         'table.items tr.canone-row .desc-canone{display:block;font-weight:700;font-style:italic;color:#8A6A12;margin-top:3pt}' +
@@ -65161,6 +65317,9 @@ async function exportQuotePdfNative(options){
     const itemCodes = [];
     // SV2.10.538: riga del canone per ciascun articolo (stringa vuota se assente)
     const canoneLines = [];
+    // SV2.10.552: riga della percentuale di sconto e mappa delle righe a sconto
+    const scontoLines = [];
+    const scontoRows = [];
 
     // Body: ogni riga è un array di stringhe nella stessa lunghezza di cols
     const body = t.items.map((it, idx) => {
@@ -65181,6 +65340,11 @@ async function exportQuotePdfNative(options){
       const _canoneLine = (_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)) ? _qcCanoneInlineText(it, printS) : '';
       if(_canoneLine) descLines.push(_canoneLine);
       canoneLines[idx] = _canoneLine;
+      // SV2.10.552: percentuale dello sconto in coda alla descrizione
+      const _scontoLine = _qcScontoInlineText(it, true);   // trattino semplice: vedi commento nell'helper
+      if(_scontoLine) descLines.push(_scontoLine);
+      scontoLines[idx] = _scontoLine;
+      scontoRows[idx] = _qcIsScontoItem(it);
       if(showBrand && it.brand) descLines.push(String(it.brand).toUpperCase());
       const descText = descLines.join('\n');
       // V2.10.84: salvo il codice per il rendering bold
@@ -65202,6 +65366,8 @@ async function exportQuotePdfNative(options){
       if(_qcIsCanoneItem(it)){
         cellMap.list = ''; cellMap.discount = ''; cellMap.price = ''; cellMap.rtotal = '';
       }
+      // SV2.10.552: sulla voce di sconto restano solo Prezzo e Totale
+      if(_qcIsScontoItem(it)){ cellMap.qty = ''; cellMap.list = ''; cellMap.discount = ''; }
       return cols.map(c => cellMap[c.key]);
     });
 
@@ -65298,6 +65464,10 @@ async function exportQuotePdfNative(options){
           if(canoneLines[data.row.index]){
             data.cell.styles.fillColor = [251, 248, 241];
           }
+          // SV2.10.552: riga a sconto → verde tenue
+          if(scontoRows[data.row.index]){
+            data.cell.styles.fillColor = [242, 250, 244];
+          }
           // SV2.10.515: la dicitura "Prezzo Netto" puo' ora comparire nella colonna
           // Sconto OPPURE in quella Listino: la riconosco dal testo, non dall'indice.
           const _rawTxt = Array.isArray(data.cell.raw) ? String(data.cell.raw[0] || '') : String(data.cell.raw == null ? '' : data.cell.raw);
@@ -65370,6 +65540,13 @@ async function exportQuotePdfNative(options){
         if(data.section === 'body' && data.column.index === 0 && canoneLines[data.row.index]){
           try {
             doc.setFillColor(201, 154, 46);
+            doc.rect(data.cell.x, data.cell.y, 2.5, data.cell.height, 'F');
+          } catch(_){}
+        }
+        // SV2.10.552: barra verde sulle righe di sconto
+        if(data.section === 'body' && data.column.index === 0 && scontoRows[data.row.index]){
+          try {
+            doc.setFillColor(22, 163, 74);
             doc.rect(data.cell.x, data.cell.y, 2.5, data.cell.height, 'F');
           } catch(_){}
         }
@@ -65456,12 +65633,16 @@ async function exportQuotePdfNative(options){
               // SV2.10.538: in grassetto anche la riga del canone
               const _thisCanone = canoneLines[data.row.index] || '';
               const _isCanonePara = !!(_thisCanone && para === _thisCanone);
-              const isCode = (thisCode && para === thisCode) || _isCanonePara;
+              // SV2.10.552: la riga della percentuale di sconto e' verde e corsiva
+              const _thisSconto = scontoLines[data.row.index] || '';
+              const _isScontoPara = !!(_thisSconto && para === _thisSconto);
+              const isCode = (thisCode && para === thisCode) || _isCanonePara || _isScontoPara;
               try {
                 // SV2.10.541: la riga del canone e' bold + corsivo (terzo segnale,
                 // leggibile anche in fotocopia) e in ambra scuro.
-                doc.setFont('helvetica', _isCanonePara ? 'bolditalic' : (isCode ? 'bold' : (fontStyle || 'normal')));
+                doc.setFont('helvetica', (_isCanonePara || _isScontoPara) ? 'bolditalic' : (isCode ? 'bold' : (fontStyle || 'normal')));
                 if(_isCanonePara) doc.setTextColor(138, 106, 18);
+                if(_isScontoPara) doc.setTextColor(21, 128, 61);
               } catch(_){}
 
               let wrapped;
@@ -65548,7 +65729,8 @@ async function exportQuotePdfNative(options){
     const _tList  = (t.visibleListPrice != null) ? t.visibleListPrice : t.totalPvp;
     const _tDisc  = (t.visibleDiscountValue != null) ? t.visibleDiscountValue : t.totalDiscountValue;
     const _tNetto = t.nettoRowsSellPrice || 0;
-    const neededH = ((showListino && _tList > 0.005) ? 22 : 0) + (_tDisc > 0.005 ? 22 : 0) + (((showListino || showSconto) && _tNetto > 0.005) ? 22 : 0) + 36;
+    const _nSconti = (_qcScontoSummary(t.items) || []).length;   // SV2.10.552
+    const neededH = ((showListino && _tList > 0.005) ? 22 : 0) + (_tDisc > 0.005 ? 22 : 0) + (((showListino || showSconto) && _tNetto > 0.005) ? 22 : 0) + (_nSconti * 24) + 36;
     if(cursorY + neededH > PAGE_H - FOOTER_RESERVE){
       doc.addPage();
       drawFooter(doc.getNumberOfPages(), doc.getNumberOfPages());
@@ -65579,6 +65761,22 @@ async function exportQuotePdfNative(options){
       cursorY += 6;
     }
     // SV2.10.511: riga dedicata al totale delle voci a prezzo netto
+    // SV2.10.552: ogni voce di sconto e' una riga distinta del riepilogo
+    (function(){
+      const _ss = _qcScontoSummary(t.items);
+      if(!_ss) return;
+      _ss.forEach(r => {
+        setText(10, 'bold', COL.textMuted);
+        doc.text(r.label + (r.pct ? '  (-' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')' : ''), totalsX + labelW - 5, cursorY + 12, { align: 'right' });
+        setText(10, 'bold', [22, 163, 74]);
+        doc.text(_qFmtEur(r.tot), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
+        cursorY += 18;
+        setDraw(COL.borderLt);
+        doc.setLineWidth(0.5);
+        doc.line(totalsX, cursorY, totalsX + totalsBlockW, cursorY);
+        cursorY += 6;
+      });
+    })();
     // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
     if((showListino || showSconto) && _tNetto > 0.005){
       setText(10, 'bold', COL.textMuted);
@@ -65998,6 +66196,10 @@ async function exportQuotePdf(){
         if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
           descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
         }
+        // SV2.10.552: percentuale dello sconto in coda alla descrizione
+        if(_qcIsScontoItem(it) && _qcScontoInlineText(it)){
+          descParts.push('<div class="desc-body desc-sconto">' + escapeHtml(_qcScontoInlineText(it)) + '</div>');
+        }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
@@ -66015,6 +66217,13 @@ async function exportQuotePdf(){
         };
         /* SV2.10.539: sulla riga a canone le colonne numeriche restano VUOTE —
            unita' di misura e prezzo compaiono sotto la descrizione. */
+        /* SV2.10.552: sulla voce di SCONTO restano solo Prezzo e Totale; quantita',
+           listino e sconto restano vuoti. */
+        if(_qcIsScontoItem(it)){
+          cellMap.qty      = '<td class="col-qty"></td>';
+          cellMap.list     = '<td class="col-money"></td>';
+          cellMap.discount = '<td class="col-discount"></td>';
+        }
         if(_qcIsCanoneItem(it)){
           cellMap.list     = '<td class="col-money"></td>';
           cellMap.discount = '<td class="col-discount"></td>';
@@ -66022,7 +66231,7 @@ async function exportQuotePdf(){
           cellMap.rtotal   = '<td class="col-money col-tot"></td>';
         }
         // SV2.10.541: la riga a canone si distingue visivamente (vedi CSS .canone-row)
-        rowsHtml += '<tr' + (_qcIsCanoneItem(it) ? ' class="canone-row"' : '') + '>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
+        rowsHtml += '<tr' + (_qcIsScontoItem(it) ? ' class="sconto-row"' : (_qcIsCanoneItem(it) ? ' class="canone-row"' : '')) + '>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
       theadHtml = '<tr>' + cols.map(c => {
         const cls = (c.key === 'discount') ? 'col-discount'
@@ -66040,6 +66249,16 @@ async function exportQuotePdf(){
           ? '<tr><td class="label">Importo Scontato</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
           : '') +
         // SV2.10.511: riga dedicata alle voci a prezzo netto
+        // SV2.10.552: ogni voce di sconto e' una riga distinta del riepilogo,
+        // con la descrizione scelta dall'utente e la percentuale se indicata.
+        (function(){
+          const _ss = _qcScontoSummary(t.items);
+          if(!_ss) return '';
+          return _ss.map(r =>
+            '<tr><td class="label">' + escapeHtml(r.label) +
+              (r.pct ? ' <span style="font-weight:400">(\u2212' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')</span>' : '') +
+            '</td><td class="val" style="color:#16a34a">' + _qFmtEur(r.tot) + '</td></tr>').join('');
+        })() +
         // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
         ((showListino || showSconto) && (t.nettoRowsSellPrice || 0) > 0.005
           ? '<tr><td class="label">Totale Prezzi Netti</td><td class="val" style="color:#16a34a">' + _qFmtEur(t.nettoRowsSellPrice) + '</td></tr>'
@@ -66097,6 +66316,10 @@ async function exportQuotePdf(){
         if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
           descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
         }
+        // SV2.10.552: percentuale dello sconto in coda alla descrizione
+        if(_qcIsScontoItem(it) && _qcScontoInlineText(it)){
+          descParts.push('<div class="desc-body desc-sconto">' + escapeHtml(_qcScontoInlineText(it)) + '</div>');
+        }
         if(showBrand && it.brand) descParts.push('<div class="desc-brand">' + escapeHtml(it.brand) + '</div>');
         const descContent = descParts.join('');
 
@@ -66114,6 +66337,13 @@ async function exportQuotePdf(){
         };
         /* SV2.10.539: sulla riga a canone le colonne numeriche restano VUOTE —
            unita' di misura e prezzo compaiono sotto la descrizione. */
+        /* SV2.10.552: sulla voce di SCONTO restano solo Prezzo e Totale; quantita',
+           listino e sconto restano vuoti. */
+        if(_qcIsScontoItem(it)){
+          cellMap.qty      = '<td class="col-qty"></td>';
+          cellMap.list     = '<td class="col-money"></td>';
+          cellMap.discount = '<td class="col-discount"></td>';
+        }
         if(_qcIsCanoneItem(it)){
           cellMap.list     = '<td class="col-money"></td>';
           cellMap.discount = '<td class="col-discount"></td>';
@@ -66121,7 +66351,7 @@ async function exportQuotePdf(){
           cellMap.rtotal   = '<td class="col-money col-tot"></td>';
         }
         // SV2.10.541: la riga a canone si distingue visivamente (vedi CSS .canone-row)
-        rowsHtml += '<tr' + (_qcIsCanoneItem(it) ? ' class="canone-row"' : '') + '>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
+        rowsHtml += '<tr' + (_qcIsScontoItem(it) ? ' class="sconto-row"' : (_qcIsCanoneItem(it) ? ' class="canone-row"' : '')) + '>' + cols.map(c => cellMap[c.key]).join('') + '</tr>';
       });
       theadHtml = '<tr>' + cols.map(c => {
         const cls = (['list','netto','totpvp','totnetto','scAcq','scCli','margine'].indexOf(c.key) >= 0) ? 'col-money' : 'col-' + c.key;
@@ -66219,6 +66449,11 @@ async function exportQuotePdf(){
         'table.canoni-table td.cn-val{text-align:right;white-space:nowrap;font-weight:bold;color:#1f2937}' +
         'table.canoni-table tr.cn-tot td{border-bottom:0;border-top:1pt solid #C99A2E;font-weight:bold;color:#8A6A12;padding-top:5pt}' +
         '.canoni-note{margin-top:5pt;font-size:8.5pt;font-style:italic;color:#6b7280}' +
+        /* SV2.10.552 — voce di sconto: verde tenue, barra verde e percentuale in
+           coda alla descrizione (stessa tecnica del canone, colore diverso). */
+        'table.items tr.sconto-row td{background:#F2FAF4 !important}' +
+        'table.items tr.sconto-row td:first-child{border-left:3pt solid #16A34A}' +
+        'table.items tr.sconto-row .desc-sconto{display:block;font-weight:700;font-style:italic;color:#15803D;margin-top:3pt}' +
         'table.items tr.canone-row td{background:#FBF8F1 !important}' +
         'table.items tr.canone-row td:first-child{border-left:3pt solid #C99A2E}' +
         'table.items tr.canone-row .desc-canone{display:block;font-weight:700;font-style:italic;color:#8A6A12;margin-top:3pt}' +
