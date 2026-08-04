@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.554 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.556 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11184,7 +11184,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.554</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.556</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11887,7 +11887,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.554 mobile");
+console.info("[bootstrap] script avvio — SV2.10.556 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13383,7 +13383,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.554';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.556';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -56017,6 +56017,15 @@ function _qcIsScontoItem(it){
 }
 /* SV2.10.552 — elenco delle voci di sconto per il RIEPILOGO finale: ognuna
    compare come riga a se', con la descrizione scelta dall'utente. */
+/* SV2.10.555 — colore degli importi di riga in stampa: VERDE sulle righe a
+   prezzo netto forzato (coerente con la dicitura "Prezzo Netto"), ROSSO sulle
+   voci di sconto (sono importi in detrazione). Vale per Prezzo e Totale riga. */
+function _qcRowMoneyColor(it){
+  if(_qcIsScontoItem(it)) return '#dc2626';
+  if(it && it.nettoPrice === true) return '#16a34a';
+  return null;
+}
+
 function _qcScontoSummary(items){
   const list = Array.isArray(items) ? items.filter(_qcIsScontoItem) : [];
   if(!list.length) return null;
@@ -63337,7 +63346,7 @@ async function exportQuoteDocx(options){
           }
           // SV2.10.552: percentuale dello sconto in coda alla descrizione
           if(_qcScontoInlineText(it)){
-            descParas.push(para(mk(_qcScontoInlineText(it), { bold: true, italics: true, color: '15803D', size: 19 }), { alignment: AlignmentType.LEFT }));
+            descParas.push(para(mk(_qcScontoInlineText(it), { bold: true, italics: true, color: 'DC2626', size: 19 }), { alignment: AlignmentType.LEFT }));   // SV2.10.556
           }
           if(showBrand && it.brand){
             descParas.push(para(mk(String(it.brand).toUpperCase(), { color: TEXT_MUTED, size: 17 }), { spacing: { before: 60 } }));
@@ -63385,7 +63394,8 @@ async function exportQuoteDocx(options){
           verticalAlign: VerticalAlign.CENTER,
         }),
         price: () => new TableCell({
-          children: [para(mk(isZeroQty ? '' : (sellUnit != null ? _qFmtEur(sellUnit) : '—'), { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.RIGHT })],
+          // SV2.10.555: verde sui prezzi netti, rosso sugli sconti
+          children: [para(mk(isZeroQty ? '' : (sellUnit != null ? _qFmtEur(sellUnit) : '—'), { color: (_qcRowMoneyColor(it) || '#' + TEXT_MID).replace('#',''), bold: !!_qcRowMoneyColor(it), size: 19 }), { alignment: AlignmentType.RIGHT })],
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 80 },
           borders: cellBorders,
@@ -63393,7 +63403,8 @@ async function exportQuoteDocx(options){
         }),
         rtotal: () => new TableCell({
           // SV2.10.538: la riga a canone non ha totale di riga
-          children: [para(mk((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—'), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.RIGHT })],
+          // SV2.10.555
+          children: [para(mk((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—'), { bold: true, color: (_qcRowMoneyColor(it) || '#' + TEXT_DARK).replace('#',''), size: 19 }), { alignment: AlignmentType.RIGHT })],
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 80 },
           borders: cellBorders,
@@ -63482,7 +63493,7 @@ async function exportQuoteDocx(options){
       totalRows.push(new TableRow({
         children: [
           new TableCell({
-            children: [para(mk('Valore di Sconto da Listino', { color: TEXT_MUTED, bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],
+            children: [para(mk('Valore di Sconto da Listino', { color: 'DC2626', bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],   // SV2.10.556
             margins: { top: 100, bottom: 100, left: 160, right: 240 },
             borders: {
               top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -63513,7 +63524,7 @@ async function exportQuoteDocx(options){
         totalRows.push(new TableRow({
           children: [
             new TableCell({
-              children: [para(mk(r.label + (r.pct ? '  (\u2212' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')' : ''), { color: TEXT_MUTED, bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],
+              children: [para(mk(r.label + (r.pct ? '  (\u2212' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')' : ''), { color: 'DC2626', bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],   // SV2.10.556
               margins: { top: 100, bottom: 100, left: 160, right: 240 },
               borders: { top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: BORDER_LT }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } },
             }),
@@ -63531,7 +63542,7 @@ async function exportQuoteDocx(options){
       totalRows.push(new TableRow({
         children: [
           new TableCell({
-            children: [para(mk('Totale Prezzi Netti', { color: TEXT_MUTED, bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],
+            children: [para(mk('Totale Prezzi Netti', { color: '16A34A', bold: true, size: 20 }), { alignment: AlignmentType.RIGHT })],   // SV2.10.556
             margins: { top: 100, bottom: 100, left: 160, right: 240 },
             borders: {
               top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -64156,8 +64167,8 @@ async function exportQuoteWord(){
           // Mai in entrambe.
           list:     '<td class="col-money">' + (isZeroQty ? '' : (_isNetto ? (showSconto ? '' : '<span class="netto-tag">Prezzo Netto</span>') : fmt(it.pvp))) + '</td>',
           discount: '<td class="col-discount">' + (_isNetto ? '<span class="netto-tag">Prezzo Netto</span>' : dPctStr) + '</td>',
-          price:    '<td class="col-money">' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',
-          rtotal:   '<td class="col-money col-tot"><b>' + ((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',   // SV2.10.538
+          price:    '<td class="col-money"' + (_qcRowMoneyColor(it) ? ' style="color:' + _qcRowMoneyColor(it) + ';font-weight:700"' : '') + '>' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',   // SV2.10.555
+          rtotal:   '<td class="col-money col-tot"' + (_qcRowMoneyColor(it) ? ' style="color:' + _qcRowMoneyColor(it) + '"' : '') + '><b>' + ((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',   // SV2.10.555
         };
         /* SV2.10.539: sulla riga a canone le colonne numeriche restano VUOTE —
            unita' di misura e prezzo compaiono sotto la descrizione. */
@@ -64192,7 +64203,7 @@ async function exportQuoteWord(){
         ((showListino && (t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) > 0.005) ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) + '</td></tr>' : '') +
         // V2.10.148: rinominato da "Sconto applicato" a "Importo Scontato"
         ((showListino || showSconto) && (t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) > 0.005
-          ? '<tr><td class="label">Valore di Sconto da Listino</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
+          ? '<tr><td class="label" style="color:#dc2626">Valore di Sconto da Listino</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
           : '') +
         // SV2.10.511: riga dedicata alle voci a prezzo netto
         // SV2.10.552: ogni voce di sconto e' una riga distinta del riepilogo,
@@ -64201,13 +64212,13 @@ async function exportQuoteWord(){
           const _ss = _qcScontoSummary(t.items);
           if(!_ss) return '';
           return _ss.map(r =>
-            '<tr><td class="label">' + escapeHtml(r.label) +
+            '<tr><td class="label" style="color:#dc2626">' + escapeHtml(r.label) +
               (r.pct ? ' <span style="font-weight:400">(\u2212' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')</span>' : '') +
             '</td><td class="val" style="color:#dc2626">' + _qFmtEur(r.tot) + '</td></tr>').join('');
         })() +
         // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
         ((showListino || showSconto) && (t.nettoRowsSellPrice || 0) > 0.005
-          ? '<tr><td class="label">Totale Prezzi Netti</td><td class="val" style="color:#16a34a">' + _qFmtEur(t.nettoRowsSellPrice) + '</td></tr>'
+          ? '<tr><td class="label" style="color:#16a34a">Totale Prezzi Netti</td><td class="val" style="color:#16a34a">' + _qFmtEur(t.nettoRowsSellPrice) + '</td></tr>'
           : '') +
         // V2.10.150: "TOTALE" → "TOTALE IMPONIBILE" se IVA inclusa
         // V2.10.153: classe "grand-sm" (font ridotto -30%) quando IVA attiva
@@ -64408,7 +64419,8 @@ async function exportQuoteWord(){
            coda alla descrizione (stessa tecnica del canone, colore diverso). */
         'table.items tr.sconto-row td{background:#F2FAF4 !important}' +
         'table.items tr.sconto-row td:first-child{border-left:3pt solid #16A34A}' +
-        'table.items tr.sconto-row .desc-sconto{display:block;font-weight:700;font-style:italic;color:#15803D;margin-top:3pt}' +
+        /* SV2.10.556: rossa come tutti gli importi in detrazione */
+        'table.items tr.sconto-row .desc-sconto{display:block;font-weight:700;font-style:italic;color:#DC2626;margin-top:3pt}' +
         'table.items tr.canone-row td{background:#FBF8F1 !important}' +
         'table.items tr.canone-row td:first-child{border-left:3pt solid #C99A2E}' +
         'table.items tr.canone-row .desc-canone{display:block;font-weight:700;font-style:italic;color:#8A6A12;margin-top:3pt}' +
@@ -65350,6 +65362,8 @@ async function exportQuotePdfNative(options){
     // SV2.10.552: riga della percentuale di sconto e mappa delle righe a sconto
     const scontoLines = [];
     const scontoRows = [];
+    // SV2.10.555: colore degli importi (verde netto / rosso sconto) per riga
+    const moneyColors = [];
 
     // Body: ogni riga è un array di stringhe nella stessa lunghezza di cols
     const body = t.items.map((it, idx) => {
@@ -65375,6 +65389,7 @@ async function exportQuotePdfNative(options){
       if(_scontoLine) descLines.push(_scontoLine);
       scontoLines[idx] = _scontoLine;
       scontoRows[idx] = _qcIsScontoItem(it);
+      moneyColors[idx] = _qcRowMoneyColor(it);
       if(showBrand && it.brand) descLines.push(String(it.brand).toUpperCase());
       const descText = descLines.join('\n');
       // V2.10.84: salvo il codice per il rendering bold
@@ -65406,6 +65421,7 @@ async function exportQuotePdfNative(options){
     const idxDesc = cols.findIndex(c => c.key === 'desc');
     const idxDiscount = cols.findIndex(c => c.key === 'discount');
     const idxRtotal = cols.findIndex(c => c.key === 'rtotal');
+    const idxPrice = cols.findIndex(c => c.key === 'price');   // SV2.10.555
     const idxQty = cols.findIndex(c => c.key === 'qty');
 
     /* === TITOLO "Dettaglio della Soluzione proposta" + eventuale salto pagina ===
@@ -65497,6 +65513,13 @@ async function exportQuotePdfNative(options){
           // SV2.10.552: riga a sconto → verde tenue
           if(scontoRows[data.row.index]){
             data.cell.styles.fillColor = [242, 250, 244];
+          }
+          /* SV2.10.555: Prezzo e Totale colorati — verde sulle righe a prezzo
+             netto, rosso sulle voci di sconto. */
+          const _mc = moneyColors[data.row.index];
+          if(_mc && (data.column.index === idxPrice || data.column.index === idxRtotal)){
+            data.cell.styles.textColor = (_mc === '#dc2626') ? [220, 38, 38] : [22, 163, 74];
+            data.cell.styles.fontStyle = 'bold';
           }
           // SV2.10.515: la dicitura "Prezzo Netto" puo' ora comparire nella colonna
           // Sconto OPPURE in quella Listino: la riconosco dal testo, non dall'indice.
@@ -65672,7 +65695,7 @@ async function exportQuotePdfNative(options){
                 // leggibile anche in fotocopia) e in ambra scuro.
                 doc.setFont('helvetica', (_isCanonePara || _isScontoPara) ? 'bolditalic' : (isCode ? 'bold' : (fontStyle || 'normal')));
                 if(_isCanonePara) doc.setTextColor(138, 106, 18);
-                if(_isScontoPara) doc.setTextColor(21, 128, 61);
+                if(_isScontoPara) doc.setTextColor(220, 38, 38);   // SV2.10.556
               } catch(_){}
 
               let wrapped;
@@ -65780,7 +65803,7 @@ async function exportQuotePdfNative(options){
       cursorY += 6;
     }
     if((showListino || showSconto) && _tDisc > 0.005){
-      setText(10, 'bold', COL.textMuted);
+      setText(10, 'bold', COL.red);   // SV2.10.556: etichetta dello stesso colore dell'importo
       doc.text('Valore di Sconto da Listino', totalsX + labelW - 5, cursorY + 12, { align: 'right' });
       setText(10, 'bold', COL.red);
       doc.text('-' + _qFmtEur(_tDisc), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
@@ -65796,7 +65819,7 @@ async function exportQuotePdfNative(options){
       const _ss = _qcScontoSummary(t.items);
       if(!_ss) return;
       _ss.forEach(r => {
-        setText(10, 'bold', COL.textMuted);
+        setText(10, 'bold', COL.red);   // SV2.10.556
         doc.text(r.label + (r.pct ? '  (-' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')' : ''), totalsX + labelW - 5, cursorY + 12, { align: 'right' });
         setText(10, 'bold', COL.red);
         doc.text(_qFmtEur(r.tot), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
@@ -65809,7 +65832,7 @@ async function exportQuotePdfNative(options){
     })();
     // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
     if((showListino || showSconto) && _tNetto > 0.005){
-      setText(10, 'bold', COL.textMuted);
+      setText(10, 'bold', [22, 163, 74]);   // SV2.10.556
       doc.text('Totale Prezzi Netti', totalsX + labelW - 5, cursorY + 12, { align: 'right' });
       setText(10, 'bold', [22, 163, 74]);
       doc.text(_qFmtEur(_tNetto), totalsX + totalsBlockW - 5, cursorY + 12, { align: 'right' });
@@ -66242,8 +66265,8 @@ async function exportQuotePdf(){
           // Mai in entrambe.
           list:     '<td class="col-money">' + (isZeroQty ? '' : (_isNetto ? (showSconto ? '' : '<span class="netto-tag">Prezzo Netto</span>') : fmt(it.pvp))) + '</td>',
           discount: '<td class="col-discount">' + (_isNetto ? '<span class="netto-tag">Prezzo Netto</span>' : dPctStr) + '</td>',
-          price:    '<td class="col-money">' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',
-          rtotal:   '<td class="col-money col-tot"><b>' + ((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',   // SV2.10.538
+          price:    '<td class="col-money"' + (_qcRowMoneyColor(it) ? ' style="color:' + _qcRowMoneyColor(it) + ';font-weight:700"' : '') + '>' + (isZeroQty ? '' : fmt(sellUnit)) + '</td>',   // SV2.10.555
+          rtotal:   '<td class="col-money col-tot"' + (_qcRowMoneyColor(it) ? ' style="color:' + _qcRowMoneyColor(it) + '"' : '') + '><b>' + ((isZeroQty || _qcIsCanoneItem(it)) ? '' : (subSell != null ? _qFmtEur(subSell) : '—')) + '</b></td>',   // SV2.10.555
         };
         /* SV2.10.539: sulla riga a canone le colonne numeriche restano VUOTE —
            unita' di misura e prezzo compaiono sotto la descrizione. */
@@ -66276,7 +66299,7 @@ async function exportQuotePdf(){
         // ricavabile per differenza).
         ((showListino && (t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) > 0.005) ? '<tr><td class="label">Totale Listino</td><td class="val">' + _qFmtEur(t.visibleListPrice != null ? t.visibleListPrice : t.totalPvp) + '</td></tr>' : '') +
         ((showListino || showSconto) && (t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) > 0.005
-          ? '<tr><td class="label">Valore di Sconto da Listino</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
+          ? '<tr><td class="label" style="color:#dc2626">Valore di Sconto da Listino</td><td class="val" style="color:#dc2626">−' + _qFmtEur(t.visibleDiscountValue != null ? t.visibleDiscountValue : t.totalDiscountValue) + '</td></tr>'
           : '') +
         // SV2.10.511: riga dedicata alle voci a prezzo netto
         // SV2.10.552: ogni voce di sconto e' una riga distinta del riepilogo,
@@ -66285,13 +66308,13 @@ async function exportQuotePdf(){
           const _ss = _qcScontoSummary(t.items);
           if(!_ss) return '';
           return _ss.map(r =>
-            '<tr><td class="label">' + escapeHtml(r.label) +
+            '<tr><td class="label" style="color:#dc2626">' + escapeHtml(r.label) +
               (r.pct ? ' <span style="font-weight:400">(\u2212' + _qFmtPct(r.pct, _pctDecimals(r.pct)) + ')</span>' : '') +
             '</td><td class="val" style="color:#dc2626">' + _qFmtEur(r.tot) + '</td></tr>').join('');
         })() +
         // SV2.10.514: la riga "Totale Prezzi Netti" ha senso SOLO se il preventivo stampa Listino o Sconto: in quel caso le righe a prezzo netto si distinguono dalle altre (listino vuoto / dicitura al posto della percentuale) e il totale separato spiega la differenza. Se entrambe le colonne sono spente le righe sono indistinguibili e separare i totali non informa: confonde.
         ((showListino || showSconto) && (t.nettoRowsSellPrice || 0) > 0.005
-          ? '<tr><td class="label">Totale Prezzi Netti</td><td class="val" style="color:#16a34a">' + _qFmtEur(t.nettoRowsSellPrice) + '</td></tr>'
+          ? '<tr><td class="label" style="color:#16a34a">Totale Prezzi Netti</td><td class="val" style="color:#16a34a">' + _qFmtEur(t.nettoRowsSellPrice) + '</td></tr>'
           : '') +
         // V2.10.150: "TOTALE" → "TOTALE IMPONIBILE" se IVA inclusa
         // V2.10.153: classe "grand-sm" (font ridotto -30%) quando IVA attiva
@@ -66483,7 +66506,8 @@ async function exportQuotePdf(){
            coda alla descrizione (stessa tecnica del canone, colore diverso). */
         'table.items tr.sconto-row td{background:#F2FAF4 !important}' +
         'table.items tr.sconto-row td:first-child{border-left:3pt solid #16A34A}' +
-        'table.items tr.sconto-row .desc-sconto{display:block;font-weight:700;font-style:italic;color:#15803D;margin-top:3pt}' +
+        /* SV2.10.556: rossa come tutti gli importi in detrazione */
+        'table.items tr.sconto-row .desc-sconto{display:block;font-weight:700;font-style:italic;color:#DC2626;margin-top:3pt}' +
         'table.items tr.canone-row td{background:#FBF8F1 !important}' +
         'table.items tr.canone-row td:first-child{border-left:3pt solid #C99A2E}' +
         'table.items tr.canone-row .desc-canone{display:block;font-weight:700;font-style:italic;color:#8A6A12;margin-top:3pt}' +
