@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.564 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.565 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8952,6 +8952,17 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 }
 /* SV2.10.538 — pillola dell'unita' di misura mostrata al posto del selettore di
    quantita' sulle righe a canone. */
+/* SV2.10.565 — cestino di eliminazione della singola riga */
+.qcart-row-del{
+  display:inline-block; margin-left:6px; padding:1px 3px;
+  border:0; background:transparent; cursor:pointer;
+  font-size:13px; line-height:1;
+  filter:grayscale(1) opacity(.45);
+  transition:filter .15s ease, transform .12s ease;
+  vertical-align:middle;
+}
+.qcart-row-del:hover{ filter:none; transform:scale(1.18); }
+
 /* SV2.10.563 — pillole di intestazione: accese = colonna stampata */
 .qcart-colpill{
   font-family:inherit; font-size:inherit; font-weight:inherit; letter-spacing:inherit;
@@ -11216,7 +11227,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.564</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.565</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11919,7 +11930,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.564 mobile");
+console.info("[bootstrap] script avvio — SV2.10.565 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13415,7 +13426,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.564';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.565';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -59875,6 +59886,12 @@ function renderQuoteCartContent(){
           '<td class="qcart-row-num" style="text-align:center;color:var(--fg3);font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;user-select:none">' +
             '<span class="qcart-drag-handle" title="Trascina per riordinare" style="display:inline-block;cursor:grab;color:var(--fg3);font-size:14px;padding:0 4px;margin-right:4px;line-height:1">⋮⋮</span>' +
             (i + 1) +
+            /* SV2.10.565: cestino di riga, fra il numero e la casella di selezione.
+               Sta DENTRO la cella del numero e non in una colonna propria: una
+               colonna in piu' avrebbe tolto larghezza alle descrizioni, che e' la
+               risorsa scarsa di questa tabella. */
+            '<button type="button" class="qcart-row-del" data-code="' + escapeAttr(it.code) + '" ' +
+              'title="Elimina questa riga dal preventivo">\U0001f5d1\ufe0f</button>' +
           '</td>' +
           // V2.10.263: checkbox di selezione per "Aggiorna preventivo".
           // V2.10.263: checkbox spuntata SOLO se _selectedForUpdate===true (default: vuote).
@@ -60087,6 +60104,12 @@ function renderQuoteCartContent(){
           '<td class="qcart-row-num" style="text-align:center;color:var(--fg3);font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;user-select:none">' +
             '<span class="qcart-drag-handle" title="Trascina per riordinare" style="display:inline-block;cursor:grab;color:var(--fg3);font-size:14px;padding:0 4px;margin-right:4px;line-height:1">⋮⋮</span>' +
             (i + 1) +
+            /* SV2.10.565: cestino di riga, fra il numero e la casella di selezione.
+               Sta DENTRO la cella del numero e non in una colonna propria: una
+               colonna in piu' avrebbe tolto larghezza alle descrizioni, che e' la
+               risorsa scarsa di questa tabella. */
+            '<button type="button" class="qcart-row-del" data-code="' + escapeAttr(it.code) + '" ' +
+              'title="Elimina questa riga dal preventivo">\U0001f5d1\ufe0f</button>' +
           '</td>' +
           // V2.10.263: checkbox di selezione per "Aggiorna preventivo".
           '<td style="text-align:center">' +
@@ -60350,6 +60373,26 @@ function renderQuoteCartContent(){
   /* SV2.10.538 — click sulla pillola dell'unita' di misura: la si puo' cambiare o
      svuotare (svuotandola la riga torna una normale riga a quantita', con la sua
      quantita' precedente ancora intatta). */
+  /* SV2.10.565 — eliminazione della singola riga. La conferma nomina l'articolo:
+     il cestino sta accanto a quello della riga vicina e un click sbagliato e'
+     facile. */
+  container.querySelectorAll('.qcart-row-del').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const code = btn.dataset.code;
+      const item = window._QUOTE_STATE.items.find(x => x && x.code === code);
+      if(!item) return;
+      const etichetta = String(item.nameShort || item.name || item.code || 'questa riga').slice(0, 60);
+      if(!confirm('Eliminare dal preventivo:\n\n' + etichetta + '\n\nL\u0027operazione non si annulla.')) return;
+      window._QUOTE_STATE.items = window._QUOTE_STATE.items.filter(x => x !== item);
+      try { saveQuoteState(); } catch(_){}
+      if(typeof _qcRefreshAfterSelection === 'function') _qcRefreshAfterSelection();
+      else renderQuoteCartContent();
+      if(typeof renderQuoteFloatingButton === 'function'){ try { renderQuoteFloatingButton(); } catch(_){} }
+      if(typeof toast === 'function') toast('Riga eliminata', 'ok', 2200);
+    });
+  });
+
   // SV2.10.563: pillole di colonna nell'intestazione
   container.querySelectorAll('.qcart-colpill').forEach(btn => {
     btn.addEventListener('click', () => {
