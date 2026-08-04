@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.562 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.563 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8952,6 +8952,19 @@ body.quote-mode .card-img .quote-trigger{display:flex}
 }
 /* SV2.10.538 — pillola dell'unita' di misura mostrata al posto del selettore di
    quantita' sulle righe a canone. */
+/* SV2.10.563 — pillole di intestazione: accese = colonna stampata */
+.qcart-colpill{
+  font-family:inherit; font-size:inherit; font-weight:inherit; letter-spacing:inherit;
+  text-transform:inherit; color:inherit;
+  padding:3px 9px; border-radius:999px; cursor:pointer;
+  border:1px solid transparent; background:transparent;
+  white-space:nowrap; line-height:1.25;
+  transition:background .12s ease, border-color .12s ease, opacity .12s ease;
+}
+.qcart-colpill.is-on{ background:rgba(1,120,212,0.14); border-color:rgba(1,120,212,0.45); color:#0178d4; }
+.qcart-colpill:not(.is-on){ opacity:.45; text-decoration:line-through; border-color:var(--border); }
+.qcart-colpill:hover{ border-color:#0178d4; }
+
 /* SV2.10.552 — colorazione delle righe speciali del carrello */
 .quote-cart-tbl tbody tr.qcart-row-sconto > td{ background:rgba(22,163,74,0.09) !important; }
 .quote-cart-tbl tbody tr.qcart-row-sconto:hover > td{ background:rgba(22,163,74,0.16) !important; }
@@ -11190,7 +11203,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.562</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.563</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11893,7 +11906,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.562 mobile");
+console.info("[bootstrap] script avvio — SV2.10.563 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13389,7 +13402,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.562';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.563';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -59565,6 +59578,38 @@ function _qcWrapRenderForDirtyBadge(){
   };
 }
 
+/* ==========================================================================
+   SV2.10.563 — INTESTAZIONI DI COLONNA COME PILLOLE DI STAMPA
+   ==========================================================================
+   Le intestazioni della tabella del carrello diventano interruttori: la colonna
+   accesa finisce in stampa, quella spenta no. Le impostazioni di stampa vivono
+   gia' in `_QUOTE_STATE.settings.printClient/printAnalysis`, che sono salvate
+   INSIEME AL PREVENTIVO — quindi ogni preventivo si porta dietro le sue colonne
+   senza aggiungere nulla al formato del file.
+   Restano configurabili solo dalla finestra "Impostazioni di stampa" le voci che
+   in tabella non hanno una colonna propria (descrizione breve/estesa, totali
+   generali, riquadro canoni). */
+function _qcColPill(label, flag){
+  const mode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  const ps = getPrintSettings(mode);
+  const on = ps[flag] !== false;
+  const tip = on
+    ? 'Colonna INCLUSA nella stampa di questo preventivo \u2014 clicca per escluderla'
+    : 'Colonna ESCLUSA dalla stampa di questo preventivo \u2014 clicca per includerla';
+  return '<button type="button" class="qcart-colpill' + (on ? ' is-on' : '') + '" data-flag="' +
+    escapeAttr(flag) + '" title="' + escapeAttr(tip) + '">' + label + '</button>';
+}
+
+function _qcToggleColPill(flag){
+  const mode = (window._QUOTE_STATE.settings && window._QUOTE_STATE.settings.mode === 'client') ? 'client' : 'analysis';
+  const cur = getPrintSettings(mode);
+  const next = Object.assign({}, cur);
+  next[flag] = (cur[flag] === false);
+  if(mode === 'client') window._QUOTE_STATE.settings.printClient = next;
+  else window._QUOTE_STATE.settings.printAnalysis = next;
+  try { saveQuoteState(); } catch(_){}
+}
+
 function renderQuoteCartContent(){
   const container = document.getElementById('quoteCartContent');
   if(!container) return;
@@ -59938,15 +59983,15 @@ function renderQuoteCartContent(){
                 'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0" ' +
                 'title="Seleziona / deseleziona tutte le righe">' +
             '</th>' +
-            '<th>Foto</th>' +  // V2.7.9: rinominato (era Img)
-            '<th>Codice</th>' +
-            '<th class="qcart-marca-cell">Marca</th>' +
+            '<th>' + _qcColPill('Foto', 'showImage') + '</th>' +   // SV2.10.563
+            '<th>' + _qcColPill('Codice', 'showCode') + '</th>' +   // SV2.10.563
+            '<th class="qcart-marca-cell">' + _qcColPill('Marca', 'showBrand') + '</th>' +   // SV2.10.563
             '<th class="qcart-desc-cell">Descrizione</th>' +
-            '<th style="text-align:center">Q.tà</th>' +  // V2.7.4: centrato sopra il box quantità
-            '<th class="num">Listino</th>' +
-            '<th class="num" style="text-align:center">Sconto</th>' +  // V2.7.4: centrato sopra il box sconto
-            '<th class="num">Prezzo</th>' +  // V2.7.9: rinominato (era Vendita)
-            '<th class="num">Tot. Prezzo</th>' +  // V2.7.9: rinominato (era Tot. Vendita)
+            '<th style="text-align:center">' + _qcColPill('Q.t\u00e0', 'showQty') + '</th>' +   // SV2.10.563
+            '<th class="num">' + _qcColPill('Listino', 'showListino') + '</th>' +   // SV2.10.563
+            '<th class="num" style="text-align:center">' + _qcColPill('Sconto', 'showSconto') + '</th>' +   // SV2.10.563
+            '<th class="num">' + _qcColPill('Prezzo', 'showPrezzo') + '</th>' +   // SV2.10.563
+            '<th class="num">' + _qcColPill('Tot. Prezzo', 'showTotRiga') + '</th>' +   // SV2.10.563
           '</tr>' +
         '</thead>' +
         '<tbody>' + tbody + '</tbody>' +
@@ -60205,15 +60250,15 @@ function renderQuoteCartContent(){
                 'style="width:16px;height:16px;cursor:pointer;accent-color:#06b6d4;margin:0" ' +
                 'title="Seleziona / deseleziona tutte le righe">' +
             '</th>' +
-            '<th>Img</th>' +
-            '<th>Codice</th>' +
-            '<th class="qcart-marca-cell">Marca</th>' +
+            '<th>' + _qcColPill('Img', 'showImage') + '</th>' +   // SV2.10.563
+            '<th>' + _qcColPill('Codice', 'showCode') + '</th>' +   // SV2.10.563
+            '<th class="qcart-marca-cell">' + _qcColPill('Marca', 'showBrand') + '</th>' +   // SV2.10.563
             '<th class="qcart-desc-cell">Descrizione</th>' +
-            '<th style="text-align:center">Q.tà</th>' +  // V2.7.4: centrato sopra il box quantità
-            '<th class="num">Listino</th>' +
-            '<th class="num">Sconto ACQ</th>' +
-            '<th class="num">Netto ACQ</th>' +  // V2.7.8: rinominato (era Netto)
-            '<th class="num" style="text-align:center">Sc. Cliente</th>' +  // V2.5.9+V2.7.4: centrato sopra il box sconto
+            '<th style="text-align:center">' + _qcColPill('Q.t\u00e0', 'showQty') + '</th>' +   // SV2.10.563
+            '<th class="num">' + _qcColPill('Listino', 'showListino') + '</th>' +   // SV2.10.563
+            '<th class="num">' + _qcColPill('Sconto ACQ', 'showSconto') + '</th>' +   // SV2.10.563
+            '<th class="num">' + _qcColPill('Netto ACQ', 'showNetto') + '</th>' +   // SV2.10.563
+            '<th class="num" style="text-align:center">' + _qcColPill('Sc. Cliente', 'showScCliente') + '</th>' +   // SV2.10.563
             '<th class="num">Prezzo</th>' +  // V2.7.8: rinominato (era Vendita)
             '<th class="num">Margine</th>' +      // V2.5.9: % di guadagno sulla vendita
             '<th class="num">Ricarico</th>' +     // SV2.10.480: % di guadagno sul costo
@@ -60290,6 +60335,15 @@ function renderQuoteCartContent(){
   /* SV2.10.538 — click sulla pillola dell'unita' di misura: la si puo' cambiare o
      svuotare (svuotandola la riga torna una normale riga a quantita', con la sua
      quantita' precedente ancora intatta). */
+  // SV2.10.563: pillole di colonna nell'intestazione
+  container.querySelectorAll('.qcart-colpill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _qcToggleColPill(btn.dataset.flag);
+      if(typeof _qcRefreshAfterSelection === 'function') _qcRefreshAfterSelection();
+      else renderQuoteCartContent();
+    });
+  });
+
   container.querySelectorAll('.qcart-uom-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const item = window._QUOTE_STATE.items.find(x => x.code === chip.dataset.code);
