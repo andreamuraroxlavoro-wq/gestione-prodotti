@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.574 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.575 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -4491,6 +4491,22 @@ body.theme-light .tb-dropdown.export-dropdown .tb-dropdown-menu .tb-dropdown-ite
   transition:background .12s, border-color .12s, color .12s;
 }
 .disc-badge-wrap.badge-on{ background:#3B82F6; border-color:#3B82F6; color:#fff; }
+/* SV2.10.575 — archivio immagini */
+.imglib-bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.imglib-bar #imgLibSearch{ flex:1; min-width:180px; padding:8px 11px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--fg); font-family:inherit; font-size:13px; }
+.imglib-count{ font-size:12px; color:var(--fg3); white-space:nowrap; }
+.imglib-drop{ border:2px dashed var(--border2); border-radius:10px; padding:14px; text-align:center; font-size:12.5px; color:var(--fg3); margin-bottom:14px; transition:border-color .15s ease, background .15s ease; }
+.imglib-drop.is-over{ border-color:#0178d4; background:rgba(1,120,212,0.08); color:#0178d4; }
+.imglib-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; max-height:min(58vh,520px); overflow-y:auto; }
+.imglib-card{ border:1px solid var(--border2); border-radius:10px; padding:9px; background:var(--bg2); }
+.imglib-thumb{ height:110px; display:flex; align-items:center; justify-content:center; background:var(--bg3); border-radius:7px; overflow:hidden; }
+.imglib-thumb img{ max-width:100%; max-height:100%; object-fit:contain; }
+.imglib-name{ font-size:12.5px; font-weight:700; color:var(--fg); margin-top:7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.imglib-meta{ font-size:11px; color:var(--fg3); margin-top:2px; }
+.imglib-actions{ display:flex; gap:6px; margin-top:8px; }
+.imglib-actions .btn{ flex:1; font-size:11px; padding:5px 6px; }
+.imglib-empty{ grid-column:1/-1; padding:34px 20px; text-align:center; font-size:13px; line-height:1.7; color:var(--fg3); }
+
 /* SV2.10.572 — il gruppo del carrello si tinge come il pulsante che contiene:
    verde in Vendita, rosso in Acquisto, cosi' la freccia non resta orfana. */
 .pricemode-wrap.pm-wrap-sell{ background:#16a34a; border-color:#16a34a; color:#fff; }
@@ -11267,7 +11283,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.574</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.575</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11859,6 +11875,11 @@ body.theme-light .dlg-input{background:var(--bg3)}
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>
             Backup
           </button>
+          <!-- SV2.10.575: archivio delle immagini riutilizzabili -->
+          <button class="tb-dropdown-item" onclick="openImageLibraryDialog(); closeAllTopbarDropdowns()" role="menuitem" title="Archivio immagini da riutilizzare sugli articoli personali">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Immagini
+          </button>
           <button class="tb-dropdown-item" onclick="openStatsDashboard(); closeAllTopbarDropdowns()" role="menuitem" title="Dashboard statistiche e analisi del catalogo">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
             Statistiche
@@ -11979,7 +12000,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.574 mobile");
+console.info("[bootstrap] script avvio — SV2.10.575 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13475,7 +13496,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.574';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.575';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14180,6 +14201,8 @@ function openPersonalProductEditor(opts){
           // Azioni: upload + URL esterno
           '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">' +
             '<button type="button" class="btn primary" onclick="document.getElementById(\'ppImgFileInput\').click()" style="display:inline-flex;align-items:center;gap:6px">📁 Carica da PC</button>' +
+            // SV2.10.575: pesca dall'archivio invece di ricaricare lo stesso file
+            '<button type="button" class="btn" onclick="ppPickFromImageLibrary()" style="display:inline-flex;align-items:center;gap:6px">\ud83d\uddbc\ufe0f Dall\u0027archivio</button>' +
             '<span style="color:var(--fg3);font-size:11px">oppure URL esterno:</span>' +
             '<input type="text" id="ppImgUrlInput" placeholder="https://..." style="flex:1;min-width:200px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:12px" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addPersonalImageFromUrl();}">' +
             '<button type="button" class="btn ghost" onclick="addPersonalImageFromUrl()" style="display:inline-flex;align-items:center;gap:4px">➕ Aggiungi URL</button>' +
@@ -14423,6 +14446,181 @@ function _ppSetImageList(list){
 
 /* Upload da PC: comprime e aggiunge come ULTIMA immagine.
    Se e' la prima, diventa automaticamente la copertina. */
+/* ==========================================================================
+   SV2.10.575 — LIBRERIA IMMAGINI
+   ==========================================================================
+   Archivio di immagini riutilizzabili, da richiamare quando si crea un articolo
+   personale. Le immagini vivono nello store `meta` di IndexedDB sotto la chiave
+   `imageLibrary`: NON in localStorage, che ha pochi MB e verrebbe saturato da
+   una manciata di foto, e non in un object store nuovo, che avrebbe richiesto
+   un aumento di versione del database (con relativo rischio di migrazione su
+   installazioni gia' esistenti).
+   Ogni voce: { id, name, dataUrl, w, h, kb, addedAt }. Le immagini sono gia'
+   compresse da `_compressImageToDataUrl`, lo stesso percorso usato dal caricamento
+   sulla scheda prodotto: stessa qualita', stesso peso. */
+let IMG_LIB = [];
+
+async function imgLibLoad(){
+  try {
+    const v = await idbGet('meta', 'imageLibrary');
+    IMG_LIB = Array.isArray(v) ? v : [];
+  } catch(_){ IMG_LIB = []; }
+  return IMG_LIB;
+}
+async function imgLibSave(){
+  try { await idbSet('meta', 'imageLibrary', IMG_LIB); } catch(e){
+    console.warn('[imglib] salvataggio fallito', e);
+    if(typeof toast === 'function') toast('Non sono riuscito a salvare la libreria immagini', 'err');
+  }
+}
+function imgLibBytes(){
+  return IMG_LIB.reduce((n, x) => n + (x && x.dataUrl ? x.dataUrl.length : 0), 0);
+}
+function _imgLibFmtSize(bytes){
+  const kb = bytes / 1024;
+  return (kb >= 1024) ? ((kb / 1024).toFixed(1) + ' MB') : (Math.round(kb) + ' KB');
+}
+
+/* Griglia della libreria. `pickMode` cambia solo cosa fa il click su una
+   miniatura: nella libreria apre l'anteprima, nel selettore la sceglie. */
+function _imgLibGridHtml(filtro, pickMode){
+  const q = String(filtro || '').trim().toLowerCase();
+  const list = IMG_LIB.filter(x => !q || String(x.name || '').toLowerCase().indexOf(q) >= 0);
+  if(!IMG_LIB.length){
+    return '<div class="imglib-empty">Nessuna immagine in archivio.<br>' +
+      'Caricane una col pulsante qui sopra: la ritroverai ogni volta che crei un articolo personale.</div>';
+  }
+  if(!list.length) return '<div class="imglib-empty">Nessuna immagine corrisponde alla ricerca.</div>';
+  return list.map(x =>
+    '<div class="imglib-card" data-id="' + escapeAttr(x.id) + '">' +
+      '<div class="imglib-thumb"><img src="' + escapeAttr(x.dataUrl) + '" alt="' + escapeAttr(x.name || '') + '" loading="lazy"></div>' +
+      '<div class="imglib-name" title="' + escapeAttr(x.name || '') + '">' + escapeHtml(x.name || 'senza nome') + '</div>' +
+      '<div class="imglib-meta">' + (x.w && x.h ? (x.w + '\u00d7' + x.h + ' \u00b7 ') : '') + (x.kb ? (x.kb + ' KB') : '') + '</div>' +
+      '<div class="imglib-actions">' +
+        (pickMode
+          ? '<button type="button" class="btn small primary imglib-pick" data-id="' + escapeAttr(x.id) + '">Usa</button>'
+          : '<button type="button" class="btn small imglib-ren" data-id="' + escapeAttr(x.id) + '">Rinomina</button>' +
+            '<button type="button" class="btn small imglib-del" data-id="' + escapeAttr(x.id) + '">Elimina</button>') +
+      '</div>' +
+    '</div>').join('');
+}
+
+/* Carica uno o piu' file nella libreria, riusando la compressione della scheda
+   prodotto. Ritorna il numero di immagini effettivamente aggiunte. */
+async function imgLibAddFiles(files){
+  const validi = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+  const MAX = 2 * 1024 * 1024;
+  let n = 0, scartati = 0;
+  for(const f of Array.from(files || [])){
+    if(validi.indexOf(f.type) < 0 || f.size > MAX){ scartati++; continue; }
+    try {
+      const res = await _compressImageToDataUrl(f);
+      IMG_LIB.push({
+        id: 'img_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7),
+        name: String(f.name || '').replace(/\.[^.]+$/, '').slice(0, 60) || 'immagine',
+        dataUrl: res.dataUrl, w: res.w, h: res.h, kb: res.compKB, addedAt: Date.now(),
+      });
+      n++;
+    } catch(e){ scartati++; }
+  }
+  if(n) await imgLibSave();
+  if(scartati && typeof toast === 'function'){
+    toast(scartati + (scartati === 1 ? ' file scartato' : ' file scartati') + ' (formato non valido o oltre 2 MB)', 'warn', 3500);
+  }
+  return n;
+}
+
+/* Finestra della libreria (menu Impostazioni → Immagini) e, con pickMode,
+   selettore richiamato dall'editor dei prodotti personali. */
+async function openImageLibraryDialog(pickMode, onPick){
+  const ex = document.getElementById('imgLibModal');
+  if(ex) ex.remove();
+  await imgLibLoad();
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'imgLibModal';
+  bg.style.zIndex = pickMode ? '560' : '500';
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+  bg.innerHTML =
+    '<div class="modal" style="max-width:1080px;width:96vw">' +
+      '<div class="modal-head"><h3>\ud83d\uddbc\ufe0f ' + (pickMode ? 'Scegli un\u0027immagine dall\u0027archivio' : 'Archivio immagini') + '</h3></div>' +
+      '<div class="modal-body">' +
+        '<div class="imglib-bar">' +
+          '<button type="button" class="btn primary" id="imgLibUploadBtn">\ud83d\udcc1 Carica immagini</button>' +
+          '<input type="file" id="imgLibFile" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none">' +
+          '<input type="text" id="imgLibSearch" placeholder="Cerca per nome\u2026" autocomplete="off">' +
+          '<span class="imglib-count" id="imgLibCount"></span>' +
+        '</div>' +
+        '<div class="imglib-drop" id="imgLibDrop">Trascina qui le immagini da archiviare</div>' +
+        '<div class="imglib-grid" id="imgLibGrid"></div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="imgLibClose" type="button">' + (pickMode ? 'Annulla' : 'Chiudi') + '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(bg);
+
+  const grid = document.getElementById('imgLibGrid');
+  const cerca = document.getElementById('imgLibSearch');
+  const disegna = () => {
+    grid.innerHTML = _imgLibGridHtml(cerca.value, pickMode);
+    document.getElementById('imgLibCount').textContent =
+      IMG_LIB.length + (IMG_LIB.length === 1 ? ' immagine' : ' immagini') + ' \u00b7 ' + _imgLibFmtSize(imgLibBytes());
+    grid.querySelectorAll('.imglib-pick').forEach(b => b.addEventListener('click', () => {
+      const it = IMG_LIB.find(x => x.id === b.dataset.id);
+      if(it && typeof onPick === 'function') onPick(it);
+      bg.remove();
+    }));
+    grid.querySelectorAll('.imglib-del').forEach(b => b.addEventListener('click', async () => {
+      const it = IMG_LIB.find(x => x.id === b.dataset.id);
+      if(!it) return;
+      if(!confirm('Eliminare dall\u0027archivio l\u0027immagine \u00ab' + (it.name || 'senza nome') + '\u00bb?\n\nGli articoli che la usano gia\u0027 NON vengono toccati: la copia e\u0027 salvata dentro l\u0027articolo.')) return;
+      IMG_LIB = IMG_LIB.filter(x => x !== it);
+      await imgLibSave();
+      disegna();
+    }));
+    grid.querySelectorAll('.imglib-ren').forEach(b => b.addEventListener('click', async () => {
+      const it = IMG_LIB.find(x => x.id === b.dataset.id);
+      if(!it) return;
+      const v = prompt('Nome dell\u0027immagine:', it.name || '');
+      if(v === null) return;
+      it.name = String(v).trim().slice(0, 60);
+      await imgLibSave();
+      disegna();
+    }));
+  };
+  disegna();
+
+  const carica = async (files) => {
+    const n = await imgLibAddFiles(files);
+    disegna();
+    if(n && typeof toast === 'function') toast(n + (n === 1 ? ' immagine archiviata' : ' immagini archiviate'), 'ok');
+  };
+  document.getElementById('imgLibUploadBtn').addEventListener('click', () => document.getElementById('imgLibFile').click());
+  document.getElementById('imgLibFile').addEventListener('change', function(){ carica(this.files); this.value = ''; });
+  cerca.addEventListener('input', disegna);
+  document.getElementById('imgLibClose').addEventListener('click', () => bg.remove());
+
+  // trascinamento
+  const drop = document.getElementById('imgLibDrop');
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('is-over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('is-over'); }));
+  drop.addEventListener('drop', e => { if(e.dataTransfer && e.dataTransfer.files) carica(e.dataTransfer.files); });
+}
+
+/* Chiamata dall'editor dei prodotti personali: sceglie un'immagine e la
+   aggiunge alla galleria dell'articolo. */
+function ppPickFromImageLibrary(){
+  openImageLibraryDialog(true, (it) => {
+    const list = _ppGetImageList();
+    list.push(it.dataUrl);
+    _ppSetImageList(list);
+    renderPersonalImageGallery();
+    if(typeof toast === 'function') toast('Immagine \u00ab' + (it.name || 'archivio') + '\u00bb aggiunta all\u0027articolo', 'ok');
+  });
+}
+
 function handlePersonalImageUpload(inputEl){
   const file = inputEl.files && inputEl.files[0];
   if(!file) return;
