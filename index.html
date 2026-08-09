@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.575 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.577 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -4492,12 +4492,15 @@ body.theme-light .tb-dropdown.export-dropdown .tb-dropdown-menu .tb-dropdown-ite
 }
 .disc-badge-wrap.badge-on{ background:#3B82F6; border-color:#3B82F6; color:#fff; }
 /* SV2.10.575 — archivio immagini */
+/* Specificita' doppia: la regola generica .modal-body e' dichiarata piu' avanti
+   nel foglio e a parita' di peso vincerebbe lei. */
+.modal-body.imglib-body{ display:block; }
 .imglib-bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
 .imglib-bar #imgLibSearch{ flex:1; min-width:180px; padding:8px 11px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--fg); font-family:inherit; font-size:13px; }
 .imglib-count{ font-size:12px; color:var(--fg3); white-space:nowrap; }
 .imglib-drop{ border:2px dashed var(--border2); border-radius:10px; padding:14px; text-align:center; font-size:12.5px; color:var(--fg3); margin-bottom:14px; transition:border-color .15s ease, background .15s ease; }
 .imglib-drop.is-over{ border-color:#0178d4; background:rgba(1,120,212,0.08); color:#0178d4; }
-.imglib-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; max-height:min(58vh,520px); overflow-y:auto; }
+.imglib-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(175px,1fr)); gap:14px; max-height:min(58vh,520px); overflow-y:auto; padding-right:4px; }
 .imglib-card{ border:1px solid var(--border2); border-radius:10px; padding:9px; background:var(--bg2); }
 .imglib-thumb{ height:110px; display:flex; align-items:center; justify-content:center; background:var(--bg3); border-radius:7px; overflow:hidden; }
 .imglib-thumb img{ max-width:100%; max-height:100%; object-fit:contain; }
@@ -11283,7 +11286,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.575</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.577</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12000,7 +12003,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.575 mobile");
+console.info("[bootstrap] script avvio — SV2.10.577 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13496,7 +13499,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.575';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.577';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14468,6 +14471,8 @@ async function imgLibLoad(){
   return IMG_LIB;
 }
 async function imgLibSave(){
+  // SV2.10.576: segnala all'archivio locale che immagini.json va riscritto
+  try { if(typeof alvMark === 'function') alvMark('immagini'); } catch(_){}
   try { await idbSet('meta', 'imageLibrary', IMG_LIB); } catch(e){
     console.warn('[imglib] salvataggio fallito', e);
     if(typeof toast === 'function') toast('Non sono riuscito a salvare la libreria immagini', 'err');
@@ -14545,7 +14550,11 @@ async function openImageLibraryDialog(pickMode, onPick){
   bg.innerHTML =
     '<div class="modal" style="max-width:1080px;width:96vw">' +
       '<div class="modal-head"><h3>\ud83d\uddbc\ufe0f ' + (pickMode ? 'Scegli un\u0027immagine dall\u0027archivio' : 'Archivio immagini') + '</h3></div>' +
-      '<div class="modal-body">' +
+      /* SV2.10.577: `.modal-body` e' una GRIGLIA a due colonne (340px + resto),
+         pensata per l'editor dei prodotti: senza sovrascriverla i tre blocchi
+         finivano dentro le celle e la griglia delle immagini restava larga
+         340px. Qui serve una colonna sola a piena larghezza. */
+      '<div class="modal-body imglib-body">' +
         '<div class="imglib-bar">' +
           '<button type="button" class="btn primary" id="imgLibUploadBtn">\ud83d\udcc1 Carica immagini</button>' +
           '<input type="file" id="imgLibFile" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none">' +
@@ -24158,6 +24167,15 @@ function bkBuildPayload(includeData, includeSettings){
       payload.stats.totalServices = window._SERVICES_STATE.services.length;
     }
 
+    /* 3-bis. SV2.10.576 — ARCHIVIO IMMAGINI. Entra nel backup e nell'archivio
+       locale, NON nel Drive Sync: le immagini pesano e si sommerebbero ai 24 MB
+       del catalogo, mentre su file locale lo spazio non e' un problema. Cosi'
+       l'archivio sopravvive a una reinstallazione, che era il vero rischio. */
+    if(Array.isArray(IMG_LIB) && IMG_LIB.length){
+      payload.imageLibrary = { version: 1, images: IMG_LIB };
+      payload.stats.totalImages = IMG_LIB.length;
+    }
+
     // 4. Sconti aggiuntivi a cascata (Sc.1...Sc.6 per nodo marca/macrocat/cat)
     try {
       const cascadeRaw = localStorage.getItem('discountTreeAdjustments_v1');
@@ -24642,9 +24660,14 @@ const ALV_FILES = {
   preventivi:   'preventivi.json',
   servizi:      'servizi.json',
   impostazioni: 'impostazioni.json',
+  // SV2.10.576: archivio immagini. Volutamente ESCLUSO dal Drive Sync (le
+  // immagini pesano e si sommerebbero ai 24 MB del catalogo): qui e nel backup
+  // lo spazio non e' un problema, e sono i due percorsi che servono per non
+  // perdere l'archivio in caso di reinstallazione.
+  immagini:     'immagini.json',
 };
 const ALV_MANIFEST = '_manifest.json';
-const ALV_HOT = ['personali','edits','clienti','preventivi','servizi','impostazioni'];
+const ALV_HOT = ['personali','edits','clienti','preventivi','servizi','impostazioni','immagini'];
 
 const ALV_STATE = {
   dirHandle: null,
@@ -24810,6 +24833,9 @@ function _alvBuild(kind){
       };
     case 'servizi':
       return { v:1, at, services: (window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services)) ? window._SERVICES_STATE.services : [] };
+    case 'immagini':
+      // SV2.10.576
+      return { v:1, at, images: Array.isArray(IMG_LIB) ? IMG_LIB : [] };
     case 'impostazioni':
       return { v:1, at,
         settings: _bkBuildSettingsPayload(),
@@ -25294,6 +25320,19 @@ async function bkRestoreFromPayload(payload, opts){
       }
     }
   }
+  /* SV2.10.576 — ARCHIVIO IMMAGINI: ripristinato SEMPRE, fuori dal ramo dei
+     dati. Non e' un dato di catalogo e non e' un'impostazione: ripristinare i
+     prodotti senza le immagini archiviate, o viceversa, non ha senso. */
+  if(payload.imageLibrary && Array.isArray(payload.imageLibrary.images)){
+    try {
+      IMG_LIB = payload.imageLibrary.images;
+      await imgLibSave();
+      stats.restored.push(IMG_LIB.length + (IMG_LIB.length === 1 ? ' immagine' : ' immagini'));
+    } catch(e){
+      console.error('[restore] errore ripristino archivio immagini:', e);
+    }
+  }
+
   if(opts.settings && payload.settings){
     Object.entries(payload.settings).forEach(([k, v]) => {
       if(typeof v === 'string' && BACKUP_SETTINGS_KEYS.includes(k)){
@@ -70287,6 +70326,9 @@ async function confirmDeleteSelected(){
 
 async function init(){
   await openDB();
+  // SV2.10.576: l'archivio immagini in memoria, cosi' backup e archivio locale
+  // lo trovano gia' pronto senza aprire la finestra
+  try { await imgLibLoad(); } catch(_){}
 
   // V2.10.90: sync il badge versione nella sidebar dalla costante APP_VERSION
   // Prima la label era hardcoded nell'HTML statico (es. "Ver. 2.10.29") e si
