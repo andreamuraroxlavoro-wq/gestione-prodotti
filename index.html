@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.578 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.579 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11286,7 +11286,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.578</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.579</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12003,7 +12003,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.578 mobile");
+console.info("[bootstrap] script avvio — SV2.10.579 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13499,7 +13499,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.578';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.579';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -24158,26 +24158,13 @@ function bkBuildPayload(includeData, includeSettings){
       payload.stats.totalQuotes = window._QUOTES_ARCHIVE.quotes.length;
     }
 
-    // 3. Archivio servizi
-    if(window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services)){
-      payload.servicesArchive = {
-        version: 1,
-        services: window._SERVICES_STATE.services,
-      };
-      payload.stats.totalServices = window._SERVICES_STATE.services.length;
-    }
+    // 3. Archivio servizi — SV2.10.579: ora lo monta il registro (_archiviBuildBackup)
 
     /* 3-bis. SV2.10.576 — ARCHIVIO IMMAGINI. Entra nel backup e nell'archivio
        locale, NON nel Drive Sync: le immagini pesano e si sommerebbero ai 24 MB
        del catalogo, mentre su file locale lo spazio non e' un problema. Cosi'
        l'archivio sopravvive a una reinstallazione, che era il vero rischio. */
-    _archiviList().forEach(a => {
-      if(a.backupWith !== 'data' || !a.backupKey) return;
-      const sec = a.bkBuild();
-      if(!sec) return;
-      payload[a.backupKey] = sec;
-      if(a.statsKey) payload.stats[a.statsKey] = a.read().length;
-    });
+    _archiviBuildBackup(payload, 'data');
 
     // 4. Sconti aggiuntivi a cascata (Sc.1...Sc.6 per nodo marca/macrocat/cat)
     try {
@@ -24693,6 +24680,41 @@ const ARCHIVI = {
     bkBuild(){ const a = this.read(); return a.length ? { version:1, images:a } : null; },
     bkExtract(s){ return (s && Array.isArray(s.images)) ? s.images : null; },
   },
+
+  /* SV2.10.579 — ARCHIVIO SERVIZI. Secondo migrante: come le immagini e' un
+     array piatto, ma a differenza loro VA SUL DRIVE, con un file dedicato
+     (DRIVE_TARGETED_TARGETS contiene 'services'), quindi mette alla prova anche
+     la terza catena. Il Drive non viene toccato: il registro si limita a
+     dichiarare la destinazione, e _archiviSelfTest() verifica che la
+     dichiarazione corrisponda alla realta'. `restoreWith:'data'` conserva il
+     comportamento della 578: i servizi tornano solo coi backup che includono i
+     dati, come e' sempre stato. */
+  servizi: {
+    etichetta:   'Archivio servizi',
+    file:        'servizi.json',
+    hot:         true,
+    drive:       true,
+    driveTarget: 'services',
+    backupKey:   'servicesArchive',
+    backupWith:  'data',
+    restoreWith: 'data',
+    statsKey:    'totalServices',
+    read(){ return (window._SERVICES_STATE && Array.isArray(window._SERVICES_STATE.services)) ? window._SERVICES_STATE.services : []; },
+    async write(arr){
+      if(!window._SERVICES_STATE) window._SERVICES_STATE = { services:[], loaded:true };
+      window._SERVICES_STATE.services = Array.isArray(arr) ? arr : [];
+      window._SERVICES_STATE.loaded = true;
+      if(typeof SERVICES_KEY !== 'undefined'){
+        try { await idbSet('meta', SERVICES_KEY, { services: window._SERVICES_STATE.services, version:1 }); }
+        catch(e){ console.error('[archivi] salvataggio servizi', e); }
+      }
+    },
+    etichettaConta(n){ return n + (n === 1 ? ' servizio' : ' servizi'); },
+    alvBuild(){ return { v:1, at:new Date().toISOString(), services:this.read() }; },
+    alvExtract(o){ return (o && Array.isArray(o.services)) ? o.services : null; },
+    bkBuild(){ const a = this.read(); return a.length ? { version:1, services:a } : null; },
+    bkExtract(s){ return (s && Array.isArray(s.services)) ? s.services : null; },
+  },
 };
 window.ARCHIVI = ARCHIVI;
 function _archiviList(){ return Object.keys(ARCHIVI).map(k => Object.assign({ key:k }, ARCHIVI[k])); }
@@ -24700,6 +24722,34 @@ function _archiviList(){ return Object.keys(ARCHIVI).map(k => Object.assign({ ke
 /* Confronto fra il percorso nuovo (registro) e quello vecchio (case legacy di
    _alvBuild): il campo `at` e' un orario e viene ignorato. Restituisce l'elenco
    delle differenze — vuoto = i due percorsi producono lo stesso file. */
+/* Costruzione delle sezioni di backup a partire dal registro. `quando` vale
+   'data' o 'always' e corrisponde al campo backupWith. */
+function _archiviBuildBackup(payload, quando){
+  _archiviList().forEach(a => {
+    if(a.backupWith !== quando || !a.backupKey) return;
+    const sec = a.bkBuild();
+    if(!sec) return;
+    payload[a.backupKey] = sec;
+    if(a.statsKey && payload.stats) payload.stats[a.statsKey] = a.read().length;
+  });
+}
+
+/* Ripristino dal backup. La sezione ASSENTE non azzera nulla: si lascia quello
+   che c'e' in memoria — e' l'errore piu' insidioso di questo genere di
+   ripristini, e vale per ogni archivio del registro. */
+async function _archiviRestoreBackup(payload, stats, quando){
+  for(const a of _archiviList()){
+    if(a.restoreWith !== quando || !a.backupKey) continue;
+    const val = a.bkExtract(payload[a.backupKey]);
+    if(val == null) continue;
+    try {
+      await a.write(val);
+      const n = a.read().length;
+      if(stats && stats.restored) stats.restored.push(a.etichettaConta ? a.etichettaConta(n) : (n + ' ' + a.key));
+    } catch(e){ console.error('[restore] errore ripristino ' + a.key, e); }
+  }
+}
+
 function _archiviSelfTest(){
   const out = [];
   Object.keys(ARCHIVI).forEach(k => {
@@ -24710,11 +24760,18 @@ function _archiviSelfTest(){
     if(!vecchio){ out.push(k + ': nessun percorso legacy da confrontare'); return; }
     const norm = o => { const c = Object.assign({}, o); delete c.at; return JSON.stringify(c); };
     if(norm(nuovo) !== norm(vecchio)) out.push(k + ': il file prodotto dal registro NON coincide con quello legacy');
-    if(!a.drive && typeof _driveBuildPayload === 'function'){
+    /* Drive, nei due versi: chi e' dichiarato fuori non deve comparire nel
+       master, chi e' dichiarato dentro deve avere un bersaglio reale. */
+    if(!a.drive && typeof _driveBuildFullPayload === 'function'){
       try {
-        const dp = _driveBuildPayload ? _driveBuildPayload() : null;
+        const dp = _driveBuildFullPayload();
         if(dp && a.backupKey && dp[a.backupKey] != null) out.push(k + ': dichiarato fuori dal Drive ma presente nel payload Drive');
       } catch(_){}
+    }
+    if(a.drive && typeof DRIVE_TARGETED_TARGETS !== 'undefined'){
+      if(!a.driveTarget || DRIVE_TARGETED_TARGETS.indexOf(a.driveTarget) === -1){
+        out.push(k + ': dichiarato sul Drive ma senza un bersaglio reale in DRIVE_TARGETED_TARGETS');
+      }
     }
     if(a.file && ALV_FILES[k] !== a.file) out.push(k + ': non iscritto in ALV_FILES');
     if(a.hot && ALV_HOT.indexOf(k) === -1) out.push(k + ': non iscritto in ALV_HOT');
@@ -24729,13 +24786,12 @@ const ALV_FILES = {
   edits:        'edits.json',
   clienti:      'clienti.json',
   preventivi:   'preventivi.json',
-  servizi:      'servizi.json',
   impostazioni: 'impostazioni.json',
   // SV2.10.578: gli archivi dichiarati nel registro (ARCHIVI) si aggiungono
   // qui sotto da soli — vedi il ciclo subito dopo ALV_HOT.
 };
 const ALV_MANIFEST = '_manifest.json';
-const ALV_HOT = ['personali','edits','clienti','preventivi','servizi','impostazioni'];
+const ALV_HOT = ['personali','edits','clienti','preventivi','impostazioni'];
 
 /* SV2.10.578: il registro popola le due liste dell'archivio locale. Dichiarare
    un archivio in ARCHIVI basta perche' venga scritto e riletto: nessuna
@@ -25092,10 +25148,8 @@ async function alvRestoreFromFolder(){
       }
       try { await idbSet('meta', QUOTES_KEY, { quotes: prev.quotes, stati: prev.stati || [], counters: prev.counters || {}, version: 1 }); } catch(_){}
     }
-    if(srv && Array.isArray(srv.services)){
-      if(window._SERVICES_STATE) window._SERVICES_STATE.services = srv.services;
-      try { await idbSet('meta', SERVICES_KEY, { services: srv.services, version: 1 }); } catch(_){}
-    }
+    /* SV2.10.579: i servizi li rilegge il ciclo del registro, piu' sotto —
+       unico scrittore, cosi' non puo' esistere una versione dimenticata. */
     if(imp){
       if(imp.settings && typeof imp.settings === 'object'){
         Object.keys(imp.settings).forEach(k => { try { localStorage.setItem(k, imp.settings[k]); } catch(_){} });
@@ -25373,20 +25427,8 @@ async function bkRestoreFromPayload(payload, opts){
       if(typeof updateTopbarShortcuts === 'function') updateTopbarShortcuts();
     }
 
-    // 3. Archivio servizi
-    if(payload.servicesArchive && Array.isArray(payload.servicesArchive.services)){
-      if(!window._SERVICES_STATE) window._SERVICES_STATE = { services: [], loaded: true };
-      window._SERVICES_STATE.services = payload.servicesArchive.services;
-      window._SERVICES_STATE.loaded = true;
-      if(typeof SERVICES_KEY !== 'undefined'){
-        try {
-          await idbSet('meta', SERVICES_KEY, { services: payload.servicesArchive.services, version: 1 });
-          stats.restored.push(`${payload.servicesArchive.services.length} servizi`);
-        } catch(e){
-          console.error('[restore] errore salvataggio servizi:', e);
-        }
-      }
-    }
+    // 3. Archivio servizi — SV2.10.579: ripristinato dal registro
+    await _archiviRestoreBackup(payload, stats, 'data');
 
     // 4. Sconti aggiuntivi a cascata
     if(payload.cascadeDiscounts && typeof payload.cascadeDiscounts === 'object'){
@@ -25419,18 +25461,7 @@ async function bkRestoreFromPayload(payload, opts){
   /* SV2.10.576 — ARCHIVIO IMMAGINI: ripristinato SEMPRE, fuori dal ramo dei
      dati. Non e' un dato di catalogo e non e' un'impostazione: ripristinare i
      prodotti senza le immagini archiviate, o viceversa, non ha senso. */
-  for(const a of _archiviList()){
-    if(a.restoreWith !== 'always' || !a.backupKey) continue;
-    /* la sezione ASSENTE non azzera nulla: si lascia quello che c'e' in memoria.
-       E' l'errore piu' insidioso di questo genere di ripristini. */
-    const val = a.bkExtract(payload[a.backupKey]);
-    if(val == null) continue;
-    try {
-      await a.write(val);
-      const n = a.read().length;
-      stats.restored.push(a.etichettaConta ? a.etichettaConta(n) : (n + ' ' + a.key));
-    } catch(e){ console.error('[restore] errore ripristino ' + a.key, e); }
-  }
+  await _archiviRestoreBackup(payload, stats, 'always');
 
   if(opts.settings && payload.settings){
     Object.entries(payload.settings).forEach(([k, v]) => {
