@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.579 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.581 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11286,7 +11286,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.579</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.581</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12003,7 +12003,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.579 mobile");
+console.info("[bootstrap] script avvio — SV2.10.581 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13499,7 +13499,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.579';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.581';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -24138,25 +24138,9 @@ function bkBuildPayload(includeData, includeSettings){
     // Backward-compat: vecchi backup (schema v1) non hanno questi campi, restore li
     // gestisce con un check di esistenza prima di applicare.
 
-    // 1. Archivio clienti
-    if(window._CLIENTS_STATE && Array.isArray(window._CLIENTS_STATE.clients)){
-      payload.clients = {
-        version: 1,
-        clients: window._CLIENTS_STATE.clients,
-      };
-      payload.stats.totalClients = window._CLIENTS_STATE.clients.length;
-    }
+    // 1. Archivio clienti — SV2.10.581: ora lo monta il registro
 
-    // 2. Archivio preventivi (con stati custom e contatori)
-    if(window._QUOTES_ARCHIVE && Array.isArray(window._QUOTES_ARCHIVE.quotes)){
-      payload.quotesArchive = {
-        version: 1,
-        quotes:   window._QUOTES_ARCHIVE.quotes,
-        stati:    Array.isArray(window._QUOTES_ARCHIVE.stati)    ? window._QUOTES_ARCHIVE.stati    : [],
-        counters: (window._QUOTES_ARCHIVE.counters && typeof window._QUOTES_ARCHIVE.counters === 'object') ? window._QUOTES_ARCHIVE.counters : {},
-      };
-      payload.stats.totalQuotes = window._QUOTES_ARCHIVE.quotes.length;
-    }
+    // 2. Archivio preventivi — SV2.10.580: ora lo monta il registro
 
     // 3. Archivio servizi — SV2.10.579: ora lo monta il registro (_archiviBuildBackup)
 
@@ -24715,6 +24699,109 @@ const ARCHIVI = {
     bkBuild(){ const a = this.read(); return a.length ? { version:1, services:a } : null; },
     bkExtract(s){ return (s && Array.isArray(s.services)) ? s.services : null; },
   },
+
+  /* SV2.10.580 — ARCHIVIO PREVENTIVI. Terzo migrante, e il primo che NON e' un
+     array piatto: il valore e' l'insieme {quotes, stati, counters}. Per questo
+     il registro guadagna `conta(val)` (quante voci contare quando il valore non
+     e' una lista) e `dopoRipristino()` (qui serve a riallineare le scorciatoie
+     della barra, come faceva il blocco che sostituisce).
+     DIFFERENZA VOLUTA FRA LE DUE CATENE, conservata tale e quale dalla 579:
+     dal BACKUP, se l'elenco degli stati e' vuoto si ripiega su
+     QUOTES_STATI_DEFAULT; dall'ARCHIVIO LOCALE si prende quello che c'e', anche
+     vuoto. Sta tutta dentro bkExtract/alvExtract, che infatti sono separati. */
+  preventivi: {
+    etichetta:   'Archivio preventivi',
+    file:        'preventivi.json',
+    hot:         true,
+    drive:       true,
+    driveTarget: 'quotesArchive',
+    backupKey:   'quotesArchive',
+    backupWith:  'data',
+    restoreWith: 'data',
+    statsKey:    'totalQuotes',
+    read(){
+      const a = window._QUOTES_ARCHIVE || {};
+      return {
+        quotes:   Array.isArray(a.quotes) ? a.quotes : [],
+        stati:    Array.isArray(a.stati)  ? a.stati  : [],
+        counters: (a.counters && typeof a.counters === 'object') ? a.counters : {},
+      };
+    },
+    async write(v){
+      if(!window._QUOTES_ARCHIVE) window._QUOTES_ARCHIVE = { quotes:[], stati:[], counters:{}, loaded:true };
+      window._QUOTES_ARCHIVE.quotes   = Array.isArray(v.quotes) ? v.quotes : [];
+      window._QUOTES_ARCHIVE.stati    = Array.isArray(v.stati)  ? v.stati  : [];
+      window._QUOTES_ARCHIVE.counters = (v.counters && typeof v.counters === 'object') ? v.counters : {};
+      window._QUOTES_ARCHIVE.loaded   = true;
+      if(typeof QUOTES_KEY !== 'undefined'){
+        try {
+          await idbSet('meta', QUOTES_KEY, {
+            quotes:   window._QUOTES_ARCHIVE.quotes,
+            stati:    window._QUOTES_ARCHIVE.stati,
+            counters: window._QUOTES_ARCHIVE.counters,
+            version:  1,
+          });
+        } catch(e){ console.error('[archivi] salvataggio preventivi', e); }
+      }
+    },
+    conta(v){ return (v && Array.isArray(v.quotes)) ? v.quotes.length : 0; },
+    etichettaConta(n){ return n + (n === 1 ? ' preventivo' : ' preventivi'); },
+    dopoRipristino(){ if(typeof updateTopbarShortcuts === 'function') updateTopbarShortcuts(); },
+    alvBuild(){ const v = this.read(); return { v:1, at:new Date().toISOString(), quotes:v.quotes, stati:v.stati, counters:v.counters }; },
+    alvExtract(o){
+      if(!o || !Array.isArray(o.quotes)) return null;
+      return { quotes:o.quotes, stati:o.stati || [], counters:o.counters || {} };
+    },
+    bkBuild(){
+      const v = this.read();
+      if(!window._QUOTES_ARCHIVE || !Array.isArray(window._QUOTES_ARCHIVE.quotes)) return null;
+      return { version:1, quotes:v.quotes, stati:v.stati, counters:v.counters };
+    },
+    bkExtract(sec){
+      if(!sec || !Array.isArray(sec.quotes)) return null;
+      const stati = (Array.isArray(sec.stati) && sec.stati.length > 0)
+        ? sec.stati
+        : (typeof QUOTES_STATI_DEFAULT !== 'undefined' ? QUOTES_STATI_DEFAULT.slice() : []);
+      return { quotes:sec.quotes, stati, counters:(sec.counters && typeof sec.counters === 'object') ? sec.counters : {} };
+    },
+  },
+
+  /* SV2.10.581 — ARCHIVIO CLIENTI. Quarto migrante: array piatto sul Drive
+     (driveTarget 'clients'), migrazione ormai meccanica — nessun campo nuovo
+     nel registro. Restano fuori i tre intrecciati (catalogo/personali/edits):
+     la ricostruzione di DATA rimette i personali nelle posizioni originali,
+     quindi vanno pensati insieme e non uno alla volta. */
+  clienti: {
+    etichetta:   'Archivio clienti',
+    file:        'clienti.json',
+    hot:         true,
+    drive:       true,
+    driveTarget: 'clients',
+    backupKey:   'clients',
+    backupWith:  'data',
+    restoreWith: 'data',
+    statsKey:    'totalClients',
+    read(){ return (window._CLIENTS_STATE && Array.isArray(window._CLIENTS_STATE.clients)) ? window._CLIENTS_STATE.clients : []; },
+    async write(arr){
+      if(!window._CLIENTS_STATE) window._CLIENTS_STATE = { clients:[], loaded:true };
+      window._CLIENTS_STATE.clients = Array.isArray(arr) ? arr : [];
+      window._CLIENTS_STATE.loaded  = true;
+      if(typeof CLIENTS_KEY !== 'undefined'){
+        try { await idbSet('meta', CLIENTS_KEY, { clients: window._CLIENTS_STATE.clients, version:1 }); }
+        catch(e){ console.error('[archivi] salvataggio clienti', e); }
+      }
+    },
+    etichettaConta(n){ return n + (n === 1 ? ' cliente' : ' clienti'); },
+    alvBuild(){ return { v:1, at:new Date().toISOString(), clients:this.read() }; },
+    alvExtract(o){ return (o && Array.isArray(o.clients)) ? o.clients : null; },
+    /* come i preventivi (e diversamente da immagini/servizi) la sezione esce
+       anche con elenco vuoto: era cosi' prima della migrazione. */
+    bkBuild(){
+      if(!window._CLIENTS_STATE || !Array.isArray(window._CLIENTS_STATE.clients)) return null;
+      return { version:1, clients:this.read() };
+    },
+    bkExtract(sec){ return (sec && Array.isArray(sec.clients)) ? sec.clients : null; },
+  },
 };
 window.ARCHIVI = ARCHIVI;
 function _archiviList(){ return Object.keys(ARCHIVI).map(k => Object.assign({ key:k }, ARCHIVI[k])); }
@@ -24722,6 +24809,14 @@ function _archiviList(){ return Object.keys(ARCHIVI).map(k => Object.assign({ ke
 /* Confronto fra il percorso nuovo (registro) e quello vecchio (case legacy di
    _alvBuild): il campo `at` e' un orario e viene ignorato. Restituisce l'elenco
    delle differenze — vuoto = i due percorsi producono lo stesso file. */
+/* Quante voci contiene un archivio. Gli archivi il cui valore non e' una lista
+   (i preventivi sono {quotes,stati,counters}) dichiarano `conta(val)`. */
+function _archiviConta(a){
+  const v = a.read();
+  if(typeof a.conta === 'function') return a.conta(v);
+  return Array.isArray(v) ? v.length : 0;
+}
+
 /* Costruzione delle sezioni di backup a partire dal registro. `quando` vale
    'data' o 'always' e corrisponde al campo backupWith. */
 function _archiviBuildBackup(payload, quando){
@@ -24730,7 +24825,7 @@ function _archiviBuildBackup(payload, quando){
     const sec = a.bkBuild();
     if(!sec) return;
     payload[a.backupKey] = sec;
-    if(a.statsKey && payload.stats) payload.stats[a.statsKey] = a.read().length;
+    if(a.statsKey && payload.stats) payload.stats[a.statsKey] = _archiviConta(a);
   });
 }
 
@@ -24744,8 +24839,9 @@ async function _archiviRestoreBackup(payload, stats, quando){
     if(val == null) continue;
     try {
       await a.write(val);
-      const n = a.read().length;
+      const n = _archiviConta(a);
       if(stats && stats.restored) stats.restored.push(a.etichettaConta ? a.etichettaConta(n) : (n + ' ' + a.key));
+      if(typeof a.dopoRipristino === 'function') a.dopoRipristino();
     } catch(e){ console.error('[restore] errore ripristino ' + a.key, e); }
   }
 }
@@ -24784,14 +24880,12 @@ const ALV_FILES = {
   catalogo:     'catalogo.json',
   personali:    'personali.json',
   edits:        'edits.json',
-  clienti:      'clienti.json',
-  preventivi:   'preventivi.json',
   impostazioni: 'impostazioni.json',
   // SV2.10.578: gli archivi dichiarati nel registro (ARCHIVI) si aggiungono
   // qui sotto da soli — vedi il ciclo subito dopo ALV_HOT.
 };
 const ALV_MANIFEST = '_manifest.json';
-const ALV_HOT = ['personali','edits','clienti','preventivi','impostazioni'];
+const ALV_HOT = ['personali','edits','impostazioni'];
 
 /* SV2.10.578: il registro popola le due liste dell'archivio locale. Dichiarare
    un archivio in ARCHIVI basta perche' venga scritto e riletto: nessuna
@@ -25136,18 +25230,8 @@ async function alvRestoreFromFolder(){
     await idbSet('data', 'main', DATA);
     await idbSet('edits', 'main', EDITS);
 
-    if(cli && Array.isArray(cli.clients)){
-      if(window._CLIENTS_STATE) window._CLIENTS_STATE.clients = cli.clients;
-      try { await idbSet('meta', CLIENTS_KEY, { clients: cli.clients, version: 1 }); } catch(_){}
-    }
-    if(prev && Array.isArray(prev.quotes)){
-      if(window._QUOTES_ARCHIVE){
-        window._QUOTES_ARCHIVE.quotes   = prev.quotes;
-        window._QUOTES_ARCHIVE.stati    = prev.stati || [];
-        window._QUOTES_ARCHIVE.counters = prev.counters || {};
-      }
-      try { await idbSet('meta', QUOTES_KEY, { quotes: prev.quotes, stati: prev.stati || [], counters: prev.counters || {}, version: 1 }); } catch(_){}
-    }
+    /* SV2.10.581: i clienti li rilegge il ciclo del registro, piu' sotto. */
+    /* SV2.10.580: i preventivi li rilegge il ciclo del registro, piu' sotto. */
     /* SV2.10.579: i servizi li rilegge il ciclo del registro, piu' sotto —
        unico scrittore, cosi' non puo' esistere una versione dimenticata. */
     if(imp){
@@ -25170,7 +25254,10 @@ async function alvRestoreFromFolder(){
       try {
         const obj = await _alvReadFile(a.file);
         const val = obj ? a.alvExtract(obj) : null;
-        if(val != null) await a.write(val);
+        if(val != null){
+          await a.write(val);
+          if(typeof a.dopoRipristino === 'function') a.dopoRipristino();
+        }
       } catch(e){ console.warn('[alv] ripristino ' + a.key, e); }
     }
 
@@ -25387,47 +25474,7 @@ async function bkRestoreFromPayload(payload, opts){
     // V2.10.116: ripristino archivi targeted + cascade discounts (schema v2+).
     // Backward-compat: schema v1 non ha questi campi, blocchi semplicemente skippati.
 
-    // 1. Archivio clienti
-    if(payload.clients && Array.isArray(payload.clients.clients)){
-      if(!window._CLIENTS_STATE) window._CLIENTS_STATE = { clients: [], loaded: true };
-      window._CLIENTS_STATE.clients = payload.clients.clients;
-      window._CLIENTS_STATE.loaded = true;
-      if(typeof CLIENTS_KEY !== 'undefined'){
-        try {
-          await idbSet('meta', CLIENTS_KEY, { clients: payload.clients.clients, version: 1 });
-          stats.restored.push(`${payload.clients.clients.length} clienti`);
-        } catch(e){
-          console.error('[restore] errore salvataggio clienti:', e);
-        }
-      }
-    }
-
-    // 2. Archivio preventivi
-    if(payload.quotesArchive && Array.isArray(payload.quotesArchive.quotes)){
-      if(!window._QUOTES_ARCHIVE) window._QUOTES_ARCHIVE = { quotes: [], stati: [], counters: {}, loaded: true };
-      window._QUOTES_ARCHIVE.quotes   = payload.quotesArchive.quotes;
-      window._QUOTES_ARCHIVE.stati    = Array.isArray(payload.quotesArchive.stati) && payload.quotesArchive.stati.length > 0
-        ? payload.quotesArchive.stati
-        : (typeof QUOTES_STATI_DEFAULT !== 'undefined' ? QUOTES_STATI_DEFAULT.slice() : []);
-      window._QUOTES_ARCHIVE.counters = (payload.quotesArchive.counters && typeof payload.quotesArchive.counters === 'object') ? payload.quotesArchive.counters : {};
-      window._QUOTES_ARCHIVE.loaded   = true;
-      if(typeof QUOTES_KEY !== 'undefined'){
-        try {
-          await idbSet('meta', QUOTES_KEY, {
-            quotes:   window._QUOTES_ARCHIVE.quotes,
-            stati:    window._QUOTES_ARCHIVE.stati,
-            counters: window._QUOTES_ARCHIVE.counters,
-            version:  1,
-          });
-          stats.restored.push(`${payload.quotesArchive.quotes.length} preventivi`);
-        } catch(e){
-          console.error('[restore] errore salvataggio preventivi:', e);
-        }
-      }
-      if(typeof updateTopbarShortcuts === 'function') updateTopbarShortcuts();
-    }
-
-    // 3. Archivio servizi — SV2.10.579: ripristinato dal registro
+    // Archivi 1-3 (clienti, preventivi, servizi) — dal registro (581)
     await _archiviRestoreBackup(payload, stats, 'data');
 
     // 4. Sconti aggiuntivi a cascata
