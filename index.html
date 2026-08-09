@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.577 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.578 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11286,7 +11286,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.577</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.578</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12003,7 +12003,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.577 mobile");
+console.info("[bootstrap] script avvio — SV2.10.578 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13499,7 +13499,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.577';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.578';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -24171,10 +24171,13 @@ function bkBuildPayload(includeData, includeSettings){
        locale, NON nel Drive Sync: le immagini pesano e si sommerebbero ai 24 MB
        del catalogo, mentre su file locale lo spazio non e' un problema. Cosi'
        l'archivio sopravvive a una reinstallazione, che era il vero rischio. */
-    if(Array.isArray(IMG_LIB) && IMG_LIB.length){
-      payload.imageLibrary = { version: 1, images: IMG_LIB };
-      payload.stats.totalImages = IMG_LIB.length;
-    }
+    _archiviList().forEach(a => {
+      if(a.backupWith !== 'data' || !a.backupKey) return;
+      const sec = a.bkBuild();
+      if(!sec) return;
+      payload[a.backupKey] = sec;
+      if(a.statsKey) payload.stats[a.statsKey] = a.read().length;
+    });
 
     // 4. Sconti aggiuntivi a cascata (Sc.1...Sc.6 per nodo marca/macrocat/cat)
     try {
@@ -24652,6 +24655,74 @@ function bkNotifyEdit(){
    ========================================================================== */
 
 const ALV_DEBOUNCE_MS = 1200;      // attesa dopo l'ultima modifica prima di scrivere
+/* ══════════════════════════════════════════════════════════════════════════
+   SV2.10.578 — REGISTRO UNICO DEGLI ARCHIVI
+   ──────────────────────────────────────────────────────────────────────────
+   Ogni archivio va dichiarato QUI UNA VOLTA SOLA. Prima della 578 andava
+   iscritto a mano in tre liste indipendenti — ALV_FILES/ALV_HOT + un case in
+   _alvBuild, una sezione in bkBuildPayload + il ramo di ripristino, e il
+   payload del Drive — e niente segnalava la dimenticanza: nella 575 l'archivio
+   immagini era finito nel solo IndexedDB, e in questa versione si e' scoperto
+   che alvRestoreFromFolder non lo rileggeva affatto.
+   Campi di una voce:
+     file        nome del file nell'archivio locale
+     hot         true = riscritto a ogni modifica (entra in ALV_HOT)
+     drive       true = sincronizzato col Drive (immagini: NO, per peso)
+     backupKey   nome della sezione dentro il file di backup
+     backupWith  'data' = solo nei backup che includono i dati | 'always'
+     restoreWith 'always' = ripristinato anche senza dati ne' impostazioni
+     read/write  lettura e scrittura dello stato in memoria
+     alvBuild/alvExtract, bkBuild/bkExtract  forma sul file (INVARIATA)
+   NB: i formati dei file non cambiano — il registro cambia solo CHI scrive,
+   non COSA viene scritto, cosi' i backup precedenti restano leggibili. */
+const ARCHIVI = {
+  immagini: {
+    etichetta:   'Archivio immagini',
+    file:        'immagini.json',
+    hot:         true,
+    drive:       false,
+    backupKey:   'imageLibrary',
+    backupWith:  'data',
+    restoreWith: 'always',
+    statsKey:    'totalImages',
+    read(){ return Array.isArray(IMG_LIB) ? IMG_LIB : []; },
+    async write(arr){ IMG_LIB = Array.isArray(arr) ? arr : []; await imgLibSave(); },
+    etichettaConta(n){ return n + (n === 1 ? ' immagine' : ' immagini'); },
+    alvBuild(){ return { v:1, at:new Date().toISOString(), images:this.read() }; },
+    alvExtract(o){ return (o && Array.isArray(o.images)) ? o.images : null; },
+    bkBuild(){ const a = this.read(); return a.length ? { version:1, images:a } : null; },
+    bkExtract(s){ return (s && Array.isArray(s.images)) ? s.images : null; },
+  },
+};
+window.ARCHIVI = ARCHIVI;
+function _archiviList(){ return Object.keys(ARCHIVI).map(k => Object.assign({ key:k }, ARCHIVI[k])); }
+
+/* Confronto fra il percorso nuovo (registro) e quello vecchio (case legacy di
+   _alvBuild): il campo `at` e' un orario e viene ignorato. Restituisce l'elenco
+   delle differenze — vuoto = i due percorsi producono lo stesso file. */
+function _archiviSelfTest(){
+  const out = [];
+  Object.keys(ARCHIVI).forEach(k => {
+    const a = ARCHIVI[k];
+    if(typeof a.alvBuild !== 'function') return;
+    const nuovo = a.alvBuild();
+    const vecchio = _alvBuild(k, true);
+    if(!vecchio){ out.push(k + ': nessun percorso legacy da confrontare'); return; }
+    const norm = o => { const c = Object.assign({}, o); delete c.at; return JSON.stringify(c); };
+    if(norm(nuovo) !== norm(vecchio)) out.push(k + ': il file prodotto dal registro NON coincide con quello legacy');
+    if(!a.drive && typeof _driveBuildPayload === 'function'){
+      try {
+        const dp = _driveBuildPayload ? _driveBuildPayload() : null;
+        if(dp && a.backupKey && dp[a.backupKey] != null) out.push(k + ': dichiarato fuori dal Drive ma presente nel payload Drive');
+      } catch(_){}
+    }
+    if(a.file && ALV_FILES[k] !== a.file) out.push(k + ': non iscritto in ALV_FILES');
+    if(a.hot && ALV_HOT.indexOf(k) === -1) out.push(k + ': non iscritto in ALV_HOT');
+  });
+  return out;
+}
+window._archiviSelfTest = _archiviSelfTest;
+
 const ALV_FILES = {
   catalogo:     'catalogo.json',
   personali:    'personali.json',
@@ -24660,14 +24731,19 @@ const ALV_FILES = {
   preventivi:   'preventivi.json',
   servizi:      'servizi.json',
   impostazioni: 'impostazioni.json',
-  // SV2.10.576: archivio immagini. Volutamente ESCLUSO dal Drive Sync (le
-  // immagini pesano e si sommerebbero ai 24 MB del catalogo): qui e nel backup
-  // lo spazio non e' un problema, e sono i due percorsi che servono per non
-  // perdere l'archivio in caso di reinstallazione.
-  immagini:     'immagini.json',
+  // SV2.10.578: gli archivi dichiarati nel registro (ARCHIVI) si aggiungono
+  // qui sotto da soli — vedi il ciclo subito dopo ALV_HOT.
 };
 const ALV_MANIFEST = '_manifest.json';
-const ALV_HOT = ['personali','edits','clienti','preventivi','servizi','impostazioni','immagini'];
+const ALV_HOT = ['personali','edits','clienti','preventivi','servizi','impostazioni'];
+
+/* SV2.10.578: il registro popola le due liste dell'archivio locale. Dichiarare
+   un archivio in ARCHIVI basta perche' venga scritto e riletto: nessuna
+   iscrizione manuale, quindi nessuna dimenticanza possibile. */
+_archiviList().forEach(a => {
+  if(a.file) ALV_FILES[a.key] = a.file;
+  if(a.hot && ALV_HOT.indexOf(a.key) === -1) ALV_HOT.push(a.key);
+});
 
 const ALV_STATE = {
   dirHandle: null,
@@ -24808,8 +24884,15 @@ async function _alvReadFile(name){
 
 /* ---------- costruzione payload per singolo file ---------- */
 
-function _alvBuild(kind){
+function _alvBuild(kind, _legacy){
   const at = new Date().toISOString();
+  /* SV2.10.578: se l'archivio e' nel registro, la forma del file la decide lui.
+     I case legacy restano raggiungibili con _legacy=true e servono da termine di
+     paragone a _archiviSelfTest(): finche' i due percorsi danno lo stesso file,
+     il registro e' dimostrato equivalente. Si rimuoveranno in una versione
+     successiva, non in questa. */
+  const _reg = ARCHIVI[kind];
+  if(!_legacy && _reg && typeof _reg.alvBuild === 'function') return _reg.alvBuild();
   switch(kind){
     case 'catalogo':
       // solo prodotti importati: i personali stanno nel loro file
@@ -25022,6 +25105,19 @@ async function alvRestoreFromFolder(){
         if(imp.salesPriceLists)      localStorage.setItem('salesPriceLists_v1', imp.salesPriceLists);
         if(imp.activeSalesPriceList) localStorage.setItem('activeSalesPriceList_v1', imp.activeSalesPriceList);
       } catch(_){}
+    }
+
+    /* SV2.10.578 — DIFETTO CORRETTO DAL REGISTRO: fino alla 577 questa funzione
+       leggeva sette file scritti a mano e immagini.json NON era fra quelli, per
+       cui l'archivio immagini veniva scritto sul disco ma mai riletto. Ora il
+       ciclo scorre il registro: ogni archivio dichiarato viene riletto. */
+    for(const a of _archiviList()){
+      if(!a.file) continue;
+      try {
+        const obj = await _alvReadFile(a.file);
+        const val = obj ? a.alvExtract(obj) : null;
+        if(val != null) await a.write(val);
+      } catch(e){ console.warn('[alv] ripristino ' + a.key, e); }
     }
 
     toast('Ripristino completato. Ricarico l\u2019app…', 'ok', 2500);
@@ -25323,14 +25419,17 @@ async function bkRestoreFromPayload(payload, opts){
   /* SV2.10.576 — ARCHIVIO IMMAGINI: ripristinato SEMPRE, fuori dal ramo dei
      dati. Non e' un dato di catalogo e non e' un'impostazione: ripristinare i
      prodotti senza le immagini archiviate, o viceversa, non ha senso. */
-  if(payload.imageLibrary && Array.isArray(payload.imageLibrary.images)){
+  for(const a of _archiviList()){
+    if(a.restoreWith !== 'always' || !a.backupKey) continue;
+    /* la sezione ASSENTE non azzera nulla: si lascia quello che c'e' in memoria.
+       E' l'errore piu' insidioso di questo genere di ripristini. */
+    const val = a.bkExtract(payload[a.backupKey]);
+    if(val == null) continue;
     try {
-      IMG_LIB = payload.imageLibrary.images;
-      await imgLibSave();
-      stats.restored.push(IMG_LIB.length + (IMG_LIB.length === 1 ? ' immagine' : ' immagini'));
-    } catch(e){
-      console.error('[restore] errore ripristino archivio immagini:', e);
-    }
+      await a.write(val);
+      const n = a.read().length;
+      stats.restored.push(a.etichettaConta ? a.etichettaConta(n) : (n + ' ' + a.key));
+    } catch(e){ console.error('[restore] errore ripristino ' + a.key, e); }
   }
 
   if(opts.settings && payload.settings){
