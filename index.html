@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.581 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.582 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5198,6 +5198,28 @@ body.theme-light .advs-foot{background:rgba(0,0,0,0.03)}
 .elc-btn-cancel{ background:transparent;border-color:var(--border,rgba(255,255,255,0.18));color:var(--fg2,#a8b2bd); }
 .elc-btn-cancel:hover{ background:rgba(255,255,255,0.06);color:var(--fg,#fff); }
 .elc-btn-go{ background:var(--accent,#ff6b35);color:#fff; }
+
+/* SV2.10.582: dialog "Scarica Listino Semplice" — riusa .elc-* per
+   sfondo, testata e piede; qui solo l'elenco delle colonne. */
+.lsm-cols{
+  display:flex;flex-direction:column;gap:2px;
+  border:1px solid var(--border,rgba(255,255,255,0.14));border-radius:8px;
+  padding:6px;background:var(--bg,#0f1419);
+}
+.lsm-col{
+  display:flex;align-items:center;gap:9px;cursor:pointer;
+  padding:7px 8px;border-radius:6px;font-size:13.5px;
+}
+.lsm-col:hover{ background:rgba(255,255,255,0.06); }
+.lsm-col input{ width:16px;height:16px;accent-color:var(--accent,#ff6b35);cursor:pointer;flex:0 0 auto; }
+.lsm-col span{ flex:1 1 auto; }
+.lsm-tools{ display:flex;gap:8px;margin-top:-4px; }
+.lsm-mini{
+  background:none;border:none;cursor:pointer;padding:2px 4px;
+  font:inherit;font-size:12px;font-weight:700;text-decoration:underline;
+  color:var(--fg3,#8591a1);
+}
+.lsm-mini:hover{ color:var(--accent,#ff6b35); }
 .elc-btn-go:hover{ filter:brightness(1.08); }
 /* SV2.10.385: selezione multipla a cascata */
 .elc-body{ max-height:min(74vh, 640px); overflow-y:auto; }
@@ -11286,7 +11308,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.581</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.582</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11831,6 +11853,11 @@ body.theme-light .dlg-input{background:var(--bg3)}
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
             Esporta Listino Cliente
           </button>
+          <!-- SV2.10.582: listino "semplice" — poche colonne, scelta dell'ambito e delle colonne -->
+          <button class="tb-dropdown-item" onclick="openListinoSemplice(); closeAllTopbarDropdowns()" role="menuitem" title="Scarica un Excel essenziale: codice, descrizione breve, marca, macrocategoria, categoria, prezzo di listino e data di esportazione">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+            Scarica Listino Semplice
+          </button>
           <button class="tb-dropdown-item" onclick="openSourceExport(); closeAllTopbarDropdowns()" role="menuitem" title="Salva il file completo con tutte le modifiche locali">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Salva sorgente
@@ -12003,7 +12030,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.581 mobile");
+console.info("[bootstrap] script avvio — SV2.10.582 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13499,7 +13526,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.581';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.582';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -45617,6 +45644,128 @@ function closeExportListinoCliente(){
   const ov = document.getElementById('elcOverlay'); if(ov) ov.remove();
   document.removeEventListener('keydown', _elcEscHandler);
 }
+/* ═══════════════════════════════════════════════════════════════════════
+   SV2.10.582 — SCARICA LISTINO SEMPLICE
+   ───────────────────────────────────────────────────────────────────────
+   Export Excel essenziale, pensato per essere mandato a qualcuno senza
+   dovergli spiegare venti colonne. Sette colonne DISPONIBILI, tutte
+   attive di partenza e disattivabili una per una; ambito a scelta fra i
+   prodotti attualmente visibili (cioe' i filtri della barra sono gia' il
+   filtro dell'export) e il catalogo intero.
+   La "data di esportazione" e' la stessa su ogni riga: e' la data in cui
+   il file e' stato generato, non un dato del prodotto. Scritta come testo
+   gg/mm/aaaa per non dipendere dalle impostazioni locali di Excel. */
+const LSM_COLS = [
+  { id:'codice',  label:'Codice',               w:23,   val:p => getField(p,'name') || '' },
+  { id:'descr',   label:'Descrizione breve',    w:46,   val:p => getField(p,'short_description') || '' },
+  { id:'marca',   label:'Marca',                w:21,   val:p => getField(p,'brand') || '' },
+  { id:'macro',   label:'Macrocategoria',       w:24,   val:p => getField(p,'category_parent') || '' },
+  { id:'cat',     label:'Categoria',            w:24,   val:p => getField(p,'category') || '' },
+  { id:'prezzo',  label:'Prezzo di listino',    w:17,   val:p => {
+      const n = (typeof priceNum === 'function') ? priceNum(getField(p,'PVP')) : parseFloat(getField(p,'PVP'));
+      return (n != null && !isNaN(n)) ? n : '';
+    } },
+  { id:'data',    label:'Data di esportazione', w:19,   val:() => _lsmOggi() },
+];
+function _lsmOggi(){
+  const d = new Date();
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+}
+/* prodotti dell'ambito scelto: 'visibili' = quelli filtrati a schermo */
+function _lsmProdotti(){
+  const amb = (document.getElementById('lsmAmbito') || {}).value || 'visibili';
+  const src = (amb === 'tutti') ? DATA : FILTERED;
+  return Array.isArray(src) ? src : [];
+}
+function _lsmColonneScelte(){
+  return LSM_COLS.filter(c => {
+    const el = document.getElementById('lsmCol_' + c.id);
+    return el ? el.checked : true;
+  });
+}
+function _lsmAggiornaConteggio(){
+  const n = _lsmProdotti().length;
+  const nc = _lsmColonneScelte().length;
+  const box = document.getElementById('lsmCount');
+  const go  = document.getElementById('lsmGo');
+  if(box){
+    let txt;
+    if(nc === 0) txt = 'Seleziona almeno una colonna';
+    else if(n === 0) txt = 'Nessun prodotto nell\u2019ambito scelto';
+    else txt = n.toLocaleString('it-IT') + (n === 1 ? ' articolo' : ' articoli') + ' \u00b7 ' + nc + (nc === 1 ? ' colonna' : ' colonne');
+    box.textContent = txt;
+    box.classList.toggle('elc-count-zero', n === 0 || nc === 0);
+  }
+  if(go) go.disabled = (n === 0 || nc === 0);
+}
+function _lsmTutte(v){
+  LSM_COLS.forEach(c => { const el = document.getElementById('lsmCol_' + c.id); if(el) el.checked = v; });
+  _lsmAggiornaConteggio();
+}
+function openListinoSemplice(){
+  if(document.getElementById('lsmOverlay')) return;
+  const nVis = Array.isArray(FILTERED) ? FILTERED.length : 0;
+  const nTot = Array.isArray(DATA) ? DATA.length : 0;
+  const ov = document.createElement('div');
+  ov.id = 'lsmOverlay';
+  ov.className = 'elc-overlay';
+  ov.innerHTML =
+    '<div class="elc-dialog" role="dialog" aria-modal="true" aria-label="Scarica Listino Semplice">'
+    + '<div class="elc-head"><span class="elc-title">Scarica Listino Semplice</span>'
+    + '<button type="button" class="elc-close" onclick="closeListinoSemplice()" aria-label="Chiudi">\u2715</button></div>'
+    + '<div class="elc-body">'
+    + '<label class="elc-field"><span class="elc-lab">Prodotti da esportare</span>'
+    + '<select id="lsmAmbito" class="elc-select" onchange="_lsmAggiornaConteggio()">'
+    + '<option value="visibili">Solo i prodotti visibili (' + nVis.toLocaleString('it-IT') + ')</option>'
+    + '<option value="tutti">Tutto il catalogo (' + nTot.toLocaleString('it-IT') + ')</option>'
+    + '</select></label>'
+    + '<div class="elc-field"><span class="elc-lab">Colonne</span>'
+    + '<div class="lsm-cols">'
+    + LSM_COLS.map(c =>
+        '<label class="lsm-col"><input type="checkbox" id="lsmCol_' + c.id + '" checked onchange="_lsmAggiornaConteggio()">'
+        + '<span>' + c.label + '</span></label>').join('')
+    + '</div>'
+    + '<div class="lsm-tools">'
+    + '<button type="button" class="lsm-mini" onclick="_lsmTutte(true)">Tutte</button>'
+    + '<button type="button" class="lsm-mini" onclick="_lsmTutte(false)">Nessuna</button>'
+    + '</div></div>'
+    + '<div class="elc-count" id="lsmCount"></div>'
+    + '</div>'
+    + '<div class="elc-foot">'
+    + '<button type="button" class="elc-btn elc-btn-cancel" onclick="closeListinoSemplice()">Annulla</button>'
+    + '<button type="button" class="elc-btn elc-btn-go" id="lsmGo" onclick="doListinoSemplice()">Scarica Excel</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if(e.target === ov) closeListinoSemplice(); });
+  document.addEventListener('keydown', _lsmEscHandler);
+  _lsmAggiornaConteggio();
+}
+function _lsmEscHandler(e){ if(e.key === 'Escape') closeListinoSemplice(); }
+function closeListinoSemplice(){
+  const ov = document.getElementById('lsmOverlay'); if(ov) ov.remove();
+  document.removeEventListener('keydown', _lsmEscHandler);
+}
+function doListinoSemplice(){
+  const cols = _lsmColonneScelte();
+  const prods = _lsmProdotti();
+  if(cols.length === 0){ if(typeof toast === 'function') toast('Seleziona almeno una colonna', 'warn'); return; }
+  if(prods.length === 0){ if(typeof toast === 'function') toast('Nessun prodotto da esportare', 'warn'); return; }
+  const aoa = [cols.map(c => c.label)];
+  for(const p of prods) aoa.push(cols.map(c => c.val(p)));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = cols.map(c => ({ wch: c.w }));
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:aoa.length-1, c:cols.length-1} }) };
+  ws['!freeze'] = { xSplit:0, ySplit:1 };
+  XLSX.utils.book_append_sheet(wb, ws, 'Listino');
+  const d = new Date();
+  const ds = '' + d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  const filename = 'Listino_Semplice_' + ds + '.xlsx';
+  XLSX.writeFile(wb, filename);
+  if(typeof toast === 'function') toast('Esportati ' + prods.length.toLocaleString('it-IT') + (prods.length===1?' articolo':' articoli') + ' \u00b7 ' + filename, 'ok');
+  closeListinoSemplice();
+}
+
 function doExportListinoCliente(){
   const listId = (document.getElementById('elcListino') || {}).value || '';
   const l = (typeof splGet === 'function') ? splGet(listId) : null;
