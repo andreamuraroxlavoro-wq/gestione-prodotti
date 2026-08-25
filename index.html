@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.582 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.584 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5220,6 +5220,12 @@ body.theme-light .advs-foot{background:rgba(0,0,0,0.03)}
   color:var(--fg3,#8591a1);
 }
 .lsm-mini:hover{ color:var(--accent,#ff6b35); }
+/* SV2.10.583: avviso "dati riservati" del listino acquisto */
+.lsm-avviso{
+  padding:9px 11px;border-radius:8px;font-size:12.5px;line-height:1.45;
+  background:rgba(230,145,30,0.14);color:#e0a44a;
+  border:1px solid rgba(230,145,30,0.32);
+}
 .elc-btn-go:hover{ filter:brightness(1.08); }
 /* SV2.10.385: selezione multipla a cascata */
 .elc-body{ max-height:min(74vh, 640px); overflow-y:auto; }
@@ -11308,7 +11314,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.582</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.584</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11858,6 +11864,11 @@ body.theme-light .dlg-input{background:var(--bg3)}
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
             Scarica Listino Semplice
           </button>
+          <!-- SV2.10.583: come il listino semplice, ma con i prezzi di acquisto e lo sconto -->
+          <button class="tb-dropdown-item" onclick="openListinoAcquisto(); closeAllTopbarDropdowns()" role="menuitem" title="Scarica un Excel con prezzo di listino, prezzo di acquisto e sconto fra i due \u2014 dati riservati, non da girare al cliente">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/><line x1="15" y1="14" x2="18" y2="17"/><line x1="18" y1="14" x2="15" y2="17"/></svg>
+            Scarica Listino Acquisto
+          </button>
           <button class="tb-dropdown-item" onclick="openSourceExport(); closeAllTopbarDropdowns()" role="menuitem" title="Salva il file completo con tutte le modifiche locali">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Salva sorgente
@@ -12030,7 +12041,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.582 mobile");
+console.info("[bootstrap] script avvio — SV2.10.584 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13526,7 +13537,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.582';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.584';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -45655,18 +45666,54 @@ function closeExportListinoCliente(){
    La "data di esportazione" e' la stessa su ogni riga: e' la data in cui
    il file e' stato generato, non un dato del prodotto. Scritta come testo
    gg/mm/aaaa per non dipendere dalle impostazioni locali di Excel. */
-const LSM_COLS = [
-  { id:'codice',  label:'Codice',               w:23,   val:p => getField(p,'name') || '' },
-  { id:'descr',   label:'Descrizione breve',    w:46,   val:p => getField(p,'short_description') || '' },
-  { id:'marca',   label:'Marca',                w:21,   val:p => getField(p,'brand') || '' },
-  { id:'macro',   label:'Macrocategoria',       w:24,   val:p => getField(p,'category_parent') || '' },
-  { id:'cat',     label:'Categoria',            w:24,   val:p => getField(p,'category') || '' },
-  { id:'prezzo',  label:'Prezzo di listino',    w:17,   val:p => {
-      const n = (typeof priceNum === 'function') ? priceNum(getField(p,'PVP')) : parseFloat(getField(p,'PVP'));
-      return (n != null && !isNaN(n)) ? n : '';
+/* SV2.10.583: le colonne sono definite una volta sola e i PROFILI scelgono
+   quali usare. "semplice" e' quello della 582 (invariato); "acquisto" aggiunge
+   prezzo di acquisto e sconto fra i due — dati riservati, da cui l'avviso. */
+const LSM_TUTTE_COL = {
+  codice:  { label:'Codice',               w:23,   val:p => getField(p,'name') || '' },
+  descr:   { label:'Descrizione breve',    w:46,   val:p => getField(p,'short_description') || '' },
+  marca:   { label:'Marca',                w:21,   val:p => getField(p,'brand') || '' },
+  macro:   { label:'Macrocategoria',       w:24,   val:p => getField(p,'category_parent') || '' },
+  cat:     { label:'Categoria',            w:24,   val:p => getField(p,'category') || '' },
+  prezzo:  { label:'Prezzo di listino',    w:17,   val:p => _lsmNum(getField(p,'PVP')) },
+  acquisto:{ label:'Prezzo di acquisto',   w:18,   val:p => _lsmNum(getField(p,'precio_neto_compra')) },
+  sconto:  { label:'Sconto acquisto %',    w:18,   val:p => {
+      /* stessa formula usata nel resto dell'app: computeDiscount ritorna null
+         se uno dei due prezzi manca o se il risultato non ha senso (negativo
+         o >= 100), e in quel caso la cella resta VUOTA invece che 0 — uno zero
+         qui verrebbe letto come "nessuno sconto", che e' un'altra cosa. */
+      const d = computeDiscount(getField(p,'PVP'), getField(p,'precio_neto_compra'));
+      return (d == null) ? '' : Math.round(d * 10) / 10;
     } },
-  { id:'data',    label:'Data di esportazione', w:19,   val:() => _lsmOggi() },
-];
+  data:    { label:'Data di esportazione', w:19,   val:() => _lsmOggi() },
+};
+const LSM_PROFILI = {
+  semplice: {
+    titolo: 'Scarica Listino Semplice',
+    file:   'Listino_Semplice',
+    cols:   ['codice','descr','marca','macro','cat','prezzo','data'],
+    avviso: '',
+  },
+  acquisto: {
+    titolo: 'Scarica Listino Acquisto',
+    file:   'Listino_Acquisto',
+    /* SV2.10.584: sconto PRIMA del prezzo di acquisto (richiesta utente) —
+       l'ordine di questo elenco comanda sia le caselle del dialogo sia le
+       colonne del file Excel, quindi basta scambiarli qui. */
+    cols:   ['codice','descr','marca','macro','cat','prezzo','sconto','acquisto','data'],
+    avviso: 'Contiene i prezzi di acquisto e lo sconto: file a uso interno, da non girare al cliente.',
+  },
+};
+let _LSM_PROFILO = 'semplice';
+function _lsmNum(v){
+  const n = (typeof priceNum === 'function') ? priceNum(v) : parseFloat(v);
+  return (n != null && !isNaN(n)) ? n : '';
+}
+/* colonne del profilo attivo, nell'ordine dichiarato */
+function _lsmCols(){
+  const prof = LSM_PROFILI[_LSM_PROFILO] || LSM_PROFILI.semplice;
+  return prof.cols.map(id => Object.assign({ id:id }, LSM_TUTTE_COL[id]));
+}
 function _lsmOggi(){
   const d = new Date();
   return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
@@ -45678,7 +45725,7 @@ function _lsmProdotti(){
   return Array.isArray(src) ? src : [];
 }
 function _lsmColonneScelte(){
-  return LSM_COLS.filter(c => {
+  return _lsmCols().filter(c => {
     const el = document.getElementById('lsmCol_' + c.id);
     return el ? el.checked : true;
   });
@@ -45699,19 +45746,23 @@ function _lsmAggiornaConteggio(){
   if(go) go.disabled = (n === 0 || nc === 0);
 }
 function _lsmTutte(v){
-  LSM_COLS.forEach(c => { const el = document.getElementById('lsmCol_' + c.id); if(el) el.checked = v; });
+  _lsmCols().forEach(c => { const el = document.getElementById('lsmCol_' + c.id); if(el) el.checked = v; });
   _lsmAggiornaConteggio();
 }
-function openListinoSemplice(){
+function openListinoSemplice(){ _lsmApri('semplice'); }
+function openListinoAcquisto(){ _lsmApri('acquisto'); }
+function _lsmApri(profilo){
   if(document.getElementById('lsmOverlay')) return;
+  _LSM_PROFILO = LSM_PROFILI[profilo] ? profilo : 'semplice';
+  const prof = LSM_PROFILI[_LSM_PROFILO];
   const nVis = Array.isArray(FILTERED) ? FILTERED.length : 0;
   const nTot = Array.isArray(DATA) ? DATA.length : 0;
   const ov = document.createElement('div');
   ov.id = 'lsmOverlay';
   ov.className = 'elc-overlay';
   ov.innerHTML =
-    '<div class="elc-dialog" role="dialog" aria-modal="true" aria-label="Scarica Listino Semplice">'
-    + '<div class="elc-head"><span class="elc-title">Scarica Listino Semplice</span>'
+    '<div class="elc-dialog" role="dialog" aria-modal="true" aria-label="' + prof.titolo + '">'
+    + '<div class="elc-head"><span class="elc-title">' + prof.titolo + '</span>'
     + '<button type="button" class="elc-close" onclick="closeListinoSemplice()" aria-label="Chiudi">\u2715</button></div>'
     + '<div class="elc-body">'
     + '<label class="elc-field"><span class="elc-lab">Prodotti da esportare</span>'
@@ -45721,7 +45772,7 @@ function openListinoSemplice(){
     + '</select></label>'
     + '<div class="elc-field"><span class="elc-lab">Colonne</span>'
     + '<div class="lsm-cols">'
-    + LSM_COLS.map(c =>
+    + _lsmCols().map(c =>
         '<label class="lsm-col"><input type="checkbox" id="lsmCol_' + c.id + '" checked onchange="_lsmAggiornaConteggio()">'
         + '<span>' + c.label + '</span></label>').join('')
     + '</div>'
@@ -45729,6 +45780,7 @@ function openListinoSemplice(){
     + '<button type="button" class="lsm-mini" onclick="_lsmTutte(true)">Tutte</button>'
     + '<button type="button" class="lsm-mini" onclick="_lsmTutte(false)">Nessuna</button>'
     + '</div></div>'
+    + (prof.avviso ? '<div class="lsm-avviso">' + prof.avviso + '</div>' : '')
     + '<div class="elc-count" id="lsmCount"></div>'
     + '</div>'
     + '<div class="elc-foot">'
@@ -45758,9 +45810,10 @@ function doListinoSemplice(){
   ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:aoa.length-1, c:cols.length-1} }) };
   ws['!freeze'] = { xSplit:0, ySplit:1 };
   XLSX.utils.book_append_sheet(wb, ws, 'Listino');
+  const prof = LSM_PROFILI[_LSM_PROFILO] || LSM_PROFILI.semplice;
   const d = new Date();
   const ds = '' + d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
-  const filename = 'Listino_Semplice_' + ds + '.xlsx';
+  const filename = prof.file + '_' + ds + '.xlsx';
   XLSX.writeFile(wb, filename);
   if(typeof toast === 'function') toast('Esportati ' + prods.length.toLocaleString('it-IT') + (prods.length===1?' articolo':' articoli') + ' \u00b7 ' + filename, 'ok');
   closeListinoSemplice();
