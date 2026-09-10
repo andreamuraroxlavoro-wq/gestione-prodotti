@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.584 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.585 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -8243,7 +8243,7 @@ body.bom-mode .card-img .quote-trigger{ display:none !important; }
 
 .card-img .quote-trigger{
   position:absolute;
-  top:160px;      /* V2.10.297: spostato per accomodare il nuovo fantasmino outlet sopra */
+  top:198px;      /* SV2.10.585: sceso per il nuovo pulsante ALTA ROTAZIONE */
   right:8px;
   width:30px;
   height:30px;
@@ -8373,6 +8373,57 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   background:rgba(245,158,11,1);
   box-shadow:0 4px 12px rgba(245,158,11,0.45);
 }
+/* === SV2.10.585: Icona ALTA ROTAZIONE nella card galleria ===
+   Sotto alla stellina (top:122px). Due frecce che si rincorrono.
+   Inattiva: pallido grigio. Attiva: blu pieno #2563eb. */
+.card-img .hot-trigger{
+  position:absolute;
+  top:122px;
+  right:8px;
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.92);
+  border:1px solid rgba(0,0,0,0.12);
+  box-shadow:0 2px 6px rgba(0,0,0,0.18);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  z-index:5;
+  transition:transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  padding:0;
+  user-select:none;
+  color:#9ca3af;
+}
+.card-img .hot-trigger svg{
+  width:18px;
+  height:18px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  transition:fill 0.18s ease, stroke 0.18s ease;
+}
+.card-img .hot-trigger:hover{
+  transform:scale(1.12);
+  background:rgba(255,255,255,1);
+  box-shadow:0 4px 10px rgba(0,0,0,0.28);
+  color:#2563eb;
+}
+.card-img .hot-trigger:active{transform:scale(0.95)}
+.card-img .hot-trigger.is-hot{
+  background:#2563eb;
+  border-color:rgba(29,78,216,0.65);
+  color:#fff;
+}
+.card-img .hot-trigger.is-hot:hover{
+  background:#1d4ed8;
+  box-shadow:0 4px 12px rgba(37,99,235,0.45);
+}
+
 /* Nascondi su touch device se necessario? No, manteniamo sempre visibile (è core feature) */
 
 /* === V2.10.282: Icona stella PREFERITI nella vista lista ===
@@ -8428,7 +8479,7 @@ body.quote-mode .card-img .quote-trigger{display:flex}
    dal file importato). Niente cursore pointer, niente hover/active. */
 .card-img .stock-trigger{
   position:absolute;
-  top:122px;
+  top:160px;   /* SV2.10.585: sceso per fare posto ad ALTA ROTAZIONE (top:122px) */
   right:8px;
   width:30px;
   height:30px;
@@ -8815,6 +8866,90 @@ body.quote-mode .card-img .quote-trigger{display:flex}
   background:#fff;
   color:#9333ea;
 }
+
+/* === SV2.10.585: Icona ALTA ROTAZIONE nella vista lista === */
+.row-hot-trigger{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  background:transparent;
+  border:1px solid transparent;
+  cursor:pointer;
+  vertical-align:middle;
+  color:#9ca3af;
+  transition:transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+  padding:0;
+  margin:0 2px;
+}
+.row-hot-trigger svg{
+  width:15px;
+  height:15px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.row-hot-trigger:hover{
+  background:rgba(37,99,235,0.12);
+  color:#2563eb;
+  transform:scale(1.15);
+}
+.row-hot-trigger.is-hot{
+  color:#2563eb;
+}
+
+/* === SV2.10.585: Pulsante toggle "Solo alta rotazione" nella toolbar ===
+   Stesso pattern della stellina, accento blu. */
+.tb-special-hot .tb-special-badge{ background:#2563eb; }
+.tb-special-hot:hover{ color:#2563eb; border-color:rgba(37,99,235,0.45); }
+.tb-special-hot .hot-arrows{
+  width:20px;
+  height:20px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.tb-special-hot.active,
+.tb-special-hot[aria-pressed="true"]{
+  background:#2563eb;
+  color:#fff;
+  border-color:#2563eb;
+  box-shadow:0 2px 6px rgba(37,99,235,0.35);
+}
+.tb-special-hot.active:hover,
+.tb-special-hot[aria-pressed="true"]:hover{
+  background:#1d4ed8;
+  border-color:#1d4ed8;
+  color:#fff;
+}
+.tb-special-hot.active .tb-special-badge{
+  background:#fff;
+  color:#1d4ed8;
+}
+/* SV2.10.585: riempimento progressivo durante il click prolungato (3 s) */
+.tb-special-btn.lp-arming{
+  position:relative;
+  overflow:hidden;
+}
+.tb-special-btn.lp-arming::after{
+  content:'';
+  position:absolute;
+  left:0; bottom:0;
+  height:3px;
+  width:0;
+  background:currentColor;
+  opacity:0.85;
+  animation:lpFill 3s linear forwards;
+  pointer-events:none;
+}
+@keyframes lpFill{ from{ width:0 } to{ width:100% } }
 
 /* === V2.10.282: Pulsante toggle "Solo preferiti" nella toolbar ===
    Usa il pattern .tb-special-btn esistente, con accento giallo dorato (stella). */
@@ -11314,7 +11449,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.584</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.585</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -11635,11 +11770,23 @@ body.theme-light .dlg-input{background:var(--bg3)}
     <!-- V2.10.282: Pulsante toggle "Solo preferiti" — visibile solo se almeno un prodotto è preferito.
          Stile coerente con gli altri tb-special-btn ma con accento giallo dorato (stella).
          L'attivazione restringe il catalogo ai soli prodotti marcati con stella nella card. -->
-    <button class="btn icon-btn tb-special-btn tb-special-fav" id="btnFavoritesFilter" onclick="toggleOnlyFavoritesFilter()" title="Filtra: solo prodotti preferiti" aria-label="Solo preferiti" style="display:none">
+    <button class="btn icon-btn tb-special-btn tb-special-fav" id="btnFavoritesFilter" title="Filtra: solo prodotti preferiti" aria-label="Solo preferiti" style="display:none">
       <svg class="fav-star" viewBox="0 0 24 24" aria-hidden="true">
         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
       </svg>
       <span class="tb-special-badge fav-count" id="tbFavoritesFilterBadge">0</span>
+    </button>
+
+    <!-- SV2.10.585: Pulsante toggle "Solo alta rotazione" — accento blu, due frecce
+         che si rincorrono. Sempre visibile: il click prolungato di 3 s marca tutti
+         i prodotti filtrati, quindi deve essere raggiungibile anche a zero marcati. -->
+    <button class="btn icon-btn tb-special-btn tb-special-hot" id="btnHotFilter" title="Filtra: solo prodotti ad alta rotazione — tieni premuto 3 s per marcare tutti i prodotti filtrati" aria-label="Solo alta rotazione">
+      <svg class="hot-arrows" viewBox="0 0 24 24" aria-hidden="true">
+        <polyline points="23 4 23 10 17 10"/>
+        <polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+      <span class="tb-special-badge hot-count" id="tbHotFilterBadge">0</span>
     </button>
 
     <!-- V2.10.295: Pulsante toggle "Solo gestiti a magazzino" — visibile solo se almeno
@@ -12041,7 +12188,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.584 mobile");
+console.info("[bootstrap] script avvio — SV2.10.585 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13537,7 +13684,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.584';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.585';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -16370,6 +16517,239 @@ function toggleOnlyOutletFilter(){
 loadOutlet();
 /* ============== FINE SISTEMA OUTLET ============== */
 
+/* ========== SISTEMA ALTA ROTAZIONE (SV2.10.585) ==========
+   Marca i prodotti "ad alta rotazione" (icona due frecce che si rincorrono nella
+   card galleria, nella vista lista e in toolbar) e attiva il filtro "Solo alta
+   rotazione". Struttura identica a PREFERITI/OUTLET: cambia solo identifier e
+   colore (blu #2563eb).
+   Persistenza: localStorage 'vt_hot' + sync via Drive Sync + archivi/backup
+   (la chiave e' iscritta nelle SETTINGS_KEYS come vt_favorites e vt_outlet).
+   Identifier: `name` canonico.
+   ========================================================== */
+const HOT_CODES = new Set();
+let ONLY_HOT = false;
+const HOT_LS_KEY = 'vt_hot';
+
+function loadHot(){
+  try {
+    const raw = localStorage.getItem(HOT_LS_KEY);
+    if(raw){
+      const arr = JSON.parse(raw);
+      if(Array.isArray(arr)){
+        HOT_CODES.clear();
+        arr.forEach(c => {
+          const s = String(c || '').trim();
+          if(s) HOT_CODES.add(s);
+        });
+      }
+    }
+  } catch(e){
+    console.warn('[hot] errore lettura localStorage:', e);
+  }
+}
+
+function saveHot(){
+  try {
+    localStorage.setItem(HOT_LS_KEY, JSON.stringify([...HOT_CODES]));
+  } catch(e){
+    console.warn('[hot] errore scrittura localStorage:', e);
+  }
+}
+
+function isHot(code){
+  if(!code) return false;
+  return HOT_CODES.has(String(code).trim());
+}
+
+/**
+ * Toggle dello stato "alta rotazione" per un codice prodotto.
+ * @returns {boolean} il nuovo stato
+ */
+function toggleHot(code){
+  const c = String(code || '').trim();
+  if(!c) return false;
+  let nowHot;
+  if(HOT_CODES.has(c)){
+    HOT_CODES.delete(c);
+    nowHot = false;
+  } else {
+    HOT_CODES.add(c);
+    nowHot = true;
+  }
+  saveHot();
+  if(typeof driveNotifyChange === 'function'){
+    try { driveNotifyChange('settings', 'vt_hot', null); } catch(_){}
+  }
+  if(ONLY_HOT){
+    if(typeof applyFilters === 'function') applyFilters();
+  } else {
+    _updateHotIconsForCode(c, nowHot);
+  }
+  _updateHotToolbarButton();
+  return nowHot;
+}
+
+function _updateHotIconsForCode(code, isNowHot){
+  const sel = '[data-hot-code="' + (window.CSS && CSS.escape ? CSS.escape(code) : code.replace(/"/g, '\\"')) + '"]';
+  document.querySelectorAll(sel).forEach(el => {
+    if(isNowHot){
+      el.classList.add('is-hot');
+      el.setAttribute('aria-pressed', 'true');
+      el.setAttribute('title', 'Rimuovi da alta rotazione');
+    } else {
+      el.classList.remove('is-hot');
+      el.setAttribute('aria-pressed', 'false');
+      el.setAttribute('title', 'Segna come prodotto ad alta rotazione');
+    }
+  });
+}
+
+function _updateHotToolbarButton(){
+  const btn = document.getElementById('btnHotFilter');
+  if(!btn) return;
+  const totalHot = HOT_CODES.size;
+  let visibleCount = totalHot;
+  try {
+    const _dataReady = (typeof DATA !== 'undefined') && Array.isArray(DATA) && DATA.length > 0;
+    const _filteredReady = (typeof FILTERED !== 'undefined') && Array.isArray(FILTERED);
+    if(_dataReady && _filteredReady){
+      visibleCount = 0;
+      for(const p of FILTERED){
+        const code = String((typeof getField === 'function' ? getField(p, 'name') : p && p.name) || '').trim();
+        if(code && HOT_CODES.has(code)) visibleCount++;
+      }
+    }
+  } catch(_){}
+  const countEl = btn.querySelector('.hot-count');
+  if(countEl) countEl.textContent = visibleCount;
+  if(totalHot > 0){
+    if(visibleCount === totalHot){
+      btn.title = 'Filtra: solo prodotti ad alta rotazione (' + totalHot + ') \u2014 tieni premuto 3 s per marcare tutti i prodotti filtrati';
+    } else {
+      btn.title = visibleCount + ' di ' + totalHot + ' prodotti ad alta rotazione compatibili con i filtri attivi \u2014 tieni premuto 3 s per marcare tutti i prodotti filtrati';
+    }
+  }
+  // SV2.10.585: a differenza di preferiti/outlet il pulsante resta SEMPRE visibile,
+  // altrimenti non ci sarebbe modo di usare il click prolungato la prima volta.
+  btn.style.display = '';
+  btn.classList.toggle('active', ONLY_HOT && totalHot > 0);
+}
+
+function toggleOnlyHotFilter(){
+  ONLY_HOT = !ONLY_HOT;
+  if(ONLY_HOT && HOT_CODES.size === 0){
+    ONLY_HOT = false;
+    if(typeof toast === 'function') toast('Nessun prodotto ad alta rotazione. Marcali con l\'icona delle frecce sulle card.', 'warn', 3500);
+    return;
+  }
+  _updateHotToolbarButton();
+  if(typeof applyFilters === 'function') applyFilters();
+}
+
+loadHot();
+/* ============== FINE SISTEMA ALTA ROTAZIONE ============== */
+
+/* ========== CLICK PROLUNGATO IN TOOLBAR (SV2.10.585) ==========
+   Tenendo premuto 3 secondi il pulsante stellina o il pulsante alta rotazione
+   della toolbar, il marchio viene applicato a TUTTI i prodotti attualmente
+   filtrati (FILTERED, quindi anche quelli delle pagine successive).
+   Scelta esplicita: il click prolungato AGGIUNGE soltanto, non toglie mai.
+   Se sono gia' tutti marcati non fa nulla e lo dice.
+   ============================================================== */
+const LP_MS = 3000;
+
+function _lpApplyToFiltered(kind){
+  const lista = (typeof FILTERED !== 'undefined' && Array.isArray(FILTERED)) ? FILTERED : [];
+  if(!lista.length){
+    if(typeof toast === 'function') toast('Nessun prodotto nella selezione corrente.', 'warn', 3000);
+    return;
+  }
+  const set   = (kind === 'fav') ? FAVORITES_CODES : HOT_CODES;
+  const nome  = (kind === 'fav') ? 'preferiti' : 'alta rotazione';
+  let aggiunti = 0;
+  for(const p of lista){
+    const code = String((typeof getField === 'function' ? getField(p, 'name') : p && p.name) || '').trim();
+    if(!code || set.has(code)) continue;
+    set.add(code);
+    aggiunti++;
+  }
+  if(aggiunti === 0){
+    if(typeof toast === 'function') toast('Tutti i ' + lista.length + ' prodotti filtrati sono gia\u0027 in ' + nome + '.', 'info', 3500);
+    return;
+  }
+  if(kind === 'fav'){
+    saveFavorites();
+    if(typeof driveNotifyChange === 'function'){
+      try { driveNotifyChange('settings', 'vt_favorites', null); } catch(_){}
+    }
+    _updateFavoritesToolbarButton();
+  } else {
+    saveHot();
+    if(typeof driveNotifyChange === 'function'){
+      try { driveNotifyChange('settings', 'vt_hot', null); } catch(_){}
+    }
+    _updateHotToolbarButton();
+  }
+  if(typeof applyFilters === 'function') applyFilters();
+  if(typeof toast === 'function'){
+    toast(aggiunti + ' prodotti aggiunti a ' + nome + ' (su ' + lista.length + ' filtrati).', 'success', 4000);
+  }
+}
+
+/** Aggancia il click prolungato a un pulsante della toolbar. */
+function _lpBind(btnId, kind){
+  const btn = document.getElementById(btnId);
+  if(!btn || btn._lpBound) return;
+  btn._lpBound = true;
+  let timer = null, fired = false;
+  const start = (ev) => {
+    if(ev.type === 'mousedown' && ev.button !== 0) return;
+    fired = false;
+    btn.classList.add('lp-arming');
+    timer = setTimeout(() => {
+      timer = null;
+      fired = true;
+      btn.classList.remove('lp-arming');
+      _lpApplyToFiltered(kind);
+    }, LP_MS);
+  };
+  const cancel = () => {
+    if(timer){ clearTimeout(timer); timer = null; }
+    btn.classList.remove('lp-arming');
+  };
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('touchstart', start, { passive: true });
+  ['mouseup','mouseleave','touchend','touchcancel'].forEach(t => btn.addEventListener(t, cancel));
+  // Se il tempo e' scaduto il click che segue va ignorato, altrimenti il rilascio
+  // del dito accenderebbe anche il filtro. Per questo il toggle NON e' un onclick
+  // inline (partirebbe comunque per primo) ma viene chiamato qui.
+  btn.addEventListener('click', (ev) => {
+    if(fired){
+      fired = false;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      return;
+    }
+    if(kind === 'fav'){
+      if(typeof toggleOnlyFavoritesFilter === 'function') toggleOnlyFavoritesFilter();
+    } else {
+      if(typeof toggleOnlyHotFilter === 'function') toggleOnlyHotFilter();
+    }
+  });
+}
+
+function _lpBindAll(){
+  _lpBind('btnFavoritesFilter', 'fav');
+  _lpBind('btnHotFilter', 'hot');
+}
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', _lpBindAll);
+} else {
+  _lpBindAll();
+}
+window._lpBindAll = _lpBindAll;
+/* ============== FINE CLICK PROLUNGATO ============== */
+
 /* ========================================================================
    SISTEMA TAG (SV2.10.368) — Ricerca per TAG
    ------------------------------------------------------------------------
@@ -16552,6 +16932,11 @@ function _tagBaseMatch(p, skipSpecial){
   if(typeof ONLY_OUTLET !== 'undefined' && ONLY_OUTLET &&
      typeof OUTLET_CODES !== 'undefined' && OUTLET_CODES.size > 0){
     if(!OUTLET_CODES.has(pName)) return false;
+  }
+  // SV2.10.585: alta rotazione, in AND con gli altri filtri toolbar
+  if(typeof ONLY_HOT !== 'undefined' && ONLY_HOT &&
+     typeof HOT_CODES !== 'undefined' && HOT_CODES.size > 0){
+    if(!HOT_CODES.has(pName)) return false;
   }
   if(typeof ONLY_IN_CART !== 'undefined' && ONLY_IN_CART &&
      window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items) && window._QUOTE_STATE.items.length > 0){
@@ -19226,6 +19611,7 @@ function _driveBuildFullPayload(){
     'vt_settings', 'vt_presets', 'vt_dict',
     'vt_text_phrases', 'vt_text_words',
     'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
+    'vt_hot',  // SV2.10.585: sincronizza la lista alta rotazione
     'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
     'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
     'vt_tags',    // SV2.10.368: sincronizza i TAG prodotti via Drive Sync
@@ -21291,6 +21677,7 @@ function driveNotifyChange(kind, key, record){
           'vt_settings', 'vt_presets', 'vt_dict',
           'vt_text_phrases', 'vt_text_words',
           'vt_favorites',  // V2.10.284: sincronizza i preferiti via Drive Sync
+          'vt_hot',  // SV2.10.585: sincronizza la lista alta rotazione
           'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
           'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
           'vt_tags',    // SV2.10.368: sincronizza i TAG prodotti via Drive Sync
@@ -22657,6 +23044,9 @@ async function driveApplyRemoteData(payload){
     // V2.10.297: idem per la lista outlet (vt_outlet)
     if(typeof loadOutlet === 'function') loadOutlet();
     if(typeof _updateOutletToolbarButton === 'function') _updateOutletToolbarButton();
+    // SV2.10.585: idem per la lista alta rotazione (vt_hot)
+    if(typeof loadHot === 'function') loadHot();
+    if(typeof _updateHotToolbarButton === 'function') _updateHotToolbarButton();
     // V2.10.302: ricarico le giacenze magazzino (vt_stock_qty) dopo il merge Drive
     if(typeof loadStockQty === 'function') loadStockQty();
     // V2.10.306: il pulsante "presenti a magazzino" dipende ora da STOCK_QTY → aggiorno dopo il reload
@@ -24056,6 +24446,7 @@ const BACKUP_SETTINGS_KEYS = [
   'vt_settings', 'vt_presets', 'vt_dict',
   'vt_text_phrases', 'vt_text_words', 'vt_sidebar_width',
   'vt_favorites',  // V2.10.284: include preferiti nei backup locali
+  'vt_hot',  // SV2.10.585: include la lista alta rotazione in archivio e backup
   'vt_stock_managed',  // V2.10.295: include lista gestiti a magazzino nei backup locali
   'vt_outlet',  // V2.10.297: include lista outlet nei backup locali
   'vt_tags',    // SV2.10.368: include i TAG nei backup locali
@@ -29326,6 +29717,12 @@ function msComputeCounts(key){
       const pName = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
       if(!OUTLET_CODES.has(pName)) return false;
     }
+    // SV2.10.585: alta rotazione, in AND con gli altri filtri toolbar
+    if(typeof ONLY_HOT !== 'undefined' && ONLY_HOT &&
+       typeof HOT_CODES !== 'undefined' && HOT_CODES.size > 0){
+      const pName = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
+      if(!HOT_CODES.has(pName)) return false;
+    }
     if(typeof ONLY_IN_CART !== 'undefined' && ONLY_IN_CART &&
        window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items) && window._QUOTE_STATE.items.length > 0){
       const pName = String((typeof getField === 'function' ? getField(p, 'name') : p.name) || '').trim();
@@ -29719,6 +30116,7 @@ function _anyFilterActive(){
   if(window.ADV_SEARCH && window.ADV_SEARCH.active) return true;
   if(typeof ONLY_FAVORITES !== 'undefined' && ONLY_FAVORITES) return true;
   if(typeof ONLY_OUTLET !== 'undefined' && ONLY_OUTLET) return true;
+  if(typeof ONLY_HOT !== 'undefined' && ONLY_HOT) return true;
   if(typeof ONLY_IN_CART !== 'undefined' && ONLY_IN_CART) return true;
   if(typeof STOCK_FILTER_STATE !== 'undefined' && STOCK_FILTER_STATE !== 0) return true;
   if(typeof SPECIAL_FILTERS !== 'undefined' && SPECIAL_FILTERS && SPECIAL_FILTERS.size > 0) return true;
@@ -30933,6 +31331,14 @@ function applyFilters(options){
       if(!OUTLET_CODES.has(pName)) return false;
     }
 
+    // SV2.10.585: filtro "Solo alta rotazione" — in AND con tutti gli altri,
+    // quindi anche con la stellina (scelta esplicita: chi attiva entrambi vuole
+    // i prodotti che hanno tutte e due le marcature).
+    if(ONLY_HOT && HOT_CODES.size > 0){
+      const pName = String(getField(p, 'name') || '').trim();
+      if(!HOT_CODES.has(pName)) return false;
+    }
+
     // SV2.10.368: filtro TAG — in AND con tutti gli altri filtri.
     //   • TAG_UNTAGGED_ONLY: passa solo se il prodotto NON ha alcun tag
     //   • TAG_FILTER (set di tag): AND = ha tutti i tag · OR = ha almeno uno
@@ -31154,6 +31560,8 @@ function applyFilters(options){
   if(typeof _updateStockManagedToolbarButton === 'function') _updateStockManagedToolbarButton();
   // V2.10.297: stessa logica per il pulsante "Solo outlet".
   if(typeof _updateOutletToolbarButton === 'function') _updateOutletToolbarButton();
+  // SV2.10.585: stessa logica per il pulsante "Solo alta rotazione".
+  if(typeof _updateHotToolbarButton === 'function') _updateHotToolbarButton();
 
   PAGE = 0;
   render();
@@ -32299,6 +32707,19 @@ function renderGallery(main, list){
             <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           </button>`;
         })()}
+        ${(() => {
+          // SV2.10.585: icona ALTA ROTAZIONE, sotto alla stellina.
+          const _hotCode = String(getField(p, 'name') || '').trim();
+          if(!_hotCode) return '';
+          const _hotOn = (typeof isHot === 'function') && isHot(_hotCode);
+          return `<button class="hot-trigger${_hotOn ? ' is-hot' : ''}" type="button"
+            data-hot-code="${escapeAttr(_hotCode)}"
+            aria-label="${_hotOn ? 'Rimuovi da alta rotazione' : 'Segna come prodotto ad alta rotazione'}"
+            aria-pressed="${_hotOn ? 'true' : 'false'}"
+            title="${_hotOn ? 'Rimuovi da alta rotazione' : 'Segna come prodotto ad alta rotazione'}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>`;
+        })()}
         ${nExtras>0?`<span class="extra-count">📷 ${nExtras}</span>`:''}
         ${nRelated>0?`<span class="related-count">🔗 ${nRelated}</span>`:''}
       </div>
@@ -32350,6 +32771,7 @@ function renderGallery(main, list){
             e.target.closest('.card-desc-icon') ||
             e.target.closest('.quote-trigger') ||
             e.target.closest('.fav-trigger') ||
+            e.target.closest('.hot-trigger') ||
             e.target.closest('.stock-trigger') ||
             e.target.closest('.outlet-trigger') ||
             e.target.closest('.card-sel-checkbox')
@@ -32371,6 +32793,7 @@ function renderGallery(main, list){
             e.target.closest('.eye-trigger') ||
             e.target.closest('.card-desc-icon') ||
             e.target.closest('.fav-trigger') ||
+            e.target.closest('.hot-trigger') ||
             e.target.closest('.stock-trigger') ||
             e.target.closest('.outlet-trigger')
         )) return;
@@ -32435,6 +32858,18 @@ function renderGallery(main, list){
     }
     // V2.10.305: l'icona pacchetto è ora un indicatore di sola lettura della
     // giacenza a magazzino — nessun handler di click (non è più un toggle).
+    // SV2.10.585: handler icona ALTA ROTAZIONE
+    const hotTriggerEl = card.querySelector('.hot-trigger');
+    if(hotTriggerEl){
+      hotTriggerEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const code = hotTriggerEl.getAttribute('data-hot-code');
+        if(code && typeof toggleHot === 'function'){
+          toggleHot(code);
+        }
+      });
+    }
     // V2.10.297: handler icona fantasmino OUTLET
     const outletTriggerEl = card.querySelector('.outlet-trigger');
     if(outletTriggerEl){
@@ -32601,6 +33036,16 @@ function renderTable(main, list){
         title="${_favOnRow ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
       </button>` : '';
+    // SV2.10.585: icona ALTA ROTAZIONE per la vista lista
+    const _hotCodeRow = String(getField(p, 'name') || '').trim();
+    const _hotOnRow = _hotCodeRow && (typeof isHot === 'function') && isHot(_hotCodeRow);
+    const rowHotIcon = _hotCodeRow ? `<button type="button" class="row-hot-trigger${_hotOnRow ? ' is-hot' : ''}"
+        data-hot-code="${escapeAttr(_hotCodeRow)}"
+        aria-label="${_hotOnRow ? 'Rimuovi da alta rotazione' : 'Segna come prodotto ad alta rotazione'}"
+        aria-pressed="${_hotOnRow ? 'true' : 'false'}"
+        title="${_hotOnRow ? 'Rimuovi da alta rotazione' : 'Segna come prodotto ad alta rotazione'}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>` : '';
     // V2.10.295: icona pacchetto STOCK MANAGED per la vista lista
     const _stkCodeRow = String(getField(p, 'name') || '').trim();
     // V2.10.305: indicatore di sola lettura — teal se ha giacenza dal file.
@@ -32624,7 +33069,7 @@ function renderTable(main, list){
           <line x1="12" y1="22.08" x2="12" y2="12"/>
         </svg>
       </span>` : '';
-    const rowActionsCell = `<span class="row-actions">${rowEyeIcon}${rowDescIcon}${rowOutletIcon}${rowFavIcon}${rowStockIcon}</span>${renderStockPair(stockIT(p), stockES(p), true, 'sp-inline')}`;
+    const rowActionsCell = `<span class="row-actions">${rowEyeIcon}${rowDescIcon}${rowOutletIcon}${rowFavIcon}${rowHotIcon}${rowStockIcon}</span>${renderStockPair(stockIT(p), stockES(p), true, 'sp-inline')}`;
 
     // V2.10.269: rendo le celle Marca/Macrocategoria/Categoria cliccabili per
     // attivare il filtro corrispondente (stesso comportamento delle card).
@@ -33603,6 +34048,18 @@ function initHoverPreview(){
 
   // V2.10.305: l'icona pacchetto nelle righe è ora un indicatore di sola lettura
   // della giacenza a magazzino — nessun handler di click (non è più un toggle).
+
+  // SV2.10.585: idem per icona ALTA ROTAZIONE nelle righe tabella
+  document.addEventListener('click', (ev) => {
+    const hotBtn = ev.target && ev.target.closest && ev.target.closest('.row-hot-trigger[data-hot-code]');
+    if(!hotBtn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const code = hotBtn.getAttribute('data-hot-code');
+    if(code && typeof toggleHot === 'function'){
+      toggleHot(code);
+    }
+  }, true);
 
   // V2.10.297: idem per icona fantasmino OUTLET nelle righe tabella
   document.addEventListener('click', (ev) => {
@@ -71189,6 +71646,11 @@ if(document.readyState === 'loading'){
     if(typeof _updateOutletToolbarButton === 'function'){
       _updateOutletToolbarButton();
     }
+    // SV2.10.585: stessa init per il pulsante "Solo alta rotazione"
+    if(typeof _updateHotToolbarButton === 'function'){
+      _updateHotToolbarButton();
+    }
+    if(typeof _lpBindAll === 'function') _lpBindAll();
   }
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', run);
