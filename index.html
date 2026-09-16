@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.589 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.590 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11449,7 +11449,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.589</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.590</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12188,7 +12188,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.589 mobile");
+console.info("[bootstrap] script avvio — SV2.10.590 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13684,7 +13684,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.589';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.590';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -28978,6 +28978,12 @@ async function mergeImportFlow(file, isCsv, isExcel){
     return;
   }
 
+  // SV2.10.590: fotografia del listino per lo storico, prima di qualunque merge.
+  // Se l'utente annulla piu' avanti l'istantanea resta: registra i listini
+  // ricevuti, non quelli applicati.
+  try { await _istantaneaSalva(newRows); }
+  catch(e){ console.warn('[istantanea] non salvata', e); }
+
   // STEP 3: costruisci array di prodotti come fa il loader normale (per avere _idx + normalizzazioni)
   let newDataArr = null;
   try {
@@ -29353,6 +29359,83 @@ function _listiniAggiornaEtichetta(){
   el.textContent = LISTINI_STATE.dirName
     ? LISTINI_STATE.dirName
     : 'nessuna \u2014 verr\u00e0 usato il download';
+}
+
+/* ==========================================================================
+   SV2.10.590: ISTANTANEA DEL LISTINO (storico delle variazioni)
+   A ogni import viene scritta accanto al CSV una fotografia compatta e
+   compressa del listino: solo i campi non descrittivi, che sono il 2% del peso
+   del file ma tutto cio' su cui si puo' fare analisi nel tempo. Un CSV da
+   41 MB diventa circa 0,3 MB, quindi lo storico si puo' tenere per anni.
+   Come l'archiviazione del CSV: scritta PRIMA del merge e avvolta in try/catch,
+   non deve poter far fallire l'aggiornamento. Se la cartella listini non e'
+   configurata non si fa nulla e non si ripiega sul download: l'istantanea si
+   ricava dal CSV in qualunque momento, quindi non c'e' niente da salvare.
+   ========================================================================== */
+const IST_CAMPI = ['stock','msrp','brand','category','category_parent',
+  'precio_neto_compra','precio_venta_cliente_final','PVP','ean','published',
+  'created','modified','category_id','on_request','envio_especial'];
+
+function _istantaneaNomeFile(d){
+  const dt = d || new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return 'Istantanea_' + dt.getFullYear() + pad(dt.getMonth() + 1) + pad(dt.getDate())
+       + '-' + pad(dt.getHours()) + pad(dt.getMinutes()) + '.json.gz';
+}
+
+/* Stessa regola del merge: a parita' di codice vince la prima riga del file. */
+function _istantaneaCostruisci(rows){
+  const dati = {};
+  let n = 0;
+  for(const r of (rows || [])){
+    if(!r) continue;
+    const c = (r.name == null) ? '' : String(r.name).trim();
+    if(!c) continue;
+    n++;
+    if(Object.prototype.hasOwnProperty.call(dati, c)) continue;
+    const o = {};
+    for(const k of IST_CAMPI){
+      const v = r[k];
+      if(v != null && v !== '') o[k] = String(v);
+    }
+    dati[c] = o;
+  }
+  return { v:1, at:new Date().toISOString(), appVersion: APP_VERSION,
+           righe:n, codici:Object.keys(dati).length, campi:IST_CAMPI, dati };
+}
+
+async function _istantaneaComprimi(testo){
+  if(typeof CompressionStream !== 'function') return null;   // browser vecchio: si salva in chiaro
+  const cs = new CompressionStream('gzip');
+  return await new Response(new Blob([testo]).stream().pipeThrough(cs)).arrayBuffer();
+}
+
+async function _istantaneaSalva(rows){
+  if(!Array.isArray(rows) || !rows.length) return { ok:false, motivo:'nessuna riga' };
+  const obj = _istantaneaCostruisci(rows);
+  const testo = JSON.stringify(obj);
+  let gz = null;
+  try { gz = await _istantaneaComprimi(testo); } catch(e){ console.warn('[istantanea] gzip fallito', e); }
+  const nome = gz ? _istantaneaNomeFile() : _istantaneaNomeFile().replace(/\.gz$/, '');
+  const contenuto = gz ? gz : testo;
+  try {
+    if(!LISTINI_STATE.dirHandle) await listiniLoadHandle();
+    if(!LISTINI_STATE.dirHandle) return { ok:false, motivo:'cartella listini non configurata' };
+    const ok = await _bkEnsurePermission(LISTINI_STATE.dirHandle, 'readwrite');
+    if(!ok) return { ok:false, motivo:'permesso negato' };
+    const fh = await LISTINI_STATE.dirHandle.getFileHandle(nome, { create:true });
+    const w = await fh.createWritable();
+    await w.write(contenuto);
+    await w.close();
+    const kb = Math.round((gz ? gz.byteLength : testo.length) / 1024);
+    console.info('[istantanea] ' + nome + ' — ' + obj.codici + ' codici, ' + kb + ' KB');
+    toast('Istantanea del listino archiviata: ' + obj.codici.toLocaleString('it-IT')
+          + ' codici in ' + kb.toLocaleString('it-IT') + ' KB', 'ok', 3500);
+    return { ok:true, nome, codici:obj.codici, kb };
+  } catch(e){
+    console.warn('[istantanea] scrittura fallita', e);
+    return { ok:false, motivo:(e && e.message) || String(e) };
+  }
 }
 
 async function aggiornaListinoDaUrl(){
