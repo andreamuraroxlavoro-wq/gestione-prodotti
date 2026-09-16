@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.585 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.589 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11449,7 +11449,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.585</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.589</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12188,7 +12188,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.585 mobile");
+console.info("[bootstrap] script avvio — SV2.10.589 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13684,7 +13684,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.585';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.589';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -13785,6 +13785,9 @@ function personalProductCreate(input){
     modified: new Date().toISOString(),
     params: (input.params && typeof input.params === 'object' && !Array.isArray(input.params)) ? input.params : {},
     paramsRaw: JSON.stringify((input.params && typeof input.params === 'object' && !Array.isArray(input.params)) ? input.params : {}),
+    // SV2.10.586: le etichette personalizzate esistevano solo in personalProductUpdate,
+    // quindi alla CREAZIONE (e percio' a ogni duplicazione) andavano perse.
+    paramLabels: (input.paramLabels && typeof input.paramLabels === 'object' && !Array.isArray(input.paramLabels)) ? input.paramLabels : {},
     related_products: '',
     extra_images_paths: '',
     extra_images: Array.isArray(input.extra_images) ? input.extra_images.filter(u => u && typeof u === 'string') : [],
@@ -14065,6 +14068,31 @@ function duplicateProductAsPersonal(idx){
         precio_neto_compra: String(gf('precio_neto_compra') || '0'),
         image_path: String(gf('image_path') || ''),
         extra_images: extraImgs,
+        // SV2.10.586: la copia deve essere identica all'originale. Prima questi
+        // campi non venivano passati e la copia nasceva monca: la distinta base
+        // spariva (il badge COMPOSTO non compariva piu'), e con lei specifiche,
+        // contenuto confezione, note, prezzo di vendita, parametri ed etichette.
+        specifications: String(gf('specifications') || ''),
+        content: String(gf('content') || ''),
+        note: String(src.note || ''),
+        salePrice: String(src.salePrice || ''),
+        bom: (typeof bomNormalize === 'function')
+          ? JSON.parse(JSON.stringify(bomNormalize(src.bom)))
+          : null,
+        params: (function(){
+          const _p = (typeof gf === 'function') ? gf('params') : src.params;
+          if(_p && typeof _p === 'object' && !Array.isArray(_p)){
+            try { return JSON.parse(JSON.stringify(_p)); } catch(_){ return {}; }
+          }
+          return {};
+        })(),
+        paramLabels: (function(){
+          const _l = src.paramLabels;
+          if(_l && typeof _l === 'object' && !Array.isArray(_l)){
+            try { return JSON.parse(JSON.stringify(_l)); } catch(_){ return {}; }
+          }
+          return {};
+        })(),
       },
       onSave: () => {
         if(typeof applyFilters === 'function') applyFilters();
@@ -14415,7 +14443,10 @@ function openPersonalProductEditor(opts){
     ? JSON.parse(JSON.stringify(existing.params))
     : ((pre && pre.params && typeof pre.params === 'object' && !Array.isArray(pre.params)) ? JSON.parse(JSON.stringify(pre.params)) : {});
   _PP_LABELS = (existing && existing.paramLabels && typeof existing.paramLabels === 'object' && !Array.isArray(existing.paramLabels))
-    ? JSON.parse(JSON.stringify(existing.paramLabels)) : {};
+    ? JSON.parse(JSON.stringify(existing.paramLabels))
+    // SV2.10.586: anche in duplicazione, come gia' fa _PP_PARAMS qui sopra.
+    : ((pre && pre.paramLabels && typeof pre.paramLabels === 'object' && !Array.isArray(pre.paramLabels))
+        ? JSON.parse(JSON.stringify(pre.paramLabels)) : {});
   if(typeof renderPpParams === 'function') renderPpParams();
   // SV2.10.484: stato locale della distinta + primo disegno
   _PP_BOM = bomNormalize(f.bom);
@@ -18376,6 +18407,17 @@ function idbClear(store){
      - Conflict detection: se Drive ha meno righe del locale, blocca con dialog
    ========================================================================== */
 
+/* SV2.10.589 — SINCRONIZZAZIONE GOOGLE DRIVE DISATTIVATA
+   Decisione di progetto: i dati vivono nella cartella locale del Mac (archivio
+   locale live), che l'utente archivia o sincronizza per conto suo. Drive
+   appesantiva l'avvio e impediva l'uso senza rete.
+   Il codice resta in file ma e' inerte: nessuna chiamata di rete, nessun
+   temporizzatore, nessun pannello. Per riaccenderlo basta rimettere false qui,
+   ricaricare, e riconfigurare l'URL dalle impostazioni.
+   ATTENZIONE: driveNotifyChange NON e' stata svuotata perche' e' anche
+   l'aggancio dell'archivio locale live (_alvHookNotify). Esce subito dopo. */
+const DRIVE_OFF = true;
+
 const DRIVE_VERSION              = 1;
 const DRIVE_URL_KEY              = 'gp_drive_url';        // URL Apps Script Web App
 const DRIVE_MODE_KEY             = 'gp_drive_mode';       // 'manual' | 'auto'
@@ -18740,6 +18782,16 @@ const DRIVE_DELTA = {
 
 // ─── Init: legge stato da localStorage ───
 function driveInit(){
+  // SV2.10.589: con DRIVE_OFF non si legge la configurazione, non si avvia il
+  // polling e non si tocca la rete. Lo stato resta spento e coerente.
+  if(typeof DRIVE_OFF !== 'undefined' && DRIVE_OFF){
+    DRIVE_STATE.url = null;
+    DRIVE_STATE.enabled = false;
+    DRIVE_STATE.mode = 'manual';
+    DRIVE_STATE.localMode = false;
+    console.info('[drive] sincronizzazione disattivata (SV2.10.589) \u2014 i dati stanno nella cartella locale');
+    return;
+  }
   try {
     DRIVE_STATE.url           = localStorage.getItem(DRIVE_URL_KEY) || null;
     DRIVE_STATE.mode          = localStorage.getItem(DRIVE_MODE_KEY) || 'manual';
@@ -19615,7 +19667,12 @@ function _driveBuildFullPayload(){
     'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
     'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
     'vt_tags',    // SV2.10.368: sincronizza i TAG prodotti via Drive Sync
-    'vt_stock_qty'  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
+    'vt_stock_qty',  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
+    'salesPriceLists_v1',          // SV2.10.588: i listini di vendita
+    'activeSalesPriceList_v1',     // SV2.10.588: quale listino e' attivo
+    'discountTreeAdjustments_v1',  // SV2.10.588: rettifiche albero sconti
+    'quote_settings',              // SV2.10.588: impostazioni preventivi
+    'sv_listino_url',              // SV2.10.588: URL del listino fornitore
   ];
   SETTINGS_KEYS.forEach(k => {
     let v = localStorage.getItem(k);
@@ -21637,6 +21694,9 @@ function driveNotifyChange(kind, key, record){
   // SV2.10.499: archivio locale live — aggancio PRIMA del guard su DRIVE_STATE.url,
   // cosi' funziona anche con Drive Sync spento.
   try { if(typeof _alvHookNotify === 'function') _alvHookNotify(kind, key); } catch(_){}
+  // SV2.10.589: l'archivio locale qui sopra continua a funzionare; tutto il
+  // resto (code, badge, invii) si ferma qui.
+  if(typeof DRIVE_OFF !== 'undefined' && DRIVE_OFF) return;
   if(!DRIVE_STATE.url) return;
   // kind: 'data' | 'edits' | 'settings'
   // key:  per 'data' = codice prodotto, per 'edits' = _idx (numero), per 'settings' = nome chiave
@@ -21681,7 +21741,12 @@ function driveNotifyChange(kind, key, record){
           'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
           'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
           'vt_tags',    // SV2.10.368: sincronizza i TAG prodotti via Drive Sync
-          'vt_stock_qty'  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
+          'vt_stock_qty',  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
+          'salesPriceLists_v1',          // SV2.10.588: i listini di vendita
+          'activeSalesPriceList_v1',     // SV2.10.588: quale listino e' attivo
+          'discountTreeAdjustments_v1',  // SV2.10.588: rettifiche albero sconti
+          'quote_settings',              // SV2.10.588: impostazioni preventivi
+          'sv_listino_url',              // SV2.10.588: URL del listino fornitore
         ];
         SETTINGS_KEYS.forEach(k => {
           let v = localStorage.getItem(k);
@@ -22999,7 +23064,15 @@ async function driveApplyRemoteData(payload){
       'vt_stock_managed',  // V2.10.295: sincronizza la lista gestiti a magazzino
       'vt_outlet',  // V2.10.297: sincronizza la lista outlet (uscita rapida)
       'vt_tags',    // SV2.10.368: sincronizza i TAG prodotti via Drive Sync
-      'vt_stock_qty'  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
+      'vt_stock_qty',  // V2.10.302: sincronizza le giacenze magazzino (Lentiai/Min)
+      // SV2.10.588: qui mancava anche vt_hot: veniva spedita a Drive
+      // ma non rientrava mai al merge.
+      'vt_hot',
+      'salesPriceLists_v1',          // SV2.10.588: i listini di vendita
+      'activeSalesPriceList_v1',     // SV2.10.588: quale listino e' attivo
+      'discountTreeAdjustments_v1',  // SV2.10.588: rettifiche albero sconti
+      'quote_settings',              // SV2.10.588: impostazioni preventivi
+      'sv_listino_url',              // SV2.10.588: URL del listino fornitore
     ];
     Object.keys(payload.settings).forEach(k => {
       if(!SETTINGS_KEYS.includes(k) || typeof payload.settings[k] !== 'string') return;
@@ -24450,7 +24523,12 @@ const BACKUP_SETTINGS_KEYS = [
   'vt_stock_managed',  // V2.10.295: include lista gestiti a magazzino nei backup locali
   'vt_outlet',  // V2.10.297: include lista outlet nei backup locali
   'vt_tags',    // SV2.10.368: include i TAG nei backup locali
-  'vt_stock_qty'  // V2.10.302: include giacenze magazzino nei backup locali
+  'vt_stock_qty',  // V2.10.302: include giacenze magazzino nei backup locali
+  'salesPriceLists_v1',          // SV2.10.588: i listini di vendita
+  'activeSalesPriceList_v1',     // SV2.10.588: quale listino e' attivo
+  'discountTreeAdjustments_v1',  // SV2.10.588: rettifiche albero sconti
+  'quote_settings',              // SV2.10.588: impostazioni preventivi
+  'sv_listino_url',              // SV2.10.588: URL del listino fornitore
 ];
 
 // Stato runtime del sistema di backup
@@ -26561,7 +26639,7 @@ function openBackupDialog(opts){
 
         <div class="bks-intro">
           <p class="bks-intro-text">
-            Proteggi i tuoi dati con due sistemi complementari: il <b>backup locale</b> salva una copia automatica sul tuo computer, mentre <b>Google Drive Sync</b> mantiene tutto allineato fra dispositivi tramite un Apps Script personale.
+            I dati vivono nella <b>cartella locale</b> che hai collegato: l&rsquo;archivio si aggiorna a ogni modifica e il <b>backup</b> ne salva copie datate. L&rsquo;app funziona senza rete; l&rsquo;eventuale copia su cloud la gestisci tu dal Mac.
           </p>
         </div>
 
@@ -26584,6 +26662,8 @@ function openBackupDialog(opts){
 async function driveRenderSettingsPanel(){
   const body = document.getElementById('driveSettingsBody');
   if(!body) return;
+  // SV2.10.589: pannello non disegnato, cosi' non si puo' riattivare per sbaglio.
+  if(typeof DRIVE_OFF !== 'undefined' && DRIVE_OFF){ body.innerHTML = ''; return; }
   const url = DRIVE_STATE.url || '';
   const mode = DRIVE_STATE.mode || 'manual';
   const lastSync = DRIVE_STATE.lastSyncAt ? fmtDate(DRIVE_STATE.lastSyncAt) : 'mai';
@@ -29152,7 +29232,127 @@ async function _scaricaListinoFile(btnId, btnLabel){
     }
     return null;
   }
+  // SV2.10.587: prima di consumarlo, ne archivio una copia datata.
+  // Uso una copia dei byte: il File che segue consuma lo stesso buffer.
+  try {
+    const esito = await _listiniArchivia(res.buffer.slice(0));
+    if(esito.ok){
+      toast('Copia del listino archiviata: ' + esito.nome
+            + (esito.dove === 'download' ? ' (nei Download)' : ''), 'ok', 3500);
+    }
+  } catch(_){}
   return new File([res.buffer], 'listino.csv', { type: 'text/csv' });
+}
+
+/* ==========================================================================
+   SV2.10.587: ARCHIVIO DEI LISTINI SCARICATI
+   Ogni CSV scaricato dalla procedura di aggiornamento viene salvato in una
+   cartella scelta una volta sola, col nome Listino_AAAAMMGG-HHMM.csv.
+   Il browser non consente percorsi scritti nel codice: la cartella la sceglie
+   l'utente col selettore, e l'handle resta in IndexedDB ('listiniDirHandle').
+   Se non e' configurata (o l'API manca, es. iPhone) si ripiega sul download
+   normale, cosi' la copia non va comunque persa.
+   ========================================================================== */
+const LISTINI_STATE = {
+  dirHandle: null,
+  dirName: null,
+  apiSupported: typeof window.showDirectoryPicker === 'function',
+};
+
+async function listiniLoadHandle(){
+  try {
+    const handle = await idbGet('meta', 'listiniDirHandle');
+    if(!handle) return false;
+    const ok = await _bkEnsurePermission(handle, 'readwrite');
+    if(!ok){
+      console.info('[listini] cartella presente ma permesso scaduto');
+      return false;
+    }
+    LISTINI_STATE.dirHandle = handle;
+    LISTINI_STATE.dirName = handle.name || 'cartella';
+    return true;
+  } catch(e){
+    console.warn('[listini] load handle failed', e);
+    return false;
+  }
+}
+
+async function listiniPickDirectory(){
+  if(!LISTINI_STATE.apiSupported){
+    toast('Questo browser non consente di scegliere una cartella. I listini verranno scaricati normalmente.', 'warn', 5000);
+    return false;
+  }
+  try {
+    const handle = await window.showDirectoryPicker({
+      id: 'gestione-prodotti-listini',
+      mode: 'readwrite',
+      startIn: 'documents',
+    });
+    if(!handle) return false;
+    const ok = await _bkEnsurePermission(handle, 'readwrite');
+    if(!ok){ toast('Permesso di scrittura negato sulla cartella', 'err'); return false; }
+    LISTINI_STATE.dirHandle = handle;
+    LISTINI_STATE.dirName = handle.name || 'cartella';
+    await idbSet('meta', 'listiniDirHandle', handle);
+    toast('Cartella listini configurata: ' + LISTINI_STATE.dirName, 'ok', 3500);
+    _listiniAggiornaEtichetta();
+    return true;
+  } catch(e){
+    if(e && e.name === 'AbortError') return false;
+    console.error('[listini] pickDirectory failed', e);
+    toast('Errore selezione cartella: ' + (e.message || e), 'err', 4000);
+    return false;
+  }
+}
+
+function _listiniNomeFile(d){
+  const dt = d || new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return 'Listino_' + dt.getFullYear() + pad(dt.getMonth() + 1) + pad(dt.getDate())
+       + '-' + pad(dt.getHours()) + pad(dt.getMinutes()) + '.csv';
+}
+
+/* Salva i byte scaricati. Ritorna { ok, dove, nome }. Non lancia mai:
+   l'archiviazione non deve poter far fallire l'aggiornamento del listino. */
+async function _listiniArchivia(buffer){
+  const nome = _listiniNomeFile();
+  try {
+    if(!LISTINI_STATE.dirHandle) await listiniLoadHandle();
+    if(LISTINI_STATE.dirHandle){
+      const ok = await _bkEnsurePermission(LISTINI_STATE.dirHandle, 'readwrite');
+      if(ok){
+        const fh = await LISTINI_STATE.dirHandle.getFileHandle(nome, { create: true });
+        const w = await fh.createWritable();
+        await w.write(buffer);
+        await w.close();
+        return { ok: true, dove: 'cartella', nome };
+      }
+    }
+  } catch(e){
+    console.warn('[listini] scrittura su cartella fallita, ripiego sul download', e);
+  }
+  // ripiego: download normale, cosi' la copia non si perde comunque
+  try {
+    const blob = new Blob([buffer], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nome;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    return { ok: true, dove: 'download', nome };
+  } catch(e){
+    console.warn('[listini] anche il download e\u0027 fallito', e);
+    return { ok: false, nome };
+  }
+}
+
+function _listiniAggiornaEtichetta(){
+  const el = document.getElementById('listiniDirLabel');
+  if(!el) return;
+  el.textContent = LISTINI_STATE.dirName
+    ? LISTINI_STATE.dirName
+    : 'nessuna \u2014 verr\u00e0 usato il download';
 }
 
 async function aggiornaListinoDaUrl(){
@@ -29207,6 +29407,18 @@ function openListinoUrlDialog(){
         <input type="url" id="listinoUrlInput" placeholder="https://\u2026/listino.csv?token=\u2026" autocomplete="off"
                value="${escapeAttr(cur)}"
                style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--fg);font-size:13px;box-sizing:border-box">
+        <div style="margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)">
+          <div style="font-size:12px;color:var(--fg3);line-height:1.5;margin-bottom:8px">
+            Ogni CSV scaricato viene archiviato come <code>Listino_AAAAMMGG-HHMM.csv</code>.
+            Scegli la cartella una volta sola (per esempio <em>Gestione Fatturato/costi</em>):
+            il browser non permette di scriverla nel codice.
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="font-size:12px;color:var(--fg2)">Cartella:
+              <b id="listiniDirLabel" style="color:var(--fg)">\u2014</b></span>
+            <button class="btn small ghost" id="btnListiniDir" type="button">Scegli cartella\u2026</button>
+          </div>
+        </div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">
           <button class="btn small ghost" id="listinoUrlSave">Salva URL</button>
           <button class="btn small" id="btnConfrontaListino" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700" title="Scarica il CSV dall'URL e confronta le scontistiche col database attuale (nessuna modifica)">\uD83D\uDCC2 Confronta con CSV/Excel</button>
@@ -29223,6 +29435,9 @@ function openListinoUrlDialog(){
   };
   document.getElementById('btnConfrontaListino').onclick = confrontaListinoDaUrl;
   document.getElementById('btnAggiornaListino').onclick = aggiornaListinoDaUrl;
+  // SV2.10.587: cartella di archivio dei CSV scaricati
+  document.getElementById('btnListiniDir').onclick = listiniPickDirectory;
+  listiniLoadHandle().then(_listiniAggiornaEtichetta).catch(() => _listiniAggiornaEtichetta());
 }
 
 async function importFile(file){
