@@ -9386,6 +9386,37 @@ body.theme-light .qcart-mode-seg.qcart-mode-active.qcart-mode-client{
   color:#fff;
 }
 
+/* SV2.10.591 — PREZZO LIBERO per riga. Sgancia la riga dal listino: l'importo
+   digitato nella colonna del prezzo vale cosi' com'e', senza il limite del
+   listino (fino alla 590 il prezzo veniva convertito in sconto e bloccato a
+   [0,100]%, quindi non poteva mai superare il PVP). Riusa il percorso gia'
+   collaudato delle righe senza listino (_noListino, SV2.10.517/520).
+   Il pulsante sta nella colonna Listino, che per queste righe non ha piu'
+   significato: nessuna colonna nuova, nessuna larghezza cambiata. */
+.qcart-listino-wrap{ display:inline-flex; align-items:center; gap:6px; justify-content:flex-end; }
+.qcart-libero-mini{
+  width:15px; height:15px;
+  flex:0 0 auto;
+  padding:0;
+  border-radius:4px;
+  border:1px solid var(--border2);
+  background:transparent;
+  color:transparent;                 /* il simbolo si vede solo da acceso */
+  font-family:inherit;
+  font-size:10px; font-weight:900;
+  line-height:1;
+  display:inline-flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  user-select:none;
+  transition:all .15s;
+}
+.qcart-libero-mini:hover{ border-color:#4FA8E8; color:rgba(79,168,232,0.55); }
+.qcart-libero-mini.is-on{
+  border-color:#4FA8E8;
+  background:#4FA8E8;
+  color:#fff;
+}
+
 /* SV2.10.510 — casella "PREZZO NETTO" per riga, accanto al campo prezzo in
    Modalita' Cliente. Quando attiva, le esportazioni sostituiscono la percentuale
    di sconto con la dicitura verde "Prezzo Netto" e lasciano vuoto il listino. */
@@ -13684,7 +13715,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.590';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.591';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -46665,6 +46696,10 @@ function _qImposedDiscountForItem(item){
 
 function _applySplToCartItem(item){
   if(!item) return null;
+  /* SV2.10.591: la riga a prezzo libero e' una decisione presa a mano sul
+     singolo preventivo. Applicare il listino di vendita generale la
+     riscriverebbe in silenzio. */
+  if(item._prezzoLibero === true) return null;
   // Modalita' Vendita richiesta
   if(typeof getPriceMode !== 'function' || getPriceMode() !== 'vendita') return null;
   const listId = (typeof getActiveSplId === 'function') ? getActiveSplId() : null;
@@ -54477,7 +54512,11 @@ function _refreshQuote_buildDiff(){
       if(na == null || nb == null) return false;
       return Math.abs(na - nb) < 0.005;
     };
-    if(!_eqNum(item.pvp, newPvp))         diffs.push({ field: 'pvp',      label: 'Prezzo listino (PVP)', old: item.pvp,       neww: newPvp, kind: 'eur' });
+    /* SV2.10.591: su una riga a PREZZO LIBERO il pvp non e' piu' il listino
+       ma il prezzo deciso a mano. Riallinearlo al catalogo cancellerebbe la
+       scelta commerciale, come gia' avviene per il netto con _nettoOverride. */
+    if(item._prezzoLibero !== true && !_eqNum(item.pvp, newPvp))
+      diffs.push({ field: 'pvp',      label: 'Prezzo listino (PVP)', old: item.pvp,       neww: newPvp, kind: 'eur' });
     /* SV2.10.524 — se l'articolo ha un prezzo di vendita imposto, "Aggiorna
        preventivo" riallinea anche lo sconto della riga a quel prezzo. Senza,
        una riga a cui era stato applicato il listino generale (o modificata a
@@ -54506,7 +54545,7 @@ function _refreshQuote_buildDiff(){
     if(!_eq(item.image, newImage))        diffs.push({ field: 'image',    label: 'Immagine',             old: item.image,     neww: newImage, kind: 'image' });
 
     const updates = {
-      pvp: newPvp,
+      pvp: (item._prezzoLibero === true) ? item.pvp : newPvp,   // SV2.10.591
       name: newNameFull || newNameShort || item.code,
       nameShort: newNameShort,
       nameFull: newNameFull,
@@ -57689,6 +57728,66 @@ function _qcScontoInlineText(it, plainMinus){
     return 'Sconto a Percentuale (' + _m + _qFmtPct(it.discountInput, _pctDecimals(it.discountInput)) + ' sul Totale)';
   }
   return 'Sconto a Valore (' + _m + _qFmtEur(Math.abs(_tot)) + ' sul Totale)';
+}
+
+/* SV2.10.591 — contenuto della cella LISTINO, comune alle due tabelle del
+   carrello. Oltre all'importo ospita l'interruttore "prezzo libero": e' la
+   colonna che per una riga a prezzo libero perde significato, quindi e' il
+   posto giusto per il comando che la sgancia dal listino.
+   L'interruttore non compare dove sarebbe una finzione: voci libere (gia'
+   senza listino), voci di sconto, righe a quantita' zero e articoli nati
+   senza listino (SV2.10.517), che sono liberi per natura. */
+function _qcListinoCellHtml(it, isZeroQty, noList, isSconto){
+  const dash = '<span style="color:var(--fg3)">—</span>';
+  if(!it || it.isFreeField || isZeroQty || isSconto) return dash;
+  const libero = (it._prezzoLibero === true);
+  const testo = (noList || libero) ? dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—');
+  const mostra = libero || (it._noListino !== true && it.pvp != null && it.pvp > 0);
+  if(!mostra) return testo;
+  const tip = libero
+    ? 'Prezzo libero attivo: l’importo scritto nella colonna del prezzo vale così com’è, senza il limite del listino. Premi per tornare al listino.'
+    : 'Prezzo libero: sgancia la riga dal listino e permette di scrivere un prezzo qualunque, anche superiore al listino. In stampa il listino resta nascosto.';
+  return '<span class="qcart-listino-wrap">' + testo +
+    '<button type="button" class="qcart-libero-mini' + (libero ? ' is-on' : '') + '" ' +
+      'data-code="' + escapeAttr(it.code) + '" aria-pressed="' + (libero ? 'true' : 'false') + '" ' +
+      'title="' + escapeAttr(tip) + '">€</button>' +
+  '</span>';
+}
+
+/* SV2.10.591 — accende o spegne il prezzo libero su una riga.
+   Accendendolo il prezzo di vendita corrente diventa la base di riga (pvp) e
+   lo sconto si azzera: a schermo l'importo non si muove di un centesimo, ma da
+   quel momento e' modificabile senza limite. Il listino di partenza resta in
+   _listinoOrig, cosi' spegnendo l'interruttore la riga torna esattamente com'era. */
+function _qcToggleprezzoLibero(code){
+  const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : [];
+  const item = items.find(it => it && it.code === code);
+  if(!item) return false;
+  const on = !(item._prezzoLibero === true);
+  if(on){
+    const dPct = _normDiscountPct(item.discountPct);
+    if(item.pvp != null && item.pvp > 0){
+      if(item._listinoOrig == null) item._listinoOrig = item.pvp;
+      item.pvp = _roundCents(item.pvp * (1 - dPct / 100));
+    }
+    item.discountPct = 0;
+    item._prezzoLibero = true;
+    item._noListino = true;
+    item.nettoPrice = true;     /* in stampa il listino resta nascosto */
+  } else {
+    const prezzo = item.pvp;
+    if(item._listinoOrig != null && item._listinoOrig > 0){
+      item.pvp = item._listinoOrig;
+      item.discountPct = _priceToDiscountPct(item._listinoOrig, prezzo);
+      delete item._listinoOrig;
+    }
+    item._prezzoLibero = false;
+    item._noListino = false;
+    item.nettoPrice = false;
+  }
+  item.updatedAt = Date.now();
+  if(typeof saveQuoteState === 'function'){ try { saveQuoteState(); } catch(_){} }
+  return true;
 }
 
 function _qcCanoneInlineText(it, printS){
@@ -61576,7 +61675,7 @@ function renderQuoteCartContent(){
                 '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
               '</div>' +
             '</td>') +
-          '<td class="num">' + ((it.isFreeField || isZeroQty || _noList2) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
+          '<td class="num">' + _qcListinoCellHtml(it, isZeroQty, _noList, _isSconto) + '</td>' +
           '<td>' +
             // V2.6.4: UI compatta identica a quella della colonna "Sc. Cliente"
             // in Modalità Analisi (V2.6.2). Solo casella + simbolo % allineati a destra.
@@ -61812,7 +61911,7 @@ function renderQuoteCartContent(){
                 '<button class="btn small ghost qcart-qty-plus qcart-qty-btn" data-code="' + escapeAttr(it.code) + '" type="button">+</button>' +
               '</div>' +
             '</td>') +
-          '<td class="num">' + ((it.isFreeField || isZeroQty || _noList2) ? _dash : (it.pvp != null ? _qFmtEur(it.pvp) : '—')) + '</td>' +
+          '<td class="num">' + _qcListinoCellHtml(it, isZeroQty, _noList, _isSconto) + '</td>' +
           // V2.5.7: nuova colonna "Sconto" tra PVP e Netto. Viola con ★ se cascata.
           // V2.10.263: cella "Sconto ACQ" EDITABILE. Lo sconto e' derivato dal
           // netto (sconto% = (1-netto/pvp)*100); modificandolo si ricalcola il
@@ -62170,6 +62269,17 @@ function renderQuoteCartContent(){
          riaprendo il carrello. Riuso il refresh della selezione, che ridisegna
          il contenuto conservando la posizione di scorrimento. */
       if(typeof _qcRefreshAfterSelection === 'function'){ try { _qcRefreshAfterSelection(); } catch(_){} }
+    });
+  });
+  /* SV2.10.591 — interruttore PREZZO LIBERO nella colonna Listino. Cambia
+     pvp, sconto e totali della riga, quindi serve un ridisegno vero: riuso il
+     refresh della selezione, che conserva la posizione di scorrimento. */
+  container.querySelectorAll('.qcart-libero-mini').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(!_qcToggleprezzoLibero(btn.dataset.code)) return;
+      if(typeof _qcUpdateDirtyBadge === 'function'){ try { _qcUpdateDirtyBadge(); } catch(_){} }
+      if(typeof _qcRefreshAfterSelection === 'function'){ try { _qcRefreshAfterSelection(); } catch(_){} }
+      else if(typeof renderQuoteCartContent === 'function'){ try { renderQuoteCartContent(); } catch(_){} }
     });
   });
   // SV2.10.510: casella "PREZZO NETTO" per riga. Non serve un re-render completo:
