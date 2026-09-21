@@ -13766,7 +13766,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.593';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.594';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -57818,6 +57818,26 @@ function _qcQtyTesto(it){
    compreso e non va mostrato, gli altri due perche' non c'e' importo. */
 function _qcQtySenzaImporti(it){ return _qcQtyStato(it) != null; }
 
+/* SV2.10.594 - testo della dicitura per i DOCUMENTI: lo spazio diventa
+   unificatore, cosi' "Su richiesta" non si spezza fra le due parole. */
+function _qcQtyTestoDoc(it){
+  return _qcQtyTesto(it).replace(/ /g, '\u00a0');
+}
+
+/* SV2.10.594 - peso della colonna Q.ta nelle stampe. Una colonna da 6 basta
+   per un numero, non per una parola: "Escluso" ci veniva spezzato a meta'
+   ("Esclu / so"). Quando nel preventivo c'e' almeno una dicitura, la colonna
+   si allarga quanto serve alla piu' lunga fra quelle presenti. */
+function _qcQtyColW(items){
+  let max = 0;
+  (items || []).forEach(it => {
+    const k = _qcQtyStato(it);
+    if(k) max = Math.max(max, QC_QTY_STATI[k].length);
+  });
+  if(max === 0) return 6;
+  return (max >= 12) ? 15 : 11;
+}
+
 function _qcQtyTitolo(it){
   const k = _qcQtyStato(it);
   if(k === 'incluso') return 'Incluso: l’importo è conteggiato per intero nel Totale dell’Offerta, quantità della riga compresa, ma nei documenti prezzo e totale di questa riga non vengono stampati. Premi per cambiare.';
@@ -65518,7 +65538,7 @@ async function exportQuoteDocx(options){
     // V2.10.37: pesi calibrati per dare priorita' alla descrizione mantenendo importi su una riga.
     if(showImage)   cols.push({ key: 'img',  w:  8, label: 'Img', align: 'center' });
                     cols.push({ key: 'desc', w: 42, label: 'Descrizione', align: 'left' });
-      if(showQty)   cols.push({ key: 'qty',  w:  6, label: 'Q.tà', align: 'center' });   // SV2.10.530: quantita' opzionale
+      if(showQty)   cols.push({ key: 'qty',  w: _qcQtyColW(t.items), label: 'Q.tà', align: 'center' });   // SV2.10.594
     if(showListino) cols.push({ key: 'list',     w: 11, label: 'Listino', align: 'right' });
     if(showSconto)  cols.push({ key: 'discount', w:  8, label: 'Sconto', align: 'right' });
     if(showPrezzo)  cols.push({ key: 'price',    w: 11, label: 'Prezzo', align: 'right' });
@@ -65639,7 +65659,7 @@ async function exportQuoteDocx(options){
         },
         qty: () => new TableCell({
           // SV2.10.539: riga a canone → colonna vuota (il testo va sotto la descrizione)
-          children: [para(mk(_qcIsCanoneItem(it) ? '' : _qcQtyTesto(it), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.CENTER })],   // SV2.10.592
+          children: [para(mk(_qcIsCanoneItem(it) ? '' : _qcQtyTestoDoc(it), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.CENTER })],   // SV2.10.594
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 60 },
           borders: cellBorders,
@@ -66394,7 +66414,7 @@ async function exportQuoteWord(){
       const cols = [];
       if(showImage)        cols.push({key:'img',     w:10, label:'Img'});
                            cols.push({key:'desc',    w:38, label:'Descrizione'});  // sempre
-             if(showQty)   cols.push({key:'qty',     w: 6, label:'Q.tà'});   // SV2.10.530: quantita' opzionale
+             if(showQty)   cols.push({key:'qty',     w: _qcQtyColW(t.items), label:'Q.tà'});   // SV2.10.594
       if(showListino)      cols.push({key:'list',    w:10, label:'Listino'});
       if(showSconto)       cols.push({key:'discount',w: 8, label:'Sconto'});
       if(showPrezzo)       cols.push({key:'price',   w:10, label:'Prezzo'});
@@ -66439,7 +66459,7 @@ async function exportQuoteWord(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTesto(it))) + '</td>',   // SV2.10.592
+          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTestoDoc(it))) + '</td>',   // SV2.10.594
           // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
           // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
           // Mai in entrambe.
@@ -66519,7 +66539,7 @@ async function exportQuoteWord(){
       const cols = [];
       if(showImage)            cols.push({key:'img',     w: 9, label:'Img'});
                                cols.push({key:'desc',    w:32, label:'Descrizione'});
-                 if(showQty)   cols.push({key:'qty',     w: 6, label:'Q.tà'});   // SV2.10.530: quantita' opzionale
+                 if(showQty)   cols.push({key:'qty',     w: _qcQtyColW(t.items), label:'Q.tà'});   // SV2.10.594
       if(showListino)          cols.push({key:'list',    w: 9, label:'Listino'});
       if(showScontoAnalisi)    cols.push({key:'scAcq',   w: 7, label:'Sconto'});
       if(showNetto)            cols.push({key:'netto',   w: 9, label:'Netto'});
@@ -66566,7 +66586,7 @@ async function exportQuoteWord(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTesto(it))) + '</td>',   // SV2.10.592
+          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTestoDoc(it))) + '</td>',   // SV2.10.594
           list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
           scAcq:    '<td class="col-money">' + (scAcqPct != null ? _qFmtPct(scAcqPct, 1) : '—') + '</td>',
           netto:    '<td class="col-money">' + fmt(it.netto) + '</td>',
@@ -66667,7 +66687,7 @@ async function exportQuoteWord(){
         'table.items td.col-desc .desc-brand{font-size:8.5pt;color:#6b7280;font-weight:500;letter-spacing:.3pt;text-transform:uppercase;margin-top:4pt}' +
         // V2.4.0: colonne numeriche compatte (padding ridotto)
         // V2.10.169: !important + tabular-nums anche su th per allineamento perfetto
-        'table.items th.col-qty,table.items td.col-qty{text-align:center !important;font-weight:600;vertical-align:middle;padding:8pt 3pt !important;font-variant-numeric:tabular-nums}' +
+        'table.items th.col-qty,table.items td.col-qty{text-align:center !important;font-weight:600;vertical-align:middle;padding:8pt 3pt !important;font-variant-numeric:tabular-nums;white-space:nowrap}' +
         'table.items th.col-money,table.items td.col-money{text-align:right !important;padding:8pt 6pt 8pt 4pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
         'table.items th.col-discount,table.items td.col-discount{text-align:right !important;padding:8pt 6pt 8pt 3pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
         'table.items td.col-discount{font-weight:600;color:#dc2626}' +
@@ -67614,7 +67634,7 @@ async function exportQuotePdfNative(options){
     const cols = [];
     if(showImage)   cols.push({ key: 'img',  w: 8,  label: 'Img', align: 'center' });
                     cols.push({ key: 'desc', w: 38, label: 'Descrizione', align: 'left' });  // V2.10.75: forzato left SOLO per PDF jsPDF — Word resta justify (funziona bene li')
-      if(showQty)   cols.push({ key: 'qty',  w:  6, label: 'Q.tà', align: 'center' });   // SV2.10.530: quantita' opzionale
+      if(showQty)   cols.push({ key: 'qty',  w: _qcQtyColW(t.items), label: 'Q.tà', align: 'center' });   // SV2.10.594
     if(showListino) cols.push({ key: 'list',     w: 12, label: 'Listino', align: 'right' });
     if(showSconto)  cols.push({ key: 'discount', w:  9, label: 'Sconto', align: 'right' });
     if(showPrezzo)  cols.push({ key: 'price',    w: 12, label: 'Prezzo', align: 'right' });
@@ -67628,7 +67648,8 @@ async function exportQuotePdfNative(options){
         halign: c.align,
       };
       // V2.10.82: colonne money mai spezzate (es. "14.000,00 €" non va a capo)
-      if(c.key === 'list' || c.key === 'price' || c.key === 'rtotal' || c.key === 'discount'){
+      // SV2.10.594: anche la colonna Q.ta, per non spezzare le diciture
+      if(c.key === 'list' || c.key === 'price' || c.key === 'rtotal' || c.key === 'discount' || c.key === 'qty'){
         columnStyles[i].overflow = 'visible';
       }
     });
@@ -67679,7 +67700,7 @@ async function exportQuotePdfNative(options){
       const cellMap = {
         img: '',  // immagine renderizzata in didDrawCell
         desc: descText,
-        qty: _qcIsCanoneItem(it) ? '' : _qcQtyTesto(it),   // SV2.10.592
+        qty: _qcIsCanoneItem(it) ? '' : _qcQtyTestoDoc(it),   // SV2.10.594
         // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
         // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
         // Mai in entrambe.
@@ -68501,7 +68522,7 @@ async function exportQuotePdf(){
       const cols = [];
       if(showImage)        cols.push({key:'img',     w: 8, label:'Img'});
                            cols.push({key:'desc',    w:38, label:'Descrizione'});
-             if(showQty)   cols.push({key:'qty',     w: 6, label:'Q.tà'});   // SV2.10.530: quantita' opzionale
+             if(showQty)   cols.push({key:'qty',     w: _qcQtyColW(t.items), label:'Q.tà'});   // SV2.10.594
       if(showListino)      cols.push({key:'list',    w:11, label:'Listino'});
       if(showSconto)       cols.push({key:'discount',w: 9, label:'Sconto'});
       if(showPrezzo)       cols.push({key:'price',   w:13, label:'Prezzo'});
@@ -68541,7 +68562,7 @@ async function exportQuotePdf(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTesto(it))) + '</td>',   // SV2.10.592
+          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTestoDoc(it))) + '</td>',   // SV2.10.594
           // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
           // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
           // Mai in entrambe.
@@ -68617,7 +68638,7 @@ async function exportQuotePdf(){
       const cols = [];
       if(showImage)            cols.push({key:'img',     w: 7, label:'Img'});
                                cols.push({key:'desc',    w:32, label:'Descrizione'});
-                 if(showQty)   cols.push({key:'qty',     w: 6, label:'Q.tà'});   // SV2.10.530: quantita' opzionale
+                 if(showQty)   cols.push({key:'qty',     w: _qcQtyColW(t.items), label:'Q.tà'});   // SV2.10.594
       if(showListino)          cols.push({key:'list',    w:10, label:'Listino'});
       if(showScontoAnalisi)    cols.push({key:'scAcq',   w: 8, label:'Sconto'});
       if(showNetto)            cols.push({key:'netto',   w:10, label:'Netto'});
@@ -68661,7 +68682,7 @@ async function exportQuotePdf(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTesto(it))) + '</td>',   // SV2.10.592
+          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTestoDoc(it))) + '</td>',   // SV2.10.594
           list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
           scAcq:    '<td class="col-money">' + (scAcqPct != null ? _qFmtPct(scAcqPct, 1) : '—') + '</td>',
           netto:    '<td class="col-money">' + fmt(it.netto) + '</td>',
@@ -68758,7 +68779,7 @@ async function exportQuotePdf(){
         'table.items td.col-desc .desc-body{text-align:justify;text-align-last:left;white-space:pre-line;hyphens:auto;color:#374151}' +
         'table.items td.col-desc .desc-brand{font-size:7.5pt;color:#6b7280;font-weight:500;letter-spacing:.3pt;text-transform:uppercase;margin-top:3pt}' +
         // Colonne numeriche compatte — padding 4-lati esplicito, tabular-nums anche su th
-        'table.items th.col-qty,table.items td.col-qty{text-align:center !important;font-weight:600;vertical-align:middle;padding:7pt 2pt !important;font-variant-numeric:tabular-nums}' +
+        'table.items th.col-qty,table.items td.col-qty{text-align:center !important;font-weight:600;vertical-align:middle;padding:7pt 2pt !important;font-variant-numeric:tabular-nums;white-space:nowrap}' +
         'table.items th.col-money,table.items td.col-money{text-align:right !important;padding:7pt 5pt 7pt 3pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
         'table.items th.col-discount,table.items td.col-discount{text-align:right !important;padding:7pt 5pt 7pt 2pt !important;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}' +
         'table.items td.col-discount{font-weight:600;color:#dc2626}' +
