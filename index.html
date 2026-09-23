@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.590 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.596 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11531,7 +11531,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.590</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.596</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12270,7 +12270,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.590 mobile");
+console.info("[bootstrap] script avvio — SV2.10.596 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13766,7 +13766,7 @@ function translateText(s, tracker){
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.594';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.596';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -53611,6 +53611,32 @@ function quoteBindToCart(quoteId, versionNumber){
   return window._QUOTE_STATE.boundQuote;
 }
 
+/* SV2.10.596 - NOME DEL FILE DEGLI EXPORT.
+   Fino alla 595 gli export si chiamavano tutti "preventivo_cliente_AAAAMMGG":
+   nome uguale per clienti diversi, quindi il secondo scaricato nello stesso
+   giorno diventava "(1)" e il file non diceva a quale offerta appartenesse.
+   Ora, quando il carrello e' COLLEGATO a un preventivo salvato, il nome segue
+   lo schema di archiviazione concordato:
+       Offerta_<Ragione sociale>_<numero offerta>_V<n>.<estensione>
+   Cliente, numero e versione si ricavano dal preventivo collegato: senza
+   collegamento non esistono, e si torna al nome di prima.
+   I caratteri vietati nei nomi di file (macOS non ammette / e :) vengono
+   sostituiti con uno spazio. */
+function _qNomeFileExport(ext, modo){
+  const ripiego = 'preventivo_' + (modo === 'client' ? 'cliente_' : '') +
+    new Date().toISOString().slice(0, 10).replace(/-/g, '') + '.' + ext;
+  try {
+    const bq = window._QUOTE_STATE && window._QUOTE_STATE.boundQuote;
+    if(!bq || !bq.quoteId || bq.versionNumber == null) return ripiego;
+    const q = (typeof quoteGetById === 'function') ? quoteGetById(bq.quoteId) : null;
+    const rs = (q && q.clienteSnapshot && q.clienteSnapshot.ragioneSociale)
+      ? String(q.clienteSnapshot.ragioneSociale) : '';
+    const pulito = rs.replace(/[\/:*?"<>|\\]/g, ' ').replace(/\s+/g, ' ').trim();
+    if(!pulito) return ripiego;
+    return 'Offerta_' + pulito + '_' + bq.quoteId + '_V' + bq.versionNumber + '.' + ext;
+  } catch(_){ return ripiego; }
+}
+
 /* Scollega il carrello dal preventivo. */
 function quoteUnbindFromCart(){
   if(!window._QUOTE_STATE.boundQuote){
@@ -64309,7 +64335,7 @@ async function exportQuoteExcel(){
     XLSX.utils.book_append_sheet(wb, ws, 'Preventivo');
 
     const ts = new Date().toISOString().slice(0,10).replace(/-/g,'');
-    const fname = 'preventivo_' + (qMode === 'client' ? 'cliente_' : '') + ts + '.xlsx';
+    const fname = _qNomeFileExport('xlsx', qMode);   // SV2.10.596
     XLSX.writeFile(wb, fname);
 
     if(typeof hideLoaderAdvanced === 'function') hideLoaderAdvanced();
@@ -66916,7 +66942,7 @@ async function exportQuoteWord(){
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'preventivo_' + (qMode === 'client' ? 'cliente_' : '') + new Date().toISOString().slice(0,10).replace(/-/g,'') + '.doc';
+    a.download = _qNomeFileExport('doc', qMode);   // SV2.10.596
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 
@@ -68420,7 +68446,7 @@ async function exportQuotePdfNative(options){
     }
 
     // V2.10.46: blob + (returnBlobOnly ? return blob : download)
-    const filename = 'preventivo_' + (qMode === 'client' ? 'cliente_' : '') + new Date().toISOString().slice(0,10).replace(/-/g,'') + '.pdf';
+    const filename = _qNomeFileExport('pdf', qMode);   // SV2.10.596
     const blob = doc.output('blob');
 
     if(options && options.returnBlobOnly){
