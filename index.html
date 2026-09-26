@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.596 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.597 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11531,7 +11531,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.596</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.597</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12270,7 +12270,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.596 mobile");
+console.info("[bootstrap] script avvio — SV2.10.597 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13085,8 +13085,9 @@ const TEXT_WORDS_DEFAULT = {
   "este":"questo","esta":"questa","estos":"questi","estas":"queste",
   "ese":"quello","esa":"quella","esos":"quelli","esas":"quelle",
   "aquel":"quello","aquella":"quella",
-  "los":"i","las":"le","el":"il","la":"la","le":"gli",
-  "su":"il suo","sus":"i suoi",
+  "los":"i","las":"le","el":"il","la":"la",
+  // SV2.10.597: tolte "le"→"gli" e "su"→"il suo": trasformavano italiano corretto («le telecamere», «su rack») in «gli telecamere», «il suo rack».
+  "sus":"i suoi",
   "al":"al","a":"a","en":"in","sin":"senza","entre":"tra","hacia":"verso","hasta":"fino a",
   "como":"come","pero":"ma","aunque":"anche se","porque":"perché","así":"così",
   "y":"e","o":"o","pero":"ma","ni":"né",
@@ -13464,6 +13465,8 @@ const TEXT_WORDS_DEFAULT = {
   "sola":"sola", "solas":"sole", "solos":"soli", "subir":"caricare", "través":"attraverso",
   "unificada":"unificata", "unificadas":"unificate", "unificado":"unificato", "unificados":"unificati",
   "validar":"validare", "verificar":"verificare",
+  // SV2.10.597: glossario integrato dalla diagnosi dei testi del 26/09/2026
+  "grosores":"spessori","oculto":"nascosto","oculta":"nascosta","zinc":"zinco","cubierta":"copertura","inteligente":"intelligente","canales":"canali","puertos":"porte","eficiencia":"efficienza","tiempo":"tempo","tornillos":"viti","condiciones":"condizioni","tasa":"tasso","respuesta":"risposta","diámetro":"diametro","trabajo":"lavoro","noche":"notte","resistencia":"resistenza","ambiental":"ambientale","apto":"adatto","apta":"adatta","humano":"umano","genérica":"generica","objeto":"oggetto","cruce":"attraversamento","ciclos":"cicli","horarios":"orari","compacto":"compatto","falsas":"false","térmico":"termico","térmica":"termica","aluminio":"alluminio","paso":"passo","cobre":"rame","suministro":"fornitura","fabricado":"fabbricato","fabricada":"fabbricata","hilos":"fili","hilo":"filo","certificaciones":"certificazioni","arquitectura":"architettura","antena":"antenna","perimetral":"perimetrale","enlace":"collegamento","paneles":"pannelli","emergencia":"emergenza","emergencias":"emergenze","recarga":"ricarica","eventos":"eventi","grupos":"gruppi","estable":"stabile","núcleo":"nucleo","abierto":"aperto","abierta":"aperta","directa":"diretta","directo":"diretto","conteo":"conteggio","manera":"maniera","garantizando":"garantendo","adicional":"aggiuntivo","respaldo":"backup","chasis":"chassis","adaptadores":"adattatori","halógenos":"alogeni","presencia":"presenza","fuego":"fuoco","registros":"registri","autonomía":"autonomia","ajuste":"regolazione","captura":"cattura","pixeles":"pixel","volumétrico":"volumetrico","físico":"fisico","transferencia":"trasferimento","infrarroja":"infrarossa","infrarrojos":"infrarossi","personalizable":"personalizzabile","plomo":"piombo","estuche":"custodia","rostros":"volti","rostro":"volto","candados":"lucchetti","agua":"acqua","relé":"relè","distancia":"distanza","grosor":"spessore","bombín":"cilindro","cerrojo":"chiavistello","aleación":"lega","derechas":"destra","izquierdas":"sinistra","dividido":"diviso","bateria":"batteria","metálica":"metallica","metálico":"metallico","videoportero":"videocitofono","manija":"maniglia","embutir":"incasso","gracias":"grazie","gama":"gamma"
 };
 
 /* ==========
@@ -13676,8 +13679,9 @@ const PRODUCT_CODE_RE = /\b[A-Z][A-Z0-9]*(?:[-/.][A-Z0-9]+){1,}[A-Z0-9]?\b/g;
 // V2.10.273: aggiunto parametro tracker opzionale per il report visivo della
 // ritraduzione. Quando passato, ogni sostituzione effettiva incrementa il conteggio
 // in tracker.phrases[es→it] / tracker.words[es→it]. Niente effetto se tracker=null.
-function translateTextPlain(s, tracker){
+function translateTextPlain(s, tracker, modo){
   if(!s || typeof s !== 'string') return s;
+  if(modo === undefined) modo = _txtLingua(s);   // SV2.10.597
 
   // STEP 1: Proteggi codici prodotto + nomi propri con placeholder univoci.
   // Uso un placeholder che non appaia mai nei dizionari: un carattere privato
@@ -13731,7 +13735,9 @@ function translateTextPlain(s, tracker){
   }
   if(_wordsRegex){
     out = out.replace(_wordsRegex, m => {
-      const tr = _wordsMap[m.toLowerCase()];
+      const _k = m.toLowerCase();
+      if(modo !== 'es' && TXT_REGOLE.soloEs.has(_k)) return m;   // SV2.10.597: parola italiana valida, si traduce solo nei testi spagnoli
+      const tr = _wordsMap[_k];
       if(tr){
         if(tracker){
           const key = m.toLowerCase();
@@ -13754,19 +13760,145 @@ function translateTextPlain(s, tracker){
 // V2.10.273: tracker opzionale come secondo argomento (propagato a translateTextPlain).
 function translateText(s, tracker){
   if(!s || typeof s !== 'string') return s;
+  const modo = _txtLingua(s);   // SV2.10.597: la lingua si decide sull'intero campo
   // Se non contiene < è testo semplice
-  if(s.indexOf('<') === -1) return translateTextPlain(s, tracker);
+  if(s.indexOf('<') === -1) return _txtCorreggiHtml(_txtCorreggiNodo(translateTextPlain(s, tracker, modo)));
   // Separiamo i tag dal testo con regex e traduciamo solo le parti testuali
   const parts = s.split(/(<[^>]+>)/);
-  return parts.map(p=>{
+  return _txtCorreggiHtml(parts.map(p=>{
     if(p.startsWith('<') && p.endsWith('>')) return p; // tag invariato
-    return translateTextPlain(p, tracker);
-  }).join('');
+    return _txtCorreggiNodo(translateTextPlain(p, tracker, modo));
+  }).join(''));
 }
+
+/* ============================================================
+   SV2.10.597 — CORREZIONE AUTOMATICA DEI TESTI
+   ------------------------------------------------------------
+   Il listino arriva in italiano tradotto dal fornitore, con alcune schede
+   ancora in spagnolo. Il dizionario ES→IT, applicato a tutto, rompeva
+   l'italiano corretto («le»→«gli», «su»→«il suo», «modo»→«modalità»).
+   1) _txtLingua decide per campo se il testo è spagnolo o italiano: sui
+      testi italiani le voci del dizionario che sono anche parole italiane
+      (TXT_REGOLE.soloEs) non si applicano.
+   2) _txtCorreggiNodo / _txtCorreggiHtml ripuliscono ogni testo dopo la
+      traduzione: «gli»+femminile→«le», «il suo rack»→«su rack», apostrofi
+      mancanti, «cantiere», spazi doppi, righe duplicate.
+   3) _txtMigra applica le sole correzioni (2) una volta a tutto il catalogo
+      già in memoria, all'avvio, e non tocca più nulla finché TXT_RULES_VERSION
+      non cambia. Alla prossima importazione del listino i testi vengono
+      ricostruiti dalla sorgente con il percorso corretto.
+   Le regole sono dati (TXT_REGOLE), condivise con il worker di import.
+   ============================================================ */
+const TXT_RULES_VERSION = 1;
+const TXT_REGOLE_RAW = {"v": 1, "soloEs": ["a", "acceso", "al", "altura", "amplia", "amplio", "anteriormente", "antigua", "arriba", "borrar", "buscar", "cada", "casi", "cerca", "cero", "clara", "como", "con", "configurar", "correo", "coste", "crear", "de", "del", "donde", "el", "eliminar", "en", "entre", "es", "este", "facilitar", "finalmente", "guardar", "la", "larga", "largo", "lente", "lista", "listo", "los", "mando", "me", "mediante", "modo", "mostrar", "natural", "negra", "negro", "no", "o", "oscura", "oscuro", "para", "pero", "por", "poste", "posteriormente", "postura", "previamente", "rango", "real", "se", "sin", "son", "subir", "te", "tener", "tiene", "torno", "una", "uno", "usar", "usuario", "validar", "verificar", "y"], "apo": ["allacqua", "allacquisizione", "allalimentazione", "allallarme", "allaltoparlante", "allambiente", "allaperto", "allarco", "allaria", "allattivazione", "allautenticazione", "allavanguardia", "allazione", "allelevata", "allentrata", "allesterno", "allincorporazione", "allingresso", "allinstallatore", "allintegrazione", "allintelligenza", "allintensità", "allinterno", "allinterruttore", "allispezione", "allocchiello", "allocchio", "alloceano", "allorario", "allottimizzazione", "allusura", "allutilizzo", "dacciaio", "dacqua", "dalbergo", "dallacqua", "dallalimentatore", "dallarea", "dalletichetta", "dallinglese", "dallossidazione", "dallutente", "deffetto", "dellabitacolo", "dellaccendisigari", "dellaccensione", "dellacqua", "dellaereo", "dellai", "dellalimentazione", "dellallarme", "dellambiente", "dellangolo", "dellapertura", "dellapparecchiatura", "dellarea", "dellaria", "dellasse", "dellaudio", "dellauto", "dellautonomia", "dellazienda", "dellecosistema", "delledificio", "dellenergia", "delletichetta", "dellimpianto", "dellincidente", "dellindustria", "dellinfrastruttura", "dellinnovativo", "dellinsieme", "dellinstallatore", "dellinstallazione", "dellintegrità", "dellintelligenza", "dellintera", "dellinterfaccia", "dellintrattenimento", "dellobiettivo", "dellorecchio", "dellumidità", "dellunità", "delluso", "dellutente", "dincendio", "dingresso", "donda", "dufficio", "laccesso", "laccoppiamento", "laccumulo", "lacquisizione", "laggiunta", "laggregazione", "lagilità", "lalgoritmo", "lalimentatore", "lalimentazione", "lallarme", "lallineamento", "lalloggiamento", "laltezza", "lambiente", "lanalisi", "langolazione", "lanno", "lapertura", "lapplicazione", "larchiviazione", "larea", "laria", "larrivo", "lassociazione", "latlantico", "latmosfera", "lattivazione", "lattraversamento", "lattuatore", "laudio", "lautocarro", "lautoconsumo", "lautomazione", "lautonomia", "lavanzamento", "lavvio", "leccellente", "lecosistema", "lefficienza", "lelaborazione", "lelemento", "lelettronica", "lelevata", "lemissione", "lenergia", "lesperienza", "lesterno", "lestetica", "lidentificazione", "lilluminazione", "limmagine", "limpatto", "limpianto", "lindicazione", "lindirizzo", "linfrastruttura", "lingegneria", "linoltro", "linserimento", "linstallatore", "linstallazione", "lintegrazione", "lintelligenza", "lintelligibilità", "lintera", "linterconnessione", "lintero", "linterruzione", "linvestimento", "linvio", "lirrigazione", "lisolamento", "lobiettivo", "lordine", "lorecchio", "lorganizzazione", "lottica", "luscita", "lutente", "lutilizzo", "nellambito", "nellangolo", "nellarea", "nelledificio", "nellelaborazione", "nellimmagine", "nellintegrazione", "nelloscurità", "sullai", "sullimmagine", "unaffidabilità", "unalimentazione", "unalternativa", "unaltezza", "unaltra", "unamministrazione", "unampia", "unanalisi", "unantenna", "unarchitettura", "unarea", "unattenuazione", "unautentica", "unautonomia", "unautovettura", "uneccellente", "uneccezionale", "unefficace", "unefficiente", "unefficienza", "unelaborazione", "unelevata", "unelevatissima", "unenorme", "unespansione", "unesperienza", "unestetica", "unetichetta", "unevoluzione", "unidentificazione", "unilluminazione", "unimmagine", "unimplementazione", "unimponente", "uninfrastruttura", "uninstallazione", "unintegrazione", "uninterfaccia", "uninterruzione", "unintrusione", "unottimizzazione", "ununica", "ununità", "ununiversità"], "ilsuo": {"rack": "su rack", "guida": "su guida", "cloud": "in cloud", "palo": "su palo", "soffitto": "a soffitto", "tetto": "a tetto", "telaio": "su telaio", "cavo": "su cavo", "chasis": "su chassis", "chassis": "su chassis"}};
+function _txtRegoleCompila(raw){
+  return { soloEs: new Set(raw.soloEs), apo: new Set(raw.apo), ilsuo: raw.ilsuo };
+}
+const TXT_REGOLE = _txtRegoleCompila(TXT_REGOLE_RAW);
+// 'es' se il testo è spagnolo, 'it' altrimenti. Conta parole-spia esclusive di una lingua.
+function _txtLingua(t){
+  if(!t || typeof t !== 'string') return 'it';
+  const s = t.replace(/<[^>]+>/g,' ').toLowerCase();
+  if(s.length < 3) return 'it';
+  const es = (s.match(/(?<![\p{L}])(de|el|los|las|para|y|que|es|por|sin|hasta|desde|sobre|como|más|sus|también|hacia|según|muy|puede|permite|incluye|dispone|cuenta)(?![\p{L}])/gu) || []).length
+           + (s.match(/ci[oó]n(es)?(?![\p{L}])/gu) || []).length + (s.match(/ñ/g) || []).length * 2;
+  const it = (s.match(/(?<![\p{L}])(di|il|gli|per|e|che|è|da|della|delle|dei|degli|nel|nella|nei|sul|sulla|non|più|anche|fino|senza|questo|questa|ed|ad|può|consente|include|dispone di|dotato|dotata)(?![\p{L}])/gu) || []).length
+           + (s.match(/zion[ei](?![\p{L}])/gu) || []).length + (s.match(/ità(?![\p{L}])/gu) || []).length;
+  return es > it ? 'es' : 'it';
+}
+// Correzioni su un nodo di testo (senza tag).
+function _txtCorreggiNodo(t){
+  if(!t || typeof t !== 'string') return t;
+  const R = TXT_REGOLE;
+  t = t.replace(/(^|[^\p{L}])(gli|Gli)\s+(\p{L}+)/gu, (m, pre, g, w) => {
+    if(/^(s[bcdfghjklmnpqrstvwxz]|z|gn|ps|pn|x|y|h|[aeiouàèéìòù])/i.test(w) || w === w.toUpperCase() || w.length < 3) return m;
+    return pre + (g === 'Gli' ? 'Le' : 'le') + ' ' + w;
+  });
+  t = t.replace(/(^|[^\p{L}])(il suo|Il suo)\s+(\p{L}+)/gu, (m, pre, a, w) => {
+    const r = R.ilsuo[w.toLowerCase()];
+    if(!r) return m;
+    return pre + (a === 'Il suo' ? r[0].toUpperCase() + r.slice(1) : r);
+  });
+  t = t.replace(/\p{L}{5,}/gu, w => {
+    const wl = w.toLowerCase();
+    if(!R.apo.has(wl)) return w;
+    const m = /^(l|dell|all|nell|sull|dall|quest|quell|un)([aeiouàèéìòù]\p{L}+)$/u.exec(wl);
+    if(!m) return w;
+    const r = (m[1] === 'un' && !/(a|à|ione|ità|ie|e)$/.test(m[2])) ? 'un ' + m[2] : m[1] + '’' + m[2];
+    const maiusc = w[0] === w[0].toUpperCase() && w[0] !== w[0].toLowerCase();
+    return maiusc ? r[0].toUpperCase() + r.slice(1) : r;
+  });
+  t = t.replace(/\bcantieri\b/g, 'aree di lavoro temporanee').replace(/\bCantieri\b/g, 'Aree di lavoro temporanee')
+       .replace(/\bcantiere\b/g, 'area di lavoro temporanea').replace(/\bCantiere\b/g, 'Area di lavoro temporanea');
+  t = t.replace(/[ \t]{2,}/g, ' ').replace(/ ([,.;:])(?=\s|$)/g, '$1');
+  return t;
+}
+// Correzioni sull'intero campo (anche HTML): blocchi e righe consecutive identiche.
+function _txtCorreggiHtml(s){
+  if(!s || typeof s !== 'string') return s;
+  if(s.indexOf('<') !== -1){
+    s = s.replace(/(<(p|li|tr|div|h[1-6])\b[^>]*>[\s\S]{8,}?<\/\2>)(\s*\1)+/g, '$1');
+  } else {
+    s = s.replace(/^(.{15,})(?:\n\1)+$/gm, '$1');
+  }
+  return s;
+}
+// Correzione completa di un campo già tradotto (usata dalla migrazione e dai salvataggi).
+function _txtCorreggiCampo(s){
+  if(!s || typeof s !== 'string') return s;
+  if(s.indexOf('<') === -1) return _txtCorreggiHtml(_txtCorreggiNodo(s));
+  const parts = s.split(/(<[^>]+>)/);
+  return _txtCorreggiHtml(parts.map(p => (p.startsWith('<') && p.endsWith('>')) ? p : _txtCorreggiNodo(p)).join(''));
+}
+const TXT_CAMPI = ['description','short_description','short_description_html','specifications','content'];
+// Migrazione una tantum all'avvio: corregge DATA ed EDITS, poi persiste.
+async function _txtMigra(){
+  let fatta = 0;
+  try { fatta = parseInt(localStorage.getItem('sv_txt_rules') || '0', 10) || 0; } catch(_){}
+  if(fatta >= TXT_RULES_VERSION) return 0;
+  if(!Array.isArray(DATA) || DATA.length === 0) return 0;
+  let prodotti = 0, campi = 0, override = 0;
+  const t0 = Date.now();
+  DATA.forEach(p => {
+    if(!p || p.isService === true) return;
+    let ch = false;
+    TXT_CAMPI.forEach(f => {
+      const v = p[f];
+      if(typeof v !== 'string' || !v) return;
+      const nv = _txtCorreggiCampo(v);
+      if(nv !== v){ p[f] = nv; ch = true; campi++; }
+    });
+    if(ch) prodotti++;
+  });
+  if(EDITS && typeof EDITS === 'object'){
+    Object.keys(EDITS).forEach(k => {
+      const e = EDITS[k]; if(!e || typeof e !== 'object') return;
+      TXT_CAMPI.forEach(f => {
+        const v = e[f];
+        if(typeof v !== 'string' || !v) return;
+        const nv = _txtCorreggiCampo(v);
+        if(nv !== v){ e[f] = nv; override++; }
+      });
+    });
+  }
+  if(prodotti > 0 || override > 0){
+    try { await idbSet('data','main',DATA); } catch(e){ console.warn('[testi] persistenza DATA fallita', e); }
+    if(override > 0){ try { await idbSet('edits','main',EDITS); } catch(e){ console.warn('[testi] persistenza EDITS fallita', e); } }
+    try { if(typeof alvMark === 'function'){ alvMark('personali'); alvMark('edits'); } } catch(_){}
+    try { if(typeof invalidateSearchCache === 'function') invalidateSearchCache(); } catch(_){}
+  }
+  try { localStorage.setItem('sv_txt_rules', String(TXT_RULES_VERSION)); } catch(_){}
+  console.info('[testi SV2.10.597] correzione automatica: ' + prodotti + ' articoli, ' + campi + ' campi, ' + override + ' override in ' + (Date.now() - t0) + ' ms');
+  if(prodotti > 0 && typeof toast === 'function'){
+    setTimeout(() => toast('Testi corretti automaticamente: ' + prodotti.toLocaleString('it-IT') + ' articoli', 'ok', 5000), 1500);
+  }
+  return prodotti;
+}
+window._txtMigra = _txtMigra; window._txtCorreggiCampo = _txtCorreggiCampo; window._txtLingua = _txtLingua;
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.596';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.597';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -28561,6 +28693,13 @@ function buildImportWorkerCode(){
     // Dizionari effettivi (si costruiscono al ricevimento del messaggio INIT)
     let TEXT_PHRASES = ${phrasesDefaultJson};
     let TEXT_WORDS = ${wordsDefaultJson};
+    // SV2.10.597: regole di correzione condivise col main thread
+    const TXT_REGOLE_RAW = ${JSON.stringify(TXT_REGOLE_RAW)};
+    ${_txtRegoleCompila.toString()}
+    const TXT_REGOLE = _txtRegoleCompila(TXT_REGOLE_RAW);
+    ${_txtLingua.toString()}
+    ${_txtCorreggiNodo.toString()}
+    ${_txtCorreggiHtml.toString()}
 
     // Regex compilate (memoization)
     let _phrasesRegex = null, _wordsRegex = null;
@@ -28643,8 +28782,9 @@ function buildImportWorkerCode(){
     ];
     const PRODUCT_CODE_RE = /\\b[A-Z][A-Z0-9]*(?:[-/.][A-Z0-9]+){1,}[A-Z0-9]?\\b/g;
 
-    function translateTextPlain(s){
+    function translateTextPlain(s, modo){
       if(!s || typeof s !== 'string') return s;
+      if(modo === undefined) modo = _txtLingua(s);
 
       const protectedSegments = [];
       let working = s;
@@ -28679,6 +28819,7 @@ function buildImportWorkerCode(){
       }
       if(_wordsRegex){
         out = out.replace(_wordsRegex, m => {
+          if(modo !== 'es' && TXT_REGOLE.soloEs.has(m.toLowerCase())) return m;
           const tr = _wordsMap[m.toLowerCase()];
           return tr ? matchCase(m, tr) : m;
         });
@@ -28691,12 +28832,13 @@ function buildImportWorkerCode(){
 
     function translateText(s){
       if(!s || typeof s !== 'string') return s;
-      if(s.indexOf('<') === -1) return translateTextPlain(s);
+      const modo = _txtLingua(s);
+      if(s.indexOf('<') === -1) return _txtCorreggiHtml(_txtCorreggiNodo(translateTextPlain(s, modo)));
       const parts = s.split(/(<[^>]+>)/);
-      return parts.map(p=>{
+      return _txtCorreggiHtml(parts.map(p=>{
         if(p.startsWith('<') && p.endsWith('>')) return p;
-        return translateTextPlain(p);
-      }).join('');
+        return _txtCorreggiNodo(translateTextPlain(p, modo));
+      }).join(''));
     }
 
     function parseParams(s){
@@ -72030,6 +72172,8 @@ async function init(){
         }
       }));
     }
+    // SV2.10.597: correzione automatica dei testi (una volta per versione delle regole)
+    try { await _txtMigra(); } catch(e){ console.warn('[testi] migrazione fallita', e); }
     // Fix retroattivo: normalizza EAN che potrebbero essere stati salvati come notazione scientifica
     let eanFixed = 0;
     let eanLossyCount = 0;
