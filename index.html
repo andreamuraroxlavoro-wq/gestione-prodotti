@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.597 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.598 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11531,7 +11531,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.597</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.598</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12270,7 +12270,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.597 mobile");
+console.info("[bootstrap] script avvio — SV2.10.598 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -58831,6 +58831,1105 @@ function _qaCard(title, bodyHtml, opts){
   '</div>';
 }
 
+/* ============================================================================
+   SV2.10.598 — DETTAGLIO ANALISI del preventivo.
+
+   Il cruscotto "Grafici" ragiona sulle RIGHE del carrello: per un prodotto
+   personale composto (torre, allestimento, quadro) vede un solo costo, quello
+   scritto a mano nell\u2019anagrafica. Qui invece ogni prodotto personale con
+   distinta base viene ESPLOSO nei suoi componenti (ricorsivamente, se un
+   componente e' a sua volta un composto con distinta), e il preventivo viene
+   riletto articolo per articolo:
+
+     - costo DICHIARATO  = netto scritto nell\u2019anagrafica del personale x qty
+     - costo REALE       = somma dei costi ATTUALI di catalogo dei componenti
+                           (il netto fotografato in distinta e' solo il ripiego
+                           quando l\u2019articolo non e' piu' in catalogo)
+     - prezzo DISTINTA   = somma dei prezzi pianificati riga per riga nella
+                           distinta (quello che si voleva incassare)
+     - prezzo IMPLICITO  = il prezzo di vendita effettivo della riga ripartito
+                           fra i componenti in proporzione ai prezzi pianificati
+                           (o al costo, se la distinta non porta prezzi): dice
+                           quanto "rende" ogni componente al prezzo offerto.
+
+   Tutto e' sola lettura: nessun dato del carrello o dell\u2019anagrafica viene
+   modificato. Le righe considerate sono le stesse delle KPI (selezione
+   compresa), cosi' i totali tornano con quelli della finestra del carrello.
+   ============================================================================ */
+
+function _qdProdByCode(code, idx){
+  if(!Array.isArray(window.DATA)) return null;
+  let p = null;
+  if(idx != null && DATA[idx] && DATA[idx].name === code) p = DATA[idx];
+  if(!p) p = DATA.find(x => x && x.name === code) || null;
+  return p;
+}
+
+/* Esplode una distinta (gia' normalizzata) in componenti FOGLIA.
+   mult = quantita' del padre per una unita' della riga di carrello.
+   Un componente che e' un personale con distinta propria viene sostituito dai
+   suoi componenti (max 6 livelli, come bomContiene); `seen` evita i cicli. */
+function _qdExplode(bom, mult, depth, path, out, seen){
+  bom.items.forEach(l => {
+    if(!l || !l.code) return;
+    const qtyUnit = (isFinite(l.qty) ? l.qty : 1) * mult;
+    if(l.free === true){
+      out.push({
+        code: l.code, free: true, mancante: false, composto: false,
+        label: l.label || l.code, brand: 'Voce libera', category: 'Voce libera', image: '',
+        qtyUnit, nettoSnap: l.netto || 0, nettoCat: null, nettoUsed: l.netto || 0,
+        listino: (l.listino > 0) ? l.listino : null, prezzoBom: l.prezzo || 0, path: path.slice(),
+      });
+      return;
+    }
+    const sub = _qdProdByCode(l.code);
+    if(sub && sub.isPersonal === true && depth < 6 && !seen.has(l.code)){
+      const sb = bomNormalize(sub.bom);
+      if(sb.items.length){
+        seen.add(l.code);
+        _qdExplode(sb, qtyUnit, depth + 1, path.concat(l.code), out, seen);
+        seen.delete(l.code);
+        return;
+      }
+    }
+    const nettoCat = sub ? bomCostoCatalogo(l.code) : null;
+    const listCat  = sub ? bomListinoCatalogo(l.code) : null;
+    const rawImg = sub ? (getField(sub, 'image_path') || '') : '';
+    out.push({
+      code: l.code, free: false, mancante: !sub, composto: !!(sub && sub.isPersonal === true),
+      label: sub ? String(getField(sub, 'short_description') || getField(sub, 'name') || l.code) : (l.label || l.code),
+      brand: sub ? String(getField(sub, 'brand') || '') : '',
+      category: sub ? String(getField(sub, 'category') || '') : '',
+      image: rawImg ? ((typeof imgUrl === 'function') ? imgUrl(rawImg) : rawImg) : '',
+      qtyUnit,
+      nettoSnap: isFinite(l.netto) ? l.netto : 0,
+      nettoCat: (nettoCat != null && isFinite(nettoCat)) ? nettoCat : null,
+      nettoUsed: (nettoCat != null && isFinite(nettoCat)) ? nettoCat : (isFinite(l.netto) ? l.netto : 0),
+      listino: (l.listino > 0) ? l.listino : ((listCat != null) ? listCat : null),
+      prezzoBom: isFinite(l.prezzo) ? l.prezzo : 0,
+      path: path.slice(),
+    });
+  });
+}
+
+function computeQuoteDeepAnalytics(){
+  const items = _qcItemsForCalc();
+  const rows = [];
+  const alerts = [];
+  let parked = 0, noPrice = 0, canoni = 0;
+  const SOGLIA_MARG_RIGA = 15, SOGLIA_MARG_COMP = 10;
+
+  for(const it of items){
+    if(!it) continue;
+    if(it.qty == null || it.qty <= 0){ parked++; continue; }
+    if(_qcIsCanoneItem(it)){ canoni++; continue; }
+    const pvpValid = (it.pvp != null && (it.isFreeField ? it.pvp !== 0 : it.pvp > 0));
+    if(!pvpValid){ noPrice++; continue; }
+    const qty = it.qty;
+    const pvp = it.pvp;
+    const dPct = _normDiscountPct(it.discountPct);
+    const vendUnit = pvp * (1 - dPct / 100);
+    const listino = pvp * qty;
+    const vendita = vendUnit * qty;
+    const nettoDich = (it.netto != null && isFinite(it.netto)) ? it.netto : 0;
+    const costoDich = nettoDich * qty;
+    const isSvc = _isServiceItem(it);
+    const isSconto = (it.isDiscountRow === true) || (it.isFreeField && pvp < 0);
+    const p = (!it.isFreeField) ? _qdProdByCode(it.code, it.idx) : null;
+    const isPers = !!(it.isPersonal === true || (p && p.isPersonal === true));
+    const bom = (p && p.isPersonal === true && !isSvc) ? bomNormalize(p.bom) : null;
+    const hasBom = !!(bom && bom.items.length);
+
+    const r = {
+      code: it.code || '?',
+      nameShort: String(it.nameShort || it.name || it.code || '?'),
+      brand: String(it.brand || '').trim() || (isSvc ? 'Servizi' : 'Senza marca'),
+      category: String(it.category || '').trim() || 'Senza categoria',
+      image: it.image || '',
+      tipo: isSconto ? 'sconto' : (isSvc ? 'servizio' : (hasBom ? 'composto' : (isPers ? 'personale' : 'catalogo'))),
+      isService: isSvc, isPersonal: isPers, hasBom, isSconto,
+      qty, pvp, dPct, vendUnit, listino, vendita, nettoDich, costoDich,
+      comps: [],
+      bomCostoSnap: 0, bomCostoAtt: 0, bomPrezzo: 0, bomListino: 0, bomPezzi: 0,
+      scala: null, ripartizione: null,
+    };
+
+    if(hasBom){
+      _qdExplode(bom, 1, 0, [], r.comps, new Set([r.code]));
+      r.comps.forEach(c => {
+        c.parent = r.code;
+        c.qtyTot = c.qtyUnit * qty;
+        c.costoTot = c.nettoUsed * c.qtyTot;
+        c.costoSnapTot = c.nettoSnap * c.qtyTot;
+        c.prezzoBomTot = c.prezzoBom * c.qtyTot;
+        c.listinoTot = (c.listino != null) ? c.listino * c.qtyTot : null;
+        c.scontoAcqPct = (c.listino > 0) ? (1 - c.nettoUsed / c.listino) * 100 : null;
+        c.deltaSnapPct = (c.nettoSnap > 0 && c.nettoCat != null) ? (c.nettoCat - c.nettoSnap) / c.nettoSnap * 100 : null;
+        r.bomCostoAtt  += c.costoTot;
+        r.bomCostoSnap += c.costoSnapTot;
+        r.bomPrezzo    += c.prezzoBomTot;
+        r.bomListino   += (c.listinoTot || 0);
+        r.bomPezzi     += c.qtyTot;
+      });
+      r.scala = (r.bomPrezzo > 0) ? (r.vendita / r.bomPrezzo) : null;
+      r.ripartizione = (r.scala != null) ? 'prezzi' : (r.bomCostoAtt > 0 ? 'costo' : 'uniforme');
+      const nComp = r.comps.length || 1;
+      r.comps.forEach(c => {
+        if(r.scala != null) c.prezzoImplTot = c.prezzoBomTot * r.scala;
+        else if(r.bomCostoAtt > 0) c.prezzoImplTot = r.vendita * (c.costoTot / r.bomCostoAtt);
+        else c.prezzoImplTot = r.vendita / nComp;
+        c.prezzoImplUnit = (c.qtyTot > 0) ? c.prezzoImplTot / c.qtyTot : 0;
+        c.guadagno = c.prezzoImplTot - c.costoTot;
+        c.marginePct = (c.prezzoImplTot > 0) ? (c.guadagno / c.prezzoImplTot * 100) : null;
+        c.ricaricoPct = (c.costoTot > 0) ? (c.guadagno / c.costoTot * 100) : null;
+        c.quotaCosto = (r.bomCostoAtt > 0) ? (c.costoTot / r.bomCostoAtt * 100) : 0;
+        c.scontoVendPct = (c.listino > 0) ? (1 - c.prezzoImplUnit / c.listino) * 100 : null;
+      });
+    }
+    r.costoReale = hasBom ? r.bomCostoAtt : r.costoDich;
+    r.guadagnoDich = r.vendita - r.costoDich;
+    r.guadagnoReale = r.vendita - r.costoReale;
+    r.margineDich  = (r.vendita > 0) ? (r.guadagnoDich / r.vendita * 100) : null;
+    r.margineReale = (r.vendita > 0) ? (r.guadagnoReale / r.vendita * 100) : null;
+    r.ricaricoDich  = (r.costoDich > 0) ? (r.guadagnoDich / r.costoDich * 100) : null;
+    r.ricaricoReale = (r.costoReale > 0) ? (r.guadagnoReale / r.costoReale * 100) : null;
+    r.deltaCosto = r.costoDich - r.costoReale;          // >0: dichiarato piu' alto del reale
+    r.deltaPrezzoBom = hasBom ? (r.vendita - r.bomPrezzo) : null;  // >0: vendo sopra il pianificato
+    rows.push(r);
+
+    /* ---- avvisi di riga ---- */
+    if(isSconto) continue;
+    if(r.vendita > 0 && r.costoReale > r.vendita){
+      alerts.push({ sev:'crit', code:r.code, titolo:'Vendita sotto costo',
+        testo:'Vendita ' + _qaEuro(r.vendita) + ' contro un costo reale di ' + _qaEuro(r.costoReale) + ': la riga perde ' + _qaEuro(r.costoReale - r.vendita) + '.' });
+    }
+    if(hasBom){
+      if(r.costoDich < r.costoReale * 0.995){
+        const sev = (r.margineReale != null && r.margineReale < SOGLIA_MARG_RIGA) ? 'crit' : 'warn';
+        alerts.push({ sev, code:r.code, titolo:'Costo dichiarato sottostimato',
+          testo:'In anagrafica il costo \u00e8 ' + _qaEuro(r.costoDich) + ', la distinta a costi attuali vale ' + _qaEuro(r.costoReale) +
+            ' (+' + _qaEuro(r.costoReale - r.costoDich) + '). Margine reale ' + _qaPct(r.margineReale) + ' invece di ' + _qaPct(r.margineDich) + '.' });
+      } else if(r.costoDich > r.costoReale * 1.05 && r.costoReale > 0){
+        alerts.push({ sev:'info', code:r.code, titolo:'Costo dichiarato prudenziale',
+          testo:'Il costo in anagrafica (' + _qaEuro(r.costoDich) + ') supera la distinta a costi attuali (' + _qaEuro(r.costoReale) + '): il margine reale \u00e8 ' + _qaPct(r.margineReale) + ', migliore del dichiarato ' + _qaPct(r.margineDich) + '.' });
+      }
+      if(r.bomPrezzo > 0 && r.vendita < r.bomPrezzo * 0.98){
+        alerts.push({ sev:'warn', code:r.code, titolo:'Prezzo sotto la distinta pianificata',
+          testo:'La riga si vende a ' + _qaEuro(r.vendita) + ' ma i prezzi pianificati in distinta sommano ' + _qaEuro(r.bomPrezzo) + ' (−' + _qaEuro(r.bomPrezzo - r.vendita) + ').' });
+      }
+      const deboli = r.comps.filter(c => c.marginePct != null && c.marginePct < SOGLIA_MARG_COMP && c.costoTot > 0);
+      if(deboli.length){
+        const sotto = deboli.filter(c => c.guadagno < 0);
+        alerts.push({ sev: sotto.length ? 'crit' : 'warn', code:r.code,
+          titolo: deboli.length + (deboli.length === 1 ? ' componente con margine sotto ' : ' componenti con margine sotto ') + SOGLIA_MARG_COMP + '%',
+          testo: deboli.slice(0, 6).map(c => c.code + ' ' + _qaPct(c.marginePct)).join(' · ') + (deboli.length > 6 ? ' …' : '') +
+            (sotto.length ? ' — ' + sotto.length + ' venduti sotto costo al prezzo implicito.' : '') });
+      }
+      const mancanti = r.comps.filter(c => c.mancante);
+      if(mancanti.length){
+        alerts.push({ sev:'warn', code:r.code, titolo:'Componenti non pi\u00f9 in catalogo',
+          testo: mancanti.map(c => c.code).join(', ') + ': usato il costo fotografato in distinta, da verificare.' });
+      }
+      const vecchi = r.comps.filter(c => c.deltaSnapPct != null && Math.abs(c.deltaSnapPct) > 2);
+      if(vecchi.length){
+        const su = vecchi.filter(c => c.deltaSnapPct > 0).length;
+        alerts.push({ sev:'info', code:r.code, titolo:'Costi in distinta non allineati al catalogo',
+          testo: vecchi.length + (vecchi.length === 1 ? ' componente ha' : ' componenti hanno') + ' un costo di catalogo diverso dalla fotografia in distinta (' +
+            su + ' in aumento, ' + (vecchi.length - su) + ' in calo). L\u2019analisi usa il costo attuale; il pulsante \u00abRiallinea costi\u00bb nell\u2019editor del prodotto aggiorna la distinta.' });
+      }
+      const sopraListino = r.comps.filter(c => !c.free && c.listino > 0 && c.prezzoImplUnit > c.listino * 1.005);
+      if(sopraListino.length){
+        alerts.push({ sev:'info', code:r.code, titolo: sopraListino.length + (sopraListino.length === 1 ? ' componente venduto sopra il suo listino' : ' componenti venduti sopra il loro listino'),
+          testo: sopraListino.slice(0, 6).map(c => c.code + ' ' + _qaEuro(c.prezzoImplUnit) + ' contro ' + _qaEuro(c.listino)).join(' · ') + (sopraListino.length > 6 ? ' …' : '') +
+            '. Normale se il prezzo del composto include assemblaggio e messa in servizio; da sapere se il cliente confronta i singoli articoli.' });
+      }
+      const senzaPrezzo = r.comps.filter(c => !(c.prezzoBom > 0));
+      if(senzaPrezzo.length && r.scala != null){
+        alerts.push({ sev:'info', code:r.code, titolo:'Componenti senza prezzo pianificato',
+          testo: senzaPrezzo.map(c => c.code).join(', ') + ': in distinta non hanno prezzo, quindi nel prezzo implicito valgono zero e il loro costo grava sugli altri componenti.' });
+      }
+    } else {
+      if(isPers && !isSvc){
+        alerts.push({ sev:'info', code:r.code, titolo:'Prodotto personale senza distinta',
+          testo:'Nessuna distinta base: l\u2019analisi si ferma al costo dichiarato (' + _qaEuro(r.costoDich) + '). Aggiungendo la distinta nell\u2019editor il dettaglio diventa disponibile.' });
+      }
+      if(r.costoDich <= 0 && !isSvc){
+        alerts.push({ sev:'warn', code:r.code, titolo:'Costo mancante',
+          testo:'La riga non ha un costo d\u2019acquisto: margine e ricarico non sono calcolabili.' });
+      }
+    }
+    if(!hasBom && r.costoDich > 0 && r.margineDich != null && r.margineDich < SOGLIA_MARG_RIGA && r.vendita > 0 && r.costoReale <= r.vendita){
+      alerts.push({ sev:'warn', code:r.code, titolo:'Margine di riga sotto ' + SOGLIA_MARG_RIGA + '%',
+        testo:'Margine ' + _qaPct(r.margineDich) + ' (ricarico ' + _qaPct(r.ricaricoDich) + ') su una vendita di ' + _qaEuro(r.vendita) + '.' });
+    }
+  }
+
+  /* ---- totali ---- */
+  const tot = { listino:0, vendita:0, costoDich:0, costoReale:0, righe:rows.length, righeBom:0, pezzi:0,
+                costoDistinte:0, costoDiretti:0, costoServizi:0, scontiRighe:0, venditaDistinte:0, venditaDiretti:0, venditaServizi:0,
+                parked, noPrice, canoni, compRighe:0, compPezzi:0 };
+  rows.forEach(r => {
+    tot.listino += r.listino; tot.vendita += r.vendita;
+    tot.costoDich += r.costoDich; tot.costoReale += r.costoReale; tot.pezzi += r.qty;
+    if(r.isSconto){ tot.scontiRighe += r.vendita; return; }
+    if(r.hasBom){ tot.righeBom++; tot.costoDistinte += r.costoReale; tot.venditaDistinte += r.vendita; tot.compRighe += r.comps.length; tot.compPezzi += r.bomPezzi; }
+    else if(r.isService){ tot.costoServizi += r.costoReale; tot.venditaServizi += r.vendita; }
+    else { tot.costoDiretti += r.costoReale; tot.venditaDiretti += r.vendita; }
+  });
+  tot.sconto = tot.listino - tot.vendita;
+  tot.guadagnoDich = tot.vendita - tot.costoDich;
+  tot.guadagnoReale = tot.vendita - tot.costoReale;
+  tot.margineDich  = (tot.vendita > 0) ? tot.guadagnoDich / tot.vendita * 100 : null;
+  tot.margineReale = (tot.vendita > 0) ? tot.guadagnoReale / tot.vendita * 100 : null;
+  tot.ricaricoDich  = (tot.costoDich > 0) ? tot.guadagnoDich / tot.costoDich * 100 : null;
+  tot.ricaricoReale = (tot.costoReale > 0) ? tot.guadagnoReale / tot.costoReale * 100 : null;
+  tot.scontoMedioPct = (tot.listino > 0) ? tot.sconto / tot.listino * 100 : null;
+  tot.deltaCosto = tot.costoDich - tot.costoReale;
+
+  /* ---- lista consolidata: ogni articolo usato, da distinta o diretto ---- */
+  const cons = new Map();
+  const addCons = (key, src, qtyTot, netto, costoTot, listinoTot, prezzoImplTot, origine, parent) => {
+    let g = cons.get(key);
+    if(!g){
+      g = { code: src.code, label: src.label || src.nameShort || src.code, brand: src.brand || '', category: src.category || '',
+            image: src.image || '', free: !!src.free, mancante: !!src.mancante, composto: !!src.composto, isService: !!src.isService,
+            qtyTot:0, costoTot:0, listinoTot:0, prezzoImplTot:0, righe:new Set(), origini:new Set(), nettoMin:null, nettoMax:null, deltaSnapMax:0 };
+      cons.set(key, g);
+    }
+    g.qtyTot += qtyTot; g.costoTot += costoTot; g.listinoTot += (listinoTot || 0); g.prezzoImplTot += prezzoImplTot;
+    if(parent) g.righe.add(parent);
+    g.origini.add(origine);
+    if(netto != null){ g.nettoMin = (g.nettoMin == null) ? netto : Math.min(g.nettoMin, netto); g.nettoMax = (g.nettoMax == null) ? netto : Math.max(g.nettoMax, netto); }
+    if(src.deltaSnapPct != null && Math.abs(src.deltaSnapPct) > Math.abs(g.deltaSnapMax)) g.deltaSnapMax = src.deltaSnapPct;
+    if(src.listino != null && g.listinoUnit == null) g.listinoUnit = src.listino;
+  };
+  rows.forEach(r => {
+    if(r.isSconto) return;
+    if(r.hasBom){
+      r.comps.forEach(c => addCons(c.free ? ('~' + c.parent + '~' + c.code) : c.code, c, c.qtyTot, c.nettoUsed, c.costoTot, c.listinoTot, c.prezzoImplTot, 'distinta', r.code));
+    } else {
+      addCons(r.code, { code:r.code, label:r.nameShort, brand:r.brand, category:r.category, image:r.image, isService:r.isService, composto:r.isPersonal, listino:r.pvp },
+        r.qty, r.nettoDich, r.costoDich, r.listino, r.vendita, r.isService ? 'servizio' : 'riga', null);
+    }
+  });
+  const consolidata = Array.from(cons.values()).map(g => {
+    g.nettoMedio = (g.qtyTot > 0) ? g.costoTot / g.qtyTot : 0;
+    g.prezzoImplUnit = (g.qtyTot > 0) ? g.prezzoImplTot / g.qtyTot : 0;
+    g.guadagno = g.prezzoImplTot - g.costoTot;
+    g.marginePct = (g.prezzoImplTot > 0) ? g.guadagno / g.prezzoImplTot * 100 : null;
+    g.ricaricoPct = (g.costoTot > 0) ? g.guadagno / g.costoTot * 100 : null;
+    g.scontoAcqPct = (g.listinoTot > 0) ? (1 - g.costoTot / g.listinoTot) * 100 : null;
+    g.scontoVendPct = (g.listinoTot > 0) ? (1 - g.prezzoImplTot / g.listinoTot) * 100 : null;
+    g.quotaCosto = (tot.costoReale > 0) ? g.costoTot / tot.costoReale * 100 : 0;
+    g.quotaVendita = (tot.vendita > 0) ? g.prezzoImplTot / tot.vendita * 100 : 0;
+    g.righe = Array.from(g.righe); g.origini = Array.from(g.origini);
+    g.origine = (g.origini.length > 1) ? 'mista' : g.origini[0];
+    return g;
+  }).sort((a, b) => b.costoTot - a.costoTot);
+
+  /* ---- aggregazioni a livello di articolo (foglia) ---- */
+  const aggregateBy = (keyFn) => {
+    const map = new Map();
+    consolidata.forEach(g => {
+      const k = keyFn(g) || '—';
+      let a = map.get(k);
+      if(!a){ a = { key:k, articoli:0, pezzi:0, costo:0, vendita:0, listino:0 }; map.set(k, a); }
+      a.articoli++; a.pezzi += g.qtyTot; a.costo += g.costoTot; a.vendita += g.prezzoImplTot; a.listino += g.listinoTot;
+    });
+    const arr = Array.from(map.values());
+    arr.forEach(a => {
+      a.guadagno = a.vendita - a.costo;
+      a.marginePct = (a.vendita > 0) ? a.guadagno / a.vendita * 100 : null;
+      a.ricaricoPct = (a.costo > 0) ? a.guadagno / a.costo * 100 : null;
+      a.quotaCosto = (tot.costoReale > 0) ? a.costo / tot.costoReale * 100 : 0;
+      a.quotaVendita = (tot.vendita > 0) ? a.vendita / tot.vendita * 100 : 0;
+    });
+    arr.sort((a, b) => b.costo - a.costo);
+    return arr;
+  };
+  const byBrand = aggregateBy(g => g.isService ? 'Servizi' : (g.brand || 'Senza marca'));
+  const byCategory = aggregateBy(g => g.isService ? 'Servizi' : (g.category || 'Senza categoria'));
+  const byOrigine = aggregateBy(g => ({ distinta:'Componenti di distinta', riga:'Articoli diretti', servizio:'Servizi', mista:'Distinta + diretti' })[g.origine] || g.origine);
+
+  /* ---- distribuzione dei componenti per fascia di margine (al prezzo implicito) ---- */
+  const marginBuckets = [
+    { label:'Sotto costo', min:-Infinity, max:0,  count:0, costo:0, color:'#c0392b' },
+    { label:'0–10%',   min:0,  max:10, count:0, costo:0, color:'#e74c3c' },
+    { label:'10–20%',  min:10, max:20, count:0, costo:0, color:'#e67e22' },
+    { label:'20–30%',  min:20, max:30, count:0, costo:0, color:'#ffb627' },
+    { label:'30–50%',  min:30, max:50, count:0, costo:0, color:'#1abc9c' },
+    { label:'≥ 50%', min:50, max:Infinity, count:0, costo:0, color:'#00a87f' },
+  ];
+  consolidata.forEach(g => {
+    if(g.marginePct == null) return;
+    const b = marginBuckets.find(b => g.marginePct >= b.min && g.marginePct < b.max);
+    if(b){ b.count++; b.costo += g.costoTot; }
+  });
+
+  /* ---- ordine degli avvisi: critici, poi attenzione, poi informativi ---- */
+  const sevRank = { crit:0, warn:1, info:2 };
+  alerts.sort((a, b) => sevRank[a.sev] - sevRank[b.sev]);
+  const nCrit = alerts.filter(a => a.sev === 'crit').length;
+  const nWarn = alerts.filter(a => a.sev === 'warn').length;
+  const nInfo = alerts.filter(a => a.sev === 'info').length;
+  let verdetto;
+  if(!rows.length) verdetto = { liv:'none', color:'#64748b', titolo:'Nessuna riga da analizzare', testo:'' };
+  else if(nCrit) verdetto = { liv:'crit', color:'#e74c3c', titolo:'Preventivo da rivedere',
+    testo: nCrit + (nCrit === 1 ? ' punto critico' : ' punti critici') + ': ci sono righe o componenti venduti sotto costo, oppure costi dichiarati che nascondono un margine reale molto pi\u00f9 basso.' };
+  else if(nWarn) verdetto = { liv:'warn', color:'#e67e22', titolo:'Preventivo da verificare',
+    testo: nWarn + (nWarn === 1 ? ' segnalazione' : ' segnalazioni') + ' da controllare prima dell\u2019invio: margini sottili o costi non aggiornati.' };
+  else verdetto = { liv:'ok', color:'#00a87f', titolo:'Prezzi coerenti con i costi',
+    testo:'Nessuna riga sotto costo, costi dichiarati allineati alle distinte, margini sopra le soglie di attenzione.' };
+  if(rows.length && tot.margineDich != null && tot.margineReale != null){
+    const d = tot.margineReale - tot.margineDich;
+    if(Math.abs(d) >= 0.5) verdetto.testo += ' Margine reale ' + _qaPct(tot.margineReale) + ' contro ' + _qaPct(tot.margineDich) + ' dichiarato (' + (d > 0 ? '+' : '−') + _qaPct(Math.abs(d)).replace('%', ' punti') + ').';
+  }
+
+  return { rows, tot, alerts, nCrit, nWarn, nInfo, verdetto, consolidata, byBrand, byCategory, byOrigine, marginBuckets,
+           soglie: { riga: SOGLIA_MARG_RIGA, comp: SOGLIA_MARG_COMP } };
+}
+/* ---- Stile della finestra "Dettaglio Analisi" (iniettato una volta sola) ---- */
+function _qdEnsureStyle(){
+  if(document.getElementById('qdStyle')) return;
+  const st = document.createElement('style');
+  st.id = 'qdStyle';
+  st.textContent =
+    '.qd-scroll{overflow:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg2)}' +
+    '.qd-tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:11.5px;font-variant-numeric:tabular-nums}' +
+    '.qd-tbl thead th{position:sticky;top:0;z-index:2;background:var(--bg3);color:var(--fg2);font-size:9.5px;font-weight:800;' +
+      'text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border-bottom:2px solid var(--border2);white-space:nowrap;cursor:pointer;user-select:none;text-align:left}' +
+    '.qd-tbl thead th.num{text-align:right}' +
+    '.qd-tbl thead th:hover{color:var(--accent)}' +
+    '.qd-tbl thead th .qd-arr{display:inline-block;width:10px;margin-left:3px;color:var(--fg3);font-size:9px}' +
+    '.qd-tbl thead th.is-asc .qd-arr::after{content:"\\25B2";color:var(--accent)}' +
+    '.qd-tbl thead th.is-desc .qd-arr::after{content:"\\25BC";color:var(--accent)}' +
+    '.qd-tbl tbody td{padding:4px 7px;border-bottom:1px solid var(--border);color:var(--fg);vertical-align:middle;white-space:nowrap}' +
+    '.qd-tbl tbody td.num{text-align:right}' +
+    '.qd-tbl tbody td.txt-long{max-width:230px;overflow:hidden;text-overflow:ellipsis}' +
+    '.qd-tbl tbody tr:hover td{background:rgba(1,120,212,0.06)}' +
+    '.qd-tbl tfoot td{padding:7px 8px;font-weight:800;background:var(--bg3);border-top:2px solid var(--border2);white-space:nowrap;position:sticky;bottom:0;z-index:1}' +
+    '.qd-tbl tfoot td.num{text-align:right}' +
+    '.qd-thumb{width:26px;height:26px;object-fit:contain;border-radius:5px;background:#fff;border:1px solid var(--border);display:block}' +
+    '.qd-thumb-empty{width:26px;height:26px;border-radius:5px;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--fg3);font-size:13px}' +
+    '.qd-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}' +
+    '.qd-badge{display:inline-block;font-size:8.5px;font-weight:800;padding:1px 6px;border-radius:5px;margin-left:4px;letter-spacing:.3px;text-transform:uppercase;vertical-align:middle}' +
+    '.qd-badge.free{background:rgba(139,92,246,.16);color:#8b5cf6}' +
+    '.qd-badge.miss{background:rgba(231,76,60,.16);color:#e74c3c}' +
+    '.qd-badge.comp{background:rgba(1,120,212,.16);color:#0178d4}' +
+    '.qd-badge.svc{background:rgba(52,152,219,.16);color:#3498db}' +
+    '.qd-badge.snap{background:rgba(230,126,34,.16);color:#e67e22}' +
+    '.qd-row{border:1px solid var(--border);border-radius:10px;background:var(--bg2);margin-bottom:10px;overflow:hidden}' +
+    '.qd-row > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 14px;flex-wrap:wrap}' +
+    '.qd-row > summary::-webkit-details-marker{display:none}' +
+    '.qd-row > summary .qd-caret{width:18px;color:var(--fg3);font-size:11px;transition:transform .15s}' +
+    '.qd-row[open] > summary .qd-caret{transform:rotate(90deg)}' +
+    '.qd-row > summary:hover{background:rgba(1,120,212,0.05)}' +
+    '.qd-chip{display:inline-flex;flex-direction:column;gap:1px;min-width:88px;padding:4px 9px;border-radius:7px;background:var(--bg3);border:1px solid var(--border)}' +
+    '.qd-chip b{font-size:12px;font-variant-numeric:tabular-nums}' +
+    '.qd-chip span{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--fg3)}' +
+    '.qd-alert{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);margin-bottom:6px;font-size:12px}' +
+    '.qd-alert .qd-sev{flex-shrink:0;font-size:9px;font-weight:900;padding:2px 7px;border-radius:5px;color:#fff;letter-spacing:.4px;margin-top:1px}' +
+    '.qd-alert.crit{border-color:rgba(231,76,60,.5)} .qd-alert.crit .qd-sev{background:#e74c3c}' +
+    '.qd-alert.warn{border-color:rgba(230,126,34,.5)} .qd-alert.warn .qd-sev{background:#e67e22}' +
+    '.qd-alert.info .qd-sev{background:#64748b}' +
+    '.qd-alert code{font-weight:800;color:var(--accent);font-family:inherit}' +
+    '.qd-legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:11px;color:var(--fg2);margin-top:8px}' +
+    '.qd-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}' +
+    '@media print{.modal-foot{display:none}}';
+  document.head.appendChild(st);
+}
+
+/* ---- Tabella ordinabile con intestazione fissa ------------------------
+   cols = [{k, label, t:'num'|'txt', get(row)->valore grezzo, fmt(row)->html, cls}]
+   Ogni cella porta data-v col valore grezzo: l\u2019ordinamento non rilegge il
+   testo formattato. tfoot opzionale (array di html per colonna). */
+function _qdTable(cols, rows, opts){
+  opts = opts || {};
+  const th = cols.map(c => '<th class="' + (c.t === 'num' ? 'num' : '') + '" data-t="' + c.t + '" data-k="' + escapeAttr(c.k) + '" title="Ordina per ' + escapeAttr(c.label) + '">' +
+    escapeHtml(c.label) + '<span class="qd-arr"></span></th>').join('');
+  const body = rows.map(r => '<tr>' + cols.map(c => {
+    const v = c.get ? c.get(r) : r[c.k];
+    const raw = (c.t === 'num') ? ((v == null || !isFinite(v)) ? '' : String(v)) : String(v == null ? '' : v);
+    return '<td class="' + (c.t === 'num' ? 'num' : '') + (c.cls ? ' ' + c.cls : '') + '" data-v="' + escapeAttr(raw) + '">' + (c.fmt ? c.fmt(r) : escapeHtml(raw)) + '</td>';
+  }).join('') + '</tr>').join('');
+  const foot = opts.foot ? '<tfoot><tr>' + opts.foot.map((h, i) => '<td class="' + (cols[i] && cols[i].t === 'num' ? 'num' : '') + '">' + (h || '') + '</td>').join('') + '</tr></tfoot>' : '';
+  return '<div class="qd-scroll" style="max-height:' + (opts.maxH || 420) + 'px">' +
+    '<table class="qd-tbl"><thead><tr>' + th + '</tr></thead><tbody>' + body + '</tbody>' + foot + '</table></div>';
+}
+
+/* Ordinamento: un solo gestore delegato sulla finestra. Clic sull'intestazione
+   alterna crescente / decrescente; numeri e testi hanno confronti propri. */
+function _qdBindSort(root){
+  root.addEventListener('click', (e) => {
+    const th = e.target.closest('.qd-tbl thead th');
+    if(!th || !root.contains(th)) return;
+    const table = th.closest('table');
+    const idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+    const isNum = th.dataset.t === 'num';
+    const asc = !th.classList.contains('is-asc');
+    th.parentNode.querySelectorAll('th').forEach(h => h.classList.remove('is-asc', 'is-desc'));
+    th.classList.add(asc ? 'is-asc' : 'is-desc');
+    const tb = table.tBodies[0];
+    const rows = Array.prototype.slice.call(tb.rows);
+    const val = (tr) => { const td = tr.cells[idx]; return td ? td.dataset.v : ''; };
+    rows.sort((a, b) => {
+      const va = val(a), vb = val(b);
+      let c;
+      if(isNum){
+        const na = (va === '') ? null : parseFloat(va), nb = (vb === '') ? null : parseFloat(vb);
+        if(na == null && nb == null) c = 0; else if(na == null) c = 1; else if(nb == null) c = -1; else c = na - nb;
+        if((na == null) !== (nb == null)) return c;   // i vuoti sempre in fondo
+      } else {
+        c = va.localeCompare(vb, 'it', { sensitivity:'base', numeric:true });
+      }
+      return asc ? c : -c;
+    });
+    rows.forEach(r => tb.appendChild(r));
+  });
+}
+
+function _qdThumb(url){
+  if(!url) return '<span class="qd-thumb-empty">❑</span>';
+  return '<img class="qd-thumb" src="' + escapeAttr(url) + '" alt="" loading="lazy" onerror="this.outerHTML=\'<span class=&quot;qd-thumb-empty&quot;>❑</span>\'">';
+}
+function _qdSemaforo(pct){
+  return '<span class="qd-dot" style="background:' + _qaMarginColor(pct) + '"></span>';
+}
+function _qdPctCol(pct){
+  if(pct == null) return '<span style="color:var(--fg3)">—</span>';
+  return '<span style="font-weight:700;color:' + _qaMarginColor(pct) + '">' + _qaPct(pct) + '</span>';
+}
+function _qdDelta(v, invert){
+  /* differenza in euro: verde se favorevole, rosso se sfavorevole */
+  if(v == null || !isFinite(v)) return '<span style="color:var(--fg3)">—</span>';
+  if(Math.abs(v) < 0.005) return '<span style="color:var(--fg3)">0,00 €</span>';
+  const good = invert ? (v < 0) : (v > 0);
+  return '<span style="font-weight:700;color:' + (good ? '#00a87f' : '#e74c3c') + '">' + (v > 0 ? '+' : '−') + _qaEuro(Math.abs(v)) + '</span>';
+}
+
+/* ---- KPI a due valori: reale in grande, dichiarato sotto ---- */
+function _qdKpi(label, main, color, sub, subLabel){
+  return '<div style="flex:1;min-width:150px;background:var(--bg2);border:1px solid var(--border);border-top:3px solid ' + color + ';border-radius:8px;padding:11px 13px">' +
+    '<div style="font-size:9px;font-weight:800;color:var(--fg3);text-transform:uppercase;letter-spacing:.6px">' + escapeHtml(label) + '</div>' +
+    '<div style="font-size:19px;font-weight:800;color:' + color + ';margin-top:3px;font-variant-numeric:tabular-nums">' + main + '</div>' +
+    (sub != null ? '<div style="font-size:10.5px;color:var(--fg3);margin-top:4px;padding-top:5px;border-top:1px dashed var(--border)">' +
+      '<span style="font-weight:800;text-transform:uppercase;letter-spacing:.4px;font-size:8.5px">' + escapeHtml(subLabel || 'dichiarato') + '</span> ' +
+      '<span style="font-weight:700;color:var(--fg2);font-variant-numeric:tabular-nums">' + sub + '</span></div>' : '') +
+  '</div>';
+}
+
+/* ---- Cascata listino -> guadagno (SVG) ----------------------------------
+   steps = [{label, value, kind:'tot'|'neg', color}] : le barre "tot" partono
+   da zero, le "neg" scendono dal livello raggiunto. */
+function _qdWaterfall(steps){
+  const W = 940, H = 290, PADL = 62, PADR = 14, PADT = 30, PADB = 52;
+  const n = steps.length;
+  const plotW = W - PADL - PADR, plotH = H - PADT - PADB;
+  const slot = plotW / n, bw = Math.min(90, slot * 0.62);
+  let maxV = 0, lvl = 0;
+  const bars = [];
+  steps.forEach(s => {
+    let y0, y1;
+    if(s.kind === 'tot'){ y0 = 0; y1 = s.value; lvl = s.value; }
+    else { y0 = lvl; y1 = lvl - Math.abs(s.value); lvl = y1; }
+    bars.push({ s, y0, y1 });
+    maxV = Math.max(maxV, y0, y1);
+  });
+  if(maxV <= 0) maxV = 1;
+  const minV = Math.min(0, Math.min.apply(null, bars.map(b => Math.min(b.y0, b.y1))));
+  const span = maxV - minV || 1;
+  const Y = (v) => PADT + (maxV - v) / span * plotH;
+  // griglia: 5 linee
+  let grid = '';
+  for(let i = 0; i <= 5; i++){
+    const v = minV + span * i / 5;
+    grid += '<line x1="' + PADL + '" x2="' + (W - PADR) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="var(--border)" stroke-dasharray="3 3"/>' +
+      '<text x="' + (PADL - 6) + '" y="' + (Y(v) + 3) + '" text-anchor="end" font-size="9" fill="var(--fg3)">' + escapeHtml(_qaNum(Math.round(v))) + '</text>';
+  }
+  let out = '';
+  bars.forEach((b, i) => {
+    const x = PADL + slot * i + (slot - bw) / 2;
+    const top = Y(Math.max(b.y0, b.y1)), bot = Y(Math.min(b.y0, b.y1));
+    const h = Math.max(1.5, bot - top);
+    out += '<rect x="' + x + '" y="' + top + '" width="' + bw + '" height="' + h + '" rx="4" fill="' + b.s.color + '"/>';
+    const lbl = (b.s.kind === 'tot' ? '' : '−') + _qaEuro(Math.abs(b.s.value));
+    out += '<text x="' + (x + bw / 2) + '" y="' + (top - 6) + '" text-anchor="middle" font-size="10.5" font-weight="800" fill="var(--fg)">' + escapeHtml(lbl) + '</text>';
+    const words = String(b.s.label).split(' ');
+    const l1 = words.slice(0, 2).join(' '), l2 = words.slice(2).join(' ');
+    out += '<text x="' + (x + bw / 2) + '" y="' + (H - PADB + 16) + '" text-anchor="middle" font-size="10" font-weight="700" fill="var(--fg2)">' + escapeHtml(l1) + '</text>';
+    if(l2) out += '<text x="' + (x + bw / 2) + '" y="' + (H - PADB + 29) + '" text-anchor="middle" font-size="10" font-weight="700" fill="var(--fg2)">' + escapeHtml(l2) + '</text>';
+    if(b.s.pct != null) out += '<text x="' + (x + bw / 2) + '" y="' + (H - PADB + (l2 ? 42 : 29)) + '" text-anchor="middle" font-size="9" fill="var(--fg3)">' + escapeHtml(b.s.pct) + '</text>';
+    // connettore al passo successivo
+    if(i < bars.length - 1){
+      const yl = Y(b.y1);
+      out += '<line x1="' + (x + bw) + '" x2="' + (PADL + slot * (i + 1) + (slot - bw) / 2) + '" y1="' + yl + '" y2="' + yl + '" stroke="var(--fg3)" stroke-dasharray="2 3"/>';
+    }
+  });
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="display:block;max-height:320px">' + grid + out + '</svg>';
+}
+
+
+/* ---- Barre orizzontali con il valore SEMPRE fuori dalla barra ----------
+   data = [{label, value, color, sub}]; il valore sta in una colonna a destra,
+   cosi' resta leggibile anche quando la barra e' piena. */
+function _qdBars(data, valueFmt, opts){
+  opts = opts || {};
+  if(!data.length) return '<div style="color:var(--fg3);font-size:12px;padding:12px">nessun dato</div>';
+  const max = Math.max.apply(null, data.map(d => Math.abs(d.value))) || 1;
+  const labelW = opts.labelW || 150, valW = opts.valW || 190;
+  return '<div style="display:flex;flex-direction:column;gap:6px">' + data.map(d => {
+    const w = Math.max(0.6, Math.abs(d.value) / max * 100);
+    return '<div style="display:grid;grid-template-columns:' + labelW + 'px 1fr ' + valW + 'px;gap:10px;align-items:center;font-size:12px">' +
+      '<div style="text-align:right;color:var(--fg2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeAttr(String(d.label)) + '">' + escapeHtml(String(d.label)) + '</div>' +
+      '<div style="background:var(--bg3);border-radius:4px;height:18px;position:relative;overflow:hidden">' +
+        '<div style="position:absolute;left:0;top:0;bottom:0;width:' + w + '%;background:' + (d.color || 'var(--accent)') + ';border-radius:4px"></div></div>' +
+      '<div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="color:var(--fg)">' + escapeHtml(valueFmt(d.value)) + '</b>' +
+        (d.sub ? ' <span style="color:var(--fg3);font-weight:600">' + escapeHtml(d.sub) + '</span>' : '') + '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+}
+
+/* ---- Confronto per riga: 4 barre per ogni riga -------------------------- */
+function _qdCompareBars(rows){
+  const SER = [
+    { k:'costoDich',  label:'Costo dichiarato',        color:'#e74c3c' },
+    { k:'costoReale', label:'Costo reale (distinta)',  color:'#c2410c' },
+    { k:'bomPrezzo',  label:'Prezzo pianificato in distinta', color:'#3498db' },
+    { k:'vendita',    label:'Prezzo di vendita',       color:'#00a87f' },
+  ];
+  const max = Math.max.apply(null, rows.map(r => Math.max(r.vendita, r.costoDich, r.costoReale, r.bomPrezzo || 0))) || 1;
+  let html = '<div style="display:flex;flex-direction:column;gap:12px">';
+  rows.forEach(r => {
+    const sers = r.hasBom ? SER : SER.filter(s => s.k === 'costoDich' || s.k === 'vendita');
+    html += '<div style="display:grid;grid-template-columns:190px 1fr;gap:10px;align-items:center">' +
+      '<div style="text-align:right;overflow:hidden">' +
+        '<div style="font-size:11.5px;font-weight:800;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeAttr(r.code) + '">' + escapeHtml(r.code) + '</div>' +
+        '<div style="font-size:10px;color:var(--fg3)">' + (r.qty !== 1 ? _qaNum(r.qty) + ' pz · ' : '') + 'margine reale ' + _qdPctCol(r.margineReale) +
+          (r.hasBom && Math.abs(r.deltaCosto) >= 0.5 ? ' · costo ' + _qdDelta(r.deltaCosto, false) : '') + '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:3px">' +
+        sers.map(s => {
+          const v = r[s.k] || 0;
+          const w = Math.max(0.4, v / max * 100);
+          return '<div style="display:flex;align-items:center;gap:8px">' +
+            '<div style="flex:1;background:var(--bg3);border-radius:3px;height:13px;position:relative;overflow:hidden">' +
+              '<div style="position:absolute;left:0;top:0;bottom:0;width:' + w + '%;background:' + s.color + ';border-radius:3px"></div></div>' +
+            '<div style="width:110px;font-size:10.5px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums;text-align:right">' + _qaEuro(v) + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+    '</div>';
+  });
+  html += '</div><div class="qd-legend">' + SER.map(s => '<span><i style="background:' + s.color + '"></i>' + escapeHtml(s.label) + '</span>').join('') + '</div>';
+  return html;
+}
+
+/* ---- Colonne della tabella componenti (usate anche dalla consolidata) ---- */
+function _qdCompCols(){
+  return [
+    { k:'img', label:'', t:'txt', get:r => '', fmt:r => _qdThumb(r.image) },
+    { k:'code', label:'Codice', t:'txt', get:r => r.code, fmt:r => _qdSemaforo(r.marginePct) + '<b>' + escapeHtml(r.code) + '</b>' +
+        (r.free ? '<span class="qd-badge free">libera</span>' : '') + (r.mancante ? '<span class="qd-badge miss">non in catalogo</span>' : '') +
+        (r.composto ? '<span class="qd-badge comp">personale</span>' : '') + (r.isService ? '<span class="qd-badge svc">servizio</span>' : '') +
+        ((r.deltaSnapPct != null && Math.abs(r.deltaSnapPct) > 2) ? '<span class="qd-badge snap" title="Costo di catalogo diverso dalla fotografia in distinta">costo ' + (r.deltaSnapPct > 0 ? '+' : '−') + _qaPct(Math.abs(r.deltaSnapPct)) + '</span>' : '') },
+    { k:'label', label:'Descrizione', t:'txt', cls:'txt-long', get:r => r.label, fmt:r => '<span style="color:var(--fg2)" title="' + escapeAttr(String(r.label || '')) + '">' + escapeHtml(String(r.label || '').slice(0, 64)) + (String(r.label || '').length > 64 ? '\u2026' : '') + '</span>' },
+    { k:'brand', label:'Marca', t:'txt', get:r => r.brand, fmt:r => escapeHtml(r.brand || '—') },
+    { k:'qtyUnit', label:'Q.tà ×1', t:'num', get:r => r.qtyUnit, fmt:r => _qaNum(r.qtyUnit) },
+    { k:'qtyTot', label:'Q.tà tot', t:'num', get:r => r.qtyTot, fmt:r => '<b>' + _qaNum(r.qtyTot) + '</b>' },
+    { k:'listino', label:'Listino unit.', t:'num', get:r => r.listino, fmt:r => (r.listino != null) ? _qaEuro(r.listino) : '—' },
+    { k:'nettoUsed', label:'Netto attuale', t:'num', get:r => r.nettoUsed, fmt:r => _qaEuro(r.nettoUsed) +
+        ((r.nettoCat != null && r.nettoSnap > 0 && Math.abs(r.nettoCat - r.nettoSnap) > 0.005) ? '<div style="font-size:9px;color:var(--fg3)">distinta ' + _qaEuro(r.nettoSnap) + '</div>' : '') },
+    { k:'scontoAcqPct', label:'Sc. acq.', t:'num', get:r => r.scontoAcqPct, fmt:r => (r.scontoAcqPct != null) ? _qaPct(r.scontoAcqPct) : '—' },
+    { k:'costoTot', label:'Costo tot', t:'num', get:r => r.costoTot, fmt:r => '<b>' + _qaEuro(r.costoTot) + '</b>' },
+    { k:'quotaCosto', label:'% costo', t:'num', get:r => r.quotaCosto, fmt:r => _qaPct(r.quotaCosto) },
+    { k:'prezzoBomTot', label:'Prezzo distinta', t:'num', get:r => r.prezzoBomTot, fmt:r => (r.prezzoBom > 0) ? _qaEuro(r.prezzoBomTot) : '<span style="color:var(--fg3)">—</span>' },
+    { k:'prezzoImplTot', label:'Prezzo implicito', t:'num', get:r => r.prezzoImplTot, fmt:r => '<b>' + _qaEuro(r.prezzoImplTot) + '</b><div style="font-size:9px;color:var(--fg3)">' + _qaEuro(r.prezzoImplUnit) + ' /pz</div>' },
+    { k:'scontoVendPct', label:'Sc. vend.', t:'num', get:r => r.scontoVendPct, fmt:r => (r.scontoVendPct == null) ? '\u2014' : (r.scontoVendPct < -0.05 ? '<span style="font-weight:700;color:#e67e22" title="Prezzo implicito sopra il listino">' + _qaPct(r.scontoVendPct) + '</span>' : _qaPct(r.scontoVendPct)) },
+    { k:'guadagno', label:'Guadagno', t:'num', get:r => r.guadagno, fmt:r => _qdDelta(r.guadagno, false) },
+    { k:'marginePct', label:'Margine', t:'num', get:r => r.marginePct, fmt:r => _qdPctCol(r.marginePct) },
+    { k:'ricaricoPct', label:'Ricarico', t:'num', get:r => r.ricaricoPct, fmt:r => (r.ricaricoPct != null) ? _qaPct(r.ricaricoPct) : '—' },
+  ];
+}
+
+/* ---- Card di una riga con distinta: riepilogo + tabella componenti ---- */
+function _qdRowCard(r, open){
+  const cols = _qdCompCols();
+  const foot = cols.map(c => {
+    if(c.k === 'code') return 'Totale distinta';
+    if(c.k === 'qtyTot') return _qaNum(r.bomPezzi);
+    if(c.k === 'costoTot') return _qaEuro(r.bomCostoAtt);
+    if(c.k === 'quotaCosto') return '100%';
+    if(c.k === 'prezzoBomTot') return (r.bomPrezzo > 0) ? _qaEuro(r.bomPrezzo) : '—';
+    if(c.k === 'prezzoImplTot') return _qaEuro(r.vendita);
+    if(c.k === 'guadagno') return _qdDelta(r.guadagnoReale, false);
+    if(c.k === 'marginePct') return _qdPctCol(r.margineReale);
+    if(c.k === 'ricaricoPct') return (r.ricaricoReale != null) ? _qaPct(r.ricaricoReale) : '—';
+    if(c.k === 'listino') return (r.bomListino > 0) ? '<span style="font-weight:600;color:var(--fg3)">tot ' + _qaEuro(r.bomListino) + '</span>' : '';
+    return '';
+  });
+  const chip = (lbl, val, col) => '<span class="qd-chip"><span>' + escapeHtml(lbl) + '</span><b style="color:' + (col || 'var(--fg)') + '">' + val + '</b></span>';
+  const ripart = (r.ripartizione === 'prezzi')
+    ? 'Prezzo implicito = prezzo pianificato in distinta × ' + r.scala.toLocaleString('it-IT', { minimumFractionDigits:3, maximumFractionDigits:3 }) +
+      ' (rapporto fra vendita ' + _qaEuro(r.vendita) + ' e distinta ' + _qaEuro(r.bomPrezzo) + ').'
+    : (r.ripartizione === 'costo' ? 'La distinta non ha prezzi pianificati: il prezzo di vendita \u00e8 ripartito in proporzione al costo di ogni componente.'
+                                  : 'Nessun prezzo n\u00e9 costo in distinta: prezzo di vendita ripartito in parti uguali.');
+  return '<details class="qd-row"' + (open ? ' open' : '') + '>' +
+    '<summary>' +
+      '<span class="qd-caret">▶</span>' +
+      _qdThumb(r.image) +
+      '<div style="min-width:200px;flex:1">' +
+        '<div style="font-size:13px;font-weight:800;color:var(--fg)">' + escapeHtml(r.code) + ' <span style="font-weight:600;color:var(--fg3);font-size:11px">× ' + _qaNum(r.qty) + '</span></div>' +
+        '<div style="font-size:11px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px">' + escapeHtml(r.nameShort.slice(0, 120)) + '</div>' +
+        '<div style="font-size:10px;color:var(--fg3);margin-top:2px">' + r.comps.length + ' componenti · ' + _qaNum(r.bomPezzi) + ' pezzi</div>' +
+      '</div>' +
+      chip('Vendita', _qaEuro(r.vendita), '#00a87f') +
+      chip('Costo dichiarato', _qaEuro(r.costoDich)) +
+      chip('Costo reale', _qaEuro(r.costoReale), (r.costoReale > r.costoDich + 0.005) ? '#e74c3c' : 'var(--fg)') +
+      chip('Δ costo', _qdDelta(r.deltaCosto, false)) +
+      chip('Margine dich.', _qdPctCol(r.margineDich)) +
+      chip('Margine reale', _qdPctCol(r.margineReale)) +
+      chip('Ricarico reale', (r.ricaricoReale != null) ? _qaPct(r.ricaricoReale) : '—') +
+      chip('Vs distinta', (r.bomPrezzo > 0) ? _qdDelta(r.deltaPrezzoBom, false) : '—') +
+    '</summary>' +
+    '<div style="padding:0 14px 14px">' +
+      '<div style="font-size:10.5px;color:var(--fg3);margin:4px 0 8px">' + escapeHtml(ripart) + '</div>' +
+      _qdTable(cols, r.comps, { foot, maxH: 380 }) +
+    '</div>' +
+  '</details>';
+}
+
+/* ---- La finestra ---------------------------------------------------------- */
+function openQuoteDeepDialog(){
+  const old = document.getElementById('quoteDeepModal');
+  if(old) old.remove();
+  _qdEnsureStyle();
+  const D = computeQuoteDeepAnalytics();
+  const t = D.tot;
+
+  const bg = document.createElement('div');
+  bg.id = 'quoteDeepModal';
+  bg.className = 'modal-bg';
+  bg.style.zIndex = '541';
+
+  if(!D.rows.length){
+    bg.innerHTML =
+      '<div class="modal" style="max-width:460px">' +
+        '<div class="modal-head"><h3>🔬 Dettaglio analisi</h3></div>' +
+        '<div class="modal-body" style="display:block;padding:24px;text-align:center">' +
+          '<div style="font-size:40px;margin-bottom:10px">📭</div>' +
+          '<p style="color:var(--fg2);font-size:13px;margin:0">Il preventivo non contiene righe valide da analizzare.' +
+          (t.parked ? '<br>(' + t.parked + ' righe parcheggiate con quantità 0)' : '') + '</p>' +
+        '</div>' +
+        '<div class="modal-foot"><span style="flex:1"></span><button class="btn ghost" onclick="this.closest(\'.modal-bg\').remove()">Chiudi</button></div>' +
+      '</div>';
+    document.body.appendChild(bg);
+    bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+    return;
+  }
+
+  const bound = (typeof quoteGetBoundInfo === 'function') ? quoteGetBoundInfo() : null;
+  const titolo = bound ? (bound.quoteId + ' v' + bound.versionNumber + (bound.nome ? ' — ' + bound.nome : '')) : 'Carrello corrente (preventivo non salvato)';
+  const cliente = (bound && bound.cliente) ? (bound.cliente.nome || bound.cliente.ragioneSociale || bound.cliente.name || '') : '';
+
+  /* KPI */
+  const dMarg = (t.margineReale != null && t.margineDich != null) ? (t.margineReale - t.margineDich) : null;
+  const kpiRow = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">' +
+    _qdKpi('Totale vendita', _qaEuro(t.vendita), '#00a87f', _qaEuro(t.listino) + ' · sconto ' + _qaPct(t.scontoMedioPct), 'listino') +
+    _qdKpi('Costo reale', _qaEuro(t.costoReale), '#e74c3c', _qaEuro(t.costoDich) + (Math.abs(t.deltaCosto) >= 0.005 ? ' \u00b7 reale ' + _qdDelta(-t.deltaCosto, true) : ' \u00b7 allineato'), 'dichiarato') +
+    _qdKpi('Guadagno reale', _qaEuro(t.guadagnoReale), '#ff6b35', _qaEuro(t.guadagnoDich), 'dichiarato') +
+    _qdKpi('Margine reale', _qdPctCol(t.margineReale), '#7c3aed', _qaPct(t.margineDich) + (dMarg != null && Math.abs(dMarg) >= 0.05 ? ' <span style="color:' + (dMarg >= 0 ? '#00a87f' : '#e74c3c') + '">(' + (dMarg >= 0 ? '+' : '−') + _qaPct(Math.abs(dMarg)).replace('%', ' pt') + ')</span>' : ''), 'dichiarato') +
+    _qdKpi('Ricarico reale', _qaPct(t.ricaricoReale), '#3498db', _qaPct(t.ricaricoDich), 'dichiarato') +
+    _qdKpi('Articoli analizzati', _qaNum(D.consolidata.length), '#64748b', t.righeBom + ' righe esplose · ' + _qaNum(t.compRighe) + ' componenti · ' + _qaNum(t.compPezzi + t.pezzi) + ' pezzi', 'dettaglio') +
+  '</div>';
+
+  /* Verdetto */
+  const V = D.verdetto;
+  const verdetto = '<div style="display:flex;gap:14px;align-items:center;padding:12px 16px;border-radius:10px;margin-bottom:14px;' +
+      'background:' + V.color + '14;border:1px solid ' + V.color + '66">' +
+    '<div style="font-size:26px">' + (V.liv === 'crit' ? '🛑' : V.liv === 'warn' ? '⚠️' : '✅') + '</div>' +
+    '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:' + V.color + '">' + escapeHtml(V.titolo) + '</div>' +
+      '<div style="font-size:12px;color:var(--fg2);margin-top:2px">' + escapeHtml(V.testo) + '</div></div>' +
+    '<div style="display:flex;gap:6px;flex-shrink:0">' +
+      '<span class="qd-chip" style="border-color:rgba(231,76,60,.5)"><span>critici</span><b style="color:#e74c3c">' + D.nCrit + '</b></span>' +
+      '<span class="qd-chip" style="border-color:rgba(230,126,34,.5)"><span>attenzione</span><b style="color:#e67e22">' + D.nWarn + '</b></span>' +
+      '<span class="qd-chip"><span>note</span><b>' + D.nInfo + '</b></span>' +
+    '</div>' +
+  '</div>';
+
+  /* Avvisi */
+  const alertsHtml = D.alerts.length
+    ? D.alerts.map(a => '<div class="qd-alert ' + a.sev + '"><span class="qd-sev">' + (a.sev === 'crit' ? 'CRITICO' : a.sev === 'warn' ? 'ATTENZIONE' : 'NOTA') + '</span>' +
+        '<div><code>' + escapeHtml(a.code) + '</code> · <b>' + escapeHtml(a.titolo) + '</b><div style="color:var(--fg2);margin-top:2px">' + escapeHtml(a.testo) + '</div></div></div>').join('')
+    : '<div style="color:var(--fg3);font-size:12px">Nessuna segnalazione.</div>';
+  const cardAlerts = _qaCard('Segnalazioni (' + D.alerts.length + ')', '<div style="max-height:300px;overflow:auto">' + alertsHtml + '</div>', { icon:'🚦', span:true });
+
+  /* Cascata */
+  const steps = [
+    { label:'Totale listino', value:t.listino, kind:'tot', color:'#64748b' },
+    { label:'Sconto cliente', value:-t.sconto, kind:'neg', color:'#e67e22', pct: _qaPct(t.scontoMedioPct) },
+  ];
+  if(Math.abs(t.scontiRighe) > 0.005) steps.push({ label:'Voci di sconto', value:t.scontiRighe, kind:'neg', color:'#e67e22' });
+  steps.push({ label:'Totale vendita', value:t.vendita, kind:'tot', color:'#00a87f' });
+  if(t.costoDistinte > 0) steps.push({ label:'Materiali da distinta', value:-t.costoDistinte, kind:'neg', color:'#c2410c', pct: _qaPct(t.vendita > 0 ? t.costoDistinte / t.vendita * 100 : 0) + ' della vendita' });
+  if(t.costoDiretti > 0) steps.push({ label:'Articoli diretti', value:-t.costoDiretti, kind:'neg', color:'#e74c3c', pct: _qaPct(t.vendita > 0 ? t.costoDiretti / t.vendita * 100 : 0) + ' della vendita' });
+  if(t.costoServizi > 0) steps.push({ label:'Costo servizi', value:-t.costoServizi, kind:'neg', color:'#3498db', pct: _qaPct(t.vendita > 0 ? t.costoServizi / t.vendita * 100 : 0) + ' della vendita' });
+  steps.push({ label:'Guadagno reale', value:t.guadagnoReale, kind:'tot', color:(t.guadagnoReale >= 0 ? '#7c3aed' : '#e74c3c'), pct:'margine ' + _qaPct(t.margineReale) });
+  const cardWater = _qaCard('Dal listino al guadagno', _qdWaterfall(steps) +
+    '<div style="font-size:10.5px;color:var(--fg3);margin-top:6px">I costi sono quelli reali: per le righe con distinta la somma dei costi attuali di catalogo dei componenti, per le altre il netto della riga.</div>', { icon:'📉', span:true });
+
+  /* Confronto per riga */
+  const rowsCmp = D.rows.filter(r => !r.isSconto).slice().sort((a, b) => b.vendita - a.vendita);
+  const cardCmp = _qaCard('Dichiarato contro reale, riga per riga', _qdCompareBars(rowsCmp), { icon:'⚖️', span:true });
+
+  /* Composizione del costo per marca (foglia) */
+  let brandSrc = D.byBrand.slice();
+  if(brandSrc.length > 8){
+    const top = brandSrc.slice(0, 7);
+    const rest = brandSrc.slice(7);
+    const altre = { key:'Altre (' + rest.length + ')', costo:0, vendita:0, articoli:0, pezzi:0 };
+    rest.forEach(g => { altre.costo += g.costo; altre.vendita += g.vendita; altre.articoli += g.articoli; altre.pezzi += g.pezzi; });
+    altre.guadagno = altre.vendita - altre.costo; altre.marginePct = altre.vendita > 0 ? altre.guadagno / altre.vendita * 100 : null;
+    altre.quotaCosto = t.costoReale > 0 ? altre.costo / t.costoReale * 100 : 0;
+    brandSrc = top.concat([altre]);
+  }
+  const brandSegs = brandSrc.map((g, i) => ({ label:g.key, value:g.costo, color:_qaColor(i) }));
+  const brandLegend = brandSrc.map((g, i) =>
+    '<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:4px">' +
+      '<span style="width:11px;height:11px;border-radius:3px;flex-shrink:0;background:' + _qaColor(i) + '"></span>' +
+      '<span style="font-weight:700;color:var(--fg);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(g.key) + '</span>' +
+      '<span style="font-weight:700;color:var(--fg2)">' + _qaEuro(g.costo) + '</span>' +
+      '<span style="color:var(--fg3);width:46px;text-align:right">' + _qaPct(g.quotaCosto) + '</span>' +
+      '<span style="width:64px;text-align:right">' + _qdPctCol(g.marginePct) + '</span>' +
+    '</div>').join('');
+  const cardBrand = _qaCard('Composizione del costo per marca',
+    '<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">' +
+      '<div style="flex-shrink:0">' + _qaDonut(brandSegs, 180, _qaEuro(t.costoReale).replace(' €', ''), 'COSTO €') + '</div>' +
+      '<div style="flex:1;min-width:230px">' +
+        '<div style="display:flex;font-size:8.5px;font-weight:800;color:var(--fg3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;gap:8px"><span style="flex:1">marca</span><span>costo</span><span style="width:46px;text-align:right">quota</span><span style="width:64px;text-align:right">margine</span></div>' +
+        brandLegend + '</div>' +
+    '</div>', { icon:'🏷️' });
+
+  /* Composizione per categoria (barre) */
+  const catBars = D.byCategory.slice(0, 12).map((g, i) => ({ label:g.key, value:g.costo, color:_qaColor(i), sub: _qaPct(g.quotaCosto) + ' · marg. ' + _qaPct(g.marginePct) }));
+  const cardCat = _qaCard('Costo per categoria', _qdBars(catBars, _qaEuro, { labelW:170 }), { icon:'🗂️' });
+
+  /* Margine per articolo (prezzo implicito) — i 25 piu' pesanti per costo */
+  const topComp = D.consolidata.filter(g => g.marginePct != null).slice(0, 25).map(g => ({ code:g.code, marginePct:g.marginePct, ricaricoPct:g.ricaricoPct, vendita:g.prezzoImplTot, isService:g.isService }));
+  const cardMargComp = _qaCard('Margine per articolo al prezzo implicito (i ' + topComp.length + ' più pesanti per costo)',
+    _qaMarginChart(topComp, { metric:'marginePct' }) +
+    '<div style="font-size:10.5px;color:var(--fg3);margin-top:8px">Bande: rosso sotto 10%, arancio 10–20%, giallo 20–30%, verde oltre. Il valore a destra \u00e8 il prezzo implicito totale dell\u2019articolo.</div>', { icon:'📊', span:true });
+
+  /* Distribuzione per fasce */
+  const nWithM = D.consolidata.filter(g => g.marginePct != null).length || 1;
+  const distBars = D.marginBuckets.map(b => ({ label:b.label, value:b.count, color:b.color, sub: _qaEuro(b.costo) + ' di costo' }));
+  const cardDist = _qaCard('Articoli per fascia di margine', _qdBars(distBars, v => _qaNum(v) + (v === 1 ? ' articolo' : ' articoli'), { labelW:90 }) +
+    '<div style="font-size:10.5px;color:var(--fg3);margin-top:8px">' + _qaNum(nWithM) + ' articoli con margine calcolabile.</div>', { icon:'📈' });
+
+  /* Origine */
+  const origBars = D.byOrigine.map((g, i) => ({ label:g.key, value:g.costo, color:_qaColor(i + 3), sub: _qaPct(g.quotaCosto) + ' · marg. ' + _qaPct(g.marginePct) }));
+  const cardOrig = _qaCard('Costo per origine', _qdBars(origBars, _qaEuro, { labelW:170 }) +
+    '<div style="font-size:10.5px;color:var(--fg3);margin-top:8px">Componenti di distinta = articoli che entrano tramite un prodotto personale composto; articoli diretti = righe di catalogo o personali senza distinta.</div>', { icon:'🧩' });
+
+  /* Righe con distinta */
+  const rowsBom = D.rows.filter(r => r.hasBom).sort((a, b) => b.vendita - a.vendita);
+  const rowsHtml = rowsBom.length
+    ? rowsBom.map((r, i) => _qdRowCard(r, i === 0)).join('')
+    : '<div style="color:var(--fg3);font-size:12px">Nessuna riga del preventivo ha una distinta base: l\u2019analisi dettagliata riguarda solo i prodotti personali composti.</div>';
+  const cardRows = _qaCard('Distinte esplose (' + rowsBom.length + (rowsBom.length === 1 ? ' riga' : ' righe') + ')',
+    '<div style="font-size:10.5px;color:var(--fg3);margin-bottom:10px">Per ogni prodotto composto: componenti con quantità per unità e totali, costo attuale di catalogo, quota sul costo, prezzo pianificato in distinta e prezzo implicito al prezzo di vendita effettivo. Clic sull\u2019intestazione per ordinare.</div>' + rowsHtml,
+    { icon:'🔬', span:true });
+
+  /* Consolidata */
+  const consCols = _qdCompCols().filter(c => c.k !== 'qtyUnit' && c.k !== 'prezzoBomTot');
+  consCols.splice(4, 0, { k:'origine', label:'Origine', t:'txt', get:r => r.origine, fmt:r => {
+    const map = { distinta:['distinta', '#0178d4'], riga:['diretto', '#64748b'], servizio:['servizio', '#3498db'], mista:['mista', '#7c3aed'] };
+    const m = map[r.origine] || [r.origine, '#64748b'];
+    return '<span class="qd-badge" style="margin:0;background:' + m[1] + '22;color:' + m[1] + '">' + escapeHtml(m[0]) + '</span>' +
+      (r.righe.length ? '<div style="font-size:9px;color:var(--fg3);margin-top:2px" title="' + escapeAttr(r.righe.join(', ')) + '">in ' + r.righe.length + (r.righe.length === 1 ? ' riga' : ' righe') + '</div>' : '');
+  }});
+  const ci = (k) => consCols.findIndex(c => c.k === k);
+  consCols[ci('nettoUsed')] = { k:'nettoMedio', label:'Netto medio', t:'num', get:r => r.nettoMedio, fmt:r => _qaEuro(r.nettoMedio) +
+    ((r.nettoMin != null && r.nettoMax != null && r.nettoMax - r.nettoMin > 0.005) ? '<div style="font-size:9px;color:var(--fg3)">' + _qaEuro(r.nettoMin) + ' – ' + _qaEuro(r.nettoMax) + '</div>' : '') };
+  consCols[ci('listino')] = { k:'listinoTot', label:'Listino tot', t:'num', get:r => r.listinoTot, fmt:r => (r.listinoTot > 0) ? _qaEuro(r.listinoTot) : '—' };
+  consCols[ci('quotaCosto')] = { k:'quotaCosto', label:'% costo tot.', t:'num', get:r => r.quotaCosto, fmt:r => _qaPct(r.quotaCosto) };
+  const consFoot = consCols.map(c => {
+    if(c.k === 'code') return 'Totale preventivo';
+    if(c.k === 'qtyTot') return _qaNum(D.consolidata.reduce((s, g) => s + g.qtyTot, 0));
+    if(c.k === 'costoTot') return _qaEuro(t.costoReale);
+    if(c.k === 'quotaCosto') return '100%';
+    if(c.k === 'listinoTot') return _qaEuro(D.consolidata.reduce((s, g) => s + g.listinoTot, 0));
+    if(c.k === 'prezzoImplTot') return _qaEuro(t.vendita - t.scontiRighe);
+    if(c.k === 'guadagno') return _qdDelta(t.guadagnoReale - t.scontiRighe, false);
+    if(c.k === 'marginePct') return _qdPctCol(t.margineReale);
+    if(c.k === 'ricaricoPct') return (t.ricaricoReale != null) ? _qaPct(t.ricaricoReale) : '—';
+    return '';
+  });
+  const cardCons = _qaCard('Tutti gli articoli del preventivo (' + D.consolidata.length + ')',
+    '<div style="font-size:10.5px;color:var(--fg3);margin-bottom:10px">Ogni articolo compare una sola volta, con le quantità sommate su tutte le righe in cui entra. Ordinato per costo decrescente; clic sull\u2019intestazione per cambiare ordine.</div>' +
+    _qdTable(consCols, D.consolidata, { foot: consFoot, maxH: 520 }), { icon:'📋', span:true });
+
+  const exclNote = (t.parked > 0 || t.noPrice > 0 || t.canoni > 0)
+    ? '<div style="grid-column:1/-1;font-size:11px;color:var(--fg3);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px">ℹ️ Escluse dall\u2019analisi: ' +
+      [t.parked > 0 ? t.parked + ' righe parcheggiate (quantità 0)' : '', t.noPrice > 0 ? t.noPrice + ' righe senza prezzo' : '', t.canoni > 0 ? t.canoni + ' righe a canone' : ''].filter(Boolean).join(' · ') + '.</div>'
+    : '';
+
+  bg.innerHTML =
+    '<div class="modal" style="max-width:96vw;width:96vw;max-height:95vh;display:flex;flex-direction:column">' +
+      '<div class="modal-head" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+        '<h3 style="margin:0;max-width:none;white-space:nowrap;overflow:visible">🔬 Dettaglio analisi</h3>' +
+        '<span style="font-size:12px;color:var(--fg3);font-weight:600">' + escapeHtml(titolo) + (cliente ? ' · ' + escapeHtml(cliente) : '') + ' · ' + t.righe + ' righe</span>' +
+        '<span style="flex:1"></span>' +
+      '</div>' +
+      '<div class="modal-body" id="qdBody" style="display:block;padding:18px 22px;overflow-y:auto;flex:1;min-height:0">' +
+        kpiRow + verdetto +
+        '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">' +
+          cardAlerts + cardWater + cardCmp + cardRows + cardBrand + cardCat + cardMargComp + cardDist + cardOrig + cardCons + exclNote +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="qDeepCloseBtn" type="button">Chiudi</button>' +
+        '<span style="flex:1"></span>' +
+        '<span style="font-size:11px;color:var(--fg3);margin-right:10px">Costi attuali di catalogo · righe selezionate come le KPI</span>' +
+        '<button class="btn small" id="qDeepPdfBtn" type="button" style="background:#7c3aed;color:#fff;border-color:#7c3aed">📄 Esporta PDF</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(bg);
+  bg.addEventListener('click', e => { if(e.target === bg) bg.remove(); });
+  document.getElementById('qDeepCloseBtn').addEventListener('click', () => bg.remove());
+  _qdBindSort(document.getElementById('qdBody'));
+  document.getElementById('qDeepPdfBtn').addEventListener('click', () => {
+    try { exportQuoteDeepPdf(D, { titolo, cliente }); }
+    catch(e){ console.error('[dettaglio analisi] errore export PDF:', e); if(typeof toast === 'function') toast('Errore nella generazione del PDF', 'warn'); }
+  });
+}
+/* ---- Export PDF del dettaglio analisi (A4 orizzontale, jsPDF + autoTable) ---- */
+function exportQuoteDeepPdf(D, info){
+  if(!D) D = computeQuoteDeepAnalytics();
+  if(!D || !D.rows.length){ if(typeof toast === 'function') toast('Nessuna riga da esportare', 'info'); return; }
+  if(typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF){ if(typeof toast === 'function') toast('Libreria PDF non disponibile', 'warn'); return; }
+  info = info || {};
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4', orientation:'landscape' });
+  const PAGE_W = 841.89, PAGE_H = 595.28, M = 34, CW = PAGE_W - 2 * M, FOOT = 30;
+  const t = D.tot;
+  const hex2rgb = (h) => { const s = String(h).replace('#', ''); return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)]; };
+  const marginRgb = (pct) => hex2rgb(_qaMarginColor(pct) === 'var(--fg3)' ? '#94a3b8' : _qaMarginColor(pct));
+  const E = (n) => _qaEuro(n).replace(' ', ' ');
+  const P = (n) => _qaPct(n);
+  const oggi = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' });
+  let y = M;
+
+  const ensure = (h) => { if(y + h > PAGE_H - FOOT - M) { doc.addPage(); y = M; } };
+  const header = () => {
+    doc.setFillColor(124, 58, 237); doc.rect(M, y, CW, 42, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+    doc.text('Dettaglio analisi del preventivo', M + 12, y + 18);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+    doc.text((info.titolo || 'Carrello corrente') + (info.cliente ? '  ·  ' + info.cliente : '') + '  ·  ' + oggi, M + 12, y + 33);
+    y += 52;
+  };
+  const secTitle = (s) => {
+    ensure(30);
+    doc.setTextColor(124, 58, 237); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text(s.toUpperCase(), M, y + 10);
+    doc.setDrawColor(124, 58, 237); doc.setLineWidth(0.8); doc.line(M, y + 15, M + CW, y + 15);
+    y += 24;
+  };
+  const para = (s, size) => {
+    doc.setTextColor(60, 60, 60); doc.setFont('helvetica', 'normal'); doc.setFontSize(size || 8.5);
+    const lines = doc.splitTextToSize(s, CW);
+    ensure(lines.length * (size || 8.5) * 1.25 + 4);
+    doc.text(lines, M, y + (size || 8.5));
+    y += lines.length * (size || 8.5) * 1.25 + 6;
+  };
+
+  header();
+
+  /* KPI */
+  const kpis = [
+    ['Totale vendita', E(t.vendita), 'listino ' + E(t.listino) + ' - sconto ' + P(t.scontoMedioPct), '#00a87f'],
+    ['Costo reale', E(t.costoReale), 'dichiarato ' + E(t.costoDich), '#e74c3c'],
+    ['Guadagno reale', E(t.guadagnoReale), 'dichiarato ' + E(t.guadagnoDich), '#ff6b35'],
+    ['Margine reale', P(t.margineReale), 'dichiarato ' + P(t.margineDich), '#7c3aed'],
+    ['Ricarico reale', P(t.ricaricoReale), 'dichiarato ' + P(t.ricaricoDich), '#3498db'],
+    ['Articoli analizzati', _qaNum(D.consolidata.length), t.righeBom + ' righe esplose - ' + _qaNum(t.compRighe) + ' componenti', '#64748b'],
+  ];
+  const kw = (CW - 5 * 8) / 6, kh = 54;
+  kpis.forEach((k, i) => {
+    const x = M + i * (kw + 8);
+    const c = hex2rgb(k[3]);
+    doc.setFillColor(248, 248, 250); doc.setDrawColor(220, 220, 225); doc.setLineWidth(0.5);
+    doc.roundedRect(x, y, kw, kh, 4, 4, 'FD');
+    doc.setFillColor(c[0], c[1], c[2]); doc.rect(x, y, kw, 3, 'F');
+    doc.setTextColor(120, 120, 130); doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.text(k[0].toUpperCase(), x + 8, y + 15);
+    doc.setTextColor(c[0], c[1], c[2]); doc.setFontSize(14); doc.text(k[1], x + 8, y + 33);
+    doc.setTextColor(110, 110, 120); doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.text(k[2], x + 8, y + 46);
+  });
+  y += kh + 12;
+
+  /* Verdetto */
+  const V = D.verdetto; const vc = hex2rgb(V.color);
+  const vLines = doc.splitTextToSize(V.testo, CW - 20);
+  const vh = 26 + vLines.length * 10;
+  doc.setFillColor(vc[0], vc[1], vc[2]); doc.setDrawColor(vc[0], vc[1], vc[2]);
+  doc.roundedRect(M, y, CW, vh, 4, 4, 'S');
+  doc.setTextColor(vc[0], vc[1], vc[2]); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+  doc.text(V.titolo + '   (' + D.nCrit + ' critici, ' + D.nWarn + ' attenzione, ' + D.nInfo + ' note)', M + 10, y + 16);
+  doc.setTextColor(60, 60, 60); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+  doc.text(vLines, M + 10, y + 29);
+  y += vh + 12;
+
+  /* Segnalazioni */
+  if(D.alerts.length){
+    secTitle('Segnalazioni');
+    doc.autoTable({
+      startY: y, margin:{ left:M, right:M, bottom:FOOT }, theme:'grid',
+      styles:{ fontSize:7.5, cellPadding:3, textColor:[50, 50, 50], lineColor:[225, 225, 230], lineWidth:0.4, overflow:'linebreak' },
+      headStyles:{ fillColor:[124, 58, 237], textColor:255, fontStyle:'bold' },
+      columnStyles:{ 0:{ cellWidth:62, fontStyle:'bold' }, 1:{ cellWidth:120, fontStyle:'bold' }, 2:{ cellWidth:150 } },
+      head:[['Livello', 'Riga', 'Segnalazione', 'Dettaglio']],
+      body: D.alerts.map(a => [a.sev === 'crit' ? 'CRITICO' : a.sev === 'warn' ? 'ATTENZIONE' : 'NOTA', a.code, a.titolo, a.testo]),
+      didParseCell: (d) => { if(d.section === 'body' && d.column.index === 0){ const s = D.alerts[d.row.index].sev; d.cell.styles.textColor = s === 'crit' ? [231, 76, 60] : s === 'warn' ? [230, 126, 34] : [100, 116, 139]; } },
+    });
+    y = doc.lastAutoTable.finalY + 14;
+  }
+
+  /* Confronto per riga: barre */
+  const rowsCmp = D.rows.filter(r => !r.isSconto).slice().sort((a, b) => b.vendita - a.vendita).slice(0, 14);
+  if(rowsCmp.length){
+    secTitle('Dichiarato contro reale, riga per riga');
+    const SER = [['costoDich', 'Costo dichiarato', '#e74c3c'], ['costoReale', 'Costo reale', '#c2410c'], ['bomPrezzo', 'Prezzo pianificato in distinta', '#3498db'], ['vendita', 'Prezzo di vendita', '#00a87f']];
+    const max = Math.max.apply(null, rowsCmp.map(r => Math.max(r.vendita, r.costoDich, r.costoReale, r.bomPrezzo || 0))) || 1;
+    const LW = 150, VW = 70, BH = 6, GAP = 1.5, plotW = CW - LW - VW - 10;
+    rowsCmp.forEach(r => {
+      const sers = r.hasBom ? SER : SER.filter(s => s[0] === 'costoDich' || s[0] === 'vendita');
+      const rh = sers.length * (BH + GAP) + 6;
+      ensure(rh + 2);
+      doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
+      doc.text(String(r.code).slice(0, 34), M + LW - 6, y + 8, { align:'right' });
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(120, 120, 130);
+      doc.text('margine reale ' + P(r.margineReale) + (r.qty !== 1 ? ' - ' + _qaNum(r.qty) + ' pz' : ''), M + LW - 6, y + 17, { align:'right' });
+      sers.forEach((s, i) => {
+        const v = r[s[0]] || 0; const c = hex2rgb(s[2]);
+        const by = y + i * (BH + GAP);
+        doc.setFillColor(240, 240, 244); doc.rect(M + LW, by, plotW, BH, 'F');
+        doc.setFillColor(c[0], c[1], c[2]); doc.rect(M + LW, by, Math.max(1, v / max * plotW), BH, 'F');
+        doc.setTextColor(60, 60, 60); doc.setFontSize(6.5); doc.text(E(v), M + LW + plotW + 4, by + BH - 1);
+      });
+      y += rh;
+    });
+    // legenda
+    ensure(14);
+    let lx = M + LW;
+    SER.forEach(s => { const c = hex2rgb(s[2]); doc.setFillColor(c[0], c[1], c[2]); doc.rect(lx, y + 2, 7, 7, 'F'); doc.setTextColor(80, 80, 90); doc.setFontSize(7); doc.text(s[1], lx + 10, y + 8); lx += doc.getTextWidth(s[1]) + 24; });
+    y += 18;
+  }
+
+  /* Distinte esplose */
+  const rowsBom = D.rows.filter(r => r.hasBom).sort((a, b) => b.vendita - a.vendita);
+  const compHead = [['Codice', 'Descrizione', 'Marca', 'Q.ta x1', 'Q.ta tot', 'Listino', 'Netto att.', 'Sc. acq.', 'Costo tot', '% costo', 'Prezzo dist.', 'Prezzo impl.', 'Sc. vend.', 'Guadagno', 'Margine', 'Ricarico']];
+  const compCols = { 0:{ cellWidth:88, fontStyle:'bold' }, 1:{ cellWidth:150 }, 2:{ cellWidth:52 }, 3:{ halign:'right' }, 4:{ halign:'right', fontStyle:'bold' }, 5:{ halign:'right' }, 6:{ halign:'right' }, 7:{ halign:'right' }, 8:{ halign:'right', fontStyle:'bold' }, 9:{ halign:'right' }, 10:{ halign:'right' }, 11:{ halign:'right', fontStyle:'bold' }, 12:{ halign:'right' }, 13:{ halign:'right' }, 14:{ halign:'right', fontStyle:'bold' }, 15:{ halign:'right' } };
+  const compRow = (c) => [
+    c.code + (c.free ? ' (libera)' : '') + (c.mancante ? ' (non in catalogo)' : ''), String(c.label || '').slice(0, 90), c.brand || '-',
+    _qaNum(c.qtyUnit), _qaNum(c.qtyTot), (c.listino != null) ? E(c.listino) : '-', E(c.nettoUsed), (c.scontoAcqPct != null) ? P(c.scontoAcqPct) : '-',
+    E(c.costoTot), P(c.quotaCosto), (c.prezzoBom > 0) ? E(c.prezzoBomTot) : '-', E(c.prezzoImplTot), (c.scontoVendPct != null) ? P(c.scontoVendPct) : '-', (c.guadagno >= 0 ? '+' : '-') + E(Math.abs(c.guadagno)), P(c.marginePct), (c.ricaricoPct != null) ? P(c.ricaricoPct) : '-',
+  ];
+  const colorMargin = (getItems) => (d) => {
+    if(d.section !== 'body') return;
+    const it = getItems()[d.row.index]; if(!it) return;
+    if(d.column.index === 14 || d.column.index === 13){ const c = marginRgb(it.marginePct); d.cell.styles.textColor = c; }
+    if(d.column.index === 12 && it.scontoVendPct != null && it.scontoVendPct < -0.05){ d.cell.styles.textColor = [230, 126, 34]; }
+  };
+  if(rowsBom.length){
+    secTitle('Distinte esplose (' + rowsBom.length + ')');
+    rowsBom.forEach(r => {
+      ensure(60);
+      doc.setTextColor(30, 30, 30); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+      doc.text(r.code + '  x ' + _qaNum(r.qty), M, y + 10);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(90, 90, 100);
+      doc.text('Vendita ' + E(r.vendita) + '  -  costo dichiarato ' + E(r.costoDich) + '  -  costo reale ' + E(r.costoReale) +
+        '  -  margine dichiarato ' + P(r.margineDich) + ' / reale ' + P(r.margineReale) + '  -  ricarico reale ' + P(r.ricaricoReale) +
+        (r.bomPrezzo > 0 ? '  -  distinta pianificata ' + E(r.bomPrezzo) : ''), M, y + 22);
+      y += 28;
+      doc.autoTable({
+        startY: y, margin:{ left:M, right:M, bottom:FOOT }, theme:'grid',
+        styles:{ fontSize:6.8, cellPadding:2.2, textColor:[50, 50, 50], lineColor:[225, 225, 230], lineWidth:0.4, overflow:'linebreak' },
+        headStyles:{ fillColor:[100, 116, 139], textColor:255, fontStyle:'bold', fontSize:6.5 },
+        footStyles:{ fillColor:[234, 243, 251], textColor:[30, 30, 30], fontStyle:'bold' },
+        columnStyles: compCols,
+        head: compHead,
+        body: r.comps.map(compRow),
+        foot: [['Totale distinta', '', '', '', _qaNum(r.bomPezzi), '', '', '', E(r.bomCostoAtt), '100%', (r.bomPrezzo > 0) ? E(r.bomPrezzo) : '-', E(r.vendita), (r.bomListino > 0) ? P((1 - r.vendita / r.bomListino) * 100) : '-', (r.guadagnoReale >= 0 ? '+' : '-') + E(Math.abs(r.guadagnoReale)), P(r.margineReale), (r.ricaricoReale != null) ? P(r.ricaricoReale) : '-']],
+        didParseCell: colorMargin(() => r.comps),
+      });
+      y = doc.lastAutoTable.finalY + 12;
+    });
+  }
+
+  /* Consolidata */
+  ensure(90);
+  secTitle('Tutti gli articoli del preventivo (' + D.consolidata.length + ')');
+  para('Ogni articolo compare una sola volta, con le quantita sommate su tutte le righe in cui entra (componenti di distinta, articoli diretti e servizi). Prezzo implicito = quota del prezzo di vendita attribuita all\'articolo; margine e ricarico sono calcolati su quella quota.', 7.5);
+  const consHead = [['Codice', 'Descrizione', 'Marca', 'Origine', 'Q.ta tot', 'Listino tot', 'Netto medio', 'Sc. acq.', 'Costo tot', '% costo', 'Prezzo impl.', 'Guadagno', 'Margine', 'Ricarico']];
+  const orig = { distinta:'distinta', riga:'diretto', servizio:'servizio', mista:'mista' };
+  doc.autoTable({
+    startY: y, margin:{ left:M, right:M, bottom:FOOT }, theme:'grid',
+    styles:{ fontSize:6.8, cellPadding:2.2, textColor:[50, 50, 50], lineColor:[225, 225, 230], lineWidth:0.4, overflow:'linebreak' },
+    headStyles:{ fillColor:[124, 58, 237], textColor:255, fontStyle:'bold', fontSize:6.5 },
+    footStyles:{ fillColor:[234, 243, 251], textColor:[30, 30, 30], fontStyle:'bold' },
+    columnStyles:{ 0:{ cellWidth:88, fontStyle:'bold' }, 1:{ cellWidth:160 }, 2:{ cellWidth:52 }, 3:{ cellWidth:40 }, 4:{ halign:'right', fontStyle:'bold' }, 5:{ halign:'right' }, 6:{ halign:'right' }, 7:{ halign:'right' }, 8:{ halign:'right', fontStyle:'bold' }, 9:{ halign:'right' }, 10:{ halign:'right', fontStyle:'bold' }, 11:{ halign:'right' }, 12:{ halign:'right', fontStyle:'bold' }, 13:{ halign:'right' } },
+    head: consHead,
+    body: D.consolidata.map(g => [
+      g.code + (g.free ? ' (libera)' : '') + (g.mancante ? ' (non in catalogo)' : ''), String(g.label || '').slice(0, 90), g.brand || '-', (orig[g.origine] || g.origine) + (g.righe.length ? ' (' + g.righe.length + ')' : ''),
+      _qaNum(g.qtyTot), (g.listinoTot > 0) ? E(g.listinoTot) : '-', E(g.nettoMedio), (g.scontoAcqPct != null) ? P(g.scontoAcqPct) : '-',
+      E(g.costoTot), P(g.quotaCosto), E(g.prezzoImplTot), (g.guadagno >= 0 ? '+' : '-') + E(Math.abs(g.guadagno)), P(g.marginePct), (g.ricaricoPct != null) ? P(g.ricaricoPct) : '-',
+    ]),
+    foot: [['Totale preventivo', '', '', '', _qaNum(D.consolidata.reduce((s, g) => s + g.qtyTot, 0)), E(D.consolidata.reduce((s, g) => s + g.listinoTot, 0)), '', '', E(t.costoReale), '100%', E(t.vendita - t.scontiRighe), ((t.guadagnoReale - t.scontiRighe) >= 0 ? '+' : '-') + E(Math.abs(t.guadagnoReale - t.scontiRighe)), P(t.margineReale), (t.ricaricoReale != null) ? P(t.ricaricoReale) : '-']],
+    didParseCell: (d) => {
+      if(d.section !== 'body') return;
+      const g = D.consolidata[d.row.index]; if(!g) return;
+      if(d.column.index === 12 || d.column.index === 11){ d.cell.styles.textColor = marginRgb(g.marginePct); }
+    },
+  });
+  y = doc.lastAutoTable.finalY + 12;
+
+  /* Composizione per marca / categoria */
+  ensure(200);
+  secTitle('Composizione del costo');
+  const half = (CW - 16) / 2;
+  const miniBars = (x0, titolo, arr) => {
+    doc.setTextColor(60, 60, 70); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text(titolo, x0, y + 8);
+    const max = Math.max.apply(null, arr.map(a => a.costo)) || 1;
+    const LW2 = 110, BW = half - LW2 - 70;
+    arr.slice(0, 10).forEach((a, i) => {
+      const by = y + 14 + i * 13; const c = hex2rgb(_qaColor(i));
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(50, 50, 60);
+      doc.text(String(a.key).slice(0, 26), x0 + LW2 - 5, by + 7, { align:'right' });
+      doc.setFillColor(240, 240, 244); doc.rect(x0 + LW2, by, BW, 8, 'F');
+      doc.setFillColor(c[0], c[1], c[2]); doc.rect(x0 + LW2, by, Math.max(1, a.costo / max * BW), 8, 'F');
+      doc.setFontSize(6.5); doc.text(E(a.costo) + '  ' + P(a.quotaCosto) + '  marg. ' + P(a.marginePct), x0 + LW2 + BW + 4, by + 6.5);
+    });
+    return 14 + Math.min(10, arr.length) * 13 + 6;
+  };
+  ensure(160);
+  const h1 = miniBars(M, 'Per marca', D.byBrand);
+  const h2 = miniBars(M + half + 16, 'Per categoria', D.byCategory);
+  y += Math.max(h1, h2) + 6;
+
+  /* Piede pagina */
+  const n = doc.getNumberOfPages();
+  for(let i = 1; i <= n; i++){
+    doc.setPage(i);
+    doc.setTextColor(150, 150, 160); doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+    doc.text('Gestione Prodotti - Dettaglio analisi - documento interno, non destinato al cliente', M, PAGE_H - 14);
+    doc.text('Pagina ' + i + ' di ' + n, PAGE_W - M, PAGE_H - 14, { align:'right' });
+  }
+  const safe = (s) => String(s || '').replace(/[^\w\-]+/g, '_').replace(/^_+|_+$/g, '');
+  const fname = 'Dettaglio_Analisi_' + (safe(info.titolo ? info.titolo.split(' ')[0] : 'carrello') || 'carrello') + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
+  doc.save(fname);
+  if(typeof toast === 'function') toast('PDF esportato: ' + fname, 'ok');
+}
+
 /* V2.10.263: dialog cruscotto grafici del preventivo. */
 function openQuoteChartsDialog(){
   const old = document.getElementById('quoteChartsModal');
@@ -60861,6 +61960,7 @@ function openQuoteCart(){
         // V2.10.263: pulsante "Grafici" — apre il cruscotto di analisi statistica
         // del preventivo (composizione per marca/categoria, margini, sconti, ecc.).
         '<button class="btn small" id="quoteCartChartsBtn" type="button" title="Analisi statistica del preventivo con grafici" style="font-size:13px;background:#7c3aed;color:#fff;border-color:#7c3aed">📊 Grafici</button>' +
+        '<button class="btn small" id="quoteCartDeepBtn" type="button" title="Dettaglio analisi: esplode le distinte dei prodotti personali e confronta costi dichiarati e reali, articolo per articolo" style="font-size:13px;background:#5b21b6;color:#fff;border-color:#5b21b6">🔬 Dettaglio Analisi</button>' +
         '<button class="btn small ghost" id="quoteCartPrintSettingsBtn" type="button" title="Cosa includere nelle esportazioni" style="font-size:13px">🖨️ Impostazioni di stampa</button>' +
         '</div>' +   // SV2.10.335: /qcart-actions
       '</div>' +
@@ -60958,6 +62058,15 @@ function openQuoteCart(){
     if(cBtn){
       cBtn.addEventListener('click', () => {
         if(typeof openQuoteChartsDialog === 'function') openQuoteChartsDialog();
+      });
+    }
+  })();
+  // SV2.10.598: handler pulsante "Dettaglio Analisi" — distinte esplose, costi reali, prezzo implicito
+  (function(){
+    const dBtn = document.getElementById('quoteCartDeepBtn');
+    if(dBtn){
+      dBtn.addEventListener('click', () => {
+        if(typeof openQuoteDeepDialog === 'function') openQuoteDeepDialog();
       });
     }
   })();
