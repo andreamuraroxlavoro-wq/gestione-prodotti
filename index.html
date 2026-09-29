@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.598 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.599 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11531,7 +11531,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.598</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.599</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12270,7 +12270,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.598 mobile");
+console.info("[bootstrap] script avvio — SV2.10.599 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13898,7 +13898,7 @@ window._txtMigra = _txtMigra; window._txtCorreggiCampo = _txtCorreggiCampo; wind
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.597';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.599';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -62137,6 +62137,17 @@ function openQuoteCart(){
 
   document.getElementById('quoteCartClearBtn').addEventListener('click', () => {
     if(!window._QUOTE_STATE.items.length){
+      /* SV2.10.599: carrello gia' vuoto ma ancora collegato a un preventivo (quindi
+         a un cliente): "Svuota" deve comunque scollegarlo, altrimenti il cliente
+         resta in testa al carrello e il prossimo lavoro nasce agganciato a lui. */
+      if(window._QUOTE_STATE.boundQuote && typeof quoteUnbindFromCart === 'function'){
+        if(!confirm('Il carrello è già vuoto ma è ancora collegato a un preventivo.\n\nScollegarlo dal preventivo e dal cliente?')) return;
+        try { quoteUnbindFromCart(); } catch(_){}
+        if(typeof renderQuoteCartBoundInfo === 'function'){ try { renderQuoteCartBoundInfo(); } catch(_){} }
+        renderQuoteCartContent();
+        toast({ type:'ok', title:'Carrello scollegato dal preventivo', duration:2500 });
+        return;
+      }
       toast('Carrello già vuoto', 'info', 2500);
       return;
     }
@@ -62156,8 +62167,12 @@ function openQuoteCart(){
     if(typeof quoteUnbindFromCart === 'function'){
       try { quoteUnbindFromCart(); } catch(_){}
     }
+    /* SV2.10.599: la barra del preventivo collegato (cliente, numero, stato) non viene
+       ridisegnata da renderQuoteCartContent: senza questa chiamata restava a schermo
+       con il cliente anche a carrello svuotato e scollegato. */
+    if(typeof renderQuoteCartBoundInfo === 'function'){ try { renderQuoteCartBoundInfo(); } catch(_){} }
     renderQuoteCartContent();
-    toast({ type:'ok', title:'Carrello svuotato', duration:2500 });
+    toast({ type:'ok', title:'Carrello svuotato e scollegato', duration:2500 });
   });
   document.getElementById('quoteCartExportBtn').addEventListener('click', () => openQuoteExportDialog());
   // V2.10.156: pulsante Formula di pagamento → apre il calcolatore rate cliente
