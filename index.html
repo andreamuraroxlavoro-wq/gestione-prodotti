@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.600 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.601 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11531,7 +11531,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.600</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.601</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12270,7 +12270,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.600 mobile");
+console.info("[bootstrap] script avvio — SV2.10.601 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13898,7 +13898,7 @@ window._txtMigra = _txtMigra; window._txtCorreggiCampo = _txtCorreggiCampo; wind
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.600';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.601';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -56261,7 +56261,7 @@ function openQuoteDetailDialog(quoteId){
       '<div class="qd-version" style="border:1px solid ' + (isLatest ? 'rgba(124,58,237,0.4)' : 'var(--border)') + ';border-radius:8px;padding:14px 16px;margin-bottom:10px;background:' + (isLatest ? 'rgba(124,58,237,0.04)' : 'var(--bg)') + '">' +
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">' +
           '<div style="font-weight:700;font-size:14px;color:var(--fg);display:flex;align-items:center;gap:8px">' +
-            '<span style="display:inline-block;background:#7c3aed;color:#fff;padding:2px 9px;border-radius:10px;font-size:11px">' + escapeHtml(quoteVersionLabel(currentQuote, v.versionNumber, true)) + '</span>' +
+            '<span style="display:inline-block;background:#7c3aed;color:#fff;padding:2px 9px;border-radius:10px;font-size:11px">' + escapeHtml(quoteVersionLabel(quote, v.versionNumber, true)) + '</span>' +
             (isLatest ? '<span style="font-size:10px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.4px">attuale</span>' : '') +
           '</div>' +
           '<div style="flex:1;font-size:11.5px;color:var(--fg3)">' + dt + '</div>' +
@@ -56443,10 +56443,10 @@ function openQuoteDetailDialog(quoteId){
   bg.querySelectorAll('.qd-load-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const vNum = parseInt(btn.dataset.version, 10);
-      if(!confirm('Caricare la versione v' + vNum + ' nel carrello attuale?\n\nIl contenuto del carrello verra\u0027 SOSTITUITO con i dati del preventivo salvato. (I dati salvati nell\u0027archivio NON vengono toccati.)')) return;
+      if(!confirm('Caricare la versione ' + quoteVersionLabel(quote, vNum, true) + ' nel carrello attuale?\n\nIl contenuto del carrello verra\u0027 SOSTITUITO con i dati del preventivo salvato. (I dati salvati nell\u0027archivio NON vengono toccati.)')) return;
       try {
         quoteLoadIntoCart(quote.id, vNum);
-        toast('Versione v' + vNum + ' caricata nel carrello', 'ok');
+        toast('Versione ' + quoteVersionLabel(quote, vNum, true) + ' caricata nel carrello', 'ok');
         bg.remove();
         closeQuotesArchiveSection();
         // Apri il carrello se chiuso
@@ -56476,14 +56476,14 @@ function openQuoteDetailDialog(quoteId){
       // Conferma rafforzata se sto eliminando l'ultima versione (l'attuale)
       let confirmMsg;
       if(isLast){
-        confirmMsg = 'ATTENZIONE: Stai per eliminare la versione ATTUALE (v' + vNum + ').\n\nDopo l\u0027eliminazione, l\u0027ultima versione precedente diventera\u0027 la nuova "attuale".\n\nQuesta operazione non puo\u0027 essere annullata. Procedere?';
+        confirmMsg = 'ATTENZIONE: Stai per eliminare la versione ATTUALE (' + quoteVersionLabel(quote, vNum, true) + ').\n\nDopo l\u0027eliminazione, l\u0027ultima versione precedente diventera\u0027 la nuova "attuale".\n\nQuesta operazione non puo\u0027 essere annullata. Procedere?';
       } else {
-        confirmMsg = 'Eliminare la versione v' + vNum + ' dallo storico?\n\nLa numerazione delle altre versioni resta invariata (audit trail).\n\nQuesta operazione non puo\u0027 essere annullata.';
+        confirmMsg = 'Eliminare la versione ' + quoteVersionLabel(quote, vNum, true) + ' dallo storico?\n\nLa numerazione delle altre versioni resta invariata (audit trail).\n\nQuesta operazione non puo\u0027 essere annullata.';
       }
       if(!confirm(confirmMsg)) return;
       try {
         quoteDeleteVersion(quote.id, vNum);
-        toast('Versione v' + vNum + ' eliminata', 'ok');
+        toast('Versione ' + quoteVersionLabel(quote, vNum, true) + ' eliminata', 'ok');
         // Ri-apro il dialog dettaglio per riflettere i cambi
         bg.remove();
         openQuoteDetailDialog(quote.id);
