@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.599 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.600 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11531,7 +11531,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.599</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.600</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12270,7 +12270,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.599 mobile");
+console.info("[bootstrap] script avvio — SV2.10.600 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13898,7 +13898,7 @@ window._txtMigra = _txtMigra; window._txtCorreggiCampo = _txtCorreggiCampo; wind
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.599';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.600';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -53585,6 +53585,59 @@ function _showQuoteMatchDiagnosticDialog(){
   }
 }
 
+/* SV2.10.600 — ETICHETTA DI VERSIONE.
+   I preventivi creati fino alla 599 mostrano la versione come V1, V2, ...
+   (campo interno versionNumber, 1-based). Da questa versione i preventivi
+   NUOVI portano quote.versionScheme = 'rev' e la stessa numerazione interna
+   viene mostrata come Rev_00, Rev_01, ... (Rev = versionNumber - 1).
+   Il numero interno non cambia mai: cambia solo come viene scritto, qui e
+   in un solo posto. Tutte le UI, i nomi dei file e le intestazioni degli
+   export passano da questa funzione.
+   lower=true produce la variante minuscola "v3" usata nei badge dei
+   preventivi vecchi; per lo schema 'rev' non esiste una minuscola. */
+function quoteVersionLabel(quoteOrId, versionNumber, lower){
+  let q = null;
+  if(quoteOrId && typeof quoteOrId === 'object') q = quoteOrId;
+  else if(quoteOrId != null && typeof quoteGetById === 'function') q = quoteGetById(quoteOrId);
+  const n = parseInt(versionNumber, 10);
+  if(q && q.versionScheme === 'rev'){
+    return 'Rev_' + String(Math.max(0, (isNaN(n) ? 1 : n) - 1)).padStart(2, '0');
+  }
+  return (lower ? 'v' : 'V') + (isNaN(n) ? '?' : n);
+}
+/* Etichetta dell'ultima versione di un preventivo (tabella archivio, tendine). */
+function quoteLastVersionLabel(quote, lower){
+  if(!quote || !Array.isArray(quote.versions) || quote.versions.length === 0) return quoteVersionLabel(quote, 1, lower);
+  const last = quote.versions[quote.versions.length - 1];
+  return quoteVersionLabel(quote, last ? last.versionNumber : quote.versions.length, lower);
+}
+
+/* SV2.10.600 — SOVRASCRIVE una versione esistente con lo stato attuale del
+   carrello, SENZA creare una nuova versione. Serve quando si corregge un
+   preventivo non ancora inviato: il numero di revisione resta quello.
+   Conserva versionNumber e createdAt, registra updatedAt e il numero di
+   sovrascritture. La nota cambia solo se ne viene passata una nuova. */
+function quoteOverwriteVersion(quoteId, versionNumber, noteVersione){
+  const quote = quoteGetById(quoteId);
+  if(!quote) throw new Error('Preventivo non trovato (id=' + quoteId + ')');
+  if(!window._QUOTE_STATE || !Array.isArray(window._QUOTE_STATE.items) || window._QUOTE_STATE.items.length === 0){
+    throw new Error('Il carrello \u00e8 vuoto: non c\u2019\u00e8 nulla da salvare');
+  }
+  const idx = quote.versions.findIndex(v => v && v.versionNumber === versionNumber);
+  if(idx < 0) throw new Error('Versione ' + quoteVersionLabel(quote, versionNumber) + ' non trovata');
+  const old = quote.versions[idx];
+  const note = String(noteVersione || '').trim() || old.note || '';
+  const version = _buildVersionSnapshot(note);
+  version.versionNumber = old.versionNumber;
+  version.createdAt = old.createdAt;
+  version.updatedAt = new Date().toISOString();
+  version.overwriteCount = (old.overwriteCount || 0) + 1;
+  quote.versions[idx] = version;
+  quote.modified = version.updatedAt;
+  _persistQuotesArchive();
+  return version;
+}
+
 /* Crea un nuovo preventivo a partire dallo state attuale del carrello.
    Parametri obbligatori: clienteIdOClienteData (id stringa O oggetto con dati cliente).
    Parametri opzionali: statoId, noteVersione.
@@ -53630,6 +53683,7 @@ function quoteCreate(opts){
     clienteSnapshot: clienteSnapshot,
     statoId: statoId,
     versions: [version],
+    versionScheme: 'rev',   // SV2.10.600: i preventivi nuovi si mostrano come Rev_00, Rev_01, ...
     created: now,
     modified: now,
   };
@@ -53673,7 +53727,7 @@ function quoteDeleteVersion(quoteId, versionNumber){
     throw new Error('Non puoi eliminare l\u0027unica versione del preventivo. Se vuoi rimuoverlo del tutto, elimina l\u0027intero preventivo dall\u0027archivio.');
   }
   const idx = quote.versions.findIndex(v => v && v.versionNumber === versionNumber);
-  if(idx < 0) throw new Error('Versione v' + versionNumber + ' non trovata');
+  if(idx < 0) throw new Error('Versione ' + quoteVersionLabel(quote, versionNumber) + ' non trovata');
   quote.versions.splice(idx, 1);
   quote.modified = new Date().toISOString();
   _persistQuotesArchive();
@@ -53749,7 +53803,7 @@ function quoteBindToCart(quoteId, versionNumber){
   if(typeof saveQuoteState === 'function'){
     try { saveQuoteState(); } catch(_){}
   }
-  console.info('[bound] carrello collegato a ' + quoteId + ' V' + versionNumber);
+  console.info('[bound] carrello collegato a ' + quoteId + ' ' + quoteVersionLabel(quote, versionNumber));
   return window._QUOTE_STATE.boundQuote;
 }
 
@@ -53775,7 +53829,7 @@ function _qNomeFileExport(ext, modo){
       ? String(q.clienteSnapshot.ragioneSociale) : '';
     const pulito = rs.replace(/[\/:*?"<>|\\]/g, ' ').replace(/\s+/g, ' ').trim();
     if(!pulito) return ripiego;
-    return 'Offerta_' + pulito + '_' + bq.quoteId + '_V' + bq.versionNumber + '.' + ext;
+    return 'Offerta_' + pulito + '_' + bq.quoteId + '_' + quoteVersionLabel(q, bq.versionNumber) + '.' + ext;
   } catch(_){ return ripiego; }
 }
 
@@ -53789,7 +53843,7 @@ function quoteUnbindFromCart(){
   if(typeof saveQuoteState === 'function'){
     try { saveQuoteState(); } catch(_){}
   }
-  console.info('[bound] carrello scollegato (era ' + prev.quoteId + ' V' + prev.versionNumber + ')');
+  console.info('[bound] carrello scollegato (era ' + prev.quoteId + ' ' + quoteVersionLabel(prev.quoteId, prev.versionNumber) + ')');
   return true;
 }
 
@@ -53869,6 +53923,8 @@ function quoteGetBoundInfo(){
     cliente: _resolveQuoteCliente(quote),
     statoId: quote.statoId,
     versionNumber: effectiveVersion,
+    versionLabel: quoteVersionLabel(quote, effectiveVersion),           // SV2.10.600: 'V3' oppure 'Rev_02'
+    versionLabelLower: quoteVersionLabel(quote, effectiveVersion, true),
     boundAt: bq.boundAt,
     isDirty: quoteIsCartDirty(),
     versionWasDeleted: !versionExists,  // segnale visivo per UI
@@ -53959,7 +54015,7 @@ function renderQuoteCartBoundInfo(){
       '<div style=\"display:flex;flex-direction:column;gap:3px;align-items:flex-end;flex-shrink:0\">' +
         '<div style=\"display:flex;align-items:center;gap:8px\">' +
           '<span style=\"font-family:monospace;font-size:12.5px;font-weight:700;color:#7c3aed\">' + escapeHtml(info.quoteId) + '</span>' +
-          '<span style=\"display:inline-block;font-size:10.5px;font-weight:700;background:#7c3aed;color:#fff;padding:2px 8px;border-radius:10px;letter-spacing:0.3px\">v' + info.versionNumber + '</span>' +
+          '<span style=\"display:inline-block;font-size:10.5px;font-weight:700;background:#7c3aed;color:#fff;padding:2px 8px;border-radius:10px;letter-spacing:0.3px\">' + escapeHtml(info.versionLabelLower) + '</span>' +
           versionFallbackWarn +
           dirtyDot +
         '</div>' +
@@ -53988,7 +54044,7 @@ function renderQuoteCartBoundInfo(){
     unbindBtn.addEventListener('click', () => {
       // Se ci sono modifiche non salvate, avviso forte
       if(info.isDirty){
-        if(!confirm('ATTENZIONE: hai modifiche non salvate nel preventivo collegato (' + info.quoteId + ' v' + info.versionNumber + ').\n\nScollegando il carrello, queste modifiche resteranno nel carrello (non andranno perse) ma non saranno piu\u0027 associate al preventivo originale.\n\nPer salvare le modifiche come nuova versione, usa prima il pulsante \"\ud83d\udcbe Salva preventivo\".\n\nProcedere con lo scollegamento?')) return;
+        if(!confirm('ATTENZIONE: hai modifiche non salvate nel preventivo collegato (' + info.quoteId + ' ' + info.versionLabelLower + ').\n\nScollegando il carrello, queste modifiche resteranno nel carrello (non andranno perse) ma non saranno piu\u0027 associate al preventivo originale.\n\nPer salvare le modifiche come nuova versione, usa prima il pulsante \"\ud83d\udcbe Salva preventivo\".\n\nProcedere con lo scollegamento?')) return;
       }
       try {
         quoteUnbindFromCart();
@@ -54134,7 +54190,7 @@ function quoteLoadIntoCart(quoteId, versionNumber){
   if(typeof quoteBindToCart === 'function'){
     try { quoteBindToCart(quote.id, version.versionNumber); } catch(_){}
   }
-  console.info('[preventivi] caricato ' + quote.id + ' v' + version.versionNumber + ' (' + version.items.length + ' items)');
+  console.info('[preventivi] caricato ' + quote.id + ' ' + quoteVersionLabel(quote, version.versionNumber, true) + ' (' + version.items.length + ' items)');
   return { quote, version };
 }
 
@@ -54193,8 +54249,10 @@ function openSaveQuoteDialog(opts){
   // Stato locale del dialog
   const state = {
     selectedClientId: opts.preselectClientId || null,
-    saveMode: 'new',       // 'new' o 'version'
+    saveMode: 'new',       // 'new', 'version' o 'overwrite' (SV2.10.600)
     existingQuoteId: null,  // se saveMode='version'
+    // SV2.10.600: preventivo/versione collegati al carrello, per la sovrascrittura
+    bound: (typeof quoteGetBoundInfo === 'function') ? quoteGetBoundInfo() : null,
     noteVersione: '',
     _nameUserEdited: false, // V2.10.6: true se l'utente ha digitato qualcosa nel nome (smette di pre-popolare)
   };
@@ -54242,6 +54300,15 @@ function openSaveQuoteDialog(opts){
           '<div class="sq-sect-title"><span class="sq-sect-num">3</span> Tipo di salvataggio</div>' +
           '<div class="sq-sect-body">' +
             '<div style="display:flex;flex-direction:column;gap:8px">' +
+              // SV2.10.600: sovrascrittura della revisione collegata al carrello (visibile solo se collegato)
+              '<label class="sq-radio-row sq-mode-row" data-mode="overwrite" id="sqModeOverwriteRow" style="display:none;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:var(--bg)">' +
+                '<input type="radio" name="sqSaveMode" value="overwrite" style="margin-top:2px">' +
+                '<div style="flex:1">' +
+                  '<div style="font-weight:600;font-size:13px;color:var(--fg);margin-bottom:3px">♻️ Sovrascrivi la revisione corrente</div>' +
+                  '<div style="font-size:11.5px;color:var(--fg3);line-height:1.5">Salva le modifiche del carrello nella stessa revisione del preventivo collegato, senza crearne una nuova. Da usare quando l\u0027offerta non e\u0027 ancora stata inviata.</div>' +
+                  '<div id="sqOverwriteInfo" style="font-size:12px;font-weight:700;font-family:monospace;color:#b45309;margin-top:6px"></div>' +
+                '</div>' +
+              '</label>' +
               '<label class="sq-radio-row sq-mode-row" data-mode="new" style="display:flex;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:var(--bg)">' +
                 '<input type="radio" name="sqSaveMode" value="new" checked style="margin-top:2px">' +
                 '<div style="flex:1">' +
@@ -54254,7 +54321,7 @@ function openSaveQuoteDialog(opts){
                 '<input type="radio" name="sqSaveMode" value="version" style="margin-top:2px">' +
                 '<div style="flex:1">' +
                   '<div style="font-weight:600;font-size:13px;color:var(--fg);margin-bottom:3px">📚 Aggiungi versione a preventivo esistente</div>' +
-                  '<div style="font-size:11.5px;color:var(--fg3);line-height:1.5">Aggiunge una nuova versione (v2, v3...) a un preventivo gia\u0027 emesso per questo cliente. Le versioni precedenti restano consultabili nello storico.</div>' +
+                  '<div style="font-size:11.5px;color:var(--fg3);line-height:1.5">Aggiunge una nuova versione (Rev_01, Rev_02... oppure V2, V3... per i preventivi creati prima della 600) a un preventivo gia\u0027 emesso per questo cliente. Le versioni precedenti restano consultabili nello storico.</div>' +
                   '<div id="sqExistingQuotesWrap" style="margin-top:10px;display:none">' +
                     '<select id="sqExistingQuote" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:12px"></select>' +
                   '</div>' +
@@ -54315,8 +54382,9 @@ function openSaveQuoteDialog(opts){
   function refreshSaveButton(){
     const btn = document.getElementById('sqSaveBtn');
     const isValid =
-      state.selectedClientId &&
-      (state.saveMode === 'new' || (state.saveMode === 'version' && state.existingQuoteId));
+      (state.saveMode === 'overwrite' && state.bound && state.bound.quoteId) ||
+      (state.selectedClientId &&
+      (state.saveMode === 'new' || (state.saveMode === 'version' && state.existingQuoteId)));
     btn.disabled = !isValid;
   }
 
@@ -54462,7 +54530,7 @@ function openSaveQuoteDialog(opts){
         // V2.10.7: includo il nome del preventivo nel dropdown se presente,
         // cosi\u0027 l'utente puo\u0027 distinguere tra preventivi multipli dello stesso cliente.
         const nomeParte = q.nome ? ' \u00b7 ' + q.nome : ' \u00b7 (senza nome)';
-        return '<option value="' + escapeAttr(q.id) + '">' + escapeHtml(q.id) + nomeParte + ' \u00b7 v' + lastV + ' \u00b7 ' + dt + '</option>';
+        return '<option value="' + escapeAttr(q.id) + '">' + escapeHtml(q.id) + nomeParte + ' \u00b7 ' + escapeHtml(quoteLastVersionLabel(q, true)) + ' \u00b7 ' + dt + '</option>';
       }).join('');
 
     sel.addEventListener('change', () => {
@@ -54507,7 +54575,9 @@ function openSaveQuoteDialog(opts){
       // Mostra/nascondi select esistenti
       document.getElementById('sqExistingQuotesWrap').style.display = (r.value === 'version' ? 'block' : 'none');
       // V2.10.6: quando passo a "Nuovo preventivo", svuoto il nome ereditato (a meno che l'utente l'abbia gia' modificato)
-      if(r.value === 'new'){
+      if(r.value === 'overwrite'){
+        // SV2.10.600: nome e nota restano quelli del preventivo collegato
+      } else if(r.value === 'new'){
         const nomeInp = document.getElementById('sqNomePreventivo');
         if(nomeInp && !state._nameUserEdited){
           nomeInp.value = '';
@@ -54521,6 +54591,8 @@ function openSaveQuoteDialog(opts){
           nomeInp.value = (existingQ && existingQ.nome) ? existingQ.nome : '';
         }
       }
+      const sb = document.getElementById('sqSaveBtn');
+      if(sb) sb.innerHTML = (r.value === 'overwrite') ? '♻️ Sovrascrivi revisione' : '\ud83d\udcbe Salva preventivo';
       refreshSaveButton();
     });
   });
@@ -54565,7 +54637,19 @@ function openSaveQuoteDialog(opts){
     const nomeTrim = nome.trim();
     try {
       let quote, version;
-      if(state.saveMode === 'new'){
+      if(state.saveMode === 'overwrite'){
+        // SV2.10.600: stessa revisione, contenuto del carrello sovrascritto
+        if(!state.bound || !state.bound.quoteId) throw new Error('Il carrello non e\u0027 collegato a nessun preventivo');
+        version = quoteOverwriteVersion(state.bound.quoteId, state.bound.versionNumber, note);
+        if(nomeTrim){
+          const existingQ = quoteGetById(state.bound.quoteId);
+          if(existingQ && existingQ.nome !== nomeTrim){
+            try { quoteUpdateMeta(state.bound.quoteId, { nome: nomeTrim }); } catch(_){}
+          }
+        }
+        quote = quoteGetById(state.bound.quoteId);
+        toast('Revisione ' + quoteVersionLabel(quote, version.versionNumber) + ' di ' + quote.id + ' sovrascritta', 'ok');
+      } else if(state.saveMode === 'new'){
         quote = quoteCreate({
           clienteId: state.selectedClientId,
           noteVersione: note || 'Prima emissione',
@@ -54583,7 +54667,7 @@ function openSaveQuoteDialog(opts){
           }
         }
         quote = quoteGetById(state.existingQuoteId);
-        toast('Versione v' + version.versionNumber + ' aggiunta a ' + quote.id, 'ok');
+        toast('Versione ' + quoteVersionLabel(quote, version.versionNumber) + ' aggiunta a ' + quote.id, 'ok');
       }
       // V2.10.11: collego il carrello al preventivo appena salvato/versionato
       if(typeof quoteBindToCart === 'function'){
@@ -54605,8 +54689,34 @@ function openSaveQuoteDialog(opts){
     }
   });
 
-  // Preselect cliente se passato
-  if(state.selectedClientId){
+  // SV2.10.600: carrello collegato a un preventivo → propongo la sovrascrittura
+  // della revisione corrente come scelta predefinita, con cliente e nome gia'
+  // compilati. L'utente puo' comunque scegliere nuova versione o nuovo preventivo.
+  if(state.bound && state.bound.quoteId && !opts.preselectClientId){
+    const row = document.getElementById('sqModeOverwriteRow');
+    const info = document.getElementById('sqOverwriteInfo');
+    if(row) row.style.display = 'flex';
+    if(info) info.textContent = 'Sovrascrive ' + state.bound.quoteId + ' ' + state.bound.versionLabel + (state.bound.nome ? ' \u2014 ' + state.bound.nome : '');
+    const bq = quoteGetById(state.bound.quoteId);
+    const cid = bq && bq.clienteSnapshot && bq.clienteSnapshot.id;
+    if(cid && clientGetById(cid)){
+      state.selectedClientId = cid;
+      selectClient(cid);
+    } else {
+      // cliente ad-hoc: abilito comunque le sezioni, la sovrascrittura non ha bisogno dell'anagrafica
+      ['sqSectNome','sqSectMode','sqSectNote'].forEach(id => { const el = document.getElementById(id); if(el){ el.style.opacity = '1'; el.style.pointerEvents = ''; } });
+    }
+    const nomeInp = document.getElementById('sqNomePreventivo');
+    if(nomeInp && bq && bq.nome){ nomeInp.value = bq.nome; }
+    const noteInp = document.getElementById('sqNoteVersione');
+    const bv = bq && bq.versions ? bq.versions.find(v => v && v.versionNumber === state.bound.versionNumber) : null;
+    if(noteInp && bv && bv.note){ noteInp.placeholder = 'Lascia vuoto per mantenere: ' + bv.note; }
+    const selEx = document.getElementById('sqExistingQuote');
+    if(selEx){ selEx.value = state.bound.quoteId; state.existingQuoteId = selEx.value ? state.bound.quoteId : null; }
+    const radioOw = bg.querySelector('input[name="sqSaveMode"][value="overwrite"]');
+    if(radioOw){ radioOw.checked = true; radioOw.dispatchEvent(new Event('change')); }
+    refreshSaveButton();
+  } else if(state.selectedClientId){
     selectClient(state.selectedClientId);
   } else {
     setTimeout(() => searchInp.focus(), 50);
@@ -56048,7 +56158,7 @@ function renderQuotesArchiveTable(){
           '<span style="display:inline-block;padding:3px 10px;border-radius:11px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#fff;background:' + statoColor + '">' + escapeHtml(statoLabel) + '</span>' +
         '</td>' +
         '<td style="padding:11px 12px;text-align:center;font-size:12.5px;font-variant-numeric:tabular-nums">' +
-          '<span style="display:inline-block;padding:3px 8px;background:var(--bg3);border-radius:10px;font-weight:600">v' + q.versions.length + '</span>' +
+          '<span style="display:inline-block;padding:3px 8px;background:var(--bg3);border-radius:10px;font-weight:600">' + escapeHtml(quoteLastVersionLabel(q, true)) + '</span>' +
         '</td>' +
         '<td style="padding:11px 12px;font-size:12px;color:var(--fg2);white-space:nowrap">' + dt + '</td>' +
         '<td style="padding:11px 12px;text-align:right;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:#16a34a;white-space:nowrap">' +
@@ -56151,7 +56261,7 @@ function openQuoteDetailDialog(quoteId){
       '<div class="qd-version" style="border:1px solid ' + (isLatest ? 'rgba(124,58,237,0.4)' : 'var(--border)') + ';border-radius:8px;padding:14px 16px;margin-bottom:10px;background:' + (isLatest ? 'rgba(124,58,237,0.04)' : 'var(--bg)') + '">' +
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">' +
           '<div style="font-weight:700;font-size:14px;color:var(--fg);display:flex;align-items:center;gap:8px">' +
-            '<span style="display:inline-block;background:#7c3aed;color:#fff;padding:2px 9px;border-radius:10px;font-size:11px">v' + v.versionNumber + '</span>' +
+            '<span style="display:inline-block;background:#7c3aed;color:#fff;padding:2px 9px;border-radius:10px;font-size:11px">' + escapeHtml(quoteVersionLabel(currentQuote, v.versionNumber, true)) + '</span>' +
             (isLatest ? '<span style="font-size:10px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.4px">attuale</span>' : '') +
           '</div>' +
           '<div style="flex:1;font-size:11.5px;color:var(--fg3)">' + dt + '</div>' +
@@ -59528,7 +59638,7 @@ function openQuoteDeepDialog(){
   }
 
   const bound = (typeof quoteGetBoundInfo === 'function') ? quoteGetBoundInfo() : null;
-  const titolo = bound ? (bound.quoteId + ' v' + bound.versionNumber + (bound.nome ? ' — ' + bound.nome : '')) : 'Carrello corrente (preventivo non salvato)';
+  const titolo = bound ? (bound.quoteId + ' ' + bound.versionLabelLower + (bound.nome ? ' — ' + bound.nome : '')) : 'Carrello corrente (preventivo non salvato)';
   const cliente = (bound && bound.cliente) ? (bound.cliente.nome || bound.cliente.ragioneSociale || bound.cliente.name || '') : '';
 
   /* KPI */
@@ -60430,7 +60540,7 @@ function exportQuoteAnalyticsPdf(A){
   // Info preventivo (se il carrello e' collegato)
   const bound = (typeof quoteGetBoundInfo === 'function') ? quoteGetBoundInfo() : null;
   const titoloPrev = bound
-    ? (bound.quoteId + ' v' + bound.versionNumber + (bound.nome ? ' \u2014 ' + bound.nome : ''))
+    ? (bound.quoteId + ' ' + bound.versionLabelLower + (bound.nome ? ' \u2014 ' + bound.nome : ''))
     : 'Preventivo non salvato (carrello corrente)';
   const cliente = (bound && bound.cliente)
     ? (bound.cliente.nome || bound.cliente.ragioneSociale || bound.cliente.name || '')
@@ -60975,7 +61085,7 @@ function exportQuoteAnalyticsPdf(A){
 
   // ---- Salvataggio ----
   const fname = 'Analisi-' +
-    (bound ? (bound.quoteId + '-v' + bound.versionNumber) : 'preventivo') +
+    (bound ? (bound.quoteId + '-' + bound.versionLabel) : 'preventivo') +
     '-' + new Date().toISOString().slice(0,10) + '.pdf';
   doc.save(fname);
   if(typeof toast === 'function') toast('PDF dell\u0027analisi generato', 'ok');
@@ -62156,7 +62266,7 @@ function openQuoteCart(){
     let confirmMsg;
     if(boundInfo){
       confirmMsg = 'Svuotare il carrello?\n\nIl carrello e\u0027 attualmente collegato a:\n' +
-        boundInfo.quoteId + ' v' + boundInfo.versionNumber + (boundInfo.nome ? ' \u2014 ' + boundInfo.nome : '') + '\n\n' +
+        boundInfo.quoteId + ' ' + boundInfo.versionLabelLower + (boundInfo.nome ? ' \u2014 ' + boundInfo.nome : '') + '\n\n' +
         'Verranno rimossi tutti i ' + window._QUOTE_STATE.items.length + ' articoli e il carrello sara\u0027 scollegato. I dati del preventivo restano salvati nell\u0027archivio.';
     } else {
       confirmMsg = 'Svuotare il carrello? Verranno rimossi tutti i ' + window._QUOTE_STATE.items.length + ' articoli. L\u0027operazione non puo\u0027 essere annullata.';
@@ -66471,7 +66581,7 @@ async function exportQuoteDocx(options){
     // Bind info: id preventivo, cliente, nome
     const _boundInfo = (typeof quoteGetBoundInfo === 'function') ? quoteGetBoundInfo() : null;
     const quoteNum = _boundInfo
-      ? (_boundInfo.quoteId + '-V' + _boundInfo.versionNumber)
+      ? (_boundInfo.quoteId + '-' + _boundInfo.versionLabel)
       : ('TMP-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase());
     const _quoteNome = _boundInfo ? (_boundInfo.nome || '') : '';
     const _quoteCliente = _boundInfo ? (_boundInfo.cliente || null) : null;
@@ -67586,7 +67696,7 @@ async function exportQuoteDocx(options){
         ? _sanitizeFn(_quoteCliente.ragioneSociale)
         : 'Cliente';
       const _quoteId = _sanitizeFn(_boundInfo.quoteId);
-      const _versionN = 'V' + _boundInfo.versionNumber;
+      const _versionN = _boundInfo.versionLabel;
       filename = [_clienteName, _quoteId, _versionN].filter(x => x && x.length).join('_') + '.docx';
     } else {
       // Preventivo NON salvato → NomeCliente_BOZZA_YYYY-MM-DD.docx
@@ -67683,7 +67793,7 @@ async function exportQuoteWord(){
     //          Altrimenti uso il random fallback (preventivo "volante" non salvato).
     const _boundInfo = (typeof quoteGetBoundInfo === 'function') ? quoteGetBoundInfo() : null;
     const quoteNum = _boundInfo
-      ? (_boundInfo.quoteId + '-V' + _boundInfo.versionNumber)
+      ? (_boundInfo.quoteId + '-' + _boundInfo.versionLabel)
       : ('TMP-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase());
     const _quoteNome = _boundInfo ? (_boundInfo.nome || '') : '';
     const _quoteCliente = _boundInfo ? (_boundInfo.cliente || null) : null;
@@ -68292,7 +68402,7 @@ async function exportQuotePdfNative(options){
     // Bind info
     const _boundInfo = (typeof quoteGetBoundInfo === 'function') ? quoteGetBoundInfo() : null;
     const quoteNum = _boundInfo
-      ? (_boundInfo.quoteId + '-V' + _boundInfo.versionNumber)
+      ? (_boundInfo.quoteId + '-' + _boundInfo.versionLabel)
       : ('TMP-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase());
     const _quoteNome = _boundInfo ? (_boundInfo.nome || '') : '';
     const _quoteCliente = _boundInfo ? (_boundInfo.cliente || null) : null;
@@ -69794,7 +69904,7 @@ async function exportQuotePdf(){
     //          Altrimenti uso il random fallback (preventivo "volante" non salvato).
     const _boundInfo = (typeof quoteGetBoundInfo === 'function') ? quoteGetBoundInfo() : null;
     const quoteNum = _boundInfo
-      ? (_boundInfo.quoteId + '-V' + _boundInfo.versionNumber)
+      ? (_boundInfo.quoteId + '-' + _boundInfo.versionLabel)
       : ('TMP-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase());
     const _quoteNome = _boundInfo ? (_boundInfo.nome || '') : '';
     const _quoteCliente = _boundInfo ? (_boundInfo.cliente || null) : null;
