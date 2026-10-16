@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.602 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.603 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -7558,6 +7558,13 @@ body.theme-light .wysiwyg-btn.wysiwyg-btn-delrow{
 .extra-thumb:hover{border-color:var(--accent);transform:scale(1.05)}
 .extra-thumb img{width:100%;height:100%;object-fit:contain;padding:2px}
 .extra-thumb .thumb-ph{color:var(--fg3);font-size:9px}
+/* SV2.10.603: immagini extra aggiunte a mano nell'editor */
+.extra-thumb.manual{border-color:var(--accent3)}
+.extra-thumb .extra-rm{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:12px;line-height:18px;text-align:center;cursor:pointer;z-index:2}
+.extra-thumb .extra-rm:hover{background:#c0392b}
+.extra-thumb .extra-tag{position:absolute;left:2px;bottom:2px;font-size:8px;padding:1px 4px;border-radius:3px;background:var(--accent3);color:#fff;letter-spacing:.3px;pointer-events:none}
+.extra-tools{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.extra-hint{font-size:10px;color:var(--fg3);margin-top:4px;line-height:1.4}
 .extra-count-badge{
   position:absolute;top:8px;left:8px;padding:2px 6px;
   background:var(--overlay-strong);color:#fff;font-size:10px;font-weight:700;
@@ -11531,7 +11538,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.602</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.603</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12270,7 +12277,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.602 mobile");
+console.info("[bootstrap] script avvio — SV2.10.603 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13898,7 +13905,7 @@ window._txtMigra = _txtMigra; window._txtCorreggiCampo = _txtCorreggiCampo; wind
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.602';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.603';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -14810,7 +14817,7 @@ function openPersonalProductEditor(opts){
    ============================================================================ */
 
 /* Compressione canvas - logica condivisa V2.9.16. Ritorna una Promise(dataUrl). */
-function _compressImageToDataUrl(file){
+function _compressImageToDataUrl(file, maxDim){
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = function(e){
@@ -14818,7 +14825,7 @@ function _compressImageToDataUrl(file){
       const img = new Image();
       img.onload = function(){
         try {
-          const MAX_DIM = 600;
+          const MAX_DIM = (maxDim > 0) ? maxDim : 600;   // SV2.10.603: parametrico
           let w = img.naturalWidth || img.width;
           let h = img.naturalHeight || img.height;
           if(w > MAX_DIM || h > MAX_DIM){
@@ -28327,9 +28334,31 @@ function productExtras(p){
   const extra = parseExtraImages(ed.extra_images_paths);
   const full = (base && base.full ? base.full : []).slice();
   const thumbs = (base && base.thumbs ? base.thumbs : []).slice();
-  (extra.full || []).forEach(u => { if(u && !full.includes(u)) full.push(u); });
-  (extra.thumbs || []).forEach(u => { if(u && !thumbs.includes(u)) thumbs.push(u); });
+  // SV2.10.603: le immagini aggiunte a mano sono sempre «full»; se il listino ha le
+  // miniature, la stessa immagine va anche fra le thumbs, altrimenti la galleria
+  // (che scorre le thumbs per indice) non la mostrerebbe.
+  const hasThumbs = thumbs.length > 0;
+  (extra.full || []).concat(extra.thumbs || []).forEach(u => {
+    if(u && !full.includes(u)){ full.push(u); if(hasThumbs) thumbs.push(u); }
+  });
   return { full, thumbs };
+}
+
+/* SV2.10.603 — le sole extra del listino (senza override) e le sole aggiunte a mano. */
+function productExtrasBase(p){
+  if(!p) return { full: [], thumbs: [] };
+  const base = p.extra_images || parseExtraImages(p.extra_images_paths);
+  if(Array.isArray(base)) return base;
+  return { full: (base && base.full ? base.full : []).slice(), thumbs: (base && base.thumbs ? base.thumbs : []).slice() };
+}
+function productExtrasManual(p){
+  if(!p || p._idx == null || typeof EDITS === 'undefined') return [];
+  const ed = EDITS[p._idx];
+  if(!ed || ed.extra_images_paths === undefined || ed.extra_images_paths === p.extra_images_paths) return [];
+  const extra = parseExtraImages(ed.extra_images_paths);
+  const out = [];
+  (extra.full || []).concat(extra.thumbs || []).forEach(u => { if(u && !out.includes(u)) out.push(u); });
+  return out;
 }
 
 function normVal(v){
@@ -34823,7 +34852,8 @@ function openEditor(idx){
     created: p.created,
     modified: p.modified,
     params: JSON.parse(JSON.stringify(getParams(p))),
-    extra_images: productExtras(p),
+    extra_images: productExtrasBase(p),
+    extra_manual: productExtrasManual(p),   // SV2.10.603
   };
   CURRENT_EDIT = {idx, data: current, original: p, previewOriginal: false};
   renderEditor();
@@ -34879,7 +34909,8 @@ function _buildEditedEditorData(p){
     created: p.created,
     modified: p.modified,
     params: JSON.parse(JSON.stringify(getParams(p))),
-    extra_images: productExtras(p),
+    extra_images: productExtrasBase(p),
+    extra_manual: productExtrasManual(p),   // SV2.10.603
   };
 }
 
@@ -34972,9 +35003,9 @@ function _dsImages(prod){
   const out=[]; const main=getField(prod,'image_path'); if(main) out.push(imgUrl(main));
   const extra=getField(prod,'extra_images');
   if(Array.isArray(extra)) extra.forEach(u=>{ if(u) out.push(imgUrl(u)); });
-  const paths=getField(prod,'extra_images_paths');
-  if(paths && typeof parseExtraImages==='function'){
-    try { const pr=parseExtraImages(paths); (pr.full||[]).forEach(u=>{ if(u) out.push(imgUrl(u)); }); } catch(e){}
+  else if(typeof productExtras==='function'){
+    // SV2.10.603: listino + aggiunte a mano (prima l'override sostituiva le extra del listino)
+    try { const pr=productExtras(prod); (pr.full||[]).forEach(u=>{ if(u) out.push(imgUrl(u)); }); } catch(e){}
   }
   return [...new Set(out.filter(Boolean))];
 }
@@ -35689,7 +35720,7 @@ function renderEditor(){
         <div class="edit-img-box">
           ${img? `<img src="${img}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'Immagine non caricata',style:'color:var(--fg3);font-size:12px;padding:20px;text-align:center'}))">` : '<div style="color:var(--fg3)">Nessuna immagine</div>'}
         </div>
-        ${renderExtraGallery(data.extra_images)}
+        <div id="extraGalleryBox">${renderExtraGallery(data.extra_images, previewOriginal ? null : (data.extra_manual || []), !previewOriginal)}</div>
         <div class="edit-field">
           <label>Percorso immagine (URL)</label>
           <input type="text" id="f_image_path" value="${escapeAttr(data.image_path)}" oninput="CURRENT_EDIT.data.image_path=this.value">
@@ -37457,26 +37488,122 @@ function deletePersonalFromMainEditor(idx){
 
 /* ========== GALLERIA IMMAGINI EXTRA + LIGHTBOX ========== */
 
-function renderExtraGallery(extra){
-  if(!extra || !extra.full || extra.full.length === 0) return '';
-  // Usa thumb se disponibile, altrimenti full
-  const thumbs = extra.thumbs.length > 0 ? extra.thumbs : extra.full;
-  const urls = extra.full.length > 0 ? extra.full : thumbs;
+/* SV2.10.603 — galleria dell'editor: extra del listino + immagini aggiunte a mano.
+   extra    = {full, thumbs} del listino (o array per i personali)
+   manual   = array di URL/dataURL aggiunti dall'utente (null = non gestire)
+   editable = mostra i pulsanti di aggiunta e la rimozione delle aggiunte */
+function renderExtraGallery(extra, manual, editable){
+  const baseFull = (extra && Array.isArray(extra.full)) ? extra.full : (Array.isArray(extra) ? extra : []);
+  const baseThumbs = (extra && Array.isArray(extra.thumbs) && extra.thumbs.length > 0) ? extra.thumbs : baseFull;
+  const man = Array.isArray(manual) ? manual.filter(u => typeof u === 'string' && u) : [];
+  const total = baseFull.length + man.length;
+  if(total === 0 && !editable) return '';
 
-  const items = thumbs.map((thumbUrl, i)=>{
-    const fullUrl = urls[Math.min(i, urls.length-1)];
-    return `<div class="extra-thumb" onclick="openLightbox('${escapeJs(fullUrl)}',${i})">
-      <img loading="lazy" src="${escapeAttr(thumbUrl)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb-ph',textContent:'—'}))">
-    </div>`;
-  }).join('');
-
-  // Salva array nel window per navigazione lightbox
+  // URL per il lightbox: full del listino + aggiunte, per indice
+  const urls = baseFull.slice().concat(man);
   window._LIGHTBOX_URLS = urls;
+  window._EXTRA_GALLERY_URLS = urls;
+
+  const onErr = `onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb-ph',textContent:'—'}))"`;
+  const items = [];
+  baseThumbs.forEach((thumbUrl, i) => {
+    const k = Math.min(i, Math.max(0, baseFull.length - 1));
+    items.push(`<div class="extra-thumb" onclick="_extraOpenLightbox(${k})" title="Immagine del listino">
+      <img loading="lazy" src="${escapeAttr(thumbUrl)}" ${onErr}>
+    </div>`);
+  });
+  man.forEach((u, j) => {
+    const k = baseFull.length + j;
+    items.push(`<div class="extra-thumb manual" onclick="_extraOpenLightbox(${k})" title="Immagine aggiunta a mano">
+      <img loading="lazy" src="${escapeAttr(u)}" ${onErr}>
+      <span class="extra-tag">aggiunta</span>
+      ${editable ? `<span class="extra-rm" title="Rimuovi questa immagine" onclick="event.stopPropagation();_extraManualRemove(${j})">×</span>` : ''}
+    </div>`);
+  });
+
+  const label = 'Immagini extra (' + total + ' disponibili' + (man.length ? ', ' + man.length + (man.length === 1 ? ' aggiunta a mano' : ' aggiunte a mano') : '') + ')';
+  const tools = editable ? `
+    <div class="extra-tools">
+      <button type="button" class="btn small" onclick="_extraManualPick()" title="Carica una o più immagini dal computer (vengono ridotte a 900 px)">➕ Aggiungi immagini</button>
+      <button type="button" class="btn small ghost" onclick="_extraManualAddUrl()" title="Aggiungi un’immagine da un indirizzo web">🔗 Da URL</button>
+      <input type="file" id="extraManualFile" accept="image/*" multiple style="display:none" onchange="_extraManualFiles(this.files)">
+    </div>
+    <div class="extra-hint">Le immagini aggiunte si conservano con «Salva modifiche». Quelle del listino non si possono togliere.</div>` : '';
 
   return `<div class="edit-field">
-    <label>Immagini extra (${extra.full.length} disponibili)</label>
-    <div class="extra-gallery">${items}</div>
+    <label>${label}</label>
+    ${items.length ? `<div class="extra-gallery">${items.join('')}</div>` : (editable ? '<div class="extra-hint">Nessuna immagine extra: aggiungine con i pulsanti qui sotto.</div>' : '')}
+    ${tools}
   </div>`;
+}
+
+/* SV2.10.603 — gestione delle immagini aggiunte a mano (stato in CURRENT_EDIT.data.extra_manual,
+   persistito da saveEdit in EDITS[idx].extra_images_paths come JSON di URL/dataURL). */
+function _extraOpenLightbox(i){
+  const urls = window._EXTRA_GALLERY_URLS || window._LIGHTBOX_URLS || [];
+  if(!urls.length) return;
+  window._LIGHTBOX_URLS = urls;
+  const k = Math.max(0, Math.min(i|0, urls.length - 1));
+  openLightbox(urls[k], k);
+}
+function _extraGalleryRefresh(){
+  if(!CURRENT_EDIT) return;
+  const box = document.getElementById('extraGalleryBox');
+  if(!box) return;
+  box.innerHTML = renderExtraGallery(CURRENT_EDIT.data.extra_images, CURRENT_EDIT.previewOriginal ? null : (CURRENT_EDIT.data.extra_manual || []), !CURRENT_EDIT.previewOriginal);
+}
+function _extraManualList(){
+  if(!CURRENT_EDIT || CURRENT_EDIT.previewOriginal) return null;
+  if(!Array.isArray(CURRENT_EDIT.data.extra_manual)) CURRENT_EDIT.data.extra_manual = [];
+  return CURRENT_EDIT.data.extra_manual;
+}
+function _extraManualPick(){
+  const inp = document.getElementById('extraManualFile');
+  if(!inp) return;
+  inp.value = '';
+  inp.click();
+}
+async function _extraManualFiles(files){
+  const list = _extraManualList();
+  if(!list || !files || !files.length) return;
+  let added = 0, skipped = 0;
+  for(const f of Array.from(files)){
+    if(!/^image[/]/i.test(f.type || '')){ skipped++; continue; }
+    try {
+      const r = await _compressImageToDataUrl(f, 900);
+      if(r && r.dataUrl && !list.includes(r.dataUrl)){ list.push(r.dataUrl); added++; }
+    } catch(e){
+      skipped++;
+      console.warn('[extra SV2.10.603] immagine scartata:', f && f.name, e);
+    }
+  }
+  _extraGalleryRefresh();
+  if(added) toast(added === 1 ? 'Immagine aggiunta: premi «Salva modifiche» per conservarla' : added + ' immagini aggiunte: premi «Salva modifiche» per conservarle');
+  if(skipped) toast(skipped + (skipped === 1 ? ' file non letto' : ' file non letti') + ' (servono immagini)', 'warn');
+}
+async function _extraManualAddUrl(){
+  const list = _extraManualList();
+  if(!list) return;
+  const v = await showInputDialog({
+    title: 'Aggiungi immagine da URL',
+    subtitle: 'Indirizzo completo dell’immagine (http:// o https://)',
+    placeholder: 'https://…/immagine.jpg',
+    confirmLabel: 'Aggiungi',
+  });
+  if(v === null || v === undefined) return;
+  const s = String(v).trim();
+  if(!/^https?:[/][/]/i.test(s)){ toast('L’indirizzo deve iniziare con http:// o https://', 'warn'); return; }
+  if(list.includes(s)){ toast('Immagine già presente', 'warn'); return; }
+  list.push(s);
+  _extraGalleryRefresh();
+  toast('Immagine aggiunta: premi «Salva modifiche» per conservarla');
+}
+function _extraManualRemove(j){
+  const list = _extraManualList();
+  if(!list || j < 0 || j >= list.length) return;
+  list.splice(j, 1);
+  _extraGalleryRefresh();
+  toast('Immagine rimossa: premi «Salva modifiche» per confermare');
 }
 
 // V2.10.134: helper per aprire il lightbox da galleria/tabella catalogo.
@@ -38030,6 +38157,9 @@ async function saveEdit(){
   const origPLbl = JSON.stringify(original.paramLabels || {});
   const newPLbl = JSON.stringify(data.paramLabels || {});
   if(origPLbl !== newPLbl && data.paramLabels && Object.keys(data.paramLabels).length) changes.paramLabels = data.paramLabels;
+  // SV2.10.603: immagini extra aggiunte a mano (lista vuota = override rimosso)
+  const _manualImgs = Array.isArray(data.extra_manual) ? data.extra_manual.filter(u => typeof u === 'string' && u) : [];
+  if(_manualImgs.length) changes.extra_images_paths = JSON.stringify(_manualImgs);
 
   // SV2.10.460 — FIX perdita silenziosa di dati.
   // `changes` viene ricostruito DA ZERO a ogni salvataggio, quindi tutte le chiavi
@@ -38037,7 +38167,7 @@ async function saveEdit(){
   // saveDatasheetCfg) venivano azzerate al primo salvataggio manuale dell'editor.
   // Riporto qui tutte le chiavi non gestite da questo form, in modo generico
   // così da coprire anche eventuali campi futuri.
-  const _managedKeys = new Set(fields.concat(['params','paramLabels']));
+  const _managedKeys = new Set(fields.concat(['params','paramLabels','extra_images_paths']));   // SV2.10.603
   const _prevEdit = EDITS[idx];
   if(_prevEdit && typeof _prevEdit === 'object'){
     Object.keys(_prevEdit).forEach(k => {
