@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.601 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.602 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11531,7 +11531,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.601</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.602</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12270,7 +12270,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.601 mobile");
+console.info("[bootstrap] script avvio — SV2.10.602 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13898,7 +13898,7 @@ window._txtMigra = _txtMigra; window._txtCorreggiCampo = _txtCorreggiCampo; wind
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.601';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.602';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -28301,12 +28301,35 @@ function parseExtraImages(raw){
     const m = s.match(/https?:\/\/[^"'\s\]]+/g);
     if(m) urls = m;
   }
-  urls = urls.filter(u => typeof u === 'string' && u.startsWith('http'));
+  // SV2.10.602: anche le immagini incorporate (data:) caricate a mano come extra
+  urls = urls.filter(u => typeof u === 'string' && (u.startsWith('http') || u.startsWith('data:')));
 
   // Separa thumbnail e full
   const thumbs = urls.filter(u => /_thumb\.(png|jpg|jpeg|webp)/i.test(u));
   const full = urls.filter(u => !/_thumb\.(png|jpg|jpeg|webp)/i.test(u));
   return {full, thumbs};
+}
+
+/* SV2.10.602 — IMMAGINI EXTRA CON OVERRIDE.
+   Fino alla 601 le extra di un prodotto importato erano SOLO quelle del listino:
+   p.extra_images viene calcolato all'import da extra_images_paths e letto
+   direttamente, quindi un override in EDITS non arrivava mai a schermo.
+   Ora tutte le letture passano da qui: le extra del listino restano, e in coda
+   si aggiungono quelle scritte in EDITS[idx].extra_images_paths (JSON di URL,
+   anche data:), senza doppioni. I prodotti personali hanno extra_images come
+   array e passano invariati. */
+function productExtras(p){
+  if(!p) return { full: [], thumbs: [] };
+  const base = p.extra_images || parseExtraImages(p.extra_images_paths);
+  if(Array.isArray(base)) return base;   // prodotto personale: array di URL/dataURL
+  const ed = (typeof EDITS !== 'undefined' && p._idx != null) ? EDITS[p._idx] : null;
+  if(!ed || ed.extra_images_paths === undefined || ed.extra_images_paths === p.extra_images_paths) return base;
+  const extra = parseExtraImages(ed.extra_images_paths);
+  const full = (base && base.full ? base.full : []).slice();
+  const thumbs = (base && base.thumbs ? base.thumbs : []).slice();
+  (extra.full || []).forEach(u => { if(u && !full.includes(u)) full.push(u); });
+  (extra.thumbs || []).forEach(u => { if(u && !thumbs.includes(u)) thumbs.push(u); });
+  return { full, thumbs };
 }
 
 function normVal(v){
@@ -32737,7 +32760,7 @@ function renderGallery(main, list){
     const itLvl = stockIT(p);
     const esLvl = stockES(p);
     const img = imgUrl(getField(p,'image_path'));
-    const extras = p.extra_images || parseExtraImages(p.extra_images_paths);
+    const extras = productExtras(p);
     const nExtras = (extras && extras.full) ? extras.full.length : 0;
     const nRelated = parseRelatedList(getField(p,'related_products')).length;
     // V2.2.36: badge stato (mutuamente esclusivi visivamente — un prodotto non è
@@ -33628,7 +33651,7 @@ function renderTable(main, list){
     if(rowImgEl){
       // V2.10.134: stesso pattern della galleria — click=lightbox, dblclick=editor.
       // Per la tabella servono anche extra_images del prodotto corrente.
-      const rowExtras = p.extra_images || parseExtraImages(p.extra_images_paths);
+      const rowExtras = productExtras(p);
       let _rowImgClickTimer = null;
       rowImgEl.addEventListener('click', (e) => {
         e.stopPropagation();  // evita di triggerare handler sulla riga
@@ -34800,7 +34823,7 @@ function openEditor(idx){
     created: p.created,
     modified: p.modified,
     params: JSON.parse(JSON.stringify(getParams(p))),
-    extra_images: p.extra_images || parseExtraImages(p.extra_images_paths),
+    extra_images: productExtras(p),
   };
   CURRENT_EDIT = {idx, data: current, original: p, previewOriginal: false};
   renderEditor();
@@ -34856,7 +34879,7 @@ function _buildEditedEditorData(p){
     created: p.created,
     modified: p.modified,
     params: JSON.parse(JSON.stringify(getParams(p))),
-    extra_images: p.extra_images || parseExtraImages(p.extra_images_paths),
+    extra_images: productExtras(p),
   };
 }
 
@@ -37823,7 +37846,7 @@ function renderRelatedList(){
           }
         }
       }
-      const _relExtras = product.extra_images || (typeof parseExtraImages === 'function' ? parseExtraImages(product.extra_images_paths) : null);
+      const _relExtras = (typeof productExtras === 'function') ? productExtras(product) : (product.extra_images || null);
       const _relNExtras = (_relExtras && _relExtras.full) ? _relExtras.full.length : 0;
       const _relNRelated = (typeof parseRelatedList === 'function')
         ? parseRelatedList(getField(product, 'related_products')).length
@@ -38857,7 +38880,7 @@ async function doExport(){
                 v = '';  // PVP o netto non validi → cella vuota
               }
             } else {
-              const extras = p.extra_images || parseExtraImages(p.extra_images_paths);
+              const extras = productExtras(p);
               if(c.field==='extra_count') v = extras.full.length;
               else if(c.field==='extra_full_urls') v = extras.full.join(' | ');
               else if(c.field==='extra_thumb_urls') v = extras.thumbs.join(' | ');
@@ -39067,7 +39090,7 @@ function openExportPreview(){
             v = '';
           }
         } else {
-          const extras = p.extra_images || parseExtraImages(p.extra_images_paths);
+          const extras = productExtras(p);
           if(c.field==='extra_count') v = extras.full.length;
           else if(c.field==='extra_full_urls') v = extras.full.join(' | ');
           else if(c.field==='extra_thumb_urls') v = extras.thumbs.join(' | ');
