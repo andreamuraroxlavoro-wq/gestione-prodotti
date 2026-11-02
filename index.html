@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.603 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.604 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -11538,7 +11538,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.603</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.604</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12277,7 +12277,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.603 mobile");
+console.info("[bootstrap] script avvio — SV2.10.604 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13905,7 +13905,7 @@ window._txtMigra = _txtMigra; window._txtCorreggiCampo = _txtCorreggiCampo; wind
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.603';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.604';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -57425,9 +57425,24 @@ function openImageDiagnosticDialog(){
 /* V2.10.281 — Dialog di setup del proxy CORS personalizzato (Cloudflare Worker).
    Mostra istruzioni passo-passo + textarea con lo script Worker pronto da copiare
    + campo per incollare l'URL del Worker creato + pulsante test. */
+/* SV2.10.604 - aggiorna il conteggio delle immagini conservate dentro il dialog. */
+async function _imgCacheRefreshStats(){
+  const el = document.getElementById('imgCacheStats');
+  if(!el) return;
+  try{
+    const s = await imgCacheStats();
+    const mb = s.bytes / 1048576;
+    el.textContent = s.n === 0
+      ? 'Nessuna immagine ancora conservata: si riempie da sola al primo export.'
+      : (s.n === 1 ? '1 immagine conservata' : s.n.toLocaleString('it-IT') + ' immagini conservate')
+        + ' \u00b7 ' + (mb < 1 ? Math.round(s.bytes / 1024).toLocaleString('it-IT') + ' KB' : mb.toLocaleString('it-IT', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' MB');
+  } catch(_){ el.textContent = 'conteggio non disponibile'; }
+}
+
 function openCorsProxySetupDialog(){
   const ex = document.getElementById('corsProxySetupModal');
   if(ex) ex.remove();
+  setTimeout(() => { try { _imgCacheRefreshStats(); } catch(_){} }, 60);   // SV2.10.604
   const current = (typeof SETTINGS !== 'undefined' && SETTINGS.customCorsProxy)
     ? String(SETTINGS.customCorsProxy).trim() : '';
 
@@ -57462,14 +57477,21 @@ function openCorsProxySetupDialog(){
     '<div class="spl-ov spl-ov-top" id="corsProxySetupModal" style="z-index:11500">' +
       '<div class="spl-dlg" style="max-width:780px;width:96%;max-height:92vh;display:flex;flex-direction:column">' +
         '<div class="spl-dlg-head">' +
-          '<h3>⚙️ Configura Cloudflare Worker (CORS Proxy)</h3>' +
+          '<h3>🖼️ Immagini dei prodotti</h3>' +
           '<button class="btn" onclick="document.getElementById(\'corsProxySetupModal\').remove()" style="padding:4px 10px">✕</button>' +
         '</div>' +
         '<div style="padding:18px 22px;overflow:auto;flex:1">' +
           '<div style="background:rgba(59,130,246,.08);border:1px solid #3b82f6;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:13px;line-height:1.55">' +
-            '<strong style="color:#3b82f6">Perché serve?</strong><br>' +
-            'Le immagini Visiotech sono su CloudFront, che non manda l\'header CORS necessario per il fetch da browser. I proxy pubblici gratuiti sono diventati instabili nel 2026. Un <strong>Cloudflare Worker personale</strong> risolve definitivamente il problema: ' +
-            '<strong>gratis fino a 100.000 richieste/giorno</strong>, 5 minuti di setup una sola volta.' +
+            '<strong style="color:#3b82f6">Dalla SV2.10.604 non serve più configurare nulla.</strong><br>' +
+            'Le immagini del listino stanno su una rete di distribuzione che non autorizza la lettura dei byte da browser: si vedono a schermo, ma servono anche dentro i documenti esportati. ' +
+            'Ora l\'app le preleva da un servizio di distribuzione immagini pubblico e le <strong>conserva in archivio dopo il primo prelievo</strong>: dalla seconda volta non c\'è nessuna richiesta di rete, gli export sono immediati e funzionano anche senza collegamento. ' +
+            'Il proxy personale qui sotto resta disponibile come alternativa, ma è facoltativo.' +
+          '</div>' +
+
+          '<div id="imgCacheBox" style="background:rgba(16,185,129,.08);border:1px solid #10b981;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:13px;line-height:1.55">' +
+            '<strong style="color:#10b981">Immagini conservate in archivio</strong><br>' +
+            '<span id="imgCacheStats">conteggio in corso…</span><br>' +
+            '<button class="btn" style="margin-top:8px;padding:4px 10px;font-size:12px" onclick="imgCacheClear().then(()=>{window._qImgCache={};_imgCacheRefreshStats();toast(\'Archivio immagini svuotato\');})">🗑️ Svuota archivio immagini</button>' +
           '</div>' +
 
           '<div style="font-size:13.5px;font-weight:700;color:var(--fg);margin-bottom:8px">📋 Passi (5 minuti)</div>' +
@@ -66426,6 +66448,138 @@ if(typeof document !== 'undefined' && document.head){
 }
 
 
+/* =========================================================================
+   SV2.10.604 - CACHE IMMAGINI PERSISTENTE
+   -------------------------------------------------------------------------
+   Il problema: le immagini del listino stanno su una rete di distribuzione che
+   NON invia l'header Access-Control-Allow-Origin. Il browser le mostra senza
+   problemi dentro un tag <img>, ma vieta di leggerne i byte con fetch(), e il
+   canvas diventa "contaminato" appena ci si disegna sopra un'immagine di un
+   altro dominio. I byte servono invece a tutti gli export (Word, PDF, scheda
+   tecnica), e per quelli non esiste scorciatoia.
+   La soluzione: ogni immagine viene scaricata UNA VOLTA SOLA e conservata qui.
+   Dalla seconda volta in poi non c'e' piu' nessuna richiesta di rete: gli export
+   diventano immediati e continuano a funzionare anche senza collegamento e anche
+   se il servizio esterno un giorno smettesse di esistere.
+   Database separato di proposito: non tocca lo schema di visiotech_manager, non
+   entra nei backup e non viene sincronizzato. Se va svuotato, si svuota da solo
+   senza mettere a rischio il catalogo.
+   ========================================================================= */
+const IMGC_DB_NAME = 'gp_img_cache';
+const IMGC_STORE = 'img';
+let _imgcDb = null;
+
+function _imgcOpen(){
+  if(_imgcDb) return Promise.resolve(_imgcDb);
+  return new Promise((res, rej) => {
+    let req;
+    try { req = indexedDB.open(IMGC_DB_NAME, 1); }
+    catch(e){ return rej(e); }
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains(IMGC_STORE)) d.createObjectStore(IMGC_STORE);
+    };
+    req.onsuccess = e => { _imgcDb = e.target.result; res(_imgcDb); };
+    req.onerror = e => rej(e);
+  });
+}
+
+/* Lettura: restituisce { buffer, type } oppure null. Non lancia mai. */
+async function imgCacheGet(url){
+  try{
+    const d = await _imgcOpen();
+    return await new Promise((res) => {
+      const tx = d.transaction(IMGC_STORE, 'readonly');
+      const r = tx.objectStore(IMGC_STORE).get(url);
+      r.onsuccess = () => {
+        const v = r.result;
+        if(v && v.buffer && v.type) res({ buffer: v.buffer, type: v.type });
+        else res(null);
+      };
+      r.onerror = () => res(null);
+    });
+  } catch(_){ return null; }
+}
+
+/* Scrittura: silenziosa, non deve mai far fallire un export. */
+async function imgCachePut(url, buffer, type){
+  try{
+    if(!url || !buffer || url.startsWith('data:')) return false;
+    const d = await _imgcOpen();
+    return await new Promise((res) => {
+      const tx = d.transaction(IMGC_STORE, 'readwrite');
+      const r = tx.objectStore(IMGC_STORE).put({ buffer: buffer, type: type, at: Date.now() }, url);
+      r.onsuccess = () => res(true);
+      r.onerror = () => res(false);
+    });
+  } catch(_){ return false; }
+}
+
+/* Quante immagini e quanti byte sono conservati. */
+async function imgCacheStats(){
+  try{
+    const d = await _imgcOpen();
+    return await new Promise((res) => {
+      const tx = d.transaction(IMGC_STORE, 'readonly');
+      const st = tx.objectStore(IMGC_STORE);
+      let n = 0, bytes = 0;
+      const cur = st.openCursor();
+      cur.onsuccess = e => {
+        const c = e.target.result;
+        if(c){
+          n++;
+          const v = c.value;
+          if(v && v.buffer) bytes += (v.buffer.byteLength || 0);
+          c.continue();
+        } else res({ n: n, bytes: bytes });
+      };
+      cur.onerror = () => res({ n: 0, bytes: 0 });
+    });
+  } catch(_){ return { n: 0, bytes: 0 }; }
+}
+
+async function imgCacheClear(){
+  try{
+    const d = await _imgcOpen();
+    return await new Promise((res) => {
+      const tx = d.transaction(IMGC_STORE, 'readwrite');
+      const r = tx.objectStore(IMGC_STORE).clear();
+      r.onsuccess = () => res(true);
+      r.onerror = () => res(false);
+    });
+  } catch(_){ return false; }
+}
+
+/* Scarica in cache un elenco di URL, con avanzamento facoltativo.
+   Serve per preparare un preventivo prima di esportarlo, o per riempire
+   la cache con i prodotti che si usano piu' spesso. */
+async function imgCachePrefetch(urls, onProgress){
+  const lista = (urls || []).filter(u => u && typeof u === 'string' && !u.startsWith('data:'));
+  let ok = 0, ko = 0, gia = 0;
+  for(let i = 0; i < lista.length; i++){
+    const u = lista[i];
+    const c = await imgCacheGet(u);
+    if(c){ gia++; }
+    else {
+      const r = await _qFetchImageBuffer(u);
+      if(r && r.buffer) ok++; else ko++;
+    }
+    if(typeof onProgress === 'function') onProgress(i + 1, lista.length, { ok: ok, ko: ko, gia: gia });
+  }
+  return { totale: lista.length, scaricate: ok, gia: gia, fallite: ko };
+}
+
+/* Costruisce l'indirizzo sul servizio di image CDN.
+   Il servizio vuole l'indirizzo senza protocollo. Il ridimensionamento a 1.400 px
+   con conversione e sfondo bianco serve a due cose: gli export non hanno mai
+   bisogno di piu' di cosi', e il peso scende di circa dieci volte, il che rende
+   rapido anche il primo export su un preventivo lungo. */
+function _imgSvcUrl(host, u){
+  const senzaProtocollo = String(u).replace(/^https?:\/\//i, '');
+  return 'https://' + host + '/?url=' + encodeURIComponent(senzaProtocollo) +
+         '&w=1400&we&output=jpg&q=84&bg=white';
+}
+
 /* ─── V2.10.37: Esportazione Word in vero .docx ─── */
 
 // V2.10.38: caricamento immagine ROBUSTO per docx.ImageRun.
@@ -66450,9 +66604,19 @@ function _qFetchWithTimeout(url, timeoutMs){
 async function _qFetchImageBuffer(url){
   if(!url) return null;
 
-  // === Cache check (V2.10.40) ===
+  // === Cache check in memoria (V2.10.40) ===
   if(Object.prototype.hasOwnProperty.call(window._qImgCache, url)){
     return window._qImgCache[url];
+  }
+
+  // === SV2.10.604: cache persistente su disco ===
+  // Se l'immagine e' gia' stata scaricata in passato non serve nessuna rete.
+  if(!url.startsWith('data:')){
+    const _cached = await imgCacheGet(url);
+    if(_cached){
+      window._qImgCache[url] = _cached;
+      return _cached;
+    }
   }
 
   // === Livello 1: data URL ===
@@ -66496,6 +66660,7 @@ async function _qFetchImageBuffer(url){
       }
       const result = { buffer: buf, type };
       window._qImgCache[url] = result;
+      imgCachePut(url, buf, type);   // SV2.10.604
       return result;
     }
   } catch(e){
@@ -66533,21 +66698,21 @@ async function _qFetchImageBuffer(url){
       }
     });
   }
-  // Catena di proxy pubblici (best-effort, possono fallire)
+  // SV2.10.604: servizio di image CDN come via principale.
+  // Invia gli header necessari, e' in esercizio da oltre dieci anni, non chiede
+  // registrazione e ridimensiona lato server. Due domini equivalenti, uno di
+  // riserva all'altro. Misurato sul listino: 673 KB diventano 59 KB in 0,4 s.
   proxyBuilders.push(
-    // allorigins: stabile, no API key, supporta CloudFront. Endpoint raw restituisce binary diretto.
+    { name: 'wsrv',   build: (u) => _imgSvcUrl('wsrv.nl', u) },
+    { name: 'weserv', build: (u) => _imgSvcUrl('images.weserv.nl', u) }
+  );
+  // Vecchi proxy generici: tenuti solo come ultima spiaggia. Alla prova del
+  // 2 novembre 2026 erano tutti fuori servizio (timeout oppure 403), quindi non
+  // ci si deve contare sopra.
+  proxyBuilders.push(
     { name: 'allorigins',   build: (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
-    // codetabs: backup, no API key.
     { name: 'codetabs',     build: (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u) },
-    // corsproxy.io: tenuto come terzo tentativo (può richiedere API key per alcuni domini).
-    { name: 'corsproxy.io', build: (u) => 'https://corsproxy.io/?' + encodeURIComponent(u) },
-    // V2.10.280: alternativi affidabili
-    // thingproxy: rate-limited a 10 req/min ma stabile.
-    { name: 'thingproxy',   build: (u) => 'https://thingproxy.freeboard.io/fetch/' + u },
-    // corsproxy.org: alternativa gratuita.
-    { name: 'corsproxy.org', build: (u) => 'https://corsproxy.org/?' + encodeURIComponent(u) },
-    // cloudflare worker generico (community-hosted CORS-anywhere mirror).
-    { name: 'cors-anywhere-worker', build: (u) => 'https://cors-anywhere.azm.workers.dev/?' + u }
+    { name: 'corsproxy.io', build: (u) => 'https://corsproxy.io/?' + encodeURIComponent(u) }
   );
 
   // V2.10.280: traccia esiti per la diagnostica
@@ -66560,7 +66725,9 @@ async function _qFetchImageBuffer(url){
     const attempt = { name: proxyDef.name, url: proxyUrl, result: 'pending' };
     trace.attempts.push(attempt);
     try{
-      const res = await _qFetchWithTimeout(proxyUrl, 10000);
+      // SV2.10.604: il primo accesso al servizio puo' richiedere la generazione
+      // dell'immagine ridimensionata, quindi concedo piu' tempo.
+      const res = await _qFetchWithTimeout(proxyUrl, 15000);
       if(res.ok){
         const buf = await res.arrayBuffer();
         // Sanity check: alcuni proxy ritornano JSON di errore con status 200.
@@ -66589,6 +66756,7 @@ async function _qFetchImageBuffer(url){
         }
         const result = { buffer: buf, type };
         window._qImgCache[url] = result;
+        imgCachePut(url, buf, type);   // SV2.10.604
         return result;
       } else {
         attempt.result = 'http-' + res.status;
