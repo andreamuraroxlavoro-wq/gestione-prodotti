@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.604 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.605 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5227,6 +5227,14 @@ body.theme-light .advs-foot{background:rgba(0,0,0,0.03)}
   border:1px solid rgba(230,145,30,0.32);
 }
 .elc-btn-go:hover{ filter:brightness(1.08); }
+/* SV2.10.605: dialog "Esporta Testi e Caratteristiche" — riusa .elc-* e .lsm-*;
+   qui solo la larghezza (le voci dei menu a tendina sono lunghe) e la nota. */
+.etc-dialog{ max-width:500px; }
+.etc-nota{
+  padding:9px 11px;border-radius:8px;font-size:12px;line-height:1.5;
+  color:var(--fg3,#8591a1);background:var(--bg,#0f1419);
+  border:1px solid var(--border,rgba(255,255,255,0.12));
+}
 /* SV2.10.385: selezione multipla a cascata */
 .elc-body{ max-height:min(74vh, 640px); overflow-y:auto; }
 .elc-sec-head{ display:flex;align-items:center;justify-content:space-between;gap:8px; }
@@ -11538,7 +11546,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.604</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.605</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12095,6 +12103,11 @@ body.theme-light .dlg-input{background:var(--bg3)}
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
             Esporta Listino Cliente
           </button>
+          <!-- SV2.10.605: testi e caratteristiche per l'importazione in altri software, colonne e formato a scelta -->
+          <button class="tb-dropdown-item" onclick="openExportTestiCaratteristiche(); closeAllTopbarDropdowns()" role="menuitem" title="Esporta in Excel o CSV codice, EAN, descrizioni, specifiche, parametri tecnici e prezzo di listino, con le colonne a scelta: pensato per l'importazione in altri software">
+            <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+            Esporta Testi e Caratteristiche
+          </button>
           <!-- SV2.10.582: listino "semplice" — poche colonne, scelta dell'ambito e delle colonne -->
           <button class="tb-dropdown-item" onclick="openListinoSemplice(); closeAllTopbarDropdowns()" role="menuitem" title="Scarica un Excel essenziale: codice, descrizione breve, marca, macrocategoria, categoria, prezzo di listino e data di esportazione">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
@@ -12277,7 +12290,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.604 mobile");
+console.info("[bootstrap] script avvio — SV2.10.605 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13905,7 +13918,7 @@ window._txtMigra = _txtMigra; window._txtCorreggiCampo = _txtCorreggiCampo; wind
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.604';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.605';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -46950,6 +46963,444 @@ function doListinoSemplice(){
   if(typeof toast === 'function') toast('Esportati ' + prods.length.toLocaleString('it-IT') + (prods.length===1?' articolo':' articoli') + ' \u00b7 ' + filename, 'ok');
   closeListinoSemplice();
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SV2.10.605 — ESPORTA TESTI E CARATTERISTICHE
+   ───────────────────────────────────────────────────────────────────────
+   Esporta in Excel (.xlsx) o in CSV i testi e le caratteristiche dei
+   prodotti: codice, EAN, descrizione breve, descrizione completa,
+   specifiche, parametri tecnici, prezzo di listino. Ogni colonna e'
+   facoltativa. Il file e' pensato per l'importazione in software di terzi:
+   - intestazioni fisse: ogni colonna ha sempre lo stesso nome, qualunque
+     sia la scelta delle altre, cosi' una mappatura per nome non si rompe;
+   - una riga per articolo, nessuna riga di titolo, di gruppo o di totale;
+   - colonne non scelte TOLTE dal file oppure LASCIATE VUOTE, a scelta: la
+     seconda tiene ferme le posizioni per chi importa per posizione;
+   - EAN sempre come testo, cosi' gli zeri iniziali non si perdono;
+   - prezzo come numero con due decimali, senza separatore delle migliaia;
+   - testi come HTML ripulito come a schermo, oppure come testo semplice;
+   - parametri come testo leggibile oppure come JSON con le chiavi originali;
+   - il parametro "stock" non viene mai esportato, come nella scheda tecnica;
+   - CSV secondo RFC 4180 (campi fra virgolette, virgolette raddoppiate, a
+     capo ammessi dentro i campi, righe chiuse da CRLF), in due varianti:
+     per Excel in italiano (; e decimali con la virgola, UTF-8 con BOM)
+     oppure standard (, e decimali con il punto, UTF-8 senza BOM).
+   I valori passano da getField/getParams: si esporta quello che si vede,
+   correzioni dell'utente comprese.
+   Le preferenze restano sul dispositivo (localStorage sv_etc_cfg). La chiave
+   e' VOLUTAMENTE fuori dai quattro elenchi di backup e sincronizzazione,
+   come sv_txt_rules: perderla costa solo rifare la scelta.
+   ═══════════════════════════════════════════════════════════════════════ */
+const ETC_COLONNE = [
+  { id:'codice',     label:'Codice Prodotto',      w:24 },
+  { id:'ean',        label:'EAN',                  w:16 },
+  { id:'breve',      label:'Descrizione breve',    w:50 },
+  { id:'completa',   label:'Descrizione completa', w:60 },
+  { id:'specifiche', label:'Specifiche',           w:60 },
+  { id:'parametri',  label:'Parametri tecnici',    w:50 },
+  { id:'prezzo',     label:'Prezzo di Listino',    w:16 },
+];
+const ETC_CFG_KEY = 'sv_etc_cfg';
+const ETC_OPZIONI = {
+  ambito:    ['visibili', 'tutti'],
+  formato:   ['xlsx', 'csv'],
+  csv:       ['excel', 'standard'],
+  testi:     ['html', 'testo'],
+  parametri: ['testo', 'json'],
+  escluse:   ['togli', 'vuote'],
+};
+const ETC_XLSX_MAX = 32767;   // limite di caratteri per cella imposto da Excel
+const ETC_BLOCCHI = new Set(['P','DIV','LI','UL','OL','TABLE','TBODY','THEAD','TFOOT','H1','H2','H3','H4','H5','H6',
+  'SECTION','ARTICLE','HEADER','FOOTER','BLOCKQUOTE','PRE','DL','DT','DD','FIGURE','FIGCAPTION','HR']);
+let _ETC_PARSER = null;
+let _ETC_CFG_SCHEDE = null;   // impostazioni scheda tecnica, lette una volta per esportazione
+
+/* ── preferenze ─────────────────────────────────────────────────────── */
+function _etcCfgDefault(){
+  const cols = {};
+  ETC_COLONNE.forEach(k => { cols[k.id] = true; });
+  return { cols, ambito:'visibili', formato:'xlsx', csv:'excel', testi:'html', parametri:'testo', escluse:'togli' };
+}
+function _etcCfgLeggi(){
+  const out = _etcCfgDefault();
+  let c = null;
+  try { c = JSON.parse(localStorage.getItem(ETC_CFG_KEY) || 'null'); } catch(_){ c = null; }
+  if(c && typeof c === 'object'){
+    if(c.cols && typeof c.cols === 'object'){
+      ETC_COLONNE.forEach(k => { if(typeof c.cols[k.id] === 'boolean') out.cols[k.id] = c.cols[k.id]; });
+    }
+    Object.keys(ETC_OPZIONI).forEach(k => { if(ETC_OPZIONI[k].indexOf(c[k]) >= 0) out[k] = c[k]; });
+  }
+  return out;
+}
+function _etcCfgScrivi(c){ try { localStorage.setItem(ETC_CFG_KEY, JSON.stringify(c)); } catch(_){} }
+function _etcCfgDalDialogo(){
+  const c = _etcCfgLeggi();
+  ETC_COLONNE.forEach(k => { const el = document.getElementById('etcCol_' + k.id); if(el) c.cols[k.id] = !!el.checked; });
+  const mappa = { ambito:'etcAmbito', formato:'etcFormato', csv:'etcCsv', testi:'etcTesti', parametri:'etcParametri', escluse:'etcEscluse' };
+  Object.keys(mappa).forEach(k => {
+    const el = document.getElementById(mappa[k]);
+    if(el && ETC_OPZIONI[k].indexOf(el.value) >= 0) c[k] = el.value;
+  });
+  return c;
+}
+
+/* ── prodotti e valori ──────────────────────────────────────────────── */
+function _etcProdotti(ambito){
+  const src = (ambito === 'tutti') ? DATA : FILTERED;
+  return Array.isArray(src) ? src.filter(Boolean) : [];
+}
+/* righe di testo semplice: a capo normalizzati, spazi compattati, righe vuote tolte */
+function _etcPulisciRighe(s){
+  return String(s).replace(/\r\n?/g, '\n').split('\n')
+    .map(r => r.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+}
+/* righe di testo di un nodo HTML: i blocchi vanno a capo, le righe di tabella
+   diventano "voce: valore" (piu' valori separati da " — ", come la scheda). */
+function _etcRigheDi(radice){
+  const out = [];
+  let riga = '';
+  const chiudi = () => { const t = riga.replace(/\s+/g, ' ').trim(); if(t) out.push(t); riga = ''; };
+  const visita = n => {
+    if(n.nodeType === 3){ riga += n.nodeValue; return; }
+    if(n.nodeType !== 1) return;
+    const tag = n.tagName;
+    if(tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEMPLATE' || tag === 'IFRAME' || tag === 'NOSCRIPT') return;
+    if(tag === 'BR'){ chiudi(); return; }
+    if(tag === 'TR'){
+      chiudi();
+      const celle = [];
+      for(const c of n.children){
+        if(c.tagName === 'TD' || c.tagName === 'TH'){
+          const t = _etcRigheDi(c).join(' ').trim();
+          if(t) celle.push(t);
+        }
+      }
+      if(celle.length) out.push(celle.length >= 2 ? celle[0] + ': ' + celle.slice(1).join(' — ') : celle[0]);
+      return;
+    }
+    const blocco = ETC_BLOCCHI.has(tag);
+    if(blocco) chiudi();
+    for(const c of n.childNodes) visita(c);
+    if(blocco) chiudi();
+  };
+  for(const c of radice.childNodes) visita(c);
+  chiudi();
+  return out;
+}
+/* HTML -> testo semplice. DOMParser produce un documento inerte: niente
+   script eseguiti, niente immagini scaricate (un div con innerHTML invece
+   le caricherebbe tutte, migliaia per esportazione). */
+function _etcHtmlInTesto(html){
+  const s = String(html == null ? '' : html);
+  if(!s.trim()) return '';
+  if(s.indexOf('<') === -1 && s.indexOf('&') === -1) return _etcPulisciRighe(s);
+  if(!_ETC_PARSER) _ETC_PARSER = new DOMParser();
+  const doc = _ETC_PARSER.parseFromString('<!doctype html><html><body>' + s + '</body></html>', 'text/html');
+  return _etcRigheDi(doc.body).join('\n');
+}
+/* HTML come lo mostra l'app: stessa ripulitura della scheda prodotto */
+function _etcHtmlPulito(html){
+  const s = String(html == null ? '' : html).trim();
+  if(!s) return '';
+  return (typeof sanitizeHtml === 'function') ? String(sanitizeHtml(s)).trim() : s;
+}
+function _etcTesto(v, modo, specifiche){
+  let s = (v == null) ? '' : String(v);
+  if(!s.trim()) return '';
+  /* le specifiche passano dalla stessa normalizzazione usata a schermo e
+     nella scheda tecnica (a capo persi, valori attaccati alla voce dopo) */
+  if(specifiche && typeof normalizeSpecsHtml === 'function') s = normalizeSpecsHtml(s);
+  if(modo === 'testo') return _etcHtmlInTesto(s);
+  if(s.indexOf('<') === -1) return _etcPulisciRighe(s);
+  /* HTML senza testo e senza immagini (nel listino ci sono un centinaio di
+     tabelle di specifiche vuote, <table><tbody></tbody></table>): cella vuota,
+     non un guscio di markup che il software di destinazione importerebbe. */
+  if(_etcHtmlVuoto(s)) return '';
+  return _etcHtmlPulito(s);
+}
+function _etcHtmlVuoto(s){
+  if(/<img\b/i.test(s)) return false;
+  return s.replace(/<[^>]*>/g, '').replace(/&nbsp;|&#160;|\s/gi, '') === '';
+}
+/* impostazioni della scheda tecnica del prodotto (ordine dei parametri).
+   Stessa precedenza di getDatasheetCfg, ma l'archivio comune e' letto una
+   sola volta: getDatasheetCfg lo rilegge da localStorage a ogni chiamata. */
+function _etcCfgScheda(p){
+  try {
+    if(p.isPersonal){ if(p.datasheetCfg && typeof p.datasheetCfg === 'object') return p.datasheetCfg; }
+    else if(typeof EDITS !== 'undefined' && p._idx != null && EDITS[p._idx] && EDITS[p._idx].datasheetCfg && typeof EDITS[p._idx].datasheetCfg === 'object'){
+      return EDITS[p._idx].datasheetCfg;
+    }
+  } catch(_){}
+  if(_ETC_CFG_SCHEDE === null){
+    _ETC_CFG_SCHEDE = (typeof _dsLoadAllCfg === 'function') ? (_dsLoadAllCfg() || {}) : {};
+  }
+  const code = String(getField(p,'name') || '').trim();
+  return (code && _ETC_CFG_SCHEDE[code]) || {};
+}
+function _etcParametri(p, modo){
+  let obj = (typeof getParams === 'function') ? getParams(p) : p.params;
+  if(typeof obj === 'string'){ try { obj = JSON.parse(obj); } catch(_){ obj = null; } }
+  if(!obj || typeof obj !== 'object') return '';
+  /* chiavi visibili nello stesso ordine della scheda tecnica: _dsOrderedParamKeys
+     toglie gia' le voci nascoste (stock) e quelle vuote */
+  let chiavi;
+  if(typeof _dsOrderedParamKeys === 'function'){
+    chiavi = _dsOrderedParamKeys(obj, _etcCfgScheda(p));
+  } else {
+    chiavi = Object.keys(obj).filter(k => String(k).toLowerCase() !== 'stock' && obj[k] != null && String(obj[k]).trim() !== '');
+  }
+  if(!chiavi || !chiavi.length) return '';
+  if(modo === 'json'){
+    const o = {};
+    chiavi.forEach(k => { o[k] = String(obj[k]).trim(); });
+    return JSON.stringify(o);
+  }
+  return chiavi.map(k => {
+    const lab = (typeof prodParamLabel === 'function') ? prodParamLabel(p, k) : k;
+    return lab + ': ' + String(obj[k]).replace(/\s+/g, ' ').trim();
+  }).join('\n');
+}
+function _etcValore(p, id, c){
+  switch(id){
+    case 'codice':     return String(getField(p,'name') || '').trim();
+    case 'ean':        { const e = (typeof fmtEan === 'function') ? fmtEan(getField(p,'ean')) : getField(p,'ean'); return String(e == null ? '' : e).trim(); }
+    case 'breve':      return _etcTesto(getField(p,'short_description'), c.testi, false);
+    case 'completa':   return _etcTesto(getField(p,'description'), c.testi, false);
+    case 'specifiche': return _etcTesto(getField(p,'specifications'), c.testi, true);
+    case 'parametri':  return _etcParametri(p, c.parametri);
+    case 'prezzo': {
+      const v = getField(p,'PVP');
+      const n = (typeof priceNum === 'function') ? priceNum(v) : parseFloat(v);
+      return (n != null && !isNaN(n)) ? Math.round(n * 100) / 100 : '';
+    }
+  }
+  return '';
+}
+/* tabella da esportare: intestazioni fisse, una riga per articolo */
+function _etcTabella(c){
+  _ETC_CFG_SCHEDE = null;
+  const prods = _etcProdotti(c.ambito);
+  const scelte = ETC_COLONNE.filter(k => c.cols[k.id]);
+  const colonne = (c.escluse === 'vuote') ? ETC_COLONNE.slice() : scelte;
+  const intest = colonne.map(k => k.label);
+  const righe = prods.map(p => colonne.map(k => c.cols[k.id] ? _etcValore(p, k.id, c) : ''));
+  return { colonne, intest, righe, n: prods.length, nScelte: scelte.length };
+}
+
+/* ── scrittura dei file ─────────────────────────────────────────────── */
+function _etcCsv(tab, profilo){
+  const sep = (profilo === 'standard') ? ',' : ';';
+  const dec = (profilo === 'standard') ? '.' : ',';
+  const cella = v => {
+    if(typeof v === 'number') return v.toFixed(2).replace('.', dec);
+    const s = String(v == null ? '' : v).replace(/\r\n?/g, '\n');
+    if(s === '') return '';
+    return '"' + s.replace(/"/g, '""') + '"';
+  };
+  const linee = [tab.intest.map(cella).join(sep)];
+  for(const r of tab.righe) linee.push(r.map(cella).join(sep));
+  const bom = (profilo === 'standard') ? '' : String.fromCharCode(0xFEFF);
+  return bom + linee.join('\r\n') + '\r\n';
+}
+/* cartella di lavoro Excel; restituisce anche quante celle sono state
+   accorciate al limite di Excel (il CSV invece non ha limiti) */
+function _etcXlsxLibro(tab){
+  if(typeof XLSX === 'undefined') throw new Error('libreria Excel non disponibile');
+  let tagliate = 0;
+  const righe = tab.righe.map(r => r.map(v => {
+    if(typeof v === 'string' && v.length > ETC_XLSX_MAX){ tagliate++; return v.slice(0, ETC_XLSX_MAX); }
+    return v;
+  }));
+  const aoa = [tab.intest].concat(righe);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = tab.colonne.map(k => ({ wch: k.w }));
+  if(aoa.length > 1 && tab.colonne.length){
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:aoa.length-1, c:tab.colonne.length-1} }) };
+  }
+  const iEan = tab.colonne.findIndex(k => k.id === 'ean');
+  const iCod = tab.colonne.findIndex(k => k.id === 'codice');
+  const iPrz = tab.colonne.findIndex(k => k.id === 'prezzo');
+  for(let r = 1; r < aoa.length; r++){
+    [iEan, iCod].forEach(ci => {
+      if(ci < 0) return;
+      const a = XLSX.utils.encode_cell({ r, c: ci });
+      if(ws[a] && ws[a].v !== ''){ ws[a].t = 's'; ws[a].v = String(ws[a].v); ws[a].z = '@'; }
+    });
+    if(iPrz >= 0){
+      const a = XLSX.utils.encode_cell({ r, c: iPrz });
+      if(ws[a] && ws[a].t === 'n') ws[a].z = '#,##0.00';
+    }
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Testi');
+  return { wb, tagliate };
+}
+function _etcScaricaTesto(contenuto, nome, tipo){
+  const blob = new Blob([contenuto], { type: tipo });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nome; a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { try { URL.revokeObjectURL(url); a.remove(); } catch(_){} }, 2000);
+}
+/* migliaia sempre con il punto: il formato italiano del browser lascia 9383
+   senza separatore sotto i 10.000, e la regola dell'app vuole 9.383 */
+function _etcNum(n){ return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function _etcNomeFile(ext){
+  const d = new Date();
+  return 'Testi_Caratteristiche_' + d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '.' + ext;
+}
+
+/* ── dialogo ─────────────────────────────────────────────────────────── */
+function _etcSel(id, valore, opzioni, onchange){
+  return '<select id="' + id + '" class="elc-select" onchange="' + (onchange || '_etcAggiorna()') + '">'
+    + opzioni.map(o => '<option value="' + o[0] + '"' + (o[0] === valore ? ' selected' : '') + '>' + o[1] + '</option>').join('')
+    + '</select>';
+}
+function _etcAggiorna(){
+  const c = _etcCfgDalDialogo();
+  _etcCfgScrivi(c);
+  const n = _etcProdotti(c.ambito).length;
+  const nc = ETC_COLONNE.filter(k => c.cols[k.id]).length;
+  const vedi = (id, si) => { const el = document.getElementById(id); if(el) el.style.display = si ? '' : 'none'; };
+  vedi('etcRigaCsv', c.formato === 'csv');
+  vedi('etcRigaTesti', c.cols.breve || c.cols.completa || c.cols.specifiche);
+  vedi('etcRigaParametri', c.cols.parametri);
+  const box = document.getElementById('etcCount');
+  const go  = document.getElementById('etcGo');
+  if(box){
+    let txt;
+    if(nc === 0) txt = 'Seleziona almeno una colonna';
+    else if(n === 0) txt = 'Nessun prodotto nell’ambito scelto';
+    else txt = _etcNum(n) + (n === 1 ? ' articolo' : ' articoli') + ' · ' + nc + (nc === 1 ? ' colonna' : ' colonne');
+    box.textContent = txt;
+    box.classList.toggle('elc-count-zero', n === 0 || nc === 0);
+  }
+  if(go){
+    go.disabled = (n === 0 || nc === 0);
+    go.textContent = (c.formato === 'csv') ? 'Esporta CSV' : 'Esporta Excel';
+  }
+}
+function _etcTutte(v){
+  ETC_COLONNE.forEach(k => { const el = document.getElementById('etcCol_' + k.id); if(el) el.checked = v; });
+  _etcAggiorna();
+}
+function openExportTestiCaratteristiche(){
+  if(document.getElementById('etcOverlay')) return;
+  const c = _etcCfgLeggi();
+  const nVis = Array.isArray(FILTERED) ? FILTERED.length : 0;
+  const nTot = Array.isArray(DATA) ? DATA.length : 0;
+  const titolo = 'Esporta Testi e Caratteristiche';
+  const ov = document.createElement('div');
+  ov.id = 'etcOverlay';
+  ov.className = 'elc-overlay';
+  ov.innerHTML =
+    '<div class="elc-dialog etc-dialog" role="dialog" aria-modal="true" aria-label="' + titolo + '">'
+    + '<div class="elc-head"><span class="elc-title">' + titolo + '</span>'
+    + '<button type="button" class="elc-close" onclick="closeExportTestiCaratteristiche()" aria-label="Chiudi">✕</button></div>'
+    + '<div class="elc-body">'
+    + '<label class="elc-field"><span class="elc-lab">Prodotti da esportare</span>'
+    + _etcSel('etcAmbito', c.ambito, [
+        ['visibili', 'Solo i prodotti visibili (' + _etcNum(nVis) + ')'],
+        ['tutti', 'Tutto il catalogo (' + _etcNum(nTot) + ')'] ])
+    + '</label>'
+    + '<div class="elc-field"><span class="elc-lab">Colonne</span>'
+    + '<div class="lsm-cols">'
+    + ETC_COLONNE.map(k =>
+        '<label class="lsm-col"><input type="checkbox" id="etcCol_' + k.id + '"' + (c.cols[k.id] ? ' checked' : '') + ' onchange="_etcAggiorna()">'
+        + '<span>' + k.label + '</span></label>').join('')
+    + '</div>'
+    + '<div class="lsm-tools">'
+    + '<button type="button" class="lsm-mini" onclick="_etcTutte(true)">Tutte</button>'
+    + '<button type="button" class="lsm-mini" onclick="_etcTutte(false)">Nessuna</button>'
+    + '</div></div>'
+    + '<label class="elc-field"><span class="elc-lab">Formato del file</span>'
+    + _etcSel('etcFormato', c.formato, [ ['xlsx', 'Excel (.xlsx)'], ['csv', 'CSV (.csv)'] ])
+    + '</label>'
+    + '<label class="elc-field" id="etcRigaCsv"><span class="elc-lab">Impostazione del CSV</span>'
+    + _etcSel('etcCsv', c.csv, [
+        ['excel', 'Per Excel in italiano: separatore ; e decimali con la virgola'],
+        ['standard', 'Per software di terzi: separatore , e decimali con il punto'] ])
+    + '</label>'
+    + '<label class="elc-field" id="etcRigaTesti"><span class="elc-lab">Descrizioni e specifiche</span>'
+    + _etcSel('etcTesti', c.testi, [
+        ['html', 'HTML, con la formattazione della scheda prodotto'],
+        ['testo', 'Testo semplice, senza formattazione'] ])
+    + '</label>'
+    + '<label class="elc-field" id="etcRigaParametri"><span class="elc-lab">Parametri tecnici</span>'
+    + _etcSel('etcParametri', c.parametri, [
+        ['testo', 'Testo leggibile: Etichetta: valore, uno per riga'],
+        ['json', 'JSON con le chiavi originali, per i software'] ])
+    + '</label>'
+    + '<label class="elc-field" id="etcRigaEscluse"><span class="elc-lab">Colonne non selezionate</span>'
+    + _etcSel('etcEscluse', c.escluse, [
+        ['togli', 'Tolte dal file'],
+        ['vuote', 'Lasciate vuote, con le posizioni sempre uguali'] ])
+    + '</label>'
+    + '<div class="etc-nota">Ogni colonna ha sempre lo stesso nome, qualunque sia la scelta: un software che importa '
+    + 'per nome di colonna trova sempre i suoi campi. Se importa per posizione, scegli «Lasciate vuote». '
+    + 'L’EAN è scritto come testo. Per aprire il file in Excel conviene il formato Excel: nel CSV Excel '
+    + 'trasforma gli EAN in numeri e ne altera la scrittura.</div>'
+    + '<div class="elc-count" id="etcCount"></div>'
+    + '</div>'
+    + '<div class="elc-foot">'
+    + '<button type="button" class="elc-btn elc-btn-cancel" onclick="closeExportTestiCaratteristiche()">Annulla</button>'
+    + '<button type="button" class="elc-btn elc-btn-go" id="etcGo" onclick="doExportTestiCaratteristiche()">Esporta</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if(e.target === ov) closeExportTestiCaratteristiche(); });
+  document.addEventListener('keydown', _etcEscHandler);
+  _etcAggiorna();
+}
+function _etcEscHandler(e){ if(e.key === 'Escape') closeExportTestiCaratteristiche(); }
+function closeExportTestiCaratteristiche(){
+  const ov = document.getElementById('etcOverlay'); if(ov) ov.remove();
+  document.removeEventListener('keydown', _etcEscHandler);
+}
+function doExportTestiCaratteristiche(){
+  const c = _etcCfgDalDialogo();
+  _etcCfgScrivi(c);
+  const nc = ETC_COLONNE.filter(k => c.cols[k.id]).length;
+  const n = _etcProdotti(c.ambito).length;
+  if(nc === 0){ if(typeof toast === 'function') toast('Seleziona almeno una colonna', 'warn'); return; }
+  if(n === 0){ if(typeof toast === 'function') toast('Nessun prodotto da esportare', 'warn'); return; }
+  const go = document.getElementById('etcGo');
+  if(go){ go.disabled = true; go.textContent = 'Preparazione…'; }
+  /* il lavoro parte al giro successivo, cosi' il pulsante fa in tempo a cambiare */
+  setTimeout(() => {
+    try {
+      const t0 = Date.now();
+      const tab = _etcTabella(c);
+      let nome, extra = '';
+      if(c.formato === 'csv'){
+        nome = _etcNomeFile('csv');
+        _etcScaricaTesto(_etcCsv(tab, c.csv), nome, 'text/csv;charset=utf-8');
+      } else {
+        nome = _etcNomeFile('xlsx');
+        const r = _etcXlsxLibro(tab);
+        /* compressione: sul catalogo intero il file passa da 55 a 17 MB */
+        XLSX.writeFile(r.wb, nome, { compression: true });
+        if(r.tagliate > 0){
+          extra = ' · ' + _etcNum(r.tagliate) + (r.tagliate === 1 ? ' cella accorciata' : ' celle accorciate')
+                + ' al limite di Excel (32.767 caratteri): per il testo intero usa il CSV';
+        }
+      }
+      console.info('[export testi SV2.10.605] ' + tab.n + ' articoli, ' + tab.colonne.length + ' colonne, ' + (Date.now() - t0) + ' ms');
+      if(typeof toast === 'function'){
+        toast('Esportati ' + _etcNum(tab.n) + (tab.n === 1 ? ' articolo' : ' articoli') + ' · ' + nome + extra, extra ? 'warn' : 'ok', extra ? 9000 : undefined);
+      }
+      closeExportTestiCaratteristiche();
+    } catch(e){
+      console.error('[export testi] errore', e);
+      if(typeof toast === 'function') toast('Esportazione non riuscita: ' + ((e && e.message) || e), 'err');
+      if(go){ go.disabled = false; _etcAggiorna(); }
+    }
+  }, 40);
+}
+window.openExportTestiCaratteristiche = openExportTestiCaratteristiche;
 
 function doExportListinoCliente(){
   const listId = (document.getElementById('elcListino') || {}).value || '';
