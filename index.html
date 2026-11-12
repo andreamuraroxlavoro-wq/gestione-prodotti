@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.605 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.606 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -5227,7 +5227,7 @@ body.theme-light .advs-foot{background:rgba(0,0,0,0.03)}
   border:1px solid rgba(230,145,30,0.32);
 }
 .elc-btn-go:hover{ filter:brightness(1.08); }
-/* SV2.10.605: dialog "Esporta Testi e Caratteristiche" — riusa .elc-* e .lsm-*;
+/* SV2.10.606: dialog "Esporta Testi e Caratteristiche" — riusa .elc-* e .lsm-*;
    qui solo la larghezza (le voci dei menu a tendina sono lunghe) e la nota. */
 .etc-dialog{ max-width:500px; }
 .etc-nota{
@@ -9451,6 +9451,7 @@ body.theme-light .qcart-mode-seg.qcart-mode-active.qcart-mode-client{
 .qcart-qty-stato.st-incluso{ border-color:#16a34a; background:rgba(22,163,74,0.12); color:#16a34a; }
 .qcart-qty-stato.st-escluso{ border-color:var(--border2); background:transparent; color:var(--fg3); }
 .qcart-qty-stato.st-surichiesta{ border-color:#4FA8E8; background:rgba(79,168,232,0.12); color:#2b7cb8; }
+.qcart-qty-stato.st-forfait{ border-color:#C2650B; background:rgba(194,101,11,0.12); color:#C2650B; }
 .qcart-qty-dots{
   width:18px; height:22px; flex:0 0 auto;
   padding:0; border-radius:5px;
@@ -11546,7 +11547,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.605</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.606</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12103,7 +12104,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
             Esporta Listino Cliente
           </button>
-          <!-- SV2.10.605: testi e caratteristiche per l'importazione in altri software, colonne e formato a scelta -->
+          <!-- SV2.10.606: testi e caratteristiche per l'importazione in altri software, colonne e formato a scelta -->
           <button class="tb-dropdown-item" onclick="openExportTestiCaratteristiche(); closeAllTopbarDropdowns()" role="menuitem" title="Esporta in Excel o CSV codice, EAN, descrizioni, specifiche, parametri tecnici e prezzo di listino, con le colonne a scelta: pensato per l'importazione in altri software">
             <svg class="tb-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
             Esporta Testi e Caratteristiche
@@ -12290,7 +12291,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.605 mobile");
+console.info("[bootstrap] script avvio — SV2.10.606 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13918,7 +13919,7 @@ window._txtMigra = _txtMigra; window._txtCorreggiCampo = _txtCorreggiCampo; wind
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.605';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.606';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -46965,7 +46966,7 @@ function doListinoSemplice(){
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   SV2.10.605 — ESPORTA TESTI E CARATTERISTICHE
+   SV2.10.606 — ESPORTA TESTI E CARATTERISTICHE
    ───────────────────────────────────────────────────────────────────────
    Esporta in Excel (.xlsx) o in CSV i testi e le caratteristiche dei
    prodotti: codice, EAN, descrizione breve, descrizione completa,
@@ -47388,7 +47389,7 @@ function doExportTestiCaratteristiche(){
                 + ' al limite di Excel (32.767 caratteri): per il testo intero usa il CSV';
         }
       }
-      console.info('[export testi SV2.10.605] ' + tab.n + ' articoli, ' + tab.colonne.length + ' colonne, ' + (Date.now() - t0) + ' ms');
+      console.info('[export testi SV2.10.606] ' + tab.n + ' articoli, ' + tab.colonne.length + ' colonne, ' + (Date.now() - t0) + ' ms');
       if(typeof toast === 'function'){
         toast('Esportati ' + _etcNum(tab.n) + (tab.n === 1 ? ' articolo' : ' articoli') + ' · ' + nome + extra, extra ? 'warn' : 'ok', extra ? 9000 : undefined);
       }
@@ -58700,7 +58701,11 @@ function _qcScontoInlineText(it, plainMinus){
    numero. Cosi' totali, KPI, grafici, margini e stampe restano quelli
    collaudati: cambia solo cio' che si legge nella cella.
    ========================================================================= */
-const QC_QTY_STATI = { incluso: 'Incluso', escluso: 'Escluso', surichiesta: 'Su richiesta' };
+/* SV2.10.606 - FORFAIT: quarta dicitura. A differenza delle altre tre NON
+   nasconde gli importi: la cella scrive «Forfait» al posto del numero, ma
+   prezzo e totale della riga restano visibili e conteggiati. Serve alle voci
+   il cui importo si determina caso per caso (i trasporti delle torri). */
+const QC_QTY_STATI = { incluso: 'Incluso', escluso: 'Escluso', surichiesta: 'Su richiesta', forfait: 'Forfait' };
 
 function _qcQtyStato(it){
   const k = it && it.qtyLabel;
@@ -58720,7 +58725,10 @@ function _qcQtyTesto(it){
 /* Vero quando la riga non deve esporre importi nei documenti destinati al
    cliente. Vale per tutti e tre gli stati: Incluso perche' l'importo e' gia'
    compreso e non va mostrato, gli altri due perche' non c'e' importo. */
-function _qcQtySenzaImporti(it){ return _qcQtyStato(it) != null; }
+function _qcQtySenzaImporti(it){
+  const k = _qcQtyStato(it);
+  return k != null && k !== 'forfait';   /* SV2.10.606: Forfait espone l'importo */
+}
 
 /* SV2.10.594 - testo della dicitura per i DOCUMENTI: lo spazio diventa
    unificatore, cosi' "Su richiesta" non si spezza fra le due parole. */
@@ -58747,6 +58755,7 @@ function _qcQtyTitolo(it){
   if(k === 'incluso') return 'Incluso: l’importo è conteggiato per intero nel Totale dell’Offerta, quantità della riga compresa, ma nei documenti prezzo e totale di questa riga non vengono stampati. Premi per cambiare.';
   if(k === 'escluso') return 'Escluso: nessun importo e nulla nel Totale dell’Offerta. Premi per cambiare.';
   if(k === 'surichiesta') return 'Su richiesta: nessun importo e nulla nel Totale dell’Offerta. Premi per cambiare.';
+  if(k === 'forfait') return 'Forfait: al posto della quantità si stampa «Forfait», mentre prezzo e totale della riga restano visibili e vengono conteggiati nel Totale dell’Offerta. Premi per cambiare.';
   return 'Premi per scegliere una dicitura al posto della quantità.';
 }
 
@@ -58768,7 +58777,7 @@ function _qcSetQtyStato(code, stato){
        "Incluso" invece di "4". Si ripiega su _qtyPrec quando si arriva da
        Escluso o da Su richiesta (dove la quantita e' azzerata), e su 1 solo
        quando non c'e' nessuna quantita da recuperare. */
-    if(stato === 'incluso'){
+    if(stato === 'incluso' || stato === 'forfait'){   /* SV2.10.606 */
       item.qty = (item.qty != null && item.qty > 0)
         ? item.qty
         : ((item._qtyPrec != null && item._qtyPrec > 0) ? item._qtyPrec : 1);
@@ -58798,6 +58807,7 @@ function _qcApriMenuQty(anchorEl, code, onDone){
     { k: 'incluso',     t: 'Incluso' },
     { k: 'escluso',     t: 'Escluso' },
     { k: 'surichiesta', t: 'Su richiesta' },
+    { k: 'forfait',     t: 'Forfait' },
   ];
   const menu = document.createElement('div');
   menu.id = 'qcQtyMenu';
@@ -58806,7 +58816,7 @@ function _qcApriMenuQty(anchorEl, code, onDone){
     '<button type="button" data-k="' + v.k + '"' +
       (((v.k || null) === attuale) ? ' class="is-on"' : '') + '>' + v.t + '</button>'
   ).join('') +
-  '<div class="qc-qty-menu-nota">Incluso entra nel Totale ma non stampa gli importi della riga. Escluso e Su richiesta non entrano nel Totale.</div>';
+  '<div class="qc-qty-menu-nota">Forfait scrive la dicitura ma lascia prezzo e totale della riga. Incluso entra nel Totale ma non stampa gli importi della riga. Escluso e Su richiesta non entrano nel Totale.</div>';
   document.body.appendChild(menu);
   const r = anchorEl.getBoundingClientRect();
   const h = menu.offsetHeight, w = menu.offsetWidth;
