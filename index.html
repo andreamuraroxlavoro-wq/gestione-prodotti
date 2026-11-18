@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Gestione Prodotti SV2.10.606 (Mobile)</title>
+<title>Gestione Prodotti SV2.10.607 (Mobile)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- V2.10.37: docx.js v9.5.3 minificato, embedded per generazione vero .docx editabile.
@@ -9467,9 +9467,10 @@ body.theme-light .qcart-mode-seg.qcart-mode-active.qcart-mode-client{
   min-width:186px; padding:5px;
   border-radius:10px;
   border:1px solid var(--border2);
-  background:var(--card, #fff);
+  background:var(--bg2, #fff);   /* SV2.10.607: --card non esiste, col tema scuro il menu restava bianco */
   box-shadow:0 10px 30px rgba(0,0,0,0.18);
   display:flex; flex-direction:column; gap:2px;
+  max-width:320px;
 }
 .qc-qty-menu button{
   text-align:left; padding:7px 10px; border-radius:7px;
@@ -11547,7 +11548,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
       <span class="sb-title">Gestione Prodotti</span>
       <span class="sb-title-credit">Sviluppo by Andrea Muraro</span>
       <span class="sb-title-ver-row">
-        <span class="sb-title-ver" id="app-version">Ver. SV2.10.606</span>
+        <span class="sb-title-ver" id="app-version">Ver. SV2.10.607</span>
         <span class="sb-title-clock" id="app-clock" title="Orologio di sistema (live)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/>
@@ -12291,7 +12292,7 @@ body.theme-light .dlg-input{background:var(--bg3)}
    Definita all'inizio dello script senza dipendenze. Se il modulo "grande"
    si carica più tardi, la sostituisce. Se non si carica, questa funziona lo stesso.
    ════════════════════════════════════════════════════════════════════════ */
-console.info("[bootstrap] script avvio — SV2.10.606 mobile");
+console.info("[bootstrap] script avvio — SV2.10.607 mobile");
 
 window.openStatsDashboard = function(){
   try {
@@ -13919,7 +13920,7 @@ window._txtMigra = _txtMigra; window._txtCorreggiCampo = _txtCorreggiCampo; wind
 
 /* ========== STATO GLOBALE ========== */
 
-const APP_VERSION = 'SV2.10.606';  // versione dell'app, visualizzata nell'header
+const APP_VERSION = 'SV2.10.607';  // versione dell'app, visualizzata nell'header
 window.APP_VERSION = APP_VERSION;  // V2.10.280: esposto per diagnostica
 let DATA = [];           // array di prodotti
 let EDITS = {};          // mappa idx → edits
@@ -58191,7 +58192,9 @@ function _qPrintDescription(item, printS){
    impostazioni, senza chiavi nuove da sincronizzare). */
 function uomPresetsList(){
   const v = (typeof SETTINGS !== 'undefined') ? SETTINGS.uomPresets : null;
-  return Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : [];
+  const l = Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : [];
+  if(!l.some(x => x.toLowerCase() === 'canone mensile')) l.unshift('Canone Mensile');   /* SV2.10.607 */
+  return l;
 }
 function uomPresetRemember(txt){
   const t = String(txt || '').trim();
@@ -58597,7 +58600,7 @@ function _qcIsCanoneItem(it){
    di quelle righe non compare in tabella ma resta nel dato, e per un canone
    moltiplicato (es. 3 SIM) il totale ricorrente e' quello che interessa. */
 function _qcCanoneSummary(items){
-  const list = Array.isArray(items) ? items.filter(_qcIsCanoneItem) : [];
+  const list = Array.isArray(items) ? items.filter(it => _qcIsCanoneItem(it) && !_qcUomIsForfait(it)) : [];   /* SV2.10.607 */
   if(!list.length) return null;
   const righe = list.map(it => {
     const dPct = (typeof _normDiscountPct === 'function') ? _normDiscountPct(it.discountPct) : (it.discountPct || 0);
@@ -58705,6 +58708,10 @@ function _qcScontoInlineText(it, plainMinus){
    nasconde gli importi: la cella scrive «Forfait» al posto del numero, ma
    prezzo e totale della riga restano visibili e conteggiati. Serve alle voci
    il cui importo si determina caso per caso (i trasporti delle torri). */
+/* SV2.10.607 - FORFAIT ESCLUSO non e' una dicitura della quantita': e' una riga
+   FUORI TOTALE, come i canoni, con unita' di misura «Forfait» (vedi
+   _qcUomIsForfait). Cosi' prezzo e quantita' restano modificabili nel carrello e
+   tutta la logica gia' collaudata delle righe fuori totale vale anche per lei. */
 const QC_QTY_STATI = { incluso: 'Incluso', escluso: 'Escluso', surichiesta: 'Su richiesta', forfait: 'Forfait' };
 
 function _qcQtyStato(it){
@@ -58735,6 +58742,77 @@ function _qcQtySenzaImporti(it){
 function _qcQtyTestoDoc(it){
   return _qcQtyTesto(it).replace(/ /g, '\u00a0');
 }
+/* SV2.10.607 - contenuto della cella Q.ta' nei DOCUMENTI, righe a canone
+   comprese: per queste la cella porta l'unita' di misura (es. «Canone Mensile»)
+   e, se la quantita' e' maggiore di uno, il moltiplicatore. */
+function _qcQtyCellaDoc(it){
+  if(_qcIsCanoneItem(it)){
+    const lab = _qcUomIsForfait(it) ? 'Forfait' : _qcCanoneLabel(it);
+    const txt = (lab.length <= 15) ? lab.replace(/ /g, '\u00a0') : lab;
+    const q = (!_qcUomIsForfait(it) && it.qty != null && it.qty > 1) ? it.qty : 0;
+    return txt + (q ? ' \u00d7\u00a0' + q : '');
+  }
+  return _qcQtyTestoDoc(it);
+}
+/* SV2.10.607 - unita' di misura scritta a mano come «forfait»: e' un costo una
+   tantum, non un canone. Va nel riquadro dei costi a forfait, come voce non
+   compresa nel totale. */
+function _qcUomIsForfait(it){
+  return _qcIsCanoneItem(it) && /^\s*(a\s+)?forfait\s*$/i.test(String(it.uomText));
+}
+/* Riga a forfait di qualunque tipo. Ritorna 'incl', 'escl' oppure null. */
+function _qcForfaitTipo(it){
+  if(!it) return null;
+  if(_qcUomIsForfait(it)) return 'escl';
+  if(_qcIsCanoneItem(it)) return null;
+  const k = _qcQtyStato(it);
+  return k === 'forfait' ? 'incl' : null;
+}
+function _qcForfaitImporto(it){
+  const dPct = (typeof _normDiscountPct === 'function') ? _normDiscountPct(it.discountPct) : (it.discountPct || 0);
+  const unit = (it.pvp != null) ? it.pvp * (1 - dPct / 100) : 0;
+  const q = (it.qty != null && it.qty > 0) ? it.qty : ((it._qtyPrec != null && it._qtyPrec > 0) ? it._qtyPrec : 1);
+  return unit * q;
+}
+/* Riga sotto la descrizione per le voci FUORI dal totale: canoni e forfait esclusi. */
+function _qcInlineFuoriNeeded(it, printS){
+  return _qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS);
+}
+function _qcInlineFuoriText(it, printS){
+  const _conTotale = !printS || printS.showTotali !== false;
+  const coda = _conTotale ? ' (importo non incluso nel Totale dell\u2019Offerta)' : '';
+  if(_qcForfaitTipo(it) === 'escl'){
+    const imp = _qcForfaitImporto(it);
+    return 'Forfait' + (imp > 0 ? ' \u00b7 ' + _qFmtEur(imp) : ' \u00b7 importo da definire') + coda;
+  }
+  return _qcCanoneInlineText(it, printS);
+}
+/* SV2.10.607 - RIQUADRI DOPO IL TOTALE. Due riquadri distinti, mai mescolati:
+   i canoni ricorrenti e i costi a forfait (una tantum). Ognuno ha titolo,
+   righe {label, nome, qty, tot, totTxt}, eventuali totali di gruppo e nota. */
+function _qcRiquadriFuoriTotale(items){
+  const out = [];
+  const cs = _qcCanoneSummary(items);
+  if(cs) out.push({ tipo: 'canoni', titolo: _qcCanoneBoxTitolo(), righe: cs.righe.map(r => Object.assign({ totTxt: _qFmtEur(r.tot) }, r)), gruppi: cs.gruppi,
+    nota: 'Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.' });
+  const lf = (Array.isArray(items) ? items : []).filter(it => _qcForfaitTipo(it));
+  if(lf.length){
+    const righe = lf.map(it => {
+      const tipo = _qcForfaitTipo(it), tot = _qcForfaitImporto(it);
+      return { label: tipo === 'incl' ? 'Compreso' : 'Non compreso', tipo,
+        nome: (typeof getCleanItemName === 'function') ? getCleanItemName(it) : (it.code || ''),
+        code: it.code || '', qty: 1, tot, totTxt: tot > 0 ? _qFmtEur(tot) : 'da definire' };
+    });
+    const nI = righe.filter(r => r.tipo === 'incl').length, nE = righe.length - nI;
+    out.push({ tipo: 'forfait',
+      titolo: 'Costi a forfait \u2014 ' + (nE === 0 ? 'una tantum, compresi nell\u2019importo dell\u2019offerta' : (nI === 0 ? 'una tantum, non inclusi nell\u2019importo dell\u2019offerta' : 'importi una tantum')),
+      righe, gruppi: [],
+      nota: nE === 0 ? 'Importi una tantum, non ricorrenti, gi\u00e0 compresi nel totale dell\u2019offerta.'
+          : (nI === 0 ? 'Importi una tantum, non ricorrenti: non concorrono al totale dell\u2019offerta.'
+          : 'Importi una tantum, non ricorrenti: concorrono al totale dell\u2019offerta le sole voci indicate come \u00abCompreso\u00bb.') });
+  }
+  return out;
+}
 
 /* SV2.10.594 - peso della colonna Q.ta nelle stampe. Una colonna da 6 basta
    per un numero, non per una parola: "Escluso" ci veniva spezzato a meta'
@@ -58744,7 +58822,8 @@ function _qcQtyColW(items){
   let max = 0;
   (items || []).forEach(it => {
     const k = _qcQtyStato(it);
-    if(k) max = Math.max(max, QC_QTY_STATI[k].length);
+    if(_qcIsCanoneItem(it)) max = Math.max(max, Math.min(15, _qcUomIsForfait(it) ? 7 : _qcCanoneLabel(it).length));   /* SV2.10.607 */
+    else if(k) max = Math.max(max, QC_QTY_STATI[k].length);
   });
   if(max === 0) return 6;
   return (max >= 12) ? 15 : 11;
@@ -58765,6 +58844,9 @@ function _qcSetQtyStato(code, stato){
   const item = items.find(it => it && it.code === code);
   if(!item) return false;
   if(stato && !QC_QTY_STATI[stato]) return false;
+  /* SV2.10.607: scegliere «Quantita' numerica» su una riga che e' gia' numerica
+     non deve toccare nulla (prima riportava la quantita' a 1). */
+  if(!stato && !item.qtyLabel) return false;
   if(!stato){
     const prec = (item._qtyPrec != null && item._qtyPrec > 0) ? item._qtyPrec : 1;
     item.qty = prec;
@@ -58801,13 +58883,15 @@ function _qcApriMenuQty(anchorEl, code, onDone){
   const items = (window._QUOTE_STATE && Array.isArray(window._QUOTE_STATE.items)) ? window._QUOTE_STATE.items : [];
   const item = items.find(it => it && it.code === code);
   if(!item) return;
-  const attuale = _qcQtyStato(item);
+  const attuale = _qcUomIsForfait(item) ? '__forfaitescl' : (_qcIsCanoneItem(item) ? '__canone' : _qcQtyStato(item));   /* SV2.10.607 */
   const voci = [
     { k: '',            t: 'Quantità numerica' },
     { k: 'incluso',     t: 'Incluso' },
     { k: 'escluso',     t: 'Escluso' },
     { k: 'surichiesta', t: 'Su richiesta' },
-    { k: 'forfait',     t: 'Forfait' },
+    { k: 'forfait',     t: 'Forfait (nel Totale)' },
+    { k: '__forfaitescl', t: 'Forfait escluso (fuori dal Totale)' },
+    { k: '__canone',    t: 'Canone Mensile o altra unità…' },
   ];
   const menu = document.createElement('div');
   menu.id = 'qcQtyMenu';
@@ -58816,7 +58900,7 @@ function _qcApriMenuQty(anchorEl, code, onDone){
     '<button type="button" data-k="' + v.k + '"' +
       (((v.k || null) === attuale) ? ' class="is-on"' : '') + '>' + v.t + '</button>'
   ).join('') +
-  '<div class="qc-qty-menu-nota">Forfait scrive la dicitura ma lascia prezzo e totale della riga. Incluso entra nel Totale ma non stampa gli importi della riga. Escluso e Su richiesta non entrano nel Totale.</div>';
+  '<div class="qc-qty-menu-nota">Forfait conta nel Totale, Forfait escluso no: entrambi vanno nel riquadro «Costi a forfait». Canone è un costo ricorrente fuori dal Totale, riepilogato nel riquadro «Canoni ricorrenti». Incluso entra nel Totale ma non stampa gli importi della riga. Escluso e Su richiesta non entrano nel Totale.</div>';
   document.body.appendChild(menu);
   const r = anchorEl.getBoundingClientRect();
   const h = menu.offsetHeight, w = menu.offsetWidth;
@@ -58834,6 +58918,32 @@ function _qcApriMenuQty(anchorEl, code, onDone){
     if(!b) return;
     const scelto = b.dataset.k || null;
     chiudi();
+    if(scelto === '__canone' || scelto === '__forfaitescl'){   /* SV2.10.607: riga fuori totale dal menu della quantita' */
+      let tx = 'Forfait';
+      if(scelto === '__canone'){
+        const val = prompt('Unit\u00e0 di misura del costo ricorrente\n(per esempio: Canone Mensile, Canone Annuale):', (_qcIsCanoneItem(item) && !_qcUomIsForfait(item)) ? _qcCanoneLabel(item) : 'Canone Mensile');
+        if(val === null) return;
+        tx = String(val).trim();
+        if(!tx) return;
+      }
+      if(_qcQtyStato(item)) _qcSetQtyStato(code, null);
+      if(item.qty == null || item.qty <= 0) item.qty = 1;
+      item.uomText = tx; if(scelto === '__canone') uomPresetRemember(tx);
+      item.updatedAt = Date.now();
+      try { saveQuoteState(); } catch(_){}
+      if(typeof onDone === 'function') onDone();
+      return;
+    }
+    /* SV2.10.607: da riga fuori totale (canone o forfait escluso) a quantita' o dicitura */
+    if(_qcIsCanoneItem(item)){
+      delete item.uomText;
+      if(item.qty == null || item.qty <= 0) item.qty = 1;
+      item.updatedAt = Date.now();
+      if(scelto) _qcSetQtyStato(code, scelto);
+      else { try { saveQuoteState(); } catch(_){} }
+      if(typeof onDone === 'function') onDone();
+      return;
+    }
     if(_qcSetQtyStato(code, scelto) && typeof onDone === 'function') onDone();
   });
   setTimeout(() => {
@@ -63255,7 +63365,7 @@ function openQuotePrintSettingsDialog(forcedMode){
     { flag: 'showTotRicarico', label: 'Ricarico (riepilogo)',             hint: 'Riepilogo in basso: RICARICO = (vendita − costo) / costo × 100.' },
     { flag: 'showTotMargine',  label: 'Margine % (riepilogo)',            hint: 'Riepilogo in basso: MARGINE = (vendita − costo) / vendita × 100.' },
     { flag: 'showTotali',      label: 'Totali generali',                  hint: 'Interruttore generale del riepilogo finale: se spento, nel documento non compare alcun importo complessivo e resta il solo elenco articoli.' },
-    { flag: 'showCanoniBox',   label: 'Riquadro canoni',                  hint: 'Riepilogo dei canoni ricorrenti in fondo al preventivo, dopo il TOTALE. Compare solo se il preventivo contiene righe a canone.' },
+    { flag: 'showCanoniBox',   label: 'Riquadri canoni e forfait',                  hint: 'Riepiloghi in fondo al preventivo, dopo il TOTALE: i canoni ricorrenti e, in un riquadro separato, i costi a forfait. Compaiono solo se il preventivo contiene righe di quel tipo.' },
   ];
   const schemaClient = [
     { flag: 'showImage',    label: 'Immagine',           hint: 'Mostra la foto del prodotto.' },
@@ -63269,7 +63379,7 @@ function openQuotePrintSettingsDialog(forcedMode){
     { flag: 'showQty',      label: 'Quantità',           hint: 'Colonna Q.tà con il numero di pezzi per riga.' },
     { flag: 'showTotRiga',  label: 'Totale per riga',    hint: 'Totale per riga (Prezzo × quantità).' },
     { flag: 'showTotali',   label: 'Totali generali',    hint: 'Riepilogo finale del preventivo (Totale listino, Importo scontato, TOTALE e IVA). Disattivandolo il documento diventa un semplice elenco, senza alcun importo complessivo.' },
-    { flag: 'showCanoniBox', label: 'Riquadro canoni',      hint: 'Riepilogo dei canoni ricorrenti in fondo al preventivo, dopo il TOTALE. Compare solo se il preventivo contiene righe a canone.' },
+    { flag: 'showCanoniBox', label: 'Riquadri canoni e forfait',      hint: 'Riepiloghi in fondo al preventivo, dopo il TOTALE: i canoni ricorrenti e, in un riquadro separato, i costi a forfait. Compaiono solo se il preventivo contiene righe di quel tipo.' },
   ];
   const schema = qMode === 'client' ? schemaClient : schemaAnalysis;
 
@@ -63900,8 +64010,8 @@ function renderQuoteCartContent(){
             : _qcIsCanoneItem(it)
             ? '<td style="text-align:center">' +
                 '<button type="button" class="qcart-uom-chip" data-code="' + escapeAttr(it.code) + '" ' +
-                  'title="Unit\u00e0 di misura: clicca per modificarla o svuotarla e tornare a una riga a quantit\u00e0">' +
-                  escapeHtml(_qcCanoneLabel(it)) +
+                  'title="Riga fuori dal Totale dell\u2019Offerta: clicca per cambiare unit\u00e0 di misura o tornare alla quantit\u00e0 numerica">' +
+                  escapeHtml(_qcUomIsForfait(it) ? 'Forfait escluso' : _qcCanoneLabel(it)) +
                 '</button>' +
               '</td>'
             : _qcQtyStato(it)
@@ -64148,8 +64258,8 @@ function renderQuoteCartContent(){
             : _qcIsCanoneItem(it)
             ? '<td style="text-align:center">' +
                 '<button type="button" class="qcart-uom-chip" data-code="' + escapeAttr(it.code) + '" ' +
-                  'title="Unit\u00e0 di misura: clicca per modificarla o svuotarla e tornare a una riga a quantit\u00e0">' +
-                  escapeHtml(_qcCanoneLabel(it)) +
+                  'title="Riga fuori dal Totale dell\u2019Offerta: clicca per cambiare unit\u00e0 di misura o tornare alla quantit\u00e0 numerica">' +
+                  escapeHtml(_qcUomIsForfait(it) ? 'Forfait escluso' : _qcCanoneLabel(it)) +
                 '</button>' +
               '</td>'
             : _qcQtyStato(it)
@@ -64430,20 +64540,7 @@ function renderQuoteCartContent(){
     });
   });
 
-  container.querySelectorAll('.qcart-uom-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const item = window._QUOTE_STATE.items.find(x => x.code === chip.dataset.code);
-      if(!item) return;
-      const cur = _qcCanoneLabel(item);
-      const val = prompt('Unit\u00e0 di misura per questa riga\n(lascia vuoto per tornare a una riga a quantit\u00e0):', cur);
-      if(val === null) return;
-      const t = String(val).trim();
-      if(t){ item.uomText = t; uomPresetRemember(t); }
-      else { delete item.uomText; }
-      try { saveQuoteState(); } catch(_){}
-      try { renderQuoteCartContent(); } catch(_){}
-    });
-  });
+  /* SV2.10.607: la pillola dell'unita' di misura non ha piu' un suo prompt, apre il menu della quantita' (vedi sotto). */
 
   container.querySelectorAll('.qcart-qty-input').forEach(inp => {
     inp.addEventListener('change', () => {
@@ -64533,7 +64630,7 @@ function renderQuoteCartContent(){
   });
   /* SV2.10.592 — menu della cella quantita: numero, Incluso, Escluso,
      Su richiesta. Lo stato cambia i totali, quindi si ridisegna davvero. */
-  container.querySelectorAll('.qcart-qty-dots, .qcart-qty-stato').forEach(btn => {
+  container.querySelectorAll('.qcart-qty-dots, .qcart-qty-stato, .qcart-uom-chip').forEach(btn => {   /* SV2.10.607: anche la pillola dell'unita' */
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -67823,8 +67920,8 @@ async function exportQuoteDocx(options){
             descParas.push(para(mk(_blk, { color: TEXT_MID, size: 19 }), { alignment: AlignmentType.JUSTIFIED }));
           });
           // SV2.10.538: canone in coda alla descrizione, in grassetto
-          if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
-            descParas.push(para(mk(_qcCanoneInlineText(it, printS), { bold: true, italics: true, color: '8A6A12', size: 19 }), { alignment: AlignmentType.LEFT }));
+          if(_qcInlineFuoriNeeded(it, printS)){
+            descParas.push(para(mk(_qcInlineFuoriText(it, printS), { bold: true, italics: true, color: '8A6A12', size: 19 }), { alignment: AlignmentType.LEFT }));
           }
           // SV2.10.552: percentuale dello sconto in coda alla descrizione
           if(_qcScontoInlineText(it)){
@@ -67843,7 +67940,7 @@ async function exportQuoteDocx(options){
         },
         qty: () => new TableCell({
           // SV2.10.539: riga a canone → colonna vuota (il testo va sotto la descrizione)
-          children: [para(mk(_qcIsCanoneItem(it) ? '' : _qcQtyTestoDoc(it), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.CENTER })],   // SV2.10.594
+          children: [para(mk(_qcQtyCellaDoc(it), { bold: true, color: TEXT_DARK, size: 19 }), { alignment: AlignmentType.CENTER })],   // SV2.10.594
           shading: cellShading,
           margins: { top: 140, bottom: 140, left: 60, right: 60 },
           borders: cellBorders,
@@ -68248,12 +68345,13 @@ async function exportQuoteDocx(options){
     /* SV2.10.542 — RIQUADRO CANONI RICORRENTI (docx): una tabella a una cella con
        sfondo avorio e bordo sinistro ambra, che contiene le righe del riepilogo. */
     if(printS.showCanoniBox !== false){
-      const _cs = _qcCanoneSummary(t.items);
-      if(_cs){
+      _qcRiquadriFuoriTotale(t.items).forEach(_cs => {   /* SV2.10.607: un riquadro per tipo */
+      {
+        if(_cs.tipo === 'forfait') docChildren.push(new Paragraph({ children: [mk('')], spacing: { after: 60 } }));   // stacco fra i due riquadri
         const _boxShading = { type: ShadingType.CLEAR, color: 'auto', fill: 'FBF8F1' };
         const _rows = [];
         _rows.push(new Paragraph({
-          children: [mk(_qcCanoneBoxTitolo().toUpperCase(), { bold: true, color: '8A6A12', size: 22 })],   // SV2.10.557
+          children: [mk(String(_cs.titolo).toUpperCase(), { bold: true, color: '8A6A12', size: 22 })],   // SV2.10.557
           spacing: { after: 80 },
         }));
         _cs.righe.forEach(r => {
@@ -68261,7 +68359,7 @@ async function exportQuoteDocx(options){
             children: [
               mk(r.label + '   ', { bold: true, color: TEXT_DARK, size: 20 }),
               mk(_qcCanoneDescTxt(r.nome) + '   ', { color: TEXT_MUTED, size: 19 }),
-              mk((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + _qFmtEur(r.tot), { bold: true, color: TEXT_DARK, size: 21 }),
+              mk((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + r.totTxt, { bold: true, color: TEXT_DARK, size: 21 }),
             ],
             spacing: { after: 40 },
           }));
@@ -68273,7 +68371,7 @@ async function exportQuoteDocx(options){
           }));
         });
         _rows.push(new Paragraph({
-          children: [mk('Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.', { italics: true, color: TEXT_MUTED, size: 17 })],
+          children: [mk(_cs.nota, { italics: true, color: TEXT_MUTED, size: 17 })],
         }));
         docChildren.push(new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
@@ -68292,6 +68390,7 @@ async function exportQuoteDocx(options){
           })],
         }));
       }
+      });
     }
 
     // V2.10.156: blocco FORMULA DI PAGAMENTO (Word). Mostrato solo se attivata
@@ -68629,8 +68728,8 @@ async function exportQuoteWord(){
           if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
         });
         // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
-        if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
-          descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
+        if(_qcInlineFuoriNeeded(it, printS)){
+          descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcInlineFuoriText(it, printS)) + '</div>');
         }
         // SV2.10.552: percentuale dello sconto in coda alla descrizione
         if(_qcIsScontoItem(it) && _qcScontoInlineText(it)){
@@ -68643,7 +68742,7 @@ async function exportQuoteWord(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTestoDoc(it))) + '</td>',   // SV2.10.594
+          qty:      '<td class="col-qty">' + escapeHtml(_qcQtyCellaDoc(it)) + '</td>',   // SV2.10.594
           // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
           // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
           // Mai in entrambe.
@@ -68757,8 +68856,8 @@ async function exportQuoteWord(){
           if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
         });
         // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
-        if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
-          descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
+        if(_qcInlineFuoriNeeded(it, printS)){
+          descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcInlineFuoriText(it, printS)) + '</div>');
         }
         // SV2.10.552: percentuale dello sconto in coda alla descrizione
         if(_qcIsScontoItem(it) && _qcScontoInlineText(it)){
@@ -68770,7 +68869,7 @@ async function exportQuoteWord(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTestoDoc(it))) + '</td>',   // SV2.10.594
+          qty:      '<td class="col-qty">' + escapeHtml(_qcQtyCellaDoc(it)) + '</td>',   // SV2.10.594
           list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
           scAcq:    '<td class="col-money">' + (scAcqPct != null ? _qFmtPct(scAcqPct, 1) : '—') + '</td>',
           netto:    '<td class="col-money">' + fmt(it.netto) + '</td>',
@@ -69039,17 +69138,17 @@ async function exportQuoteWord(){
         // SV2.10.542: riquadro dei canoni ricorrenti, dopo il TOTALE
         (function(){
           if(printS.showCanoniBox === false) return '';
-          const _cs = _qcCanoneSummary(t.items);
-          if(!_cs) return '';
-          return '<div class="canoni-box">' +
-            '<div class="canoni-title">' + escapeHtml(_qcCanoneBoxTitolo()) + '</div>' +
+          /* SV2.10.607: canoni ricorrenti e costi a forfait in due riquadri distinti */
+          return _qcRiquadriFuoriTotale(t.items).map(_cs =>
+          '<div class="canoni-box">' +
+            '<div class="canoni-title">' + escapeHtml(_cs.titolo) + '</div>' +
             '<table class="canoni-table">' +
               _cs.righe.map(r =>
                 '<tr>' +
                   '<td class="cn-lab">' + escapeHtml(r.label) + '</td>' +
                   '<td class="cn-desc">' + escapeHtml(_qcCanoneDescTxt(r.nome)) + '</td>' +
                   '<td class="cn-qty">' + (r.qty > 1 ? ('\u00d7 ' + r.qty) : '') + '</td>' +
-                  '<td class="cn-val">' + _qFmtEur(r.tot) + '</td>' +
+                  '<td class="cn-val">' + escapeHtml(r.totTxt) + '</td>' +
                 '</tr>').join('') +
               _cs.gruppi.map(g =>
                 '<tr class="cn-tot">' +
@@ -69057,8 +69156,8 @@ async function exportQuoteWord(){
                   '<td class="cn-val">' + _qFmtEur(g.tot) + '</td>' +
                 '</tr>').join('') +
             '</table>' +
-            '<div class="canoni-note">Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.</div>' +
-          '</div>';
+            '<div class="canoni-note">' + escapeHtml(_cs.nota) + '</div>' +
+          '</div>').join('');
         })() +
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
@@ -69867,7 +69966,7 @@ async function exportQuotePdfNative(options){
       descLines.push(_qPrintDescription(it, printS));   // SV2.10.532
       // SV2.10.538: canone in coda alla descrizione (il grassetto lo applica
       // didParseCell, che riconosce la riga tramite l'array parallelo canoneLines)
-      const _canoneLine = (_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)) ? _qcCanoneInlineText(it, printS) : '';
+      const _canoneLine = (_qcInlineFuoriNeeded(it, printS)) ? _qcInlineFuoriText(it, printS) : '';
       if(_canoneLine) descLines.push(_canoneLine);
       canoneLines[idx] = _canoneLine;
       // SV2.10.552: percentuale dello sconto in coda alla descrizione
@@ -69884,7 +69983,7 @@ async function exportQuotePdfNative(options){
       const cellMap = {
         img: '',  // immagine renderizzata in didDrawCell
         desc: descText,
-        qty: _qcIsCanoneItem(it) ? '' : _qcQtyTestoDoc(it),   // SV2.10.594
+        qty: _qcQtyCellaDoc(it),   // SV2.10.594
         // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
         // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
         // Mai in entrambe.
@@ -70375,8 +70474,8 @@ async function exportQuotePdfNative(options){
        larghezza con fondo avorio e barra ambra a sinistra, coerente con
        l'evidenza delle righe a canone nella tabella (541). */
     if(printS.showCanoniBox !== false){
-      const _cs = _qcCanoneSummary(t.items);
-      if(_cs){
+      _qcRiquadriFuoriTotale(t.items).forEach(_cs => {   /* SV2.10.607: un riquadro per tipo */
+      {
         // SV2.10.557: corpo allineato alle voci del preventivo; interlinea adeguata
         const _padX = 12, _padY = 11, _lh = 16;
         const _nRighe = _cs.righe.length + _cs.gruppi.length;
@@ -70393,7 +70492,7 @@ async function exportQuotePdfNative(options){
         doc.rect(MARGIN, cursorY, 3, _boxH, 'F');
         let _y = cursorY + _padY + 9;
         setText(10, 'bold', [138, 106, 18]);
-        doc.text(_qcCanoneBoxTitolo().toUpperCase(), MARGIN + _padX, _y);
+        doc.text(String(_cs.titolo).toUpperCase(), MARGIN + _padX, _y);
         _y += 17;
         _cs.righe.forEach(r => {
           setText(9.5, 'bold', COL.textDark);
@@ -70415,7 +70514,7 @@ async function exportQuotePdfNative(options){
           }
           doc.text(_nome, _descX, _y);
           setText(10, 'bold', COL.textDark);
-          doc.text((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + _qFmtEur(r.tot), MARGIN + CONTENT_W - _padX, _y, { align: 'right' });
+          doc.text((r.qty > 1 ? '\u00d7 ' + r.qty + '   ' : '') + r.totTxt, MARGIN + CONTENT_W - _padX, _y, { align: 'right' });
           _y += _lh;
         });
         _cs.gruppi.forEach(g => {
@@ -70428,9 +70527,10 @@ async function exportQuotePdfNative(options){
           _y += _lh;
         });
         setText(8.5, 'italic', COL.textMuted);
-        doc.text('Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.', MARGIN + _padX, _y + 1);
+        doc.text(_cs.nota, MARGIN + _padX, _y + 1);
         cursorY += _boxH + 8;
       }
+      });
     }
 
     // V2.10.156: blocco FORMULA DI PAGAMENTO (PDF). Mostrato solo se attivata
@@ -70733,8 +70833,8 @@ async function exportQuotePdf(){
           if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
         });
         // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
-        if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
-          descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
+        if(_qcInlineFuoriNeeded(it, printS)){
+          descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcInlineFuoriText(it, printS)) + '</div>');
         }
         // SV2.10.552: percentuale dello sconto in coda alla descrizione
         if(_qcIsScontoItem(it) && _qcScontoInlineText(it)){
@@ -70746,7 +70846,7 @@ async function exportQuotePdf(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTestoDoc(it))) + '</td>',   // SV2.10.594
+          qty:      '<td class="col-qty">' + escapeHtml(_qcQtyCellaDoc(it)) + '</td>',   // SV2.10.594
           // SV2.10.515: la dicitura va nella colonna SCONTO se stampata, altrimenti
           // ricade nella colonna LISTINO (che per queste righe sarebbe vuota).
           // Mai in entrambe.
@@ -70853,8 +70953,8 @@ async function exportQuotePdf(){
           if(_blk) descParts.push('<div class="desc-body">' + escapeHtml(_blk) + '</div>');
         });
         // SV2.10.538: canone in coda alla descrizione quando le colonne sono escluse
-        if(_qcIsCanoneItem(it) && _qcCanoneInlineNeeded(printS)){
-          descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcCanoneInlineText(it, printS)) + '</div>');
+        if(_qcInlineFuoriNeeded(it, printS)){
+          descParts.push('<div class="desc-body desc-canone">' + escapeHtml(_qcInlineFuoriText(it, printS)) + '</div>');
         }
         // SV2.10.552: percentuale dello sconto in coda alla descrizione
         if(_qcIsScontoItem(it) && _qcScontoInlineText(it)){
@@ -70866,7 +70966,7 @@ async function exportQuotePdf(){
         const cellMap = {
           img:      '<td class="col-img">' + imgCell + '</td>',
           desc:     '<td class="col-desc">' + descContent + '</td>',
-          qty:      '<td class="col-qty">' + (_qcIsCanoneItem(it) ? '' : escapeHtml(_qcQtyTestoDoc(it))) + '</td>',   // SV2.10.594
+          qty:      '<td class="col-qty">' + escapeHtml(_qcQtyCellaDoc(it)) + '</td>',   // SV2.10.594
           list:     '<td class="col-money">' + fmt(it.pvp) + '</td>',
           scAcq:    '<td class="col-money">' + (scAcqPct != null ? _qFmtPct(scAcqPct, 1) : '—') + '</td>',
           netto:    '<td class="col-money">' + fmt(it.netto) + '</td>',
@@ -71177,17 +71277,17 @@ async function exportQuotePdf(){
         // SV2.10.542: riquadro dei canoni ricorrenti, dopo il TOTALE
         (function(){
           if(printS.showCanoniBox === false) return '';
-          const _cs = _qcCanoneSummary(t.items);
-          if(!_cs) return '';
-          return '<div class="canoni-box">' +
-            '<div class="canoni-title">' + escapeHtml(_qcCanoneBoxTitolo()) + '</div>' +
+          /* SV2.10.607: canoni ricorrenti e costi a forfait in due riquadri distinti */
+          return _qcRiquadriFuoriTotale(t.items).map(_cs =>
+          '<div class="canoni-box">' +
+            '<div class="canoni-title">' + escapeHtml(_cs.titolo) + '</div>' +
             '<table class="canoni-table">' +
               _cs.righe.map(r =>
                 '<tr>' +
                   '<td class="cn-lab">' + escapeHtml(r.label) + '</td>' +
                   '<td class="cn-desc">' + escapeHtml(_qcCanoneDescTxt(r.nome)) + '</td>' +
                   '<td class="cn-qty">' + (r.qty > 1 ? ('\u00d7 ' + r.qty) : '') + '</td>' +
-                  '<td class="cn-val">' + _qFmtEur(r.tot) + '</td>' +
+                  '<td class="cn-val">' + escapeHtml(r.totTxt) + '</td>' +
                 '</tr>').join('') +
               _cs.gruppi.map(g =>
                 '<tr class="cn-tot">' +
@@ -71195,8 +71295,8 @@ async function exportQuotePdf(){
                   '<td class="cn-val">' + _qFmtEur(g.tot) + '</td>' +
                 '</tr>').join('') +
             '</table>' +
-            '<div class="canoni-note">Gli importi indicati sono ricorrenti e non concorrono al totale dell\u2019offerta.</div>' +
-          '</div>';
+            '<div class="canoni-note">' + escapeHtml(_cs.nota) + '</div>' +
+          '</div>').join('');
         })() +
         // V2.10.156: formula di pagamento proposta (se attivata e printInQuote=true)
         _renderPaymentFormulaHtml(t) +
